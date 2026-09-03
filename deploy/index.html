@@ -326,6 +326,7 @@ font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
 #dlgPlayer{max-width:460px;width:94%}
 tbody td.pname{cursor:pointer}
 tbody td.pname:hover{color:var(--amber);text-decoration:underline}
+dialog:not([open]){display:none}
 dialog{background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--chalk);padding:0;max-width:420px;width:92%}
 dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg{padding:20px}
@@ -730,10 +731,11 @@ thead th.hide,tbody td.hide{display:none}}
   <h4>Sign in</h4><p>Pick your club. If it has no PIN yet, the one you enter becomes its PIN.</p>
   <div class="fields">
     <div><label for="inTeam">Club</label><select id="inTeam"></select></div>
-    <div><label for="inPin">PIN</label><input id="inPin" type="password" inputmode="numeric" autocomplete="off"></div>
+    <div><label for="inPin">PIN</label><input id="inPin" name="league-pin" type="password" inputmode="numeric"
+      autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
   </div>
   <div class="err" id="signErr"></div>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button><button class="btn" id="doSign" value="ok">Sign in</button></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doSign" value="ok">Sign in</button></div>
 </form></dialog>
 
 <dialog id="dlgPlayer"><div class="dlg" style="max-width:none">
@@ -749,7 +751,7 @@ thead th.hide,tbody td.hide{display:none}}
     <div><label for="pinB">Confirm</label><input id="pinB" type="password" autocomplete="new-password"></div>
   </div>
   <div class="err" id="pinErr"></div>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
     <button class="btn" id="pinSave" value="ok">Save</button></div>
 </form></dialog>
 
@@ -771,8 +773,8 @@ thead th.hide,tbody td.hide{display:none}}
   </div>
   <p style="font-size:11.5px;color:var(--dim);margin:12px 0">All figures are per game except games played.
     Leave a box blank to keep last season's actual.</p>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button>
-    <button class="btn ghost" id="pjClear" value="ok">Reset player</button>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="button" class="btn ghost" id="pjClear">Reset player</button>
     <button class="btn" id="pjSave" value="ok">Save</button></div>
 </form></dialog>
 
@@ -784,12 +786,40 @@ thead th.hide,tbody td.hide{display:none}}
     <div><label for="edY3">Season after</label><input id="edY3" class="mono" type="number" step="0.25" placeholder="blank"></div>
     <div><label for="edAcq">Year acquired</label><input id="edAcq" class="mono" type="number"></div>
   </div>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
 </form></dialog>
 
 <script>
 /* shared UI state — declared first so every module can reach it */
 const SORTS={}, redraw={};
+
+/* ============ modals ============
+   Every Cancel button is type=button so it can never be the form's implicit submit
+   target — that is what made Enter cancel the sign-in instead of completing it.
+   Cancel now closes through here instead of through form submission.
+   openModal also covers browsers with no <dialog> support, where showModal() would
+   throw and leave the button doing nothing at all. */
+function openModal(id){
+  const d=document.getElementById(id);
+  if(!d) return false;
+  if(typeof d.showModal==='function'){ if(!d.open) d.showModal(); return true; }
+  d.setAttribute('open','');
+  d.style.position='fixed'; d.style.top='50%'; d.style.left='50%';
+  d.style.transform='translate(-50%,-50%)'; d.style.zIndex='999';
+  return true;
+}
+function closeModal(id){
+  const d=document.getElementById(id);
+  if(!d) return;
+  if(typeof d.close==='function' && d.open) d.close(); else d.removeAttribute('open');
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-close]'):null;
+  if(!b) return;
+  e.preventDefault();
+  const d=b.closest('dialog');
+  if(d) closeModal(d.id);
+});
 
 /* ============ storage adapter ============
    Uses the artifact's shared window.storage when present.
@@ -1074,7 +1104,7 @@ function openEdit(team,idx){
   const p=S.teams[team].r[idx];editing={team,idx};
   $('edTitle').textContent=p.n;$('edSub').textContent=`${team} \u00b7 leave a season blank to end the contract there.`;
   $('edY1').value=p.y[1]??'';$('edY2').value=p.y[2]??'';$('edY3').value=p.y[3]??'';$('edAcq').value=p.acq??'';
-  $('dlgEdit').showModal();
+  openModal('dlgEdit');
 }
 $('doEdit').onclick=async()=>{
   if(!editing)return;
@@ -1105,6 +1135,8 @@ function drawWho(){
     <span class="badge ${isComm()?'comm':''}">${isComm()?'Full access':'GM'}</span>
     <button class="btn ghost" id="outBtn">Sign out</button>`;}
   $('adminTab').hidden=!isComm();
+  /* Both entry points run the same open, so the header button gets the
+     still-loading guard and the autofocus the welcome card already had. */
   const openSignIn=()=>{
     const list=TEAMS();
     $('inTeam').innerHTML = list.length
@@ -1112,12 +1144,12 @@ function drawWho(){
       : `<option value="">League data still loading\u2026</option>`;
     $('signErr').textContent = list.length ? '' : 'Waiting for league data. Try again in a moment.';
     $('inPin').value='';
-    $('dlgSign').showModal();
-    setTimeout(()=>{try{$('inPin').focus();}catch(e){}},50);};
+    if(!openModal('dlgSign')){ $('signErr').textContent='This browser cannot open the sign-in box.'; return; }
+    /* Chrome can autofill a saved password into the PIN after the box opens;
+       clear it again on the next frame so nobody submits a stale value blind. */
+    setTimeout(()=>{ try{ $('inPin').value=''; $('inPin').focus(); }catch(e){} },50);};
   if($('signCTA'))$('signCTA').onclick=openSignIn;
-  if($('signBtn'))$('signBtn').onclick=()=>{
-    $('inTeam').innerHTML=TEAMS().map(t=>`<option>${t}</option>`).join('')+`<option value="__comm__">Commissioner</option>`;
-    $('signErr').textContent='';$('inPin').value='';$('dlgSign').showModal();};
+  if($('signBtn'))$('signBtn').onclick=openSignIn;
   if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};STRAT=[];render();};
 }
 function drawLedger(){
@@ -1312,9 +1344,9 @@ function openPin(t){
     ? 'Anyone with this can edit every club. Keep it to yourself.'
     : 'Give this to that GM. They will need it to sign in.';
   $('pinA').value=''; $('pinB').value=''; $('pinErr').textContent='';
-  $('dlgPin').showModal();
+  openModal('dlgPin');
 }
-if($('dlgPlayerClose')) $('dlgPlayerClose').onclick=()=>$('dlgPlayer').close();
+if($('dlgPlayerClose')) $('dlgPlayerClose').onclick=()=>closeModal('dlgPlayer');
 $('pinSave').onclick=async e=>{
   const a=$('pinA').value.trim(), b=$('pinB').value.trim();
   if(a.length<3){ e.preventDefault(); $('pinErr').textContent='Use at least 3 characters.'; return; }
@@ -2180,7 +2212,7 @@ function openProj(name){
   const set=(id,v,ph)=>{const el=$(id);el.value=(v==null?'':v);el.placeholder=ph;};
   set('pjG',o.g,b.g);
   SKEYS.forEach(k=>{ if($('pj'+k)) set('pj'+k,o[k],b.s[k]); });
-  $('dlgProj').showModal();
+  openModal('dlgProj');
 }
 $('pjSave').onclick=async()=>{
   if(!pjEditing) return;
@@ -2190,7 +2222,8 @@ $('pjSave').onclick=async()=>{
   if(Object.keys(o).length) PROJ[pjEditing]=o; else delete PROJ[pjEditing];
   pjEditing=null; await saveProj(); if(!useProj) setProjMode(true); else render();
 };
-$('pjClear').onclick=async()=>{ if(pjEditing){delete PROJ[pjEditing];pjEditing=null;await saveProj();render();} };
+$('pjClear').onclick=async()=>{ closeModal('dlgProj');
+  if(pjEditing){delete PROJ[pjEditing];pjEditing=null;await saveProj();render();} };
 $('pjReset').onclick=async()=>{
   if(!Object.keys(PROJ).length)return;
   if(!confirm('Clear every projection you have entered?'))return;
@@ -2288,7 +2321,7 @@ function openPlayerCard(name){
   const box=$('dlgPlayerBody');
   box.innerHTML=playerCard(name);
   wirePlayerCard(box);
-  $('dlgPlayer').showModal();
+  openModal('dlgPlayer');
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest) return;
@@ -2951,8 +2984,15 @@ $('faAdd').onchange=()=>{const k=$('faAdd').value;if(!k)return;
   $('faAdd').value='';drawFilters();drawFAList();};
 
 /* ---------- wiring ---------- */
+/* Always cancel the form submission and close by hand. Relying on method="dialog"
+   meant any browser that does not implement it would submit the form and reload the
+   page, throwing away the sign-in. */
 $('doSign').onclick=e=>{
-  const stop=msg=>{ if(e&&e.preventDefault)e.preventDefault(); $('signErr').textContent=msg; };
+  if(e&&e.preventDefault) e.preventDefault();
+  const stop=msg=>{
+    $('signErr').textContent=msg;
+    try{ $('inPin').focus(); $('inPin').select(); }catch(_){}   /* ready to retype */
+  };
   try{
     const t=$('inTeam').value, pin=$('inPin').value.trim();
     if(!S||!S.teams) return stop('League data is still loading. Give it a second and try again.');
@@ -2969,6 +3009,8 @@ $('doSign').onclick=e=>{
       else if(set!==pin) return stop('Wrong PIN for '+t+'.');
       me=t; activeTeam=t;
     }
+    $('signErr').textContent='';
+    closeModal('dlgSign');
     try{localStorage.setItem('ll_me',me);}catch(_){}
     Promise.all([loadProj(),loadStrat()])
       .then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
@@ -2977,6 +3019,16 @@ $('doSign').onclick=e=>{
     stop('Could not sign in: '+(err&&err.message||err));
   }
 };
+/* Implicit form submission only fires from a text input, so Enter while the club
+   dropdown had focus did nothing at all. Handle Enter for the whole box instead of
+   depending on which control happens to be focused. */
+$('dlgSign').addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.isComposing) return;
+  if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-close')) return;
+  e.preventDefault();
+  $('doSign').click();
+});
+
 $('add').onclick=async()=>{
   const n=$('fPlayer').value.trim(),pr=parseFloat($('fPrice').value),
         y=parseInt($('fYears').value)||1,t=$('fTeam').value;
