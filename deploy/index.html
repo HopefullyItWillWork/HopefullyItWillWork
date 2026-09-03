@@ -348,6 +348,27 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .chip{display:none}
 thead th.hide,tbody td.hide{display:none}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Auction strategy board — a GM's private list of targets. Nothing here is shared. */
+#stratTbl td{vertical-align:middle}
+#stratTbl .rankcell{white-space:nowrap;font-family:var(--mono);font-size:12px}
+#stratTbl td.name{text-align:left;font-family:var(--body);font-size:14px}
+#stratTbl .rk{display:inline-block;min-width:15px;color:var(--steel)}
+#stratTbl .act[data-mv]{margin-left:3px;padding:2px 6px;font-size:8px;line-height:1.4}
+#stratTbl .act[data-mv]:hover{color:var(--amber);border-color:var(--tbi-b)}
+#stratTbl .act[disabled]{opacity:.22;cursor:not-allowed}
+#stratTbl .act[disabled]:hover{color:var(--steel);border-color:var(--line)}
+#stratTbl select.spri{width:auto;min-width:94px;padding:5px 7px;font-family:var(--mono);font-size:11px}
+#stratTbl select.p-high{color:var(--tax);border-color:var(--wnln)}
+#stratTbl select.p-med{color:var(--amber);border-color:var(--tbi-b)}
+#stratTbl select.p-low{color:var(--steel)}
+#stratTbl input.smax{width:84px;padding:5px 7px;font-size:12px;text-align:right}
+#stratTbl input.snote{padding:5px 7px;font-size:12.5px;min-width:200px}
+#stratTbl tr.onblock td{background:var(--sel)}
+#stratTbl tr.gone td:nth-child(-n+4){opacity:.45}
+#stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--space);margin-bottom:9px}
+@media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
 </style>
 </head>
 <body>
@@ -473,6 +494,15 @@ thead th.hide,tbody td.hide{display:none}}
     <h2>Auction room</h2>
     <div id="auctionMain"></div>
     <div id="nomBox"></div>
+
+    <div id="stratWrap" hidden>
+      <h2 class="sub">Auction strategy</h2>
+      <div class="privnote">&#9679; private to you</div>
+      <p class="note">Your own board, stored under your sign-in and never written to the league state &#8212; no other GM
+        and no commissioner can see it. Rank the players you want, flag how badly you want each one, and note the most
+        you would go. That max is a planning figure only: it places no bid, sets no automatic bid, and binds nothing.</p>
+      <div id="stratBox"></div>
+    </div>
     <h2 class="sub">Bid history</h2>
     <div class="log" id="bidLog"></div>
     <h2 class="sub">Money left</h2>
@@ -1088,7 +1118,7 @@ function drawWho(){
   if($('signBtn'))$('signBtn').onclick=()=>{
     $('inTeam').innerHTML=TEAMS().map(t=>`<option>${t}</option>`).join('')+`<option value="__comm__">Commissioner</option>`;
     $('signErr').textContent='';$('inPin').value='';$('dlgSign').showModal();};
-  if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};render();};
+  if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};STRAT=[];render();};
 }
 function drawLedger(){
   const {cap,tax}=S.cfg, max=Math.max(tax*1.06,...TEAMS().map(committed));
@@ -1871,6 +1901,7 @@ function drawAuction(){
     : (me?'':'<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>');
   if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1);
   drawAuctRoster();
+  drawStrategy();
   $('budgets').innerHTML=TEAMS().map(t=>{
     const sp=S.cfg.roster-headcount(t), space=S.cfg.cap-committed(t);
     const mx=a?bidCeiling(t,a.player):Math.max(0,space-Math.max(0,sp-1));
@@ -1881,6 +1912,170 @@ function drawAuction(){
   }).join('');
 }
 
+
+/* ============ AUCTION STRATEGY (private to each GM) ============
+   A GM's own ranked board of auction targets. Stored under a per-user key the same
+   way projections are, so it never enters S (the shared league state) and no other
+   GM — commissioner included — can read it. Order in the array is the rank.
+   The max bid here is a note the GM writes for themselves: it is never passed to
+   placeBid(), never becomes an automatic bid, and never leaves this board. */
+let STRAT=[];
+const PRI={high:'High',med:'Medium',low:'Low'};
+function stratKey(){ return 'strat_'+(me||'anon'); }
+function htmlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,
+  c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function quarter(v){ const n=parseFloat(v); return n>=0?Math.round(n*4)/4:null; }
+/* anything read back from storage is re-shaped before use, so an old or hand-edited
+   blob cannot put a bad priority or a NaN max into the table */
+function normStrat(v){
+  if(!Array.isArray(v)) return [];
+  return v.filter(x=>x&&x.n).map(x=>({n:String(x.n),pri:PRI[x.pri]?x.pri:'med',
+    max:quarter(x.max),note:String(x.note||'').slice(0,140)}));
+}
+async function loadStrat(){
+  STRAT=[];
+  try{ const l=localStorage.getItem(stratKey()); if(l) STRAT=normStrat(JSON.parse(l)); }catch(e){}
+  try{
+    const r=window.storage?await window.storage.get(stratKey(),false):null;
+    if(r&&r.value){ const remote=normStrat(JSON.parse(r.value)); if(remote.length) STRAT=remote; }
+  }catch(e){}
+}
+async function saveStrat(quiet){
+  const v=JSON.stringify(STRAT);
+  let ok=false;
+  try{ if(window.storage){ await window.storage.set(stratKey(),v,false); ok=true; } }catch(e){}
+  try{ localStorage.setItem(stratKey(),v); ok=true; }catch(e){}   /* always keep a local copy too */
+  if(!quiet) projToast(ok?`Strategy saved · ${STRAT.length} player${STRAT.length===1?'':'s'}`
+                        :'Could not save your strategy');
+  return ok;
+}
+/* typing in a comment or a max should not hit storage on every keystroke */
+let stratTimer=null;
+function saveStratSoon(){ clearTimeout(stratTimer); stratTimer=setTimeout(()=>saveStrat(true),600); }
+function stratIdx(n){ return STRAT.findIndex(x=>x.n===n); }
+function moveStrat(i,d){
+  const j=i+d;
+  if(!STRAT[i]||j<0||j>=STRAT.length) return;
+  const [row]=STRAT.splice(i,1); STRAT.splice(j,0,row);
+  saveStrat(true); drawStrategy(true);
+  /* follow the row: the button that moved it is now at the row's new index */
+  const b=$('stratBox').querySelector(`[data-mv="${d<0?'up':'dn'}"][data-i="${j}"]`);
+  if(b&&!b.disabled) b.focus();
+}
+function drawStrategy(force){
+  const wrap=$('stratWrap'), box=$('stratBox');
+  if(!wrap||!box) return;
+  const hide = !me || isComm();
+  wrap.hidden=hide;
+  if(hide){ box.innerHTML=''; return; }
+  /* The auction polls every few seconds. Rather than skip the redraw while a GM is
+     in a field — which would freeze the live 'on the block' marker — remember where
+     the caret is, rebuild, and put it back. Values already live in STRAT, updated on
+     every keystroke, so nothing typed is lost. A redraw mid-IME-composition would
+     drop the half-formed character, so that is the one case still worth skipping. */
+  if(!force && stratComposing) return;
+  const keep=stratFocus();
+  const a=A(), open=a&&a.status==='open';
+  const avail=new Set(faPool().map(p=>p.n));
+  const priOpts=(sel)=>Object.keys(PRI).map(k=>
+    `<option value="${k}"${k===sel?' selected':''}>${PRI[k]}</option>`).join('');
+  const rows=STRAT.map((x,i)=>{
+    const r=pstat(x.n), live=open&&a.player===x.n, gone=!avail.has(x.n)&&!live, g=rtg(x.n);
+    return `<tr class="${gone?'gone':''}${live?' onblock':''}">
+      <td class="l rankcell"><span class="rk">${i+1}</span>
+        <button class="act" data-mv="up" data-i="${i}" title="Move up"${i===0?' disabled':''}>&#9650;</button>
+        <button class="act" data-mv="dn" data-i="${i}" title="Move down"${i===STRAT.length-1?' disabled':''}>&#9660;</button></td>
+      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}${
+        gone?'<span class="tag t-cut">off the board</span>':''}</td>
+      <td class="pos">${r&&r.p?r.p:'&#8212;'}</td>
+      <td>${g!=null?(g>0?'+':'')+g:'&#8212;'}</td>
+      <td class="l"><select class="spri p-${x.pri}" data-f="pri" data-i="${i}"
+        aria-label="Priority for ${htmlEsc(x.n)}">${priOpts(x.pri)}</select></td>
+      <td><input class="mono smax" type="number" step="0.25" min="0" data-f="max" data-i="${i}"
+        value="${x.max==null?'':x.max}" placeholder="&#8212;" aria-label="Max bid note for ${htmlEsc(x.n)}"></td>
+      <td class="l"><input class="snote" data-f="note" data-i="${i}" maxlength="140"
+        value="${htmlEsc(x.note)}" placeholder="what the max hinges on"
+        aria-label="Comment for ${htmlEsc(x.n)}"></td>
+      <td><button class="act" data-del="${i}" title="Remove from board">&times;</button></td></tr>`;
+  }).join('');
+  box.innerHTML=`<div class="form" style="grid-template-columns:1.8fr .9fr .8fr 2fr auto">
+      <div><label for="stP">Player</label>
+        <input id="stP" list="stList" placeholder="Start typing&#8230;" autocomplete="off">
+        <datalist id="stList">${faPool().slice(0,400).map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
+      <div><label for="stPri">Priority</label><select id="stPri">${priOpts('med')}</select></div>
+      <div><label for="stMax">Max bid</label>
+        <input id="stMax" class="mono" type="number" step="0.25" min="0" placeholder="optional"></div>
+      <div><label for="stNote">Comment</label>
+        <input id="stNote" maxlength="140" placeholder="e.g. would stretch to $12 if the guards go early"></div>
+      <button class="btn" id="stAdd">Add</button></div>
+    ${STRAT.length?`<div class="scroller"><table id="stratTbl"><thead><tr>
+        <th class="l">Rank</th><th class="l">Player</th><th class="l">Pos</th><th>Rating</th>
+        <th class="l">Priority</th><th>Max bid</th><th class="l">Comment</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="filters" style="margin-top:11px">
+        <span class="fcount">${STRAT.length} player${STRAT.length===1?'':'s'} ranked · saves as you type · no bid is ever placed from this board</span>
+        <button class="btn ghost" id="stClear">Clear board</button></div>`
+      : '<div class="empty">Nothing on your board yet. Add the players you want, then rank them.</div>'}`;
+
+  $('stAdd').onclick=()=>{
+    const raw=$('stP').value.trim();
+    if(!raw) return $('stP').focus();
+    const n=canon(raw);
+    if(stratIdx(n)>=0){ projToast(n+' is already on your board.'); $('stP').select(); return; }
+    STRAT.push({n,pri:$('stPri').value,max:quarter($('stMax').value),note:$('stNote').value.trim().slice(0,140)});
+    $('stP').value='';$('stMax').value='';$('stNote').value='';
+    saveStrat(); drawStrategy(true); $('stP').focus();
+  };
+  ['stP','stMax','stNote'].forEach(id=>{
+    $(id).onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); $('stAdd').click(); } };
+  });
+  box.querySelectorAll('[data-mv]').forEach(b=>{
+    b.onclick=()=>moveStrat(+b.dataset.i, b.dataset.mv==='up'?-1:1);
+  });
+  box.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick=()=>{ const i=+b.dataset.del;
+      if(!STRAT[i]) return;
+      STRAT.splice(i,1); saveStrat(true); drawStrategy(true); };
+  });
+  box.querySelectorAll('[data-f]').forEach(el=>{
+    const i=+el.dataset.i, f=el.dataset.f;
+    const put=()=>{
+      if(!STRAT[i]) return;
+      if(f==='max') STRAT[i].max=quarter(el.value);
+      else if(f==='pri'){ STRAT[i].pri=PRI[el.value]?el.value:'med'; el.className='spri p-'+STRAT[i].pri; }
+      else STRAT[i].note=el.value.slice(0,140);
+      saveStratSoon();
+    };
+    if(f==='pri') el.onchange=put; else { el.oninput=put; el.onchange=put; }
+  });
+  if($('stClear')) $('stClear').onclick=()=>{
+    if(!confirm('Clear your whole strategy board? This cannot be undone.')) return;
+    STRAT=[]; saveStrat(); drawStrategy(true);
+  };
+  stratRefocus(keep);
+}
+/* focus + caret, captured as a selector so it survives the innerHTML rebuild */
+let stratComposing=false;
+document.addEventListener('compositionstart',e=>{
+  if($('stratBox')&&$('stratBox').contains(e.target)) stratComposing=true; });
+document.addEventListener('compositionend',()=>{ stratComposing=false; });
+function stratFocus(){
+  const box=$('stratBox'), el=document.activeElement;
+  if(!box||!el||!box.contains(el)) return null;
+  const sel = el.id ? '#'+el.id
+    : el.dataset.f ? `[data-f="${el.dataset.f}"][data-i="${el.dataset.i}"]` : null;
+  if(!sel) return null;
+  let a=null,b=null;
+  try{ a=el.selectionStart; b=el.selectionEnd; }catch(_){}   /* number inputs throw */
+  return {sel,a,b};
+}
+function stratRefocus(k){
+  if(!k) return;
+  const box=$('stratBox'), el=box&&box.querySelector(k.sel);
+  if(!el) return;
+  el.focus();
+  if(k.a!=null){ try{ el.setSelectionRange(k.a,k.b); }catch(_){} }
+}
 
 /* ============ PER-GM PROJECTIONS ============
    Private to each GM. Stored under a per-user key so nothing is shared with the league.
@@ -2775,7 +2970,8 @@ $('doSign').onclick=e=>{
       me=t; activeTeam=t;
     }
     try{localStorage.setItem('ll_me',me);}catch(_){}
-    loadProj().then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
+    Promise.all([loadProj(),loadStrat()])
+      .then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
       .catch(()=>{ render(); goTab('v-me'); });
   }catch(err){
     stop('Could not sign in: '+(err&&err.message||err));
@@ -2863,6 +3059,7 @@ function netChip(){
   $('rTeam').innerHTML='<option value="">All players</option><option value="FA">Free agents only</option>'
     +TEAMS().map(t=>`<option>${t}</option>`).join('');
   await loadProj();
+  await loadStrat();
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();
