@@ -84,13 +84,21 @@ no network — the save toast says "synced" or "this device only". Changing a PI
 makes the stored copy undecryptable; the client falls back to its local copy and
 re-uploads rather than losing the board.
 
-### The strategy board's pool is not faPool()
-`faPool()` is the free agent *class* — it counts a player taken only when
-`y[1]` is set, so the 45 players in the last year of a deal count as available
-even though they are on a roster today. The board uses `stratPool()`, which
-excludes anyone on any roster at all. Both sides go through `canon()`; without
-it "Jakob Poetl" and "Jakob Poeltl" read as two different players and he slips
-through as unrostered.
+### The strategy board's pool is the free agent class
+`stratPool()` and `faPool()` agree: a player counts as taken only when `y[1]` is
+set, so the ~44 players in the last year of a deal are available even though they
+sit on a roster today. Victor Wembanyama is Coulter's restricted free agent and
+belongs on a rival's board with a note that Coulter gets to match.
+
+`stratPool()` used to exclude anyone on any roster at all, which hid every
+expiring contract — the board only ever showed unrostered players, and the pool
+was 252 instead of 296. Do not reintroduce that. A player leaves the board when
+someone commits salary to him for next season, not when he appears on a roster.
+
+`stratHold()` tags each board row with the club that holds him and what it holds
+him with (Bird, Early Bird, restricted), so the ranking is read against the
+matching right. Both sides go through `canon()`; without it "Jakob Poetl" and
+"Jakob Poeltl" read as two different players.
 
 ---
 
@@ -108,6 +116,15 @@ anything.
 **Bird rights**: three seasons with one club without clearing waivers or changing
 teams as a free agent. Lets the club exceed the *cap* to re-sign its own player.
 Travels with the player in a trade.
+
+`p.b` is free text off the original spreadsheet: `Yes`, `Early`, `Min`, `MLE`,
+`EBR`, `No`, empty. Read it through `birdKind()`, never directly. Only `Yes` is
+full Bird rights; `No` and empty are *nothing*. The code used to treat any
+non-empty string as Early Bird, which handed a $7.00 over-the-cap exception to
+the three players marked `No`. The remaining labels describe how the club signed
+him and are still read as Early Bird — that may or may not be right, and the
+commissioner's player table is where the data itself gets corrected rather than
+the code guessing.
 
 **Early Bird**: signed mid-season before the deadline, finished the year on the
 roster. Worth $7.00 over the cap.
@@ -142,6 +159,19 @@ follow, and both were wrong the first time:
 - `$0` is not the same as missing. Checking `y[1]` alone to confirm a club still
   has a player rejected every rights trade at accept time as though the player
   had left.
+
+**The commissioner's player table** (`drawAllPlayers()`, Commissioner tab) lists
+every contract in the league — club, salary now, salary next season and the two
+after, years left, option, rights, year acquired, rating — filterable and
+sortable, with an Edit button per row. It is the only place expiring players can
+be edited or moved: the Move tool above it lists only players with `y[1]` set, so
+before this there was no way to correct an expiring player's club or rights
+without signing him first.
+
+Edit reuses `openEdit()`. The commissioner-only block (`#edComm`) adds club,
+`y[0]`, option and rights; a GM editing his own roster still sees exactly the
+four contract fields he always had. Changing the club moves the player and logs
+it as a trade rather than an edit.
 
 **Cuts** depend on season phase, and this is the part that is easy to get wrong:
 - **In season**: salary stays on the cap until the season ends, then clears. It
@@ -205,6 +235,15 @@ the best player in the league was invisible.
 **Always route player lookups through `canon()`.** It handles the alias map plus
 an accent-stripping fallback.
 
+`rightsOf()` compared raw strings and so was part of this: asked about "Jakob
+Poeltl" (the box-score spelling) it never found "Jakob Poetl" on N. Fink's
+roster, and told the club it held no Bird rights on its own expiring player.
+It matches through `canon()` now.
+
+The seed data carries Poeltl twice — expiring on N. Fink as "Jakob Poetl" and
+signed on Christman as "Jakob Poeltl". `canon()` folds them into one player and
+the signed deal wins. The commissioner's player table is where that gets fixed.
+
 ---
 
 ## Testing
@@ -228,13 +267,25 @@ syntactically perfect and completely broken:
   dialog may be deferred; the PIN carries `autofocus` and is focused synchronously.
 
 The reliable method is a Node DOM stub that actually executes the script and
-exercises the functions. Build one, run the interaction, assert on the result.
-If you are checking that code *parses* rather than *runs*, you are testing the
-wrong thing.
+exercises the functions. One lives in `tests/` — `node tests/test.js`, plus `node tests/smoke.js` (renders every view as signed-out, commissioner and each GM). If you are
+checking that code *parses* rather than *runs*, you are testing the wrong thing.
 
-Watch for false negatives in the harness itself — the app registers multiple
-document click listeners, and a stub that keeps only the last one will report
-working features as broken.
+Point it at an older build to prove a test is not vacuous:
+`node tests/test.js /tmp/old.html`.
+
+Watch for false negatives in the harness itself. Three have bitten already, all
+in `tests/dom.js`:
+
+- the app registers multiple document click listeners, and a stub that keeps only
+  the last one reports working features as broken;
+- `querySelectorAll` returning fresh objects on every call silently discards the
+  handlers the app just bound to them, so every button looks dead;
+- a plain `value` property does not coerce to a string the way a real input does,
+  so `.value.trim()` throws on a number the app itself assigned.
+
+Note that top-level `let`/`const` do not land on a vm's global object. `run.js`
+appends an epilogue exposing them as `ctx.__X`; add a name there if a test needs
+one.
 
 ---
 

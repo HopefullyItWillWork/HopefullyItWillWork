@@ -778,6 +778,25 @@ thead th.hide,tbody td.hide{display:none}}
       <button class="btn" id="mvGo">Move</button>
     </div>
 
+    <h2 class="sub">Every player</h2>
+    <p class="note">Every contract in the league &#8212; the club, what he is owed, how long for, and
+      the rights that club holds. Editing here writes straight to the roster and is logged like any
+      other move. Unlike the Move tool above, expiring players are included, so a club's Bird or
+      restricted rights can be corrected without signing anybody.</p>
+    <div class="filters">
+      <input id="apQ" placeholder="Search a player or club" autocomplete="off">
+      <select id="apT"></select>
+      <select id="apS">
+        <option value="">Every contract</option>
+        <option value="exp">Expiring only</option>
+        <option value="sig">Signed for next season</option>
+        <option value="bird">Holds Bird rights</option>
+        <option value="rfa">Restricted free agents</option>
+      </select>
+      <span class="fcount" id="apCount"></span>
+    </div>
+    <div class="scroller" id="apTable"></div>
+
     <h2 class="sub">Danger zone</h2>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       <button class="btn ghost" id="exportBtn">Export league as JSON</button>
@@ -844,6 +863,14 @@ thead th.hide,tbody td.hide{display:none}}
     <div><label for="edY2">Next season</label><input id="edY2" class="mono" type="number" step="0.25" placeholder="blank = expiring"></div>
     <div><label for="edY3">Season after</label><input id="edY3" class="mono" type="number" step="0.25" placeholder="blank"></div>
     <div><label for="edAcq">Year acquired</label><input id="edAcq" class="mono" type="number"></div>
+  </div>
+  <div class="fields" id="edComm" hidden>
+    <div><label for="edClub">Club</label><select id="edClub"></select></div>
+    <div><label for="edY0">On the books now</label><input id="edY0" class="mono" type="number" step="0.25" placeholder="blank"></div>
+    <div><label for="edOpt">Option</label><select id="edOpt">
+      <option value="">None</option><option value="TO">Team option</option>
+      <option value="PO">Player option</option><option value="RO">Rookie option</option></select></div>
+    <div><label for="edBird">Rights held</label><select id="edBird"></select></div>
   </div>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
 </form></dialog>
@@ -1048,6 +1075,20 @@ const canEdit=t=>isComm()||me===t;
 
 /* ---------- computed ---------- */
 const yrsLeft=p=>p.y.filter((v,i)=>i>0&&v!=null).length;
+/* p.b came off the original spreadsheet as free text: 'Yes', 'Early', 'Min',
+   'MLE', 'EBR', 'No', ''. Only 'Yes' is full Bird rights. Everything else that is
+   non-empty was treated as Early Bird, which handed a $7.00 over-the-cap
+   exception to the three players marked 'No' — they hold nothing. The remaining
+   labels describe how the club signed him, and the code has always read them as
+   Early Bird; that is left alone. The commissioner's player table is where the
+   data itself gets corrected. */
+const BIRDOPTS=[['','None'],['Yes','Bird'],['Early','Early Bird'],['Min','Minimum'],
+  ['MLE','Mid-level'],['EBR','Early Bird (restricted)']];
+function birdKind(b){
+  const v=String(b==null?'':b).trim().toLowerCase();
+  if(v===''||v==='no'||v==='none'||v==='-') return '';
+  return (v==='yes'||v==='bird') ? 'Yes' : 'Early';
+}
 const committed=t=>S.teams[t].r.reduce((s,p)=>s+(p.y[1]!=null?p.y[1]:0),0)+deadSalary(t);
 const onIR=p=>!!p.ir;
 const headcount=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&!onIR(p)).length;
@@ -1163,6 +1204,24 @@ function openEdit(team,idx){
   const p=S.teams[team].r[idx];editing={team,idx};
   $('edTitle').textContent=p.n;$('edSub').textContent=`${team} \u00b7 leave a season blank to end the contract there.`;
   $('edY1').value=p.y[1]??'';$('edY2').value=p.y[2]??'';$('edY3').value=p.y[3]??'';$('edAcq').value=p.acq??'';
+  /* Club, current salary, option and rights are commissioner-only: a GM editing
+     his own roster gets the same four contract fields he always had. */
+  const cm=$('edComm');
+  if(cm){
+    cm.hidden=!isComm();
+    if(isComm()){
+      $('edClub').innerHTML=TEAMS().map(t=>
+        `<option${t===team?' selected':''}>${htmlEsc(t)}</option>`).join('');
+      $('edY0').value=p.y[0]??'';
+      $('edOpt').value=OPTL[p.o]?p.o:'';
+      /* The rights column is free text in the source spreadsheet, so an unknown
+         value is offered back rather than silently rewritten to something else. */
+      const raw=p.b==null?'':String(p.b);
+      const opts=BIRDOPTS.concat(BIRDOPTS.some(o=>o[0]===raw)?[]:[[raw,raw+' (as recorded)']]);
+      $('edBird').innerHTML=opts.map(([v,l])=>
+        `<option value="${htmlEsc(v)}"${v===raw?' selected':''}>${htmlEsc(l)}</option>`).join('');
+    }
+  }
   openModal('dlgEdit');
 }
 $('doEdit').onclick=async()=>{
@@ -1172,8 +1231,19 @@ $('doEdit').onclick=async()=>{
   const before=p.y[1];
   p.y=[p.y[0],g('edY1'),g('edY2'),g('edY3')];
   const a=parseInt($('edAcq').value);if(a)p.acq=a;
+  let moved=null;
+  const cm=$('edComm');
+  if(cm&&!cm.hidden&&isComm()){
+    p.y[0]=g('edY0');
+    p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
+    p.b=$('edBird').value;
+    const to=$('edClub').value;
+    if(to&&to!==team&&S.teams[to]){ S.teams[team].r.splice(idx,1); S.teams[to].r.push(p); moved=to; }
+  }
   editing=null;
-  await commit({kind:'edit',team,detail:`${p.n} \u2014 ${before==null?'expiring':money(before)} \u2192 ${p.y[1]==null?'expiring':money(p.y[1])}`});
+  await commit(moved
+    ? {kind:'trade',team:`${team} / ${moved}`,detail:`Commissioner moved ${p.n} to ${moved}`}
+    : {kind:'edit',team,detail:`${p.n} \u2014 ${before==null?'expiring':money(before)} \u2192 ${p.y[1]==null?'expiring':money(p.y[1])}`});
 };
 async function undo(i){
   if(!isComm()) return;
@@ -1236,7 +1306,8 @@ function tags(p){
   let h='';
   if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}</span>`;
   if(p.y[1]==null&&p.o)h+='<span class="tag t-rfa">Restricted</span>';
-  if(p.b==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(p.b)h+='<span class="tag t-eb">Early Bird</span>';
+  const bk=birdKind(p.b);
+  if(bk==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(bk)h+='<span class="tag t-eb">Early Bird</span>';
   return h;
 }
 function drawDetail(){
@@ -1344,8 +1415,73 @@ function drawLogs(){
     : 'Sign in to record a signing. Everything here is shared with the whole league.';
   $('add').disabled=!me;
 }
+/* ---- every contract in the league, on one screen ----
+   The club pages show one roster at a time and the Move tool only lists players
+   signed for next season, so until now there was no way to see the whole league
+   at once, and no way at all to correct an expiring player's club, option or
+   rights. Rows carry their club and roster index, so Edit opens the same dialog
+   the club page uses. */
+function apRows(){
+  const q=(($('apQ')&&$('apQ').value)||'').trim().toLowerCase();
+  const tf=($('apT')&&$('apT').value)||'', sf=($('apS')&&$('apS').value)||'';
+  const out=[];
+  TEAMS().forEach(t=>S.teams[t].r.forEach((p,i)=>{
+    if(tf&&t!==tf) return;
+    if(q&&!(p.n.toLowerCase().includes(q)||t.toLowerCase().includes(q))) return;
+    const exp=p.y[1]==null, b=birdKind(p.b);
+    if(sf==='exp'&&!exp) return;
+    if(sf==='sig'&&exp) return;
+    if(sf==='bird'&&b!=='Yes') return;
+    if(sf==='rfa'&&!(exp&&p.o)) return;
+    out.push({t,i,p,exp,b,yrs:yrsLeft(p),rtg:rtg(p.n)});
+  }));
+  return out;
+}
+function drawAllPlayers(){
+  if(!isComm()||!$('apTable')) return;
+  if($('apT')&&!$('apT').dataset.built){
+    $('apT').innerHTML='<option value="">Every club</option>'
+      +TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+    $('apT').dataset.built='1';
+    if($('apQ')) $('apQ').oninput=drawAllPlayers;
+    $('apT').onchange=drawAllPlayers;
+    if($('apS')) $('apS').onchange=drawAllPlayers;
+  }
+  const rows=apRows(), total=TEAMS().reduce((n,t)=>n+S.teams[t].r.length,0);
+  const S0=SORTS.ap||{col:'n',desc:false};
+  const val=(r,c)=>c==='n'?r.p.n:c==='club'?r.t:c==='pos'?(r.p.p||'')
+    :c==='now'?(r.p.y[0]??null):c==='sal'?(r.p.y[1]??null)
+    :c==='y2'?(r.p.y[2]??null):c==='y3'?(r.p.y[3]??null)
+    :c==='yrs'?r.yrs:c==='acq'?(r.p.acq??null):c==='rtg'?r.rtg
+    :c==='rights'?(r.exp&&r.p.o?3:r.b==='Yes'?2:r.b?1:0):null;
+  rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
+  $('apCount').textContent=`${rows.length} of ${total} contracts`;
+  const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
+  $('apTable').innerHTML=`<table id="apTbl"><thead><tr>
+    ${H('n','Player','l')}${H('club','Club','l')}${H('pos','Pos','l hide')}
+    ${H('now','On books','hide2')}${H('sal','Next season')}${H('y2','+2','hide')}${H('y3','+3','hide')}
+    ${H('yrs','Years')}${H('rights','Status','l')}${H('acq','Acq','hide2')}${H('rtg','Rating','hide2')}
+    <th></th></tr></thead><tbody>${rows.map(r=>{const p=r.p;
+    return `<tr><td class="l">${htmlEsc(p.n)}</td>
+      <td class="l">${htmlEsc(r.t)}</td>
+      <td class="pos l hide">${p.p?htmlEsc(p.p):'&#8212;'}</td>
+      <td class="hide2">${p.y[0]==null?'&#8212;':money(p.y[0])}</td>
+      <td class="${r.exp?'exp':''}">${r.exp?'expiring':money(p.y[1])}</td>
+      <td class="hide ${p.y[2]==null?'exp':''}">${p.y[2]==null?'&#8212;':money(p.y[2])}</td>
+      <td class="hide ${p.y[3]==null?'exp':''}">${p.y[3]==null?'&#8212;':money(p.y[3])}</td>
+      <td class="${r.exp?'exp':''}">${r.exp?'&#8212;':r.yrs+' yr'+(r.yrs===1?'':'s')}</td>
+      <td class="l">${tags(p)||'<span style="color:var(--dim)">&#8212;</span>'}</td>
+      <td class="hide2">${p.acq||'&#8212;'}</td>
+      <td class="hide2">${r.rtg!=null?(r.rtg>0?'+':'')+r.rtg:'&#8212;'}</td>
+      <td><button class="act edit" data-apc="${htmlEsc(r.t)}" data-api="${r.i}">Edit</button></td></tr>`;
+    }).join('')}</tbody></table>`;
+  $('apTable').querySelectorAll('[data-api]').forEach(b=>
+    b.onclick=()=>openEdit(b.dataset.apc,+b.dataset.api));
+  sortable('apTbl','ap','n',false); redraw.ap=drawAllPlayers;
+}
 function drawAdmin(){
   if(!isComm())return;
+  drawAllPlayers();
   if($('pinWarn')) $('pinWarn').hidden = S.cfg.commPin!=='0000';
   if($('sPhase')){
     $('sPhase').value=S.cfg.phase||'offseason';
@@ -2018,18 +2154,29 @@ function drawAuction(){
 let STRAT=[];
 const PRI={high:'High',med:'Medium',low:'Low'};
 function stratKey(){ return 'strat_'+(me||'anon'); }
-/* faPool() is the free agent CLASS — expiring contracts included, so 45 players
-   who are sitting on a roster right now qualify. The strategy board wants the
-   stricter reading: nobody who appears on any club's roster at all. A released
-   player is not rostered, so cuts do not count. */
+/* The board is the free agent CLASS, the same reading as faPool(): everyone not
+   under contract for next season. That deliberately includes the ~45 players
+   sitting on a roster today whose deal expires — Wembanyama is Coulter's
+   restricted free agent, and a GM planning an auction needs him on the board with
+   a note that Coulter gets to match. It used to exclude anyone on a roster at
+   all, which hid every expiring contract. A released player is not rostered, so
+   cuts do not count. Both sides go through canon(). */
 function stratOwner(name){
   const n=canon(name);
   return TEAMS().find(t=>S.teams[t].r.some(p=>!p.cut&&canon(p.n)===n))||null;
 }
 function stratPool(){
-  const on=new Set();
-  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut) on.add(canon(p.n)); }));
-  return RATER.filter(p=>!on.has(canon(p.n)));
+  const signed=new Set();
+  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut&&p.y[1]!=null) signed.add(canon(p.n)); }));
+  return RATER.filter(p=>!signed.has(canon(p.n)));
+}
+/* Which club holds an expiring player, and what it holds him with. */
+function stratHold(name){
+  const R=rightsOf(null,name);
+  if(!R.club) return '';
+  const lab = R.rfa ? 'restricted' : R.bird==='Yes' ? 'Bird' : R.bird ? 'Early Bird' : 'expiring';
+  const cls = R.rfa ? 't-rfa' : R.bird==='Yes' ? 't-bird' : R.bird ? 't-eb' : '';
+  return `<span class="tag ${cls}">${htmlEsc(R.club)} \u00b7 ${lab}</span>`;
 }
 function htmlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,
   c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -2185,15 +2332,17 @@ function drawStrategy(force){
   if(!force && stratComposing) return;
   const keep=stratFocus();
   const a=A(), open=a&&a.status==='open';
-  const pool=stratPool(), avail=new Set(pool.map(p=>p.n));
-  /* The board tracks who is unrostered, so anyone who turns up on a roster
-     drops off it — signed during the auction, or added before they were taken. */
-  if(STRAT.some(x=>!avail.has(x.n))){
-    const gone=STRAT.filter(x=>!avail.has(x.n)).map(x=>x.n);
-    STRAT=STRAT.filter(x=>avail.has(x.n));
+  const pool=stratPool(), avail=new Set(pool.map(p=>canon(p.n)));
+  /* The board tracks who is still gettable, so a player drops off it once he is
+     signed for next season — won at auction, or re-signed by the club holding him.
+     Being on a roster no longer removes him: an expiring contract belongs on the
+     board right up until someone commits salary to him. */
+  if(STRAT.some(x=>!avail.has(canon(x.n)))){
+    const gone=STRAT.filter(x=>!avail.has(canon(x.n))).map(x=>x.n);
+    STRAT=STRAT.filter(x=>avail.has(canon(x.n)));
     saveStrat(true);
-    projToast(gone.length===1 ? `${gone[0]} is on a roster — removed from your board`
-                              : `${gone.length} players are on rosters — removed from your board`);
+    projToast(gone.length===1 ? `${gone[0]} is signed for next season — removed from your board`
+                              : `${gone.length} players are signed for next season — removed from your board`);
   }
   const priOpts=(sel)=>Object.keys(PRI).map(k=>
     `<option value="${k}"${k===sel?' selected':''}>${PRI[k]}</option>`).join('');
@@ -2203,7 +2352,7 @@ function drawStrategy(force){
       <td class="l rankcell"><span class="rk">${i+1}</span>
         <button class="act" data-mv="up" data-i="${i}" title="Move up"${i===0?' disabled':''}>&#9650;</button>
         <button class="act" data-mv="dn" data-i="${i}" title="Move down"${i===STRAT.length-1?' disabled':''}>&#9660;</button></td>
-      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}</td>
+      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}${stratHold(x.n)}</td>
       <td class="pos">${r&&r.p?r.p:'&#8212;'}</td>
       <td>${g!=null?(g>0?'+':'')+g:'&#8212;'}</td>
       <td class="l"><select class="spri p-${x.pri}" data-f="pri" data-i="${i}"
@@ -2218,7 +2367,8 @@ function drawStrategy(force){
   box.innerHTML=`<div class="form" style="grid-template-columns:1.8fr .9fr .8fr 2fr auto">
       <div><label for="stP">Player</label>
         <input id="stP" list="stList" placeholder="Start typing&#8230;" autocomplete="off">
-        <datalist id="stList">${pool.map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
+        <datalist id="stList">${pool.map(p=>{const o=stratOwner(p.n);
+          return `<option value="${htmlEsc(p.n)}">${o?htmlEsc(o)+' \u00b7 expiring':'free agent'}</option>`;}).join('')}</datalist></div>
       <div><label for="stPri">Priority</label><select id="stPri">${priOpts('med')}</select></div>
       <div><label for="stMax">Max bid</label>
         <input id="stMax" class="mono" type="number" step="0.25" min="0" placeholder="optional"></div>
@@ -2241,8 +2391,8 @@ function drawStrategy(force){
     if(stratIdx(n)>=0){ projToast(n+' is already on your board.'); $('stP').select(); return; }
     if(!avail.has(n)){
       const owner=stratOwner(n);
-      projToast(owner ? `${n} is on ${owner}'s roster.`
-                      : `${n} is not an unrostered player.`);
+      projToast(owner ? `${n} is signed to ${owner} for next season.`
+                      : `${n} is not in the player pool.`);
       $('stP').select(); return;
     }
     STRAT.push({n,pri:$('stPri').value,max:quarter($('stMax').value),note:$('stNote').value.trim().slice(0,140)});
@@ -2724,10 +2874,14 @@ function blockedFor(team,name){
 function deadSalary(t){
   return ((S.teams[t]&&S.teams[t].cuts)||[]).reduce((a,c)=>a+(c.live?(c.s||0):0),0);
 }
+/* Matched through canon(): roster names come from the league spreadsheet and the
+   name passed in comes from RATER, so "Jakob Poetl" and "Jakob Poeltl" are the
+   same man. Comparing raw strings quietly told his club it held no Bird rights. */
 function rightsOf(team,name){
+  const n=canon(name);
   for(const t of TEAMS()){
-    const p=S.teams[t].r.find(x=>x.n===name && x.y[1]==null);
-    if(p) return {club:t, bird:p.b, opt:p.o, rfa:!!p.o};
+    const p=S.teams[t].r.find(x=>canon(x.n)===n && x.y[1]==null);
+    if(p) return {club:t, bird:birdKind(p.b), opt:p.o, rfa:!!p.o};
   }
   return {club:null,bird:'',opt:'',rfa:false};
 }
