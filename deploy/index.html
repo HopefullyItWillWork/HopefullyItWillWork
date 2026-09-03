@@ -1956,6 +1956,19 @@ function drawAuction(){
 let STRAT=[];
 const PRI={high:'High',med:'Medium',low:'Low'};
 function stratKey(){ return 'strat_'+(me||'anon'); }
+/* faPool() is the free agent CLASS — expiring contracts included, so 45 players
+   who are sitting on a roster right now qualify. The strategy board wants the
+   stricter reading: nobody who appears on any club's roster at all. A released
+   player is not rostered, so cuts do not count. */
+function stratOwner(name){
+  const n=canon(name);
+  return TEAMS().find(t=>S.teams[t].r.some(p=>!p.cut&&canon(p.n)===n))||null;
+}
+function stratPool(){
+  const on=new Set();
+  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut) on.add(canon(p.n)); }));
+  return RATER.filter(p=>!on.has(canon(p.n)));
+}
 function htmlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,
   c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function quarter(v){ const n=parseFloat(v); return n>=0?Math.round(n*4)/4:null; }
@@ -2010,8 +2023,8 @@ function drawStrategy(force){
   if(!force && stratComposing) return;
   const keep=stratFocus();
   const a=A(), open=a&&a.status==='open';
-  const pool=faPool(), avail=new Set(pool.map(p=>p.n));
-  /* The board tracks who is available to bid on, so anyone now under contract
+  const pool=stratPool(), avail=new Set(pool.map(p=>p.n));
+  /* The board tracks who is unrostered, so anyone who turns up on a roster
      drops off it — signed during the auction, or added before they were taken. */
   if(STRAT.some(x=>!avail.has(x.n))){
     const gone=STRAT.filter(x=>!avail.has(x.n)).map(x=>x.n);
@@ -2065,9 +2078,9 @@ function drawStrategy(force){
     const n=canon(raw);
     if(stratIdx(n)>=0){ projToast(n+' is already on your board.'); $('stP').select(); return; }
     if(!avail.has(n)){
-      const owner=TEAMS().find(t=>S.teams[t].r.some(q=>q.n===n&&q.y[1]!=null));
-      projToast(owner ? `${n} is under contract with ${owner}.`
-                      : `${n} is not in the free agent pool.`);
+      const owner=stratOwner(n);
+      projToast(owner ? `${n} is on ${owner}'s roster.`
+                      : `${n} is not an unrostered player.`);
       $('stP').select(); return;
     }
     STRAT.push({n,pri:$('stPri').value,max:quarter($('stMax').value),note:$('stNote').value.trim().slice(0,140)});
