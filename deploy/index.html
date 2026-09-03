@@ -306,7 +306,14 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
 .filters{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}
 .filters input,.filters select{width:auto;min-width:150px}
 .fcount{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.08em;margin-left:auto}
-.scroller{overflow-x:auto;border:1px solid var(--line);border-radius:3px}
+/* A grid or flex item defaults to min-width:auto, so it refuses to shrink below
+   its content — and .scroller table below sets a 760px minimum. Inside .twocol
+   that widened the column, the section and the whole page to 762px on a phone,
+   which is why My Team scrolled sideways by a full screen. The scroller must be
+   allowed to shrink; its own overflow-x is what should scroll. */
+.twocol>*,.tradebox>*,.side>*{min-width:0}
+.scroller{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  border:1px solid var(--line);border-radius:3px;max-width:100%}
 .scroller table{min-width:760px}
 .scroller thead th{padding:9px;background:var(--panel2);position:sticky;top:0;z-index:2}
 .scroller thead th[data-s]{cursor:pointer;user-select:none}
@@ -356,6 +363,51 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .welcome{padding:13px 14px;gap:12px}
   .chip{display:none}
 thead th.hide,tbody td.hide{display:none}}
+/* ---- touch and small screens ----
+   iOS Safari zooms the page whenever a focused field is under 16px, and every
+   input here was 14px: tapping any field zoomed the layout and left it zoomed.
+   16px is the threshold, so it is the size, not a preference. */
+@media(max-width:820px){
+  input,select,textarea{font-size:16px}
+  .filters input,.filters select{min-width:0;flex:1 1 140px}
+  .chip input{width:64px;font-size:16px}
+  #stratTbl input.snote{min-width:130px}
+  #stratTbl input.smax{width:74px}
+  #stratTbl select.spri{min-width:104px}
+  .dlg .fields input,.dlg .fields select{font-size:16px}
+}
+/* Pointer-coarse devices need a real target. 44px is the Apple/WCAG figure;
+   .act buttons were 44x19 and pick-list checkboxes 13x13. */
+@media(pointer:coarse){
+  .act{padding:8px 11px;font-size:10px}
+  .btn{padding:12px 20px}
+  .btn.ghost,.btn.danger{padding:11px 15px;font-size:13px}
+  .pk{padding:11px 10px}
+  .pk input[type=checkbox]{width:20px;height:20px}
+  nav button,.more>#moreBtn{padding:12px 12px}
+  thead th[data-k],.scroller thead th[data-s]{padding-top:11px;padding-bottom:11px}
+  tbody td.pname{padding-top:11px;padding-bottom:11px}
+}
+/* Phone: the masthead stacked four rows before any content. */
+@media(max-width:560px){
+  .mast-in{padding:9px 12px;gap:8px 10px}
+  .brand{font-size:18px}
+  /* The 820px rule gives .who the full width, which pushed the theme button onto
+     a third row. Let them share one. */
+  .who{width:auto;flex:1 1 auto;margin-left:0;justify-content:flex-end}
+  /* The toggle labels say what they do; the leading caption only costs a line. */
+  #projBar .pjlab:first-child{display:none}
+  main{padding:13px 12px 56px}
+  h2{font-size:17px;margin-bottom:11px}
+  .stats{grid-template-columns:1fr 1fr}
+  .form{padding:12px}
+  .form.f5,.form.f4{grid-template-columns:1fr}
+  /* 88+118+78 fixed columns plus gaps needs 345px and a 360px phone has 336 to
+     give, so the row pushed the page sideways. Let the four cells sit 2x2. */
+  .bid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:3px 10px;padding:9px 12px}
+  .dlg{padding:16px}
+  .scroller table{min-width:600px}
+}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* Auction strategy board — a GM's private list of targets. Nothing here is shared. */
