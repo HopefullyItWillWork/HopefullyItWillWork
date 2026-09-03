@@ -63,6 +63,35 @@ are their competitive edge. Do not "helpfully" sync them to Blobs.
 Consequence: projections do not follow a GM across devices. That trade-off was
 made knowingly. An export/import button would be the right fix if it comes up.
 
+### The auction strategy board IS synced, encrypted
+A GM's strategy board (ranked auction targets, priority, a planning max bid)
+follows them between devices, so unlike projections it does leave the browser.
+It is stored under its own key, `strat-<club>`, outside the five league slices.
+
+It goes up **encrypted**, because `/api/state` has no auth and a list of max bids
+is worth more to a rival than projections are. AES-GCM, key derived by PBKDF2
+from the club's PIN — which the client already holds in the rosters slice, so no
+new secret is stored and it survives a reload. A league-mate who fetches
+`?key=strat-<club>` gets ciphertext.
+
+This is the same honour-system bar as the rest of the app: it stops someone
+reading your board, not someone who digs the PIN out of `rosters` first. Do not
+present it as real confidentiality.
+
+Last write wins, by a timestamp inside the payload. A 409 is retried once against
+the server's revision. localStorage keeps a copy, so the board still works with
+no network — the save toast says "synced" or "this device only". Changing a PIN
+makes the stored copy undecryptable; the client falls back to its local copy and
+re-uploads rather than losing the board.
+
+### The strategy board's pool is not faPool()
+`faPool()` is the free agent *class* — it counts a player taken only when
+`y[1]` is set, so the 45 players in the last year of a deal count as available
+even though they are on a roster today. The board uses `stratPool()`, which
+excludes anyone on any roster at all. Both sides go through `canon()`; without
+it "Jakob Poetl" and "Jakob Poeltl" read as two different players and he slips
+through as unrostered.
+
 ---
 
 ## League rules the code enforces
@@ -98,6 +127,21 @@ when used.
 Matching applies only to a club that is over the cap before the trade or that the
 trade pushes over. Re-validate at accept time — rosters move between offer and
 acceptance.
+
+A club can also trade the **rights** it holds to a player whose deal is expiring
+— Bird, Early Bird, or restricted — and the rights travel with him. `tradeRight()`
+decides: an expiring player with no rights at all is an unrestricted free agent
+nobody can trade, and a player who has cleared waivers is gone.
+
+Those players carry no salary for next season, so they move **$0**. Two things
+follow, and both were wrong the first time:
+
+- They are not in `headcount()`, so the roster delta must count contracts only.
+  Counting selected players instead let a club at the roster limit send rights
+  and take back a contract.
+- `$0` is not the same as missing. Checking `y[1]` alone to confirm a club still
+  has a player rejected every rights trade at accept time as though the player
+  had left.
 
 **Cuts** depend on season phase, and this is the part that is easy to get wrong:
 - **In season**: salary stays on the cap until the season ends, then clears. It
@@ -177,6 +221,11 @@ syntactically perfect and completely broken:
   correctly every time and was never visible.
 - `S.teams[t].pin` throwing inside a form-submit handler, so sign-in died silently
   and the dialog closed. Users reported "nothing happens."
+- Deferring focus into the sign-in dialog by 50ms. `showModal()` focuses the club
+  select, so anything typed in that window went into the dropdown — changing the
+  club by type-ahead — and a field-blanking step on the same timer wiped the PIN.
+  Typing "1234" the instant the box opened left "4". Nothing about opening that
+  dialog may be deferred; the PIN carries `autofocus` and is focused synchronously.
 
 The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. Build one, run the interaction, assert on the result.
