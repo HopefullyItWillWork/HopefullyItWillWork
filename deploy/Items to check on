@@ -1,0 +1,2 @@
+Per my Claude:
+One note — this is frontend-only, and the repo still has no netlify/functions/api/state, so shared league state depends on that function living elsewhere in your Netlify setup. The strategy board is unaffected either way since it's local to each GM. No PR opened; say the word if you want one.
