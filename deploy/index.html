@@ -326,7 +326,11 @@ font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
 #dlgPlayer{max-width:460px;width:94%}
 tbody td.pname{cursor:pointer}
 tbody td.pname:hover{color:var(--amber);text-decoration:underline}
-dialog{background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--chalk);padding:0;max-width:420px;width:92%}
+dialog:not([open]){display:none}
+/* margin:auto is what centres a modal dialog, and the * reset above wipes it out,
+   leaving every dialog jammed into the top-left corner. On a phone the box is
+   92% of the screen so it goes unnoticed; on a desktop monitor it is obvious. */
+dialog{background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--chalk);padding:0;max-width:420px;width:92%;margin:auto}
 dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg{padding:20px}
 .dlg h4{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.04em;margin-bottom:5px}
@@ -348,6 +352,26 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .chip{display:none}
 thead th.hide,tbody td.hide{display:none}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Auction strategy board — a GM's private list of targets. Nothing here is shared. */
+#stratTbl td{vertical-align:middle}
+#stratTbl .rankcell{white-space:nowrap;font-family:var(--mono);font-size:12px}
+#stratTbl td.name{text-align:left;font-family:var(--body);font-size:14px}
+#stratTbl .rk{display:inline-block;min-width:15px;color:var(--steel)}
+#stratTbl .act[data-mv]{margin-left:3px;padding:2px 6px;font-size:8px;line-height:1.4}
+#stratTbl .act[data-mv]:hover{color:var(--amber);border-color:var(--tbi-b)}
+#stratTbl .act[disabled]{opacity:.22;cursor:not-allowed}
+#stratTbl .act[disabled]:hover{color:var(--steel);border-color:var(--line)}
+#stratTbl select.spri{width:auto;min-width:94px;padding:5px 7px;font-family:var(--mono);font-size:11px}
+#stratTbl select.p-high{color:var(--tax);border-color:var(--wnln)}
+#stratTbl select.p-med{color:var(--amber);border-color:var(--tbi-b)}
+#stratTbl select.p-low{color:var(--steel)}
+#stratTbl input.smax{width:84px;padding:5px 7px;font-size:12px;text-align:right}
+#stratTbl input.snote{padding:5px 7px;font-size:12.5px;min-width:200px}
+#stratTbl tr.onblock td{background:var(--sel)}
+#stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--space);margin-bottom:9px}
+@media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
 </style>
 </head>
 <body>
@@ -473,6 +497,15 @@ thead th.hide,tbody td.hide{display:none}}
     <h2>Auction room</h2>
     <div id="auctionMain"></div>
     <div id="nomBox"></div>
+
+    <div id="stratWrap" hidden>
+      <h2 class="sub">Auction strategy</h2>
+      <div class="privnote">&#9679; private to you</div>
+      <p class="note">Your own board, stored under your sign-in and never written to the league state &#8212; no other GM
+        and no commissioner can see it. Rank the players you want, flag how badly you want each one, and note the most
+        you would go. That max is a planning figure only: it places no bid, sets no automatic bid, and binds nothing.</p>
+      <div id="stratBox"></div>
+    </div>
     <h2 class="sub">Bid history</h2>
     <div class="log" id="bidLog"></div>
     <h2 class="sub">Money left</h2>
@@ -700,10 +733,11 @@ thead th.hide,tbody td.hide{display:none}}
   <h4>Sign in</h4><p>Pick your club. If it has no PIN yet, the one you enter becomes its PIN.</p>
   <div class="fields">
     <div><label for="inTeam">Club</label><select id="inTeam"></select></div>
-    <div><label for="inPin">PIN</label><input id="inPin" type="password" inputmode="numeric" autocomplete="off"></div>
+    <div><label for="inPin">PIN</label><input id="inPin" name="league-pin" type="password" inputmode="numeric"
+      autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
   </div>
   <div class="err" id="signErr"></div>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button><button class="btn" id="doSign" value="ok">Sign in</button></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doSign" value="ok">Sign in</button></div>
 </form></dialog>
 
 <dialog id="dlgPlayer"><div class="dlg" style="max-width:none">
@@ -719,7 +753,7 @@ thead th.hide,tbody td.hide{display:none}}
     <div><label for="pinB">Confirm</label><input id="pinB" type="password" autocomplete="new-password"></div>
   </div>
   <div class="err" id="pinErr"></div>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
     <button class="btn" id="pinSave" value="ok">Save</button></div>
 </form></dialog>
 
@@ -741,8 +775,8 @@ thead th.hide,tbody td.hide{display:none}}
   </div>
   <p style="font-size:11.5px;color:var(--dim);margin:12px 0">All figures are per game except games played.
     Leave a box blank to keep last season's actual.</p>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button>
-    <button class="btn ghost" id="pjClear" value="ok">Reset player</button>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="button" class="btn ghost" id="pjClear">Reset player</button>
     <button class="btn" id="pjSave" value="ok">Save</button></div>
 </form></dialog>
 
@@ -754,12 +788,40 @@ thead th.hide,tbody td.hide{display:none}}
     <div><label for="edY3">Season after</label><input id="edY3" class="mono" type="number" step="0.25" placeholder="blank"></div>
     <div><label for="edAcq">Year acquired</label><input id="edAcq" class="mono" type="number"></div>
   </div>
-  <div class="acts"><button class="btn ghost" value="cancel">Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
 </form></dialog>
 
 <script>
 /* shared UI state — declared first so every module can reach it */
 const SORTS={}, redraw={};
+
+/* ============ modals ============
+   Every Cancel button is type=button so it can never be the form's implicit submit
+   target — that is what made Enter cancel the sign-in instead of completing it.
+   Cancel now closes through here instead of through form submission.
+   openModal also covers browsers with no <dialog> support, where showModal() would
+   throw and leave the button doing nothing at all. */
+function openModal(id){
+  const d=document.getElementById(id);
+  if(!d) return false;
+  if(typeof d.showModal==='function'){ if(!d.open) d.showModal(); return true; }
+  d.setAttribute('open','');
+  d.style.position='fixed'; d.style.top='50%'; d.style.left='50%';
+  d.style.transform='translate(-50%,-50%)'; d.style.zIndex='999';
+  return true;
+}
+function closeModal(id){
+  const d=document.getElementById(id);
+  if(!d) return;
+  if(typeof d.close==='function' && d.open) d.close(); else d.removeAttribute('open');
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-close]'):null;
+  if(!b) return;
+  e.preventDefault();
+  const d=b.closest('dialog');
+  if(d) closeModal(d.id);
+});
 
 /* ============ storage adapter ============
    Uses the artifact's shared window.storage when present.
@@ -1044,7 +1106,7 @@ function openEdit(team,idx){
   const p=S.teams[team].r[idx];editing={team,idx};
   $('edTitle').textContent=p.n;$('edSub').textContent=`${team} \u00b7 leave a season blank to end the contract there.`;
   $('edY1').value=p.y[1]??'';$('edY2').value=p.y[2]??'';$('edY3').value=p.y[3]??'';$('edAcq').value=p.acq??'';
-  $('dlgEdit').showModal();
+  openModal('dlgEdit');
 }
 $('doEdit').onclick=async()=>{
   if(!editing)return;
@@ -1075,6 +1137,8 @@ function drawWho(){
     <span class="badge ${isComm()?'comm':''}">${isComm()?'Full access':'GM'}</span>
     <button class="btn ghost" id="outBtn">Sign out</button>`;}
   $('adminTab').hidden=!isComm();
+  /* Both entry points run the same open, so the header button gets the
+     still-loading guard and the autofocus the welcome card already had. */
   const openSignIn=()=>{
     const list=TEAMS();
     $('inTeam').innerHTML = list.length
@@ -1082,13 +1146,13 @@ function drawWho(){
       : `<option value="">League data still loading\u2026</option>`;
     $('signErr').textContent = list.length ? '' : 'Waiting for league data. Try again in a moment.';
     $('inPin').value='';
-    $('dlgSign').showModal();
-    setTimeout(()=>{try{$('inPin').focus();}catch(e){}},50);};
+    if(!openModal('dlgSign')){ $('signErr').textContent='This browser cannot open the sign-in box.'; return; }
+    /* Chrome can autofill a saved password into the PIN after the box opens;
+       clear it again on the next frame so nobody submits a stale value blind. */
+    setTimeout(()=>{ try{ $('inPin').value=''; $('inPin').focus(); }catch(e){} },50);};
   if($('signCTA'))$('signCTA').onclick=openSignIn;
-  if($('signBtn'))$('signBtn').onclick=()=>{
-    $('inTeam').innerHTML=TEAMS().map(t=>`<option>${t}</option>`).join('')+`<option value="__comm__">Commissioner</option>`;
-    $('signErr').textContent='';$('inPin').value='';$('dlgSign').showModal();};
-  if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};render();};
+  if($('signBtn'))$('signBtn').onclick=openSignIn;
+  if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};STRAT=[];render();};
 }
 function drawLedger(){
   const {cap,tax}=S.cfg, max=Math.max(tax*1.06,...TEAMS().map(committed));
@@ -1282,9 +1346,9 @@ function openPin(t){
     ? 'Anyone with this can edit every club. Keep it to yourself.'
     : 'Give this to that GM. They will need it to sign in.';
   $('pinA').value=''; $('pinB').value=''; $('pinErr').textContent='';
-  $('dlgPin').showModal();
+  openModal('dlgPin');
 }
-if($('dlgPlayerClose')) $('dlgPlayerClose').onclick=()=>$('dlgPlayer').close();
+if($('dlgPlayerClose')) $('dlgPlayerClose').onclick=()=>closeModal('dlgPlayer');
 $('pinSave').onclick=async e=>{
   const a=$('pinA').value.trim(), b=$('pinB').value.trim();
   if(a.length<3){ e.preventDefault(); $('pinErr').textContent='Use at least 3 characters.'; return; }
@@ -1871,6 +1935,7 @@ function drawAuction(){
     : (me?'':'<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>');
   if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1);
   drawAuctRoster();
+  drawStrategy();
   $('budgets').innerHTML=TEAMS().map(t=>{
     const sp=S.cfg.roster-headcount(t), space=S.cfg.cap-committed(t);
     const mx=a?bidCeiling(t,a.player):Math.max(0,space-Math.max(0,sp-1));
@@ -1881,6 +1946,184 @@ function drawAuction(){
   }).join('');
 }
 
+
+/* ============ AUCTION STRATEGY (private to each GM) ============
+   A GM's own ranked board of auction targets. Stored under a per-user key the same
+   way projections are, so it never enters S (the shared league state) and no other
+   GM — commissioner included — can read it. Order in the array is the rank.
+   The max bid here is a note the GM writes for themselves: it is never passed to
+   placeBid(), never becomes an automatic bid, and never leaves this board. */
+let STRAT=[];
+const PRI={high:'High',med:'Medium',low:'Low'};
+function stratKey(){ return 'strat_'+(me||'anon'); }
+function htmlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,
+  c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function quarter(v){ const n=parseFloat(v); return n>=0?Math.round(n*4)/4:null; }
+/* anything read back from storage is re-shaped before use, so an old or hand-edited
+   blob cannot put a bad priority or a NaN max into the table */
+function normStrat(v){
+  if(!Array.isArray(v)) return [];
+  return v.filter(x=>x&&x.n).map(x=>({n:String(x.n),pri:PRI[x.pri]?x.pri:'med',
+    max:quarter(x.max),note:String(x.note||'').slice(0,140)}));
+}
+async function loadStrat(){
+  STRAT=[];
+  try{ const l=localStorage.getItem(stratKey()); if(l) STRAT=normStrat(JSON.parse(l)); }catch(e){}
+  try{
+    const r=window.storage?await window.storage.get(stratKey(),false):null;
+    if(r&&r.value){ const remote=normStrat(JSON.parse(r.value)); if(remote.length) STRAT=remote; }
+  }catch(e){}
+}
+async function saveStrat(quiet){
+  const v=JSON.stringify(STRAT);
+  let ok=false;
+  try{ if(window.storage){ await window.storage.set(stratKey(),v,false); ok=true; } }catch(e){}
+  try{ localStorage.setItem(stratKey(),v); ok=true; }catch(e){}   /* always keep a local copy too */
+  if(!quiet) projToast(ok?`Strategy saved · ${STRAT.length} player${STRAT.length===1?'':'s'}`
+                        :'Could not save your strategy');
+  return ok;
+}
+/* typing in a comment or a max should not hit storage on every keystroke */
+let stratTimer=null;
+function saveStratSoon(){ clearTimeout(stratTimer); stratTimer=setTimeout(()=>saveStrat(true),600); }
+function stratIdx(n){ return STRAT.findIndex(x=>x.n===n); }
+function moveStrat(i,d){
+  const j=i+d;
+  if(!STRAT[i]||j<0||j>=STRAT.length) return;
+  const [row]=STRAT.splice(i,1); STRAT.splice(j,0,row);
+  saveStrat(true); drawStrategy(true);
+  /* follow the row: the button that moved it is now at the row's new index */
+  const b=$('stratBox').querySelector(`[data-mv="${d<0?'up':'dn'}"][data-i="${j}"]`);
+  if(b&&!b.disabled) b.focus();
+}
+function drawStrategy(force){
+  const wrap=$('stratWrap'), box=$('stratBox');
+  if(!wrap||!box) return;
+  const hide = !me || isComm();
+  wrap.hidden=hide;
+  if(hide){ box.innerHTML=''; return; }
+  /* The auction polls every few seconds. Rather than skip the redraw while a GM is
+     in a field — which would freeze the live 'on the block' marker — remember where
+     the caret is, rebuild, and put it back. Values already live in STRAT, updated on
+     every keystroke, so nothing typed is lost. A redraw mid-IME-composition would
+     drop the half-formed character, so that is the one case still worth skipping. */
+  if(!force && stratComposing) return;
+  const keep=stratFocus();
+  const a=A(), open=a&&a.status==='open';
+  const pool=faPool(), avail=new Set(pool.map(p=>p.n));
+  /* The board tracks who is available to bid on, so anyone now under contract
+     drops off it — signed during the auction, or added before they were taken. */
+  if(STRAT.some(x=>!avail.has(x.n))){
+    const gone=STRAT.filter(x=>!avail.has(x.n)).map(x=>x.n);
+    STRAT=STRAT.filter(x=>avail.has(x.n));
+    saveStrat(true);
+    projToast(gone.length===1 ? `${gone[0]} is on a roster — removed from your board`
+                              : `${gone.length} players are on rosters — removed from your board`);
+  }
+  const priOpts=(sel)=>Object.keys(PRI).map(k=>
+    `<option value="${k}"${k===sel?' selected':''}>${PRI[k]}</option>`).join('');
+  const rows=STRAT.map((x,i)=>{
+    const r=pstat(x.n), live=open&&a.player===x.n, g=rtg(x.n);
+    return `<tr class="${live?'onblock':''}">
+      <td class="l rankcell"><span class="rk">${i+1}</span>
+        <button class="act" data-mv="up" data-i="${i}" title="Move up"${i===0?' disabled':''}>&#9650;</button>
+        <button class="act" data-mv="dn" data-i="${i}" title="Move down"${i===STRAT.length-1?' disabled':''}>&#9660;</button></td>
+      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}</td>
+      <td class="pos">${r&&r.p?r.p:'&#8212;'}</td>
+      <td>${g!=null?(g>0?'+':'')+g:'&#8212;'}</td>
+      <td class="l"><select class="spri p-${x.pri}" data-f="pri" data-i="${i}"
+        aria-label="Priority for ${htmlEsc(x.n)}">${priOpts(x.pri)}</select></td>
+      <td><input class="mono smax" type="number" step="0.25" min="0" data-f="max" data-i="${i}"
+        value="${x.max==null?'':x.max}" placeholder="&#8212;" aria-label="Max bid note for ${htmlEsc(x.n)}"></td>
+      <td class="l"><input class="snote" data-f="note" data-i="${i}" maxlength="140"
+        value="${htmlEsc(x.note)}" placeholder="what the max hinges on"
+        aria-label="Comment for ${htmlEsc(x.n)}"></td>
+      <td><button class="act" data-del="${i}" title="Remove from board">&times;</button></td></tr>`;
+  }).join('');
+  box.innerHTML=`<div class="form" style="grid-template-columns:1.8fr .9fr .8fr 2fr auto">
+      <div><label for="stP">Player</label>
+        <input id="stP" list="stList" placeholder="Start typing&#8230;" autocomplete="off">
+        <datalist id="stList">${pool.map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
+      <div><label for="stPri">Priority</label><select id="stPri">${priOpts('med')}</select></div>
+      <div><label for="stMax">Max bid</label>
+        <input id="stMax" class="mono" type="number" step="0.25" min="0" placeholder="optional"></div>
+      <div><label for="stNote">Comment</label>
+        <input id="stNote" maxlength="140" placeholder="e.g. would stretch to $12 if the guards go early"></div>
+      <button class="btn" id="stAdd">Add</button></div>
+    ${STRAT.length?`<div class="scroller"><table id="stratTbl"><thead><tr>
+        <th class="l">Rank</th><th class="l">Player</th><th class="l">Pos</th><th>Rating</th>
+        <th class="l">Priority</th><th>Max bid</th><th class="l">Comment</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="filters" style="margin-top:11px">
+        <span class="fcount">${STRAT.length} player${STRAT.length===1?'':'s'} ranked · saves as you type · no bid is ever placed from this board</span>
+        <button class="btn ghost" id="stClear">Clear board</button></div>`
+      : '<div class="empty">Nothing on your board yet. Add the players you want, then rank them.</div>'}`;
+
+  $('stAdd').onclick=()=>{
+    const raw=$('stP').value.trim();
+    if(!raw) return $('stP').focus();
+    const n=canon(raw);
+    if(stratIdx(n)>=0){ projToast(n+' is already on your board.'); $('stP').select(); return; }
+    if(!avail.has(n)){
+      const owner=TEAMS().find(t=>S.teams[t].r.some(q=>q.n===n&&q.y[1]!=null));
+      projToast(owner ? `${n} is under contract with ${owner}.`
+                      : `${n} is not in the free agent pool.`);
+      $('stP').select(); return;
+    }
+    STRAT.push({n,pri:$('stPri').value,max:quarter($('stMax').value),note:$('stNote').value.trim().slice(0,140)});
+    $('stP').value='';$('stMax').value='';$('stNote').value='';
+    saveStrat(); drawStrategy(true); $('stP').focus();
+  };
+  ['stP','stMax','stNote'].forEach(id=>{
+    $(id).onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); $('stAdd').click(); } };
+  });
+  box.querySelectorAll('[data-mv]').forEach(b=>{
+    b.onclick=()=>moveStrat(+b.dataset.i, b.dataset.mv==='up'?-1:1);
+  });
+  box.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick=()=>{ const i=+b.dataset.del;
+      if(!STRAT[i]) return;
+      STRAT.splice(i,1); saveStrat(true); drawStrategy(true); };
+  });
+  box.querySelectorAll('[data-f]').forEach(el=>{
+    const i=+el.dataset.i, f=el.dataset.f;
+    const put=()=>{
+      if(!STRAT[i]) return;
+      if(f==='max') STRAT[i].max=quarter(el.value);
+      else if(f==='pri'){ STRAT[i].pri=PRI[el.value]?el.value:'med'; el.className='spri p-'+STRAT[i].pri; }
+      else STRAT[i].note=el.value.slice(0,140);
+      saveStratSoon();
+    };
+    if(f==='pri') el.onchange=put; else { el.oninput=put; el.onchange=put; }
+  });
+  if($('stClear')) $('stClear').onclick=()=>{
+    if(!confirm('Clear your whole strategy board? This cannot be undone.')) return;
+    STRAT=[]; saveStrat(); drawStrategy(true);
+  };
+  stratRefocus(keep);
+}
+/* focus + caret, captured as a selector so it survives the innerHTML rebuild */
+let stratComposing=false;
+document.addEventListener('compositionstart',e=>{
+  if($('stratBox')&&$('stratBox').contains(e.target)) stratComposing=true; });
+document.addEventListener('compositionend',()=>{ stratComposing=false; });
+function stratFocus(){
+  const box=$('stratBox'), el=document.activeElement;
+  if(!box||!el||!box.contains(el)) return null;
+  const sel = el.id ? '#'+el.id
+    : el.dataset.f ? `[data-f="${el.dataset.f}"][data-i="${el.dataset.i}"]` : null;
+  if(!sel) return null;
+  let a=null,b=null;
+  try{ a=el.selectionStart; b=el.selectionEnd; }catch(_){}   /* number inputs throw */
+  return {sel,a,b};
+}
+function stratRefocus(k){
+  if(!k) return;
+  const box=$('stratBox'), el=box&&box.querySelector(k.sel);
+  if(!el) return;
+  el.focus();
+  if(k.a!=null){ try{ el.setSelectionRange(k.a,k.b); }catch(_){} }
+}
 
 /* ============ PER-GM PROJECTIONS ============
    Private to each GM. Stored under a per-user key so nothing is shared with the league.
@@ -1985,7 +2228,7 @@ function openProj(name){
   const set=(id,v,ph)=>{const el=$(id);el.value=(v==null?'':v);el.placeholder=ph;};
   set('pjG',o.g,b.g);
   SKEYS.forEach(k=>{ if($('pj'+k)) set('pj'+k,o[k],b.s[k]); });
-  $('dlgProj').showModal();
+  openModal('dlgProj');
 }
 $('pjSave').onclick=async()=>{
   if(!pjEditing) return;
@@ -1995,7 +2238,8 @@ $('pjSave').onclick=async()=>{
   if(Object.keys(o).length) PROJ[pjEditing]=o; else delete PROJ[pjEditing];
   pjEditing=null; await saveProj(); if(!useProj) setProjMode(true); else render();
 };
-$('pjClear').onclick=async()=>{ if(pjEditing){delete PROJ[pjEditing];pjEditing=null;await saveProj();render();} };
+$('pjClear').onclick=async()=>{ closeModal('dlgProj');
+  if(pjEditing){delete PROJ[pjEditing];pjEditing=null;await saveProj();render();} };
 $('pjReset').onclick=async()=>{
   if(!Object.keys(PROJ).length)return;
   if(!confirm('Clear every projection you have entered?'))return;
@@ -2093,7 +2337,7 @@ function openPlayerCard(name){
   const box=$('dlgPlayerBody');
   box.innerHTML=playerCard(name);
   wirePlayerCard(box);
-  $('dlgPlayer').showModal();
+  openModal('dlgPlayer');
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest) return;
@@ -2101,6 +2345,15 @@ document.addEventListener('click',e=>{
   if(!c) return;
   if(e.target.closest('button')) return;      // let row buttons do their own thing
   openPlayerCard(c.dataset.player);
+});
+/* The card is modal, so while it is open every control behind it is inert —
+   no dropdown, button or tab will respond. A <dialog> does not close when its
+   backdrop is clicked, so clicking away from the card left the page looking
+   frozen instead of dismissing it. Treat a click on the backdrop as a close.
+   The card is read-only, so there is nothing to lose by dismissing it this way;
+   the editable dialogs still require Cancel or Escape on purpose. */
+$('dlgPlayer').addEventListener('click',e=>{
+  if(e.target===$('dlgPlayer')) closeModal('dlgPlayer');
 });
 
 const DCATS=[["g","Games",0],["PTS","Points",1],["TRB","Rebounds",1],["AST","Assists",1],
@@ -2756,8 +3009,15 @@ $('faAdd').onchange=()=>{const k=$('faAdd').value;if(!k)return;
   $('faAdd').value='';drawFilters();drawFAList();};
 
 /* ---------- wiring ---------- */
+/* Always cancel the form submission and close by hand. Relying on method="dialog"
+   meant any browser that does not implement it would submit the form and reload the
+   page, throwing away the sign-in. */
 $('doSign').onclick=e=>{
-  const stop=msg=>{ if(e&&e.preventDefault)e.preventDefault(); $('signErr').textContent=msg; };
+  if(e&&e.preventDefault) e.preventDefault();
+  const stop=msg=>{
+    $('signErr').textContent=msg;
+    try{ $('inPin').focus(); $('inPin').select(); }catch(_){}   /* ready to retype */
+  };
   try{
     const t=$('inTeam').value, pin=$('inPin').value.trim();
     if(!S||!S.teams) return stop('League data is still loading. Give it a second and try again.');
@@ -2774,13 +3034,26 @@ $('doSign').onclick=e=>{
       else if(set!==pin) return stop('Wrong PIN for '+t+'.');
       me=t; activeTeam=t;
     }
+    $('signErr').textContent='';
+    closeModal('dlgSign');
     try{localStorage.setItem('ll_me',me);}catch(_){}
-    loadProj().then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
+    Promise.all([loadProj(),loadStrat()])
+      .then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
       .catch(()=>{ render(); goTab('v-me'); });
   }catch(err){
     stop('Could not sign in: '+(err&&err.message||err));
   }
 };
+/* Implicit form submission only fires from a text input, so Enter while the club
+   dropdown had focus did nothing at all. Handle Enter for the whole box instead of
+   depending on which control happens to be focused. */
+$('dlgSign').addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.isComposing) return;
+  if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-close')) return;
+  e.preventDefault();
+  $('doSign').click();
+});
+
 $('add').onclick=async()=>{
   const n=$('fPlayer').value.trim(),pr=parseFloat($('fPrice').value),
         y=parseInt($('fYears').value)||1,t=$('fTeam').value;
@@ -2863,6 +3136,7 @@ function netChip(){
   $('rTeam').innerHTML='<option value="">All players</option><option value="FA">Free agents only</option>'
     +TEAMS().map(t=>`<option>${t}</option>`).join('');
   await loadProj();
+  await loadStrat();
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();
