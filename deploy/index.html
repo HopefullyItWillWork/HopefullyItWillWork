@@ -822,8 +822,10 @@ thead th.hide,tbody td.hide{display:none}}
       the rights that club holds &#8212; plus every unsigned free agent in the player pool. Editing
       here writes straight to the roster and is logged like any other move. Unlike the Move tool
       above, expiring players are included, so a club's Bird or restricted rights can be corrected
-      without signing anybody. A free agent has no contract to edit, so his row opens the player
-      record instead: position, and the spelling the league spreadsheet uses for him.</p>
+      without signing anybody. An unrostered player has no contract to open, so his row opens the
+      same dialog empty: give him a club and a salary and he is assigned, or leave the club blank
+      and only his player record is saved &#8212; position, and the spelling the league spreadsheet
+      uses for him.</p>
     <div class="filters">
       <input id="apQ" placeholder="Search a player or club" autocomplete="off">
       <select id="apT"></select>
@@ -873,20 +875,6 @@ thead th.hide,tbody td.hide{display:none}}
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
     <button type="button" class="btn ghost" id="emTest">Send a test</button>
     <button class="btn" id="doEmail" value="ok">Save</button></div>
-</form></dialog>
-
-<dialog id="dlgFix"><form method="dialog" class="dlg">
-  <h4 id="fxTitle">Player record</h4>
-  <p id="fxSub"></p>
-  <div class="fields">
-    <div><label for="fxPos">Position</label><input id="fxPos" placeholder="e.g. G, F"></div>
-    <div><label for="fxAlias">Also spelled</label>
-      <input id="fxAlias" placeholder="the spelling the league spreadsheet uses" autocomplete="off"></div>
-  </div>
-  <p class="note" id="fxNote"></p>
-  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
-    <button type="button" class="btn ghost" id="fxClear">Clear corrections</button>
-    <button class="btn" id="doFix" value="ok">Save</button></div>
 </form></dialog>
 
 <dialog id="dlgPlayer"><div class="dlg" style="max-width:none">
@@ -945,7 +933,10 @@ thead th.hide,tbody td.hide{display:none}}
       <option value="">None</option><option value="TO">Team option</option>
       <option value="PO">Player option</option><option value="RO">Rookie option</option></select></div>
     <div><label for="edBird">Rights held</label><select id="edBird"></select></div>
+    <div><label for="edAlias">Also spelled</label>
+      <input id="edAlias" placeholder="the spelling the league spreadsheet uses" autocomplete="off"></div>
   </div>
+  <p class="note" id="edNote" hidden></p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
 </form></dialog>
 
@@ -1326,29 +1317,116 @@ function openEdit(team,idx){
   const p=S.teams[team].r[idx];editing={team,idx};
   $('edTitle').textContent=p.n;$('edSub').textContent=`${team} \u00b7 leave a season blank to end the contract there.`;
   $('edY1').value=p.y[1]??'';$('edY2').value=p.y[2]??'';$('edY3').value=p.y[3]??'';$('edAcq').value=p.acq??'';
-  /* Club, current salary, option and rights are commissioner-only: a GM editing
-     his own roster gets the same four contract fields he always had. */
-  const cm=$('edComm');
-  if(cm){
-    cm.hidden=!isComm();
-    if(isComm()){
-      $('edClub').innerHTML=TEAMS().map(t=>
-        `<option${t===team?' selected':''}>${htmlEsc(t)}</option>`).join('');
-      $('edY0').value=p.y[0]??'';
-      $('edPos').value=p.p||'';
-      $('edOpt').value=OPTL[p.o]?p.o:'';
-      /* The rights column is free text in the source spreadsheet, so an unknown
-         value is offered back rather than silently rewritten to something else. */
-      const raw=p.b==null?'':String(p.b);
-      const opts=BIRDOPTS.concat(BIRDOPTS.some(o=>o[0]===raw)?[]:[[raw,raw+' (as recorded)']]);
-      $('edBird').innerHTML=opts.map(([v,l])=>
-        `<option value="${htmlEsc(v)}"${v===raw?' selected':''}>${htmlEsc(l)}</option>`).join('');
-    }
-  }
+  fillComm(team,p);
   openModal('dlgEdit');
 }
-$('doEdit').onclick=async()=>{
+/* The commissioner-only half of the contract dialog. Club, salary this season,
+   position, option, rights and the spreadsheet spelling — a GM editing his own
+   roster gets the same four contract fields he always had and never sees this. */
+function fillComm(team,p){
+  const cm=$('edComm');
+  if(!cm) return;
+  cm.hidden=!isComm();
+  if(!isComm()) return;
+  /* "Not on a roster" is only offered to a player who is already unrostered, so
+     the dialog can assign him without ever becoming a way to release somebody —
+     that is what Cut is for, and Cut carries the waiver rules this does not. */
+  const opts=TEAMS().map(t=>`<option${t===team?' selected':''}>${htmlEsc(t)}</option>`).join('');
+  $('edClub').innerHTML=(team?'':'<option value="" selected>\u2014 not on a roster \u2014</option>')+opts;
+  $('edY0').value=p.y[0]??'';
+  $('edPos').value=p.p||'';
+  $('edOpt').value=OPTL[p.o]?p.o:'';
+  /* The rights column is free text in the source spreadsheet, so an unknown
+     value is offered back rather than silently rewritten to something else. */
+  const raw=p.b==null?'':String(p.b);
+  const bopts=BIRDOPTS.concat(BIRDOPTS.some(o=>o[0]===raw)?[]:[[raw,raw+' (as recorded)']]);
+  $('edBird').innerHTML=bopts.map(([v,l])=>
+    `<option value="${htmlEsc(v)}"${v===raw?' selected':''}>${htmlEsc(l)}</option>`).join('');
+  const c=canon(p.n), had=Object.keys(ALIAS).filter(k=>ALIAS[k]===c);
+  $('edAlias').value=had[0]||'';
+  const note=$('edNote');
+  if(note){
+    note.hidden=false;
+    note.innerHTML='Leave "also spelled" blank unless a roster name differs from the box-score name. '
+      +'It maps that spelling onto this player so his stats stop reading as zero.'
+      +(had.length>1?` Currently mapped: ${had.map(htmlEsc).join(', ')}.`:'');
+  }
+}
+/* An unrostered player has no contract to open, so the same dialog opens empty
+   with a club to pick. Fill in a club and a salary for next season and he is
+   assigned; leave the club blank and only the player record is saved. */
+function openPlayerEdit(name){
+  if(!isComm()) return alert('Only the commissioner can edit an unrostered player.');
+  const c=canon(name), base=RIDX[c], st=pstat(c);
+  editing={team:null,idx:-1,fa:c};
+  $('edTitle').textContent=c;
+  $('edSub').textContent=base
+    ? `Not on a roster \u00b7 ${base.g} games in ${S.cfg.season||'the last season'}. Pick a club and a salary for next season to assign him.`
+    : 'Not on a roster. Pick a club and a salary for next season to assign him.';
+  $('edY1').value='';$('edY2').value='';$('edY3').value='';
+  $('edAcq').value=new Date().getFullYear();
+  fillComm(null,{n:c,p:(st&&st.p)||'',y:[null,null,null,null],o:'',b:''});
+  openModal('dlgEdit');
+}
+/* Position and the spreadsheet spelling for a player with no roster entry live in
+   the settings slice; once he is on a roster his own entry carries the position.
+   Returns the slices touched so commit() only writes what changed. */
+function saveRecord(c,pos,alias,rostered){
+  S.cfg.pos=S.cfg.pos||{}; S.cfg.alias=S.cfg.alias||{};
+  const base=RIDX[c];
+  if(!rostered && pos && (!base||pos!==base.p)) S.cfg.pos[c]=pos; else delete S.cfg.pos[c];
+  /* One alias field edits one mapping. Any others already pointing at this
+     player are left alone rather than silently dropped. */
+  const had=Object.keys(S.cfg.alias).filter(k=>S.cfg.alias[k]===c);
+  if(alias && alias!==c){
+    if(had.length===1 && had[0]!==alias) delete S.cfg.alias[had[0]];
+    S.cfg.alias[alias]=c;
+  } else if(had.length===1){ delete S.cfg.alias[had[0]]; }
+  rebuildPlayerFixes();
+}
+$('doEdit').onclick=async(ev)=>{
   if(!editing)return;
+  const gv=id=>{const v=$(id).value.trim();return v===''?null:Math.round(parseFloat(v)*4)/4;};
+  const hold=()=>{ if(ev&&ev.preventDefault) ev.preventDefault(); };
+
+  /* ---- assigning a player who is on no roster ---- */
+  if(editing.fa){
+    const c=editing.fa;
+    const to=$('edClub').value, pos=$('edPos').value.trim(), alias=$('edAlias').value.trim();
+    if(!to){                                  // no club picked: record only
+      editing=null; saveRecord(c,pos,alias,false);
+      await commit({kind:'edit',detail:`Player record \u2014 ${c}`},['settings']);
+      return;
+    }
+    const y1=gv('edY1');
+    if(y1==null||!(y1>0)){
+      alert(`Give ${c} a salary for next season, or leave the club blank to save the player record only.`);
+      hold(); return;
+    }
+    /* These are the two league limits a commissioner assignment can break, and
+       both are warnings rather than blocks: this dialog exists to make the
+       ledger match reality, including a reality somebody already got wrong.
+       A GM signing or trading still hits the hard refusals in signPlayer()
+       and validateTrade(). */
+    const after=committed(to)+y1;
+    if(after>S.cfg.tax+0.001 && !confirm(
+        `${to} would sit at ${money(after)}, past the ${money(S.cfg.tax)} hard cap. `
+        +`The rulebook says nothing beats the tax. Assign him anyway?`)){ hold(); return; }
+    if(headcount(to)>=S.cfg.roster && !confirm(
+        `${to} already carries ${headcount(to)} of ${S.cfg.roster} contracts. `
+        +`Assign him anyway, over the roster limit?`)){ hold(); return; }
+    const y=[gv('edY0'),y1,gv('edY2'),gv('edY3')];
+    const acq=parseInt($('edAcq').value)||new Date().getFullYear();
+    S.teams[to].r.push({n:c,p:pos,y,o:OPTL[$('edOpt').value]?$('edOpt').value:'',
+      b:$('edBird').value,acq,cut:false});
+    editing=null;
+    saveRecord(c,pos,alias,true);
+    await commit({kind:'sign',team:to,
+      detail:`Commissioner assigned ${c} to ${to} \u2014 ${money(y1)} \u00d7 ${yrsLeft({y})} yr${yrsLeft({y})===1?'':'s'}`},
+      ['rosters','settings']);
+    return;
+  }
+
   const {team,idx}=editing,p=S.teams[team].r[idx];
   const g=id=>{const v=$(id).value.trim();return v===''?null:Math.round(parseFloat(v)*4)/4;};
   const before=p.y[1];
@@ -1361,13 +1439,15 @@ $('doEdit').onclick=async()=>{
     p.p=$('edPos').value.trim();
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
     p.b=$('edBird').value;
+    saveRecord(canon(p.n),p.p,$('edAlias').value.trim(),true);
     const to=$('edClub').value;
     if(to&&to!==team&&S.teams[to]){ S.teams[team].r.splice(idx,1); S.teams[to].r.push(unlist(p)); moved=to; }
   }
   editing=null;
   await commit(moved
     ? {kind:'trade',team:`${team} / ${moved}`,detail:`Commissioner moved ${p.n} to ${moved}`}
-    : {kind:'edit',team,detail:`${p.n} \u2014 ${before==null?'expiring':money(before)} \u2192 ${p.y[1]==null?'expiring':money(p.y[1])}`});
+    : {kind:'edit',team,detail:`${p.n} \u2014 ${before==null?'expiring':money(before)} \u2192 ${p.y[1]==null?'expiring':money(p.y[1])}`},
+    isComm()?['rosters','settings']:undefined);
 };
 /* ---- outgoing mail ----
    The client never holds a mail credential and never names an address: it posts
@@ -1424,56 +1504,14 @@ $('doEmail').onclick=async(e)=>{
     detail:`Email ${v?'set':'cleared'}${v&&on?', daily digest on':v?', daily digest off':''}`},['rosters']);
 };
 /* A free agent has no roster entry, so there is nothing to edit in place. What
-   the commissioner can correct is the player record itself: the position shown
-   for him, and the spelling the league spreadsheet uses when it disagrees with
-   the box scores. Both live in the settings slice — rarely written, last write
-   wins — and are read back through canon() and pstat(), which every lookup in
-   the app already funnels through. Stats are not editable here: they come from
-   the season's box scores, and a GM's own numbers belong in projections. */
-let fixing=null;
-function openPlayerFix(name){
-  if(!isComm()) return alert('Only the commissioner can edit a player record.');
-  const c=canon(name), b=RIDX[c];
-  fixing=c;
-  $('fxTitle').textContent=c;
-  $('fxSub').textContent=b
-    ? `Free agent \u00b7 ${b.g} games in ${S.cfg.season||'the last season'}. Corrections apply everywhere he appears.`
-    : 'Corrections apply everywhere he appears.';
-  $('fxPos').value = POSFIX[c]!=null ? POSFIX[c] : (b?b.p:'')||'';
-  const existing=Object.keys(ALIAS).filter(k=>ALIAS[k]===c);
-  $('fxAlias').value=existing[0]||'';
-  $('fxNote').innerHTML='Leave "also spelled" blank unless a roster name differs from the box-score name. '
-    +'It maps that spelling onto this player so his stats stop reading as zero.'
-    +(existing.length>1?` Currently mapped: ${existing.map(htmlEsc).join(', ')}.`:'');
-  openModal('dlgFix');
-}
-$('doFix').onclick=async()=>{
-  if(!fixing) return;
-  const c=fixing, base=RIDX[c];
-  const pos=$('fxPos').value.trim(), al=$('fxAlias').value.trim();
-  S.cfg.pos=S.cfg.pos||{}; S.cfg.alias=S.cfg.alias||{};
-  if(pos && (!base || pos!==base.p)) S.cfg.pos[c]=pos; else delete S.cfg.pos[c];
-  /* One alias field edits one mapping. Any others already pointing at this
-     player are left alone rather than silently dropped. */
-  const had=Object.keys(S.cfg.alias).filter(k=>S.cfg.alias[k]===c);
-  if(al && al!==c){
-    if(had.length===1 && had[0]!==al) delete S.cfg.alias[had[0]];
-    S.cfg.alias[al]=c;
-  } else if(had.length===1){ delete S.cfg.alias[had[0]]; }
-  fixing=null; rebuildPlayerFixes();
-  const bits=[]; if(pos) bits.push(pos); if(al&&al!==c) bits.push('also spelled '+al);
-  await commit({kind:'edit',
-    detail:`Player record \u2014 ${c}${bits.length?' \u00b7 '+bits.join(', '):' \u00b7 corrections cleared'}`},['settings']);
-};
-$('fxClear').onclick=async()=>{
-  if(!fixing) return;
-  const c=fixing;
-  if(!confirm(`Remove every commissioner correction for ${c}?`)) return;
-  if(S.cfg.pos) delete S.cfg.pos[c];
-  if(S.cfg.alias) Object.keys(S.cfg.alias).forEach(k=>{ if(S.cfg.alias[k]===c) delete S.cfg.alias[k]; });
-  fixing=null; rebuildPlayerFixes(); closeModal('dlgFix');
-  await commit({kind:'edit',detail:`Player record \u2014 corrections cleared for ${c}`},['settings']);
-};
+   the commissioner can do is assign him a club and a contract, or correct the
+   player record itself: the position shown for him, and the spelling the league
+   spreadsheet uses when it disagrees with the box scores. Both of those live in
+   the settings slice — rarely written, last write wins — and are read back
+   through canon() and pstat(), which every lookup in the app already funnels
+   through. Stats are not editable: they come from the season's box scores, and a
+   GM's own numbers belong in projections. openPlayerEdit() opens the one
+   contract dialog for all of it; see fillComm() above. */
 async function undo(i){
   if(!isComm()) return;
   if(!confirm('Remove this entry from the transaction history? Roster changes are not reversed automatically.')) return;
@@ -1732,7 +1770,7 @@ function drawAllPlayers(){
       <td class="hide exp">${D}</td><td class="hide exp">${D}</td><td class="exp">${D}</td>
       <td class="l">${D}</td><td class="hide2">${D}</td>
       <td class="hide2">${r.rtg!=null?(r.rtg>0?'+':'')+r.rtg:'&#8212;'}</td>
-      <td><button class="act edit" data-apf="${htmlEsc(p.n)}">Edit</button></td></tr>`;
+      <td><button class="act edit" data-apf="${htmlEsc(p.n)}">Assign</button></td></tr>`;
     return `<tr><td class="l">${htmlEsc(p.n)}${isFixed(p.n)?'<span class="tag">corrected</span>':''}</td>
       <td class="l">${htmlEsc(r.t)}</td>
       <td class="pos l hide">${p.p?htmlEsc(p.p):'&#8212;'}</td>
@@ -1749,7 +1787,7 @@ function drawAllPlayers(){
   $('apTable').querySelectorAll('[data-api]').forEach(b=>
     b.onclick=()=>openEdit(b.dataset.apc,+b.dataset.api));
   $('apTable').querySelectorAll('[data-apf]').forEach(b=>
-    b.onclick=()=>openPlayerFix(b.dataset.apf));
+    b.onclick=()=>openPlayerEdit(b.dataset.apf));
   sortable('apTbl','ap','n',false); redraw.ap=drawAllPlayers;
 }
 function drawAdmin(){

@@ -188,14 +188,33 @@ adds club, `y[0]`, position, option and rights; a GM editing his own roster stil
 sees exactly the four contract fields he always had. Changing the club moves the
 player and logs it as a trade rather than an edit.
 
-A **free agent** row has no contract to edit, so it opens `openPlayerFix()` — the
-player *record*: the position shown for him, and the spelling the league
-spreadsheet uses when it disagrees with the box scores. Both live in the settings
-slice as `S.cfg.pos` and `S.cfg.alias`, and are mirrored into the module-level
-`POSFIX` and `ALIAS` maps by `rebuildPlayerFixes()`, because `canon()` runs inside
-tight loops and must not reach into `S.cfg` on every call. Call
-`rebuildPlayerFixes()` after anything that replaces `S.cfg` — `applySlice()` and
-the boot sequence already do.
+An **unrostered** row has no contract to open, so `openPlayerEdit()` opens the
+*same* dialog empty, with "— not on a roster —" selected in the club list. Give
+him a club and a salary for next season and he is assigned; leave the club blank
+and only his player record is saved. There is one dialog for every player in the
+league — `fillComm()` fills the commissioner half either way.
+
+"Not on a roster" is offered **only** to a player who is already unrostered, so
+the dialog can never become a way to release somebody. That is what Cut is for,
+and Cut carries the waiver rules this path does not.
+
+Assignment warns rather than blocks on the two limits it can break — past the
+hard cap, and over the roster limit. This dialog exists to make the ledger match
+reality, including a reality somebody already got wrong, so it confirms and
+proceeds. The hard refusals stay where GMs act: `signPlayer()` and
+`validateTrade()`, which still reject both outright.
+
+The player record itself — the position shown for him, and the spelling the
+league spreadsheet uses when it disagrees with the box scores — lives in the
+settings slice as `S.cfg.pos` and `S.cfg.alias`, written through `saveRecord()`.
+Both are mirrored into the module-level `POSFIX` and `ALIAS` maps by
+`rebuildPlayerFixes()`, because `canon()` runs inside tight loops and must not
+reach into `S.cfg` on every call. Call `rebuildPlayerFixes()` after anything that
+replaces `S.cfg` — `applySlice()` and the boot sequence already do.
+
+A position override is only kept for a player with no roster entry; once he is
+rostered his own entry carries the position and the override is dropped, so there
+is exactly one place to look. The alias is kept either way.
 
 The alias field is the supported fix for the name-matching problem above: it maps
 a roster spelling onto a RATER player so his stats stop reading as zero. A
@@ -348,7 +367,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 175 assertions against the real functions
+node tests/test.js        the app: 202 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -367,7 +386,12 @@ in `tests/dom.js`:
 - `querySelectorAll` returning fresh objects on every call silently discards the
   handlers the app just bound to them, so every button looks dead;
 - a plain `value` property does not coerce to a string the way a real input does,
-  so `.value.trim()` throws on a number the app itself assigned.
+  so `.value.trim()` throws on a number the app itself assigned;
+- replacing a `<select>`'s options resets its value in a browser, and a stub that
+  keeps the old string reports a correctly defaulted dropdown as holding a stale
+  club;
+- an attribute parser that only understands `k="v"` never sees `<option selected>`
+  or a bare `hidden`, which are exactly the two things this app leans on most.
 
 Note that top-level `let`/`const` do not land on a vm's global object. `run.js`
 appends an epilogue exposing them as `ctx.__X`; add a name there if a test needs

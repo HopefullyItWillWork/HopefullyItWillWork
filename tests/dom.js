@@ -6,9 +6,16 @@
 'use strict';
 const ATTR = /\[([a-zA-Z-]+)\]/;
 
+/* Captures both k="v" and bare boolean attributes. Missing the bare form meant
+   <option selected> never read as selected and a bare `hidden` on a section
+   never read as hidden — the stub then disagreed with the browser about the
+   two things this app leans on most. */
 function parseTag(tag){
   const at = {};
-  tag.replace(/([a-zA-Z-]+)\s*=\s*"([^"]*)"/g, (m,k,v)=>{ at[k]=v; return m; });
+  const body = tag.replace(/^<[\w-]+/, '').replace(/\/?>$/, '');
+  const re = /([a-zA-Z-]+)(?:\s*=\s*"([^"]*)")?/g;
+  let m;
+  while((m = re.exec(body))) at[m[1]] = m[2] === undefined ? '' : m[2];
   return at;
 }
 
@@ -30,7 +37,18 @@ class El {
   get value(){ return this._value; }
   set value(v){ this._value = v==null ? '' : String(v); }
   get innerHTML(){ return this._html; }
-  set innerHTML(v){ this._html = String(v); this._qs = new Map(); this._doc._scan(this._html); }
+  set innerHTML(v){
+    this._html = String(v); this._qs = new Map(); this._doc._scan(this._html);
+    /* Replacing a <select>'s options resets its value to the selected option, or
+       to the first one. A stub that keeps the old string reports a correctly
+       defaulted dropdown as holding a stale club — and worse, lets app code that
+       relies on the reset look broken. */
+    if(this.tagName === 'SELECT'){
+      const o = this.options;
+      if(o.length){ const sel = o.find(x=>x.selected) || o[0]; this._value = sel.value; }
+      else this._value = '';
+    }
+  }
   get firstChild(){ return null; }
   /* <select>.options — the app gates work on whether it has been filled yet */
   get options(){

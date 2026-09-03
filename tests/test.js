@@ -209,12 +209,21 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   console.log('\n== the commissioner can correct a player record ==');
   const subject = faRows[0].p.n;
   const beforePos = (g('pstat')(subject)||{}).p;
-  g('openPlayerFix')(subject);
-  ok('dialog opens on him', document.getElementById('fxTitle').textContent===g('canon')(subject),
-     document.getElementById('fxTitle').textContent);
-  document.getElementById('fxPos').value = 'C, F';
-  document.getElementById('fxAlias').value = 'Mistyped Name';
-  await document.getElementById('doFix').onclick();
+  g('openPlayerEdit')(subject);
+  ok('the one contract dialog opens on him',
+     document.getElementById('edTitle').textContent===g('canon')(subject),
+     document.getElementById('edTitle').textContent);
+  ok('it says he is on no roster', /Not on a roster/.test(document.getElementById('edSub').textContent),
+     document.getElementById('edSub').textContent);
+  ok('the club list offers leaving him unrostered',
+     /not on a roster/.test(document.getElementById('edClub').innerHTML));
+  ok('and that is the default', document.getElementById('edClub').value==='',
+     document.getElementById('edClub').value);
+  ok('the contract fields start empty', document.getElementById('edY1').value==='');
+
+  document.getElementById('edPos').value = 'C, F';
+  document.getElementById('edAlias').value = 'Mistyped Name';
+  await document.getElementById('doEdit').onclick();
   ok('position stored in settings', g('S').cfg.pos[g('canon')(subject)]==='C, F',
      JSON.stringify(g('S').cfg.pos));
   ok('pstat reports the corrected position', g('pstat')(subject).p==='C, F');
@@ -223,20 +232,101 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('canon() now resolves the misspelling', g('canon')('Mistyped Name')===g('canon')(subject));
   ok('so the misspelling finds his stats', (g('pstat')('Mistyped Name')||{}).n===g('canon')(subject));
   ok('he is flagged as corrected', g('isFixed')(subject)===true);
+  ok('he is still a free agent', !g('stratOwner')(subject));
   document.getElementById('apS').value = 'fix';
   ok('the corrected filter finds him', g('apRows')().some(r=>g('canon')(r.p.n)===g('canon')(subject)));
   document.getElementById('apS').value = '';
   ok('the correction was logged', g('S').log.some(e=>/Player record/.test(e.detail||'')));
 
-  g('openPlayerFix')(subject);
-  await document.getElementById('fxClear').onclick();
-  ok('clearing removes the position', !g('S').cfg.pos[g('canon')(subject)]);
+  g('openPlayerEdit')(subject);
+  ok('the alias comes back into the field',
+     document.getElementById('edAlias').value==='Mistyped Name',
+     document.getElementById('edAlias').value);
+  document.getElementById('edPos').value = '';
+  document.getElementById('edAlias').value = '';
+  await document.getElementById('doEdit').onclick();
+  ok('clearing the fields removes the position', !g('S').cfg.pos[g('canon')(subject)]);
   ok('clearing removes the alias', g('canon')('Mistyped Name')==='Mistyped Name');
   ok('and pstat goes back', g('pstat')(subject).p===beforePos, g('pstat')(subject).p);
 
-  console.log('\n== a GM cannot touch player records ==');
+  console.log('\n== assigning an unrostered player a club and a contract ==');
+  const target = faRows[1].p.n;
+  ok('he starts on no roster', !g('stratOwner')(target));
+  const payBefore = g('committed')('Osborn'), headBefore = g('headcount')('Osborn');
+  g('openPlayerEdit')(target);
+  document.getElementById('edClub').value = 'Osborn';
+  document.getElementById('edY1').value = '6.25';
+  document.getElementById('edY2').value = '6.50';
+  document.getElementById('edPos').value = 'G';
+  document.getElementById('edOpt').value = 'TO';
+  document.getElementById('edBird').value = 'Early';
+  document.getElementById('edAcq').value = '2026';
+  await document.getElementById('doEdit').onclick();
+  const placed = g('S').teams['Osborn'].r.find(p=>p.n===g('canon')(target));
+  ok('he is on the roster now', !!placed, target);
+  ok('with the salary given', placed && placed.y[1]===6.25, placed && JSON.stringify(placed.y));
+  ok('and the second year', placed && placed.y[2]===6.5);
+  ok('and no third year', placed && placed.y[3]===null);
+  ok('position saved on the roster entry', placed && placed.p==='G');
+  ok('option saved', placed && placed.o==='TO');
+  ok('rights saved', placed && placed.b==='Early');
+  ok('year acquired saved', placed && placed.acq===2026);
+  ok('his salary is on the club\'s cap now',
+     Math.abs(g('committed')('Osborn') - (payBefore + 6.25)) < 0.001,
+     g('committed')('Osborn') + ' vs ' + (payBefore + 6.25));
+  ok('and he takes a roster spot', g('headcount')('Osborn')===headBefore+1);
+  ok('his club reads back as Osborn', g('stratOwner')(target)==='Osborn', g('stratOwner')(target));
+  ok('he is off the free agent list', !g('faOnly')().some(p=>g('canon')(p.n)===g('canon')(target)));
+  ok('the assignment was logged',
+     g('S').log.some(e=>/Commissioner assigned/.test(e.detail||'')),
+     JSON.stringify(g('S').log[0]));
+  ok('a rostered player keeps no settings position override',
+     !g('S').cfg.pos[g('canon')(target)]);
+
+  console.log('\n== a club and no salary is refused ==');
+  const target2 = g('faOnly')()[0].n;
+  ctx.__alerts.length = 0;
+  g('openPlayerEdit')(target2);
+  document.getElementById('edClub').value = 'Brice';
+  document.getElementById('edY1').value = '';
+  let held = false;
+  await document.getElementById('doEdit').onclick({preventDefault:()=>{held=true;}});
+  ok('refused with a message', /salary for next season/.test(ctx.__alerts.join('')),
+     JSON.stringify(ctx.__alerts));
+  ok('the dialog is held open', held===true);
+  ok('and nothing was assigned', !g('S').teams['Brice'].r.some(p=>p.n===g('canon')(target2)));
+  ctx.__alerts.length = 0;
+
+  console.log('\n== the hard cap and roster limit warn rather than block ==');
+  // Osborn is nowhere near the tax, so push the tax below its payroll instead.
+  const realTax = g('S').cfg.tax;
+  g('S').cfg.tax = 1.00;
+  ctx.confirm = () => false;
+  g('openPlayerEdit')(target2);
+  document.getElementById('edClub').value = 'Osborn';
+  document.getElementById('edY1').value = '2.00';
+  held = false;
+  await document.getElementById('doEdit').onclick({preventDefault:()=>{held=true;}});
+  ok('declining the warning assigns nobody',
+     !g('S').teams['Osborn'].r.some(p=>p.n===g('canon')(target2)));
+  ok('and holds the dialog open', held===true);
+  ctx.confirm = () => true;
+  g('openPlayerEdit')(target2);
+  document.getElementById('edClub').value = 'Osborn';
+  document.getElementById('edY1').value = '2.00';
+  await document.getElementById('doEdit').onclick();
+  ok('accepting it goes through',
+     g('S').teams['Osborn'].r.some(p=>p.n===g('canon')(target2)));
+  g('S').cfg.tax = realTax;
+
+  // tidy up: take both assigned players back off Osborn
+  ['edAlias'].forEach(()=>{});
+  g('S').teams['Osborn'].r = g('S').teams['Osborn'].r.filter(
+    p=>p.n!==g('canon')(target) && p.n!==g('canon')(target2));
+
+  console.log('\n== a GM cannot assign or correct players ==');
   X.me = 'Osborn'; ctx.__alerts.length = 0;
-  g('openPlayerFix')(subject);
+  g('openPlayerEdit')(subject);
   ok('refused with an alert', ctx.__alerts.length===1, JSON.stringify(ctx.__alerts));
   X.me = '__comm__'; ctx.__alerts.length = 0;
 
