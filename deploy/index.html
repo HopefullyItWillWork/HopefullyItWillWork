@@ -366,7 +366,6 @@ thead th.hide,tbody td.hide{display:none}}
 #stratTbl input.smax{width:84px;padding:5px 7px;font-size:12px;text-align:right}
 #stratTbl input.snote{padding:5px 7px;font-size:12.5px;min-width:200px}
 #stratTbl tr.onblock td{background:var(--sel)}
-#stratTbl tr.gone td:nth-child(-n+4){opacity:.45}
 #stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--space);margin-bottom:9px}
 @media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
@@ -2008,17 +2007,25 @@ function drawStrategy(force){
   if(!force && stratComposing) return;
   const keep=stratFocus();
   const a=A(), open=a&&a.status==='open';
-  const avail=new Set(faPool().map(p=>p.n));
+  const pool=faPool(), avail=new Set(pool.map(p=>p.n));
+  /* The board tracks who is available to bid on, so anyone now under contract
+     drops off it — signed during the auction, or added before they were taken. */
+  if(STRAT.some(x=>!avail.has(x.n))){
+    const gone=STRAT.filter(x=>!avail.has(x.n)).map(x=>x.n);
+    STRAT=STRAT.filter(x=>avail.has(x.n));
+    saveStrat(true);
+    projToast(gone.length===1 ? `${gone[0]} is on a roster — removed from your board`
+                              : `${gone.length} players are on rosters — removed from your board`);
+  }
   const priOpts=(sel)=>Object.keys(PRI).map(k=>
     `<option value="${k}"${k===sel?' selected':''}>${PRI[k]}</option>`).join('');
   const rows=STRAT.map((x,i)=>{
-    const r=pstat(x.n), live=open&&a.player===x.n, gone=!avail.has(x.n)&&!live, g=rtg(x.n);
-    return `<tr class="${gone?'gone':''}${live?' onblock':''}">
+    const r=pstat(x.n), live=open&&a.player===x.n, g=rtg(x.n);
+    return `<tr class="${live?'onblock':''}">
       <td class="l rankcell"><span class="rk">${i+1}</span>
         <button class="act" data-mv="up" data-i="${i}" title="Move up"${i===0?' disabled':''}>&#9650;</button>
         <button class="act" data-mv="dn" data-i="${i}" title="Move down"${i===STRAT.length-1?' disabled':''}>&#9660;</button></td>
-      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}${
-        gone?'<span class="tag t-cut">off the board</span>':''}</td>
+      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}</td>
       <td class="pos">${r&&r.p?r.p:'&#8212;'}</td>
       <td>${g!=null?(g>0?'+':'')+g:'&#8212;'}</td>
       <td class="l"><select class="spri p-${x.pri}" data-f="pri" data-i="${i}"
@@ -2033,7 +2040,7 @@ function drawStrategy(force){
   box.innerHTML=`<div class="form" style="grid-template-columns:1.8fr .9fr .8fr 2fr auto">
       <div><label for="stP">Player</label>
         <input id="stP" list="stList" placeholder="Start typing&#8230;" autocomplete="off">
-        <datalist id="stList">${faPool().slice(0,400).map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
+        <datalist id="stList">${pool.map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
       <div><label for="stPri">Priority</label><select id="stPri">${priOpts('med')}</select></div>
       <div><label for="stMax">Max bid</label>
         <input id="stMax" class="mono" type="number" step="0.25" min="0" placeholder="optional"></div>
@@ -2054,6 +2061,12 @@ function drawStrategy(force){
     if(!raw) return $('stP').focus();
     const n=canon(raw);
     if(stratIdx(n)>=0){ projToast(n+' is already on your board.'); $('stP').select(); return; }
+    if(!avail.has(n)){
+      const owner=TEAMS().find(t=>S.teams[t].r.some(q=>q.n===n&&q.y[1]!=null));
+      projToast(owner ? `${n} is under contract with ${owner}.`
+                      : `${n} is not in the free agent pool.`);
+      $('stP').select(); return;
+    }
     STRAT.push({n,pri:$('stPri').value,max:quarter($('stMax').value),note:$('stNote').value.trim().slice(0,140)});
     $('stP').value='';$('stMax').value='';$('stNote').value='';
     saveStrat(); drawStrategy(true); $('stP').focus();
