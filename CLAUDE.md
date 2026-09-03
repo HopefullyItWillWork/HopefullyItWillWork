@@ -63,6 +63,35 @@ are their competitive edge. Do not "helpfully" sync them to Blobs.
 Consequence: projections do not follow a GM across devices. That trade-off was
 made knowingly. An export/import button would be the right fix if it comes up.
 
+### The auction strategy board IS synced, encrypted
+A GM's strategy board (ranked auction targets, priority, a planning max bid)
+follows them between devices, so unlike projections it does leave the browser.
+It is stored under its own key, `strat-<club>`, outside the five league slices.
+
+It goes up **encrypted**, because `/api/state` has no auth and a list of max bids
+is worth more to a rival than projections are. AES-GCM, key derived by PBKDF2
+from the club's PIN — which the client already holds in the rosters slice, so no
+new secret is stored and it survives a reload. A league-mate who fetches
+`?key=strat-<club>` gets ciphertext.
+
+This is the same honour-system bar as the rest of the app: it stops someone
+reading your board, not someone who digs the PIN out of `rosters` first. Do not
+present it as real confidentiality.
+
+Last write wins, by a timestamp inside the payload. A 409 is retried once against
+the server's revision. localStorage keeps a copy, so the board still works with
+no network — the save toast says "synced" or "this device only". Changing a PIN
+makes the stored copy undecryptable; the client falls back to its local copy and
+re-uploads rather than losing the board.
+
+### The strategy board's pool is not faPool()
+`faPool()` is the free agent *class* — it counts a player taken only when
+`y[1]` is set, so the 45 players in the last year of a deal count as available
+even though they are on a roster today. The board uses `stratPool()`, which
+excludes anyone on any roster at all. Both sides go through `canon()`; without
+it "Jakob Poetl" and "Jakob Poeltl" read as two different players and he slips
+through as unrostered.
+
 ---
 
 ## League rules the code enforces

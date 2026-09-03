@@ -1979,22 +1979,122 @@ function normStrat(v){
   return v.filter(x=>x&&x.n).map(x=>({n:String(x.n),pri:PRI[x.pri]?x.pri:'med',
     max:quarter(x.max),note:String(x.note||'').slice(0,140)}));
 }
-async function loadStrat(){
-  STRAT=[];
-  try{ const l=localStorage.getItem(stratKey()); if(l) STRAT=normStrat(JSON.parse(l)); }catch(e){}
+/* ---- cross-device sync ----
+   The board follows a GM between phone and desktop, so it has to leave the
+   device. /api/state has no auth, so anything stored there is readable by any
+   league-mate who guesses the URL — and this board is a list of max bids, which
+   is worth more to a rival than the projections CLAUDE.md keeps off the server.
+   So it goes up encrypted. The key is derived from the club's PIN, which the
+   client already holds in the rosters slice, so nothing new has to be stored and
+   it still works after a reload. This is the same bar as the rest of the app:
+   it stops a league-mate reading your board, not one determined to dig the PIN
+   out of the rosters slice first. */
+const STRAT_V=1;
+let STRATREV=0, stratStamp=0;
+function stratRemoteKey(){
+  return (me&&!isComm()) ? 'strat-'+me.replace(/[^A-Za-z0-9]+/g,'-') : null;  /* already clean() safe */
+}
+function stratSecret(){
+  const pin=(S&&S.teams&&S.teams[me]&&S.teams[me].pin)||'';
+  return 'league-ledger/1/'+(me||'')+'/'+pin;
+}
+const canCrypt=()=>!!(window.crypto&&crypto.subtle&&window.TextEncoder);
+const b64=b=>btoa(String.fromCharCode.apply(null,new Uint8Array(b)));
+const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function stratCipherKey(salt){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(stratSecret()),
+    'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:120000,hash:'SHA-256'},
+    base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function stratSeal(payload){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await stratCipherKey(salt),
+    new TextEncoder().encode(JSON.stringify(payload)));
+  return {v:STRAT_V,salt:b64(salt),iv:b64(iv),ct:b64(ct)};
+}
+async function stratOpen(box){
+  if(!box||box.v!==STRAT_V||!box.ct||!box.salt||!box.iv) return null;
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(box.iv)},
+    await stratCipherKey(unb64(box.salt)),unb64(box.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+/* localStorage holds the same {at,rows} shape, and still reads the bare array
+   written before syncing existed. */
+function stratReadLocal(){
   try{
-    const r=window.storage?await window.storage.get(stratKey(),false):null;
-    if(r&&r.value){ const remote=normStrat(JSON.parse(r.value)); if(remote.length) STRAT=remote; }
-  }catch(e){}
+    const raw=localStorage.getItem(stratKey());
+    if(!raw) return null;
+    const v=JSON.parse(raw);
+    return Array.isArray(v) ? {at:0,rows:v} : (v&&Array.isArray(v.rows) ? v : null);
+  }catch(e){ return null; }
+}
+async function stratFetch(){
+  const key=stratRemoteKey();
+  if(!key||!canCrypt()||!await probeAPI()) return null;
+  try{
+    const r=await fetch(`${API}?key=${encodeURIComponent(key)}`,{cache:'no-store'});
+    if(!r.ok) return null;
+    const j=await r.json();
+    STRATREV=j.rev||0;
+    if(!j.data) return null;
+    return await stratOpen(j.data);      /* a changed PIN throws here; caller keeps the local copy */
+  }catch(e){ return null; }
+}
+async function stratPush(){
+  const key=stratRemoteKey();
+  if(!key||!canCrypt()||!await probeAPI()) return false;
+  try{
+    const body=JSON.stringify({data:await stratSeal({at:stratStamp,rows:STRAT})});
+    const put=()=>fetch(`${API}?key=${encodeURIComponent(key)}&rev=${STRATREV}`,
+      {method:'PUT',headers:{'content-type':'application/json'},body});
+    let r=await put();
+    if(r.status===409){                  /* the other device wrote; take its revision and win */
+      const j=await r.json().catch(()=>({}));
+      STRATREV=j.rev||STRATREV+1;
+      r=await put();
+    }
+    if(!r.ok) return false;
+    const j=await r.json().catch(()=>({}));
+    STRATREV=j.rev||STRATREV+1;
+    return true;
+  }catch(e){ return false; }
+}
+async function loadStrat(){
+  STRAT=[]; stratStamp=0; STRATREV=0;
+  const local=stratReadLocal();
+  if(local){ STRAT=normStrat(local.rows); stratStamp=local.at||0; }
+  const remote=await stratFetch();
+  /* Whichever device wrote last is the one the GM means. On a tie the remote
+     wins, so a fresh device with nothing local still picks the board up. */
+  if(remote&&Array.isArray(remote.rows)&&(remote.at||0)>=stratStamp){
+    STRAT=normStrat(remote.rows); stratStamp=remote.at||0;
+    try{ localStorage.setItem(stratKey(),JSON.stringify({at:stratStamp,rows:STRAT})); }catch(e){}
+  } else if(local&&remote===null){
+    stratPush();                         /* seed the server from this device */
+  }
 }
 async function saveStrat(quiet){
-  const v=JSON.stringify(STRAT);
+  stratStamp=Date.now();
   let ok=false;
-  try{ if(window.storage){ await window.storage.set(stratKey(),v,false); ok=true; } }catch(e){}
-  try{ localStorage.setItem(stratKey(),v); ok=true; }catch(e){}   /* always keep a local copy too */
-  if(!quiet) projToast(ok?`Strategy saved · ${STRAT.length} player${STRAT.length===1?'':'s'}`
-                        :'Could not save your strategy');
+  try{ localStorage.setItem(stratKey(),JSON.stringify({at:stratStamp,rows:STRAT})); ok=true; }catch(e){}
+  const synced=await stratPush();
+  if(!quiet) projToast(!ok ? 'Could not save your strategy'
+    : `Strategy saved · ${STRAT.length} player${STRAT.length===1?'':'s'}${synced?' · synced':' · this device only'}`);
   return ok;
+}
+/* Coming back to the tab is when a board written on the other device should
+   appear, and it is the one moment a fetch is worth the round trip. */
+async function refreshStrat(){
+  if(!me||isComm()) return;
+  const before=JSON.stringify(STRAT);
+  const remote=await stratFetch();
+  if(remote&&Array.isArray(remote.rows)&&(remote.at||0)>stratStamp){
+    STRAT=normStrat(remote.rows); stratStamp=remote.at||0;
+    try{ localStorage.setItem(stratKey(),JSON.stringify({at:stratStamp,rows:STRAT})); }catch(e){}
+    if(JSON.stringify(STRAT)!==before){ drawStrategy(true); projToast('Strategy updated from your other device'); }
+  }
 }
 /* typing in a comment or a max should not hit storage on every keystroke */
 let stratTimer=null;
@@ -2120,6 +2220,9 @@ let stratComposing=false;
 document.addEventListener('compositionstart',e=>{
   if($('stratBox')&&$('stratBox').contains(e.target)) stratComposing=true; });
 document.addEventListener('compositionend',()=>{ stratComposing=false; });
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&typeof refreshStrat==='function') refreshStrat();
+});
 function stratFocus(){
   const box=$('stratBox'), el=document.activeElement;
   if(!box||!el||!box.contains(el)) return null;
@@ -2319,6 +2422,7 @@ function goTab(id){
   btns.forEach(b=>{const on=b.dataset.v===id; b.setAttribute('aria-selected',on); if(on)found=true;});
   if(!found) return false;
   document.querySelectorAll('.view').forEach(v=>v.hidden = v.id!==id);
+  if(id==='v-auction'&&typeof refreshStrat==='function') refreshStrat();
   window.scrollTo&&window.scrollTo(0,0);
   if(typeof markMore==='function') markMore();
   return true;
