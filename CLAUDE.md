@@ -15,10 +15,21 @@ by dragging a folder.
 ```
 deploy/
   index.html                    the entire app
-  netlify.toml                  publish + functions config
-  package.json                  installs @netlify/blobs for the function
-  netlify/functions/state.mjs   shared storage API
+  netlify.toml                  drag-and-drop config
+  package.json                  installs @netlify/blobs for the functions
+  netlify/functions/
+    state.mjs                   shared storage API
+    notify.mjs                  POST /api/notify — outgoing mail
+    daily.mjs                   scheduled — the daily digest
+    lib/league.mjs              blobs + Resend + the send ceiling
+    lib/format.mjs              pure formatting and date logic (no imports)
+netlify.toml                    git-build config: base = "deploy"
+tests/                          the DOM stub and the assertions
 ```
+
+`lib/` is a subdirectory on purpose: Netlify makes every top-level file in the
+functions directory its own function, and a subdirectory only becomes one if it
+holds a file named after it. Nothing under `lib/` gets an endpoint.
 
 Netlify's base and publish directories both point at `deploy`, functions at
 `deploy/netlify/functions`.
@@ -38,6 +49,10 @@ rather than something the merge logic has to be clever about.
 | `auction`  | constantly during a draft          | isolated; bid lists unioned, highest wins |
 | `trades`   | offers                             | merged by offer id |
 | `log`      | every action                       | **append-only** |
+
+Two keys sit outside the five slices, written only by the mail functions:
+`mailcount` (a daily send counter) and `digest` (the last digest sent, so a
+re-invocation cannot mail the league twice). Neither is read by the client.
 
 `GET /api/state?key=all` returns every slice in one round trip.
 `PUT /api/state?key=X&rev=N` rejects a stale revision with 409 so the client can
@@ -162,16 +177,42 @@ follow, and both were wrong the first time:
 
 **The commissioner's player table** (`drawAllPlayers()`, Commissioner tab) lists
 every contract in the league — club, salary now, salary next season and the two
-after, years left, option, rights, year acquired, rating — filterable and
-sortable, with an Edit button per row. It is the only place expiring players can
-be edited or moved: the Move tool above it lists only players with `y[1]` set, so
-before this there was no way to correct an expiring player's club or rights
-without signing him first.
+after, years left, option, rights, year acquired, rating — *plus every unsigned
+free agent in the pool*. Filterable and sortable, with an Edit button per row. It
+is the only place expiring players can be edited or moved: the Move tool above it
+lists only players with `y[1]` set, so before this there was no way to correct an
+expiring player's club or rights without signing him first.
 
-Edit reuses `openEdit()`. The commissioner-only block (`#edComm`) adds club,
-`y[0]`, option and rights; a GM editing his own roster still sees exactly the
-four contract fields he always had. Changing the club moves the player and logs
-it as a trade rather than an edit.
+A **contract** row opens `openEdit()`. The commissioner-only block (`#edComm`)
+adds club, `y[0]`, position, option and rights; a GM editing his own roster still
+sees exactly the four contract fields he always had. Changing the club moves the
+player and logs it as a trade rather than an edit.
+
+A **free agent** row has no contract to edit, so it opens `openPlayerFix()` — the
+player *record*: the position shown for him, and the spelling the league
+spreadsheet uses when it disagrees with the box scores. Both live in the settings
+slice as `S.cfg.pos` and `S.cfg.alias`, and are mirrored into the module-level
+`POSFIX` and `ALIAS` maps by `rebuildPlayerFixes()`, because `canon()` runs inside
+tight loops and must not reach into `S.cfg` on every call. Call
+`rebuildPlayerFixes()` after anything that replaces `S.cfg` — `applySlice()` and
+the boot sequence already do.
+
+The alias field is the supported fix for the name-matching problem above: it maps
+a roster spelling onto a RATER player so his stats stop reading as zero. A
+commissioner alias beats the built-in `NAMEFIX`.
+
+Stats are deliberately not editable here. They come from the season's box scores;
+a GM's own numbers belong in projections, which never leave his browser.
+
+Free agents in this table are the *strict* reading — nobody on any roster —
+unlike the strategy board. A man in the last year of a deal is already listed
+under his club, and listing him twice would give the commissioner two rows for
+one player. Duplicate *contract* rows are left visible on purpose: the sheet
+really does carry Poeltl on two rosters, and hiding that would hide the problem.
+
+**Adding a club** is on the same tab. A new club joins with an empty roster and
+no PIN, so the first person to sign in as it claims it. Nothing else is
+league-wide — the cap, the tax and the 920-game limit are all per club.
 
 **Cuts** depend on season phase, and this is the part that is easy to get wrong:
 - **In season**: salary stays on the cap until the season ends, then clears. It
@@ -267,8 +308,16 @@ syntactically perfect and completely broken:
   dialog may be deferred; the PIN carries `autofocus` and is focused synchronously.
 
 The reliable method is a Node DOM stub that actually executes the script and
-exercises the functions. One lives in `tests/` — `node tests/test.js`, plus `node tests/smoke.js` (renders every view as signed-out, commissioner and each GM). If you are
-checking that code *parses* rather than *runs*, you are testing the wrong thing.
+exercises the functions. It lives in `tests/`:
+
+```
+node tests/test.js        the app: 121 assertions against the real functions
+node tests/smoke.js       renders every view as signed-out, commissioner, each GM
+node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
+```
+
+If you are checking that code *parses* rather than *runs*, you are testing the
+wrong thing.
 
 Point it at an older build to prove a test is not vacuous:
 `node tests/test.js /tmp/old.html`.
@@ -288,6 +337,63 @@ appends an epilogue exposing them as `ctx.__X`; add a name there if a test needs
 one.
 
 ---
+
+## Email
+
+GMs can put an address on their club (`S.teams[t].email`) and opt into a daily
+digest (`S.teams[t].daily`). Both live in the **rosters** slice, which means they
+carry exactly the same exposure as the PINs: anyone who can reach `/api/state`
+can read them. The Commissioner tab says so in a banner and the dialog repeats
+it. Do not present these addresses as private.
+
+Sending is Resend over plain `fetch` — no SDK, so `package.json` keeps its single
+dependency. Everything is environment variables, set in Netlify under Site
+configuration → Environment variables:
+
+| Variable | | |
+|---|---|---|
+| `RESEND_API_KEY` | required | nothing is sent without it |
+| `MAIL_FROM` | required | e.g. `League Ledger <ledger@yourdomain.com>`; the domain must be verified with Resend |
+| `SITE_URL` | optional | links back into the app |
+| `LEAGUE_TZ` | optional | defaults to `America/New_York` |
+| `MAIL_DAILY_CAP` | optional | defaults to 200 sends a day |
+
+**With no key set, every send returns `{ok:false, reason:"not configured"}` and
+the caller carries on.** That is the deliberate default: a fresh deploy never
+mails anyone. Keep it that way — no code path may assume mail is available.
+
+`/api/notify` (`notify.mjs`) sends a trade-offer nudge and a test message. **It
+never accepts an address.** It takes a club *name*, looks the address up in the
+rosters slice, and sends there — so it cannot be turned into an open relay. It
+checks the club's PIN, which is the same honour-system bar as the rest of the app
+and stops accidents, not a league-mate who reads the source. The real protection
+is the daily ceiling in `lib/league.mjs`, which is a cost control, not a security
+control.
+
+Mail is always a nudge, never the mechanism. A trade offer is saved and visible
+on the other GM's Trades tab before `notify()` is called, and every failure is
+soft — the toast says whether the mail went out. Do not make a move depend on a
+send succeeding.
+
+`daily.mjs` is a **scheduled** function (`export const config = {schedule}`), not
+an endpoint. It mails every club that has an address and the digest switched on,
+listing the league's transactions from the previous day, and writes the `digest`
+key so a re-invocation cannot send twice. Scheduled functions only run on a
+git-connected deploy — a drag-and-drop upload schedules nothing.
+
+"Yesterday" means yesterday in `LEAGUE_TZ`, not UTC. A move made at 9pm Eastern
+is stamped after midnight UTC and would otherwise be filed under the wrong day
+and mailed a digest late. `dayIn()` in `lib/format.mjs` handles this and is the
+single most test-worthy thing in the mail code.
+
+**The digest carries no stats**, and that is not an oversight — the nightly stats
+feed below is not built, so there is no `daily/<date>` key to read. The email
+leaves a marked slot saying so. When the feed lands, the stats half drops into
+`digestBody()` without redesigning the email.
+
+`lib/format.mjs` imports nothing at all, so all of this is testable with no
+Netlify runtime and no `@netlify/blobs` installed. Put new pure logic there
+rather than in `league.mjs`.
 
 ## Auth
 

@@ -47,7 +47,8 @@ process.on('unhandledRejection', e=>{ bootError = bootError || e;
    so the module is asked to hand them out explicitly */
 const EPILOGUE = ';globalThis.__X={' + [
   'S','me','STRAT','RATER','RIDX','PROJ','useProj','activeTeam','SORTS','redraw',
-  'TEAMS','isComm','canEdit','committed','headcount','yrsLeft','birdKind','BIRDOPTS','OPTL','cmp','money'
+  'TEAMS','isComm','canEdit','committed','headcount','yrsLeft','birdKind','BIRDOPTS','OPTL','cmp','money',
+  'ALIAS','POSFIX','HAS_API','NOTIFY','emailing','fixing'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
 
 try { vm.runInContext(src + EPILOGUE, ctx, {filename:'index.html'}); }

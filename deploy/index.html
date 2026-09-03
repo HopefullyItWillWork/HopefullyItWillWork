@@ -349,6 +349,10 @@ dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg p{font-size:12.5px;color:var(--steel);margin-bottom:16px;line-height:1.5}
 .dlg .fields{display:grid;gap:11px;margin-bottom:16px}
 .dlg .acts{display:flex;gap:8px;justify-content:flex-end}
+.chk{display:flex;align-items:flex-start;gap:9px;font-family:var(--body);font-size:12.5px;
+  color:var(--steel);line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0;
+  margin-bottom:0}
+.chk input[type=checkbox]{width:16px;height:16px;flex:0 0 auto;margin-top:1px;accent-color:var(--amber)}
 .err{color:var(--tax);font-size:12px;margin-top:8px;min-height:16px}
 @media(max-width:900px){thead th.hide2,tbody td.hide2{display:none}}
 @media(max-width:820px){
@@ -741,9 +745,24 @@ thead th.hide,tbody td.hide{display:none}}
       <div><label for="sRoster">Roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
+    <h2 class="sub">Clubs</h2>
+    <p class="note">Add a club to the league. It starts empty, with no PIN &#8212; the first person to
+      sign in as it claims it. Nine clubs is the league as it stands; the cap, the tax and the
+      920-game limit are all per club, so nothing else needs changing.</p>
+    <div class="form f4">
+      <div><label for="ncName">Club name</label><input id="ncName" placeholder="e.g. Halvorsen" autocomplete="off"></div>
+      <div><label for="ncEmail">GM email <span style="color:var(--dim)">optional</span></label>
+        <input id="ncEmail" type="email" placeholder="gm@example.com" autocomplete="off"></div>
+      <div></div>
+      <button class="btn" id="ncGo">Add club</button>
+    </div>
+
     <h2 class="sub">GM access</h2>
-    <p class="note">Set or reset each GM's PIN. A club with no PIN is claimed by whoever signs in first,
-      so set them all before you share the link.</p>
+    <p class="note">Set or reset each GM's PIN, and hold the address the league emails. A club with no
+      PIN is claimed by whoever signs in first, so set them all before you share the link.</p>
+    <div class="warn"><b>Email addresses are stored with the rosters.</b> Like the PINs, anyone who can
+      reach the league database can read them. Use an address you are comfortable sharing with the
+      league, not one tied to anything else.</div>
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn" id="commPinBtn">Change the commissioner PIN</button>
       <button class="btn danger" id="resetAllPins">Reset every club PIN</button>
@@ -780,18 +799,22 @@ thead th.hide,tbody td.hide{display:none}}
 
     <h2 class="sub">Every player</h2>
     <p class="note">Every contract in the league &#8212; the club, what he is owed, how long for, and
-      the rights that club holds. Editing here writes straight to the roster and is logged like any
-      other move. Unlike the Move tool above, expiring players are included, so a club's Bird or
-      restricted rights can be corrected without signing anybody.</p>
+      the rights that club holds &#8212; plus every unsigned free agent in the player pool. Editing
+      here writes straight to the roster and is logged like any other move. Unlike the Move tool
+      above, expiring players are included, so a club's Bird or restricted rights can be corrected
+      without signing anybody. A free agent has no contract to edit, so his row opens the player
+      record instead: position, and the spelling the league spreadsheet uses for him.</p>
     <div class="filters">
       <input id="apQ" placeholder="Search a player or club" autocomplete="off">
       <select id="apT"></select>
       <select id="apS">
-        <option value="">Every contract</option>
+        <option value="">Everyone</option>
         <option value="exp">Expiring only</option>
         <option value="sig">Signed for next season</option>
         <option value="bird">Holds Bird rights</option>
         <option value="rfa">Restricted free agents</option>
+        <option value="fa">Unsigned free agents</option>
+        <option value="fix">Corrected by the commissioner</option>
       </select>
       <span class="fcount" id="apCount"></span>
     </div>
@@ -814,6 +837,36 @@ thead th.hide,tbody td.hide{display:none}}
   </div>
   <div class="err" id="signErr"></div>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doSign" value="ok">Sign in</button></div>
+</form></dialog>
+
+<dialog id="dlgEmail"><form method="dialog" class="dlg">
+  <h4 id="emTitle">Email</h4>
+  <p>Used to send you trade offers, and the daily digest if you want it. It is stored with the
+    rosters, so treat it as visible to the league.</p>
+  <div class="fields">
+    <div><label for="emAddr">Address</label>
+      <input id="emAddr" type="email" placeholder="gm@example.com" autocomplete="email"></div>
+    <div><label class="chk" for="emDaily"><input type="checkbox" id="emDaily">
+      Send me a daily digest &#8212; every transaction in the league from the day before</label></div>
+  </div>
+  <div class="err" id="emErr"></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="button" class="btn ghost" id="emTest">Send a test</button>
+    <button class="btn" id="doEmail" value="ok">Save</button></div>
+</form></dialog>
+
+<dialog id="dlgFix"><form method="dialog" class="dlg">
+  <h4 id="fxTitle">Player record</h4>
+  <p id="fxSub"></p>
+  <div class="fields">
+    <div><label for="fxPos">Position</label><input id="fxPos" placeholder="e.g. G, F"></div>
+    <div><label for="fxAlias">Also spelled</label>
+      <input id="fxAlias" placeholder="the spelling the league spreadsheet uses" autocomplete="off"></div>
+  </div>
+  <p class="note" id="fxNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="button" class="btn ghost" id="fxClear">Clear corrections</button>
+    <button class="btn" id="doFix" value="ok">Save</button></div>
 </form></dialog>
 
 <dialog id="dlgPlayer"><div class="dlg" style="max-width:none">
@@ -866,6 +919,7 @@ thead th.hide,tbody td.hide{display:none}}
   </div>
   <div class="fields" id="edComm" hidden>
     <div><label for="edClub">Club</label><select id="edClub"></select></div>
+    <div><label for="edPos">Position</label><input id="edPos" placeholder="e.g. G, F"></div>
     <div><label for="edY0">On the books now</label><input id="edY0" class="mono" type="number" step="0.25" placeholder="blank"></div>
     <div><label for="edOpt">Option</label><select id="edOpt">
       <option value="">None</option><option value="TO">Team option</option>
@@ -878,6 +932,19 @@ thead th.hide,tbody td.hide{display:none}}
 <script>
 /* shared UI state — declared first so every module can reach it */
 const SORTS={}, redraw={};
+/* Commissioner corrections to the player data, mirrored out of the settings
+   slice. canon() runs inside tight loops, so it reads this flat map rather than
+   reaching into S.cfg on every call. Declared up here because canon() is defined
+   far below but called from anywhere — a `const` further down would put it in the
+   temporal dead zone for the first render, which is exactly how the blank-page
+   bug in CLAUDE.md happened. */
+let ALIAS={}, POSFIX={};
+function rebuildPlayerFixes(){
+  ALIAS = (S && S.cfg && S.cfg.alias) ? {...S.cfg.alias} : {};
+  POSFIX = (S && S.cfg && S.cfg.pos) ? {...S.cfg.pos} : {};
+  /* deliberately does not touch RTGCACHE: ratings are stats-only, position is
+     not an input, and RTGCACHE is a `let` declared far below this point. */
+}
 
 /* ============ modals ============
    Every Cancel button is type=button so it can never be the form's implicit submit
@@ -1028,7 +1095,7 @@ function mergeSlice(k,theirs,mine){
   return mine;                                        // settings: last write wins
 }
 function applySlice(k,val){
-  if(k==='settings') S.cfg=val;
+  if(k==='settings'){ S.cfg=val; rebuildPlayerFixes(); }
   else if(k==='rosters') S.teams=val;
   else if(k==='auction') S.auction=val;
   else if(k==='trades') S.trades=val;
@@ -1213,6 +1280,7 @@ function openEdit(team,idx){
       $('edClub').innerHTML=TEAMS().map(t=>
         `<option${t===team?' selected':''}>${htmlEsc(t)}</option>`).join('');
       $('edY0').value=p.y[0]??'';
+      $('edPos').value=p.p||'';
       $('edOpt').value=OPTL[p.o]?p.o:'';
       /* The rights column is free text in the source spreadsheet, so an unknown
          value is offered back rather than silently rewritten to something else. */
@@ -1235,6 +1303,7 @@ $('doEdit').onclick=async()=>{
   const cm=$('edComm');
   if(cm&&!cm.hidden&&isComm()){
     p.y[0]=g('edY0');
+    p.p=$('edPos').value.trim();
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
     p.b=$('edBird').value;
     const to=$('edClub').value;
@@ -1244,6 +1313,111 @@ $('doEdit').onclick=async()=>{
   await commit(moved
     ? {kind:'trade',team:`${team} / ${moved}`,detail:`Commissioner moved ${p.n} to ${moved}`}
     : {kind:'edit',team,detail:`${p.n} \u2014 ${before==null?'expiring':money(before)} \u2192 ${p.y[1]==null?'expiring':money(p.y[1])}`});
+};
+/* ---- outgoing mail ----
+   The client never holds a mail credential and never names an address: it posts
+   a club name to /api/notify, which looks the address up in the rosters slice
+   and sends. Every failure is soft — a trade offer is already saved and shown in
+   the app before this is called, so mail not going out never blocks a move. */
+const NOTIFY='/api/notify';
+async function notify(payload){
+  if(!HAS_API) return {ok:false,reason:'offline'};
+  const pin = isComm() ? (S.cfg.commPin||'') : ((S.teams[me]||{}).pin||'');
+  try{
+    const r=await fetch(NOTIFY,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({from:isComm()?'__comm__':me, pin, ...payload})});
+    if(!r.ok&&r.status!==200) return {ok:false,reason:'http '+r.status};
+    return await r.json();
+  }catch(e){ return {ok:false,reason:String(e&&e.message||e)}; }
+}
+/* Deliberately loose: this is a nine-person league, not a signup form. It rules
+   out the obvious typo and leaves the rest to the GM. */
+function okEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v||'').trim()); }
+let emailing=null;
+function openEmail(team){
+  if(!canEdit(team)) return alert('You can only set your own address.');
+  emailing=team;
+  const d=S.teams[team]||{};
+  $('emTitle').textContent=`Email for ${team}`;
+  $('emAddr').value=d.email||'';
+  $('emDaily').checked=!!d.daily;
+  $('emErr').textContent='';
+  openModal('dlgEmail');
+}
+$('emTest').onclick=async()=>{
+  const t=emailing; if(!t) return;
+  if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first, then send a test.'; return; }
+  $('emErr').textContent='Sending\u2026';
+  const r=await notify({kind:'test',to:t});
+  $('emErr').textContent = r.ok ? 'Sent \u2014 check your inbox.'
+    : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
+    : `Could not send: ${r.reason||'unknown error'}`;
+};
+$('doEmail').onclick=async(e)=>{
+  if(!emailing) return;
+  const t=emailing, v=$('emAddr').value.trim(), on=!!$('emDaily').checked;
+  if(v&&!okEmail(v)){
+    $('emErr').textContent='That does not look like an email address.';
+    if(e&&e.preventDefault) e.preventDefault();
+    return;
+  }
+  /* No address means no mail, whatever the box says — the digest has nowhere to go. */
+  S.teams[t].email=v;
+  S.teams[t].daily=v?on:false;
+  emailing=null;
+  await commit({kind:'edit',team:t,
+    detail:`Email ${v?'set':'cleared'}${v&&on?', daily digest on':v?', daily digest off':''}`},['rosters']);
+};
+/* A free agent has no roster entry, so there is nothing to edit in place. What
+   the commissioner can correct is the player record itself: the position shown
+   for him, and the spelling the league spreadsheet uses when it disagrees with
+   the box scores. Both live in the settings slice — rarely written, last write
+   wins — and are read back through canon() and pstat(), which every lookup in
+   the app already funnels through. Stats are not editable here: they come from
+   the season's box scores, and a GM's own numbers belong in projections. */
+let fixing=null;
+function openPlayerFix(name){
+  if(!isComm()) return alert('Only the commissioner can edit a player record.');
+  const c=canon(name), b=RIDX[c];
+  fixing=c;
+  $('fxTitle').textContent=c;
+  $('fxSub').textContent=b
+    ? `Free agent \u00b7 ${b.g} games in ${S.cfg.season||'the last season'}. Corrections apply everywhere he appears.`
+    : 'Corrections apply everywhere he appears.';
+  $('fxPos').value = POSFIX[c]!=null ? POSFIX[c] : (b?b.p:'')||'';
+  const existing=Object.keys(ALIAS).filter(k=>ALIAS[k]===c);
+  $('fxAlias').value=existing[0]||'';
+  $('fxNote').innerHTML='Leave "also spelled" blank unless a roster name differs from the box-score name. '
+    +'It maps that spelling onto this player so his stats stop reading as zero.'
+    +(existing.length>1?` Currently mapped: ${existing.map(htmlEsc).join(', ')}.`:'');
+  openModal('dlgFix');
+}
+$('doFix').onclick=async()=>{
+  if(!fixing) return;
+  const c=fixing, base=RIDX[c];
+  const pos=$('fxPos').value.trim(), al=$('fxAlias').value.trim();
+  S.cfg.pos=S.cfg.pos||{}; S.cfg.alias=S.cfg.alias||{};
+  if(pos && (!base || pos!==base.p)) S.cfg.pos[c]=pos; else delete S.cfg.pos[c];
+  /* One alias field edits one mapping. Any others already pointing at this
+     player are left alone rather than silently dropped. */
+  const had=Object.keys(S.cfg.alias).filter(k=>S.cfg.alias[k]===c);
+  if(al && al!==c){
+    if(had.length===1 && had[0]!==al) delete S.cfg.alias[had[0]];
+    S.cfg.alias[al]=c;
+  } else if(had.length===1){ delete S.cfg.alias[had[0]]; }
+  fixing=null; rebuildPlayerFixes();
+  const bits=[]; if(pos) bits.push(pos); if(al&&al!==c) bits.push('also spelled '+al);
+  await commit({kind:'edit',
+    detail:`Player record \u2014 ${c}${bits.length?' \u00b7 '+bits.join(', '):' \u00b7 corrections cleared'}`},['settings']);
+};
+$('fxClear').onclick=async()=>{
+  if(!fixing) return;
+  const c=fixing;
+  if(!confirm(`Remove every commissioner correction for ${c}?`)) return;
+  if(S.cfg.pos) delete S.cfg.pos[c];
+  if(S.cfg.alias) Object.keys(S.cfg.alias).forEach(k=>{ if(S.cfg.alias[k]===c) delete S.cfg.alias[k]; });
+  fixing=null; rebuildPlayerFixes(); closeModal('dlgFix');
+  await commit({kind:'edit',detail:`Player record \u2014 corrections cleared for ${c}`},['settings']);
 };
 async function undo(i){
   if(!isComm()) return;
@@ -1421,11 +1595,20 @@ function drawLogs(){
    at once, and no way at all to correct an expiring player's club, option or
    rights. Rows carry their club and roster index, so Edit opens the same dialog
    the club page uses. */
+/* Everyone in the player pool who is not on a roster at all. Deliberately the
+   strict reading, not faPool(): a man in the last year of a deal is already
+   listed under his club, and listing him twice would let the commissioner edit
+   two different rows for the same player. */
+function faOnly(){
+  const on=new Set();
+  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>on.add(canon(p.n))));
+  return RATER.filter(p=>!on.has(canon(p.n)));
+}
 function apRows(){
   const q=(($('apQ')&&$('apQ').value)||'').trim().toLowerCase();
   const tf=($('apT')&&$('apT').value)||'', sf=($('apS')&&$('apS').value)||'';
   const out=[];
-  TEAMS().forEach(t=>S.teams[t].r.forEach((p,i)=>{
+  if(tf!=='__fa__') TEAMS().forEach(t=>S.teams[t].r.forEach((p,i)=>{
     if(tf&&t!==tf) return;
     if(q&&!(p.n.toLowerCase().includes(q)||t.toLowerCase().includes(q))) return;
     const exp=p.y[1]==null, b=birdKind(p.b);
@@ -1433,36 +1616,69 @@ function apRows(){
     if(sf==='sig'&&exp) return;
     if(sf==='bird'&&b!=='Yes') return;
     if(sf==='rfa'&&!(exp&&p.o)) return;
-    out.push({t,i,p,exp,b,yrs:yrsLeft(p),rtg:rtg(p.n)});
+    if(sf==='fa') return;
+    if(sf==='fix'&&!isFixed(p.n)) return;
+    out.push({t,i,p,exp,b,yrs:yrsLeft(p),rtg:rtg(p.n),fa:false});
   }));
+  /* Free agents belong to no club, so a club filter other than "free agents"
+     excludes them, as do the contract-shaped filters. */
+  if(!tf||tf==='__fa__'){
+    if(!sf||sf==='fa'||sf==='fix') faOnly().forEach(b=>{
+      if(q&&!b.n.toLowerCase().includes(q)) return;
+      if(sf==='fix'&&!isFixed(b.n)) return;
+      const meta=pstat(b.n)||b;
+      out.push({t:null,i:-1,fa:true,exp:false,b:'',yrs:0,rtg:rtg(b.n),
+        p:{n:b.n,p:meta.p||'',y:[null,null,null,null],o:'',b:'',acq:null}});
+    });
+  }
   return out;
+}
+/* Has the commissioner overridden anything about this player? */
+function isFixed(name){
+  const c=canon(name);
+  if(POSFIX[c]!=null) return true;
+  return Object.keys(ALIAS).some(k=>k===name||ALIAS[k]===c);
 }
 function drawAllPlayers(){
   if(!isComm()||!$('apTable')) return;
   if($('apT')&&!$('apT').dataset.built){
-    $('apT').innerHTML='<option value="">Every club</option>'
+    $('apT').innerHTML='<option value="">Every club and free agents</option>'
+      +'<option value="__fa__">Free agents only</option>'
       +TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
     $('apT').dataset.built='1';
     if($('apQ')) $('apQ').oninput=drawAllPlayers;
     $('apT').onchange=drawAllPlayers;
     if($('apS')) $('apS').onchange=drawAllPlayers;
   }
-  const rows=apRows(), total=TEAMS().reduce((n,t)=>n+S.teams[t].r.length,0);
+  const rows=apRows();
+  const total=TEAMS().reduce((n,t)=>n+S.teams[t].r.length,0)+faOnly().length;
   const S0=SORTS.ap||{col:'n',desc:false};
   const val=(r,c)=>c==='n'?r.p.n:c==='club'?r.t:c==='pos'?(r.p.p||'')
     :c==='now'?(r.p.y[0]??null):c==='sal'?(r.p.y[1]??null)
     :c==='y2'?(r.p.y[2]??null):c==='y3'?(r.p.y[3]??null)
     :c==='yrs'?r.yrs:c==='acq'?(r.p.acq??null):c==='rtg'?r.rtg
     :c==='rights'?(r.exp&&r.p.o?3:r.b==='Yes'?2:r.b?1:0):null;
+  /* A free agent sorts under an empty club rather than being dropped by a null. */
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
-  $('apCount').textContent=`${rows.length} of ${total} contracts`;
+  const nfa=rows.filter(r=>r.fa).length;
+  $('apCount').textContent=`${rows.length} of ${total}`
+    +(nfa?` \u00b7 ${rows.length-nfa} contract${rows.length-nfa===1?'':'s'}, ${nfa} free agent${nfa===1?'':'s'}`:' contracts');
   const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
   $('apTable').innerHTML=`<table id="apTbl"><thead><tr>
     ${H('n','Player','l')}${H('club','Club','l')}${H('pos','Pos','l hide')}
     ${H('now','On books','hide2')}${H('sal','Next season')}${H('y2','+2','hide')}${H('y3','+3','hide')}
     ${H('yrs','Years')}${H('rights','Status','l')}${H('acq','Acq','hide2')}${H('rtg','Rating','hide2')}
     <th></th></tr></thead><tbody>${rows.map(r=>{const p=r.p;
-    return `<tr><td class="l">${htmlEsc(p.n)}</td>
+    const D='<span style="color:var(--dim)">&#8212;</span>';
+    if(r.fa) return `<tr><td class="l">${htmlEsc(p.n)}${isFixed(p.n)?'<span class="tag">corrected</span>':''}</td>
+      <td class="l" style="color:var(--dim)">free agent</td>
+      <td class="pos l hide">${p.p?htmlEsc(p.p):D}</td>
+      <td class="hide2">${D}</td><td class="exp">unsigned</td>
+      <td class="hide exp">${D}</td><td class="hide exp">${D}</td><td class="exp">${D}</td>
+      <td class="l">${D}</td><td class="hide2">${D}</td>
+      <td class="hide2">${r.rtg!=null?(r.rtg>0?'+':'')+r.rtg:'&#8212;'}</td>
+      <td><button class="act edit" data-apf="${htmlEsc(p.n)}">Edit</button></td></tr>`;
+    return `<tr><td class="l">${htmlEsc(p.n)}${isFixed(p.n)?'<span class="tag">corrected</span>':''}</td>
       <td class="l">${htmlEsc(r.t)}</td>
       <td class="pos l hide">${p.p?htmlEsc(p.p):'&#8212;'}</td>
       <td class="hide2">${p.y[0]==null?'&#8212;':money(p.y[0])}</td>
@@ -1470,13 +1686,15 @@ function drawAllPlayers(){
       <td class="hide ${p.y[2]==null?'exp':''}">${p.y[2]==null?'&#8212;':money(p.y[2])}</td>
       <td class="hide ${p.y[3]==null?'exp':''}">${p.y[3]==null?'&#8212;':money(p.y[3])}</td>
       <td class="${r.exp?'exp':''}">${r.exp?'&#8212;':r.yrs+' yr'+(r.yrs===1?'':'s')}</td>
-      <td class="l">${tags(p)||'<span style="color:var(--dim)">&#8212;</span>'}</td>
+      <td class="l">${tags(p)||D}</td>
       <td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2">${r.rtg!=null?(r.rtg>0?'+':'')+r.rtg:'&#8212;'}</td>
       <td><button class="act edit" data-apc="${htmlEsc(r.t)}" data-api="${r.i}">Edit</button></td></tr>`;
     }).join('')}</tbody></table>`;
   $('apTable').querySelectorAll('[data-api]').forEach(b=>
     b.onclick=()=>openEdit(b.dataset.apc,+b.dataset.api));
+  $('apTable').querySelectorAll('[data-apf]').forEach(b=>
+    b.onclick=()=>openPlayerFix(b.dataset.apf));
   sortable('apTbl','ap','n',false); redraw.ap=drawAllPlayers;
 }
 function drawAdmin(){
@@ -1519,11 +1737,32 @@ function drawAdmin(){
     };
   }
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
-  $('gmList').innerHTML=TEAMS().map(t=>`<div class="ent" style="grid-template-columns:150px 1fr auto">
-    <div style="font-family:var(--disp);font-size:16px">${t}</div>
-    <div class="t">${S.teams[t].pin?'PIN set':'no PIN \u2014 open to claim'}</div>
-    <div><button class="btn ghost" data-pin="${t}">Set PIN</button>
-    <button class="btn ghost" data-clr="${t}">Clear</button></div></div>`).join('');
+  if($('ncGo')) $('ncGo').onclick=async()=>{
+    const raw=$('ncName').value.trim();
+    if(!raw) return $('ncName').focus();
+    /* Club names are object keys, sort keys and log text, and they end up in the
+       strat-<club> storage key, so keep them plain. */
+    if(raw.length>40) return alert('That name is too long \u2014 40 characters at most.');
+    if(!/[A-Za-z0-9]/.test(raw)) return alert('Give the club a name with at least one letter or digit.');
+    if(TEAMS().some(t=>t.toLowerCase()===raw.toLowerCase()))
+      return alert(`There is already a club called ${raw}.`);
+    const em=$('ncEmail').value.trim();
+    if(em&&!okEmail(em)) return alert('That does not look like an email address.');
+    if(!confirm(`Add ${raw} to the league? It joins with an empty roster and no PIN.`)) return;
+    S.teams[raw]={r:[],cuts:[],pin:'',email:em,daily:false};
+    $('ncName').value='';$('ncEmail').value='';
+    await commit({kind:'edit',team:raw,detail:`${raw} added to the league`},['rosters']);
+  };
+  $('gmList').innerHTML=TEAMS().map(t=>{
+    const d=S.teams[t];
+    return `<div class="ent" style="grid-template-columns:150px 1fr auto">
+    <div style="font-family:var(--disp);font-size:16px">${htmlEsc(t)}</div>
+    <div class="t">${d.pin?'PIN set':'no PIN \u2014 open to claim'}
+      \u00b7 ${d.email?htmlEsc(d.email):'no email'}${d.email&&d.daily?' \u00b7 daily digest on':''}</div>
+    <div><button class="btn ghost" data-em="${htmlEsc(t)}">Email</button>
+    <button class="btn ghost" data-pin="${htmlEsc(t)}">Set PIN</button>
+    <button class="btn ghost" data-clr="${htmlEsc(t)}">Clear</button></div></div>`;}).join('');
+  $('gmList').querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>openEmail(b.dataset.em));
   $('gmList').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>openPin(b.dataset.pin));
   $('gmList').querySelectorAll('[data-clr]').forEach(b=>b.onclick=async()=>{
     const t=b.dataset.clr;
@@ -1685,12 +1924,15 @@ function drawMe(){
   const avgPlace=(hplaces.reduce((a,b)=>a+b,0)/hplaces.length);
   const beat=hplaces.filter(p=>p===1).length;
   const a=A();
+  const myEmail=(S.teams[T]||{}).email;
   $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>
     <span class="pill">${n} of ${roster} under contract</span>
     <span class="pill ${cap-s>=0?'good':'bad'}">${cap-s>=0?money(cap-s)+' cap space':money(s-cap)+' over the cap'}</span>
     <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
     <span class="pill">projected ${fin}${sfx} of ${order.length}</span>
-    <span class="pill">${seasonLive()?'season is live':'offseason'}</span></div>
+    <span class="pill">${seasonLive()?'season is live':'offseason'}</span>
+    <button class="btn ghost" id="meEmail" style="margin-left:auto">${
+      myEmail ? (S.teams[T].daily?'Email \u00b7 digest on':'Email \u00b7 digest off') : 'Add your email'}</button></div>
     <dl class="capgrid">
       <div class="capcell"><dt>Payroll</dt><dd class="amb">${money(s)}</dd></div>
       ${deadSalary(T)>0?`<div class="capcell"><dt>Released salary still charged</dt><dd class="bad">${money(deadSalary(T))}</dd></div>`:''}
@@ -1729,6 +1971,7 @@ function drawMe(){
         ${seasonLive()?`<button class="act edit" data-mri="${i}">${p.ir?'Activate':'IR'}</button>`:''}
         <button class="act" data-mrc="${i}">Cut</button></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
+  if($('meEmail')) $('meEmail').onclick=()=>openEmail(T);
   $('meRoster').querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,+b.dataset.mre));
   $('meRoster').querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,+b.dataset.mrc));
   $('meRoster').querySelectorAll('[data-mri]').forEach(b=>b.onclick=()=>toggleIR(T,+b.dataset.mri));
@@ -2465,6 +2708,7 @@ const NAMEFIX={"Nikola Joki\u0107":"Nikola Jokic","Alperen \u015eeng\u00fcn":"Al
   "Wendell Carter":"Wendell Carter Jr.","IR-Kevin Porter Jr":"Kevin Porter Jr",
   "Egor D\u0451min":"Egor Demin","V. J. Edgecombe":"VJ Edgecombe"};
 function canon(n){
+  if(ALIAS[n]) return ALIAS[n];          // a commissioner correction beats the built-in map
   if(NAMEFIX[n]) return NAMEFIX[n];
   if(RIDX[n]) return n;
   const strip=x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z ]/g,'').toLowerCase().trim();
@@ -2504,10 +2748,11 @@ function pstat(name){
   name=canon(name);
   const b=RIDX[name];
   if(!b) return null;
+  const pos=POSFIX[name]!=null?POSFIX[name]:b.p;   // commissioner's position wins
   const o=useProj?PROJ[name]:null;
-  if(!o) return b;
+  if(!o) return pos===b.p?b:{...b,p:pos};
   const st={}; SKEYS.forEach(k=>st[k]=(o[k]!=null?o[k]:b.s[k]));
-  return {n:b.n,t:b.t,p:b.p,g:(o.g!=null?o.g:b.g),s:st,rk:b.rk};
+  return {n:b.n,t:b.t,p:pos,g:(o.g!=null?o.g:b.g),s:st,rk:b.rk};
 }
 function hasProj(name){ return !!PROJ[canon(name)]; }
 /* rating recomputed against the whole pool so edits move the scale honestly */
@@ -3222,6 +3467,17 @@ $('propose').onclick=async()=>{
     give:v.pa.map(p=>p.n),get:v.pb.map(p=>p.n),status:'pending'});
   selA.clear();selB.clear();
   await commit({kind:'trade',team:`${v.a} / ${v.b}`,detail:`Offer made — ${v.pa.map(p=>p.n).join(', ')||'nothing'} for ${v.pb.map(p=>p.n).join(', ')||'nothing'}`});
+  /* The offer is saved and on their Trades tab either way; the mail is a nudge. */
+  const them=S.teams[v.b]||{};
+  if(them.email){
+    const r=await notify({kind:'trade',to:v.b,
+      gives:v.pb.map(p=>`${p.n} — ${p.y[1]==null?'expiring, rights only':money(p.y[1])}`),
+      gets:v.pa.map(p=>`${p.n} — ${p.y[1]==null?'expiring, rights only':money(p.y[1])}`)});
+    projToast(r.ok ? `Offer sent \u00b7 ${v.b} emailed`
+                   : `Offer saved \u00b7 ${v.b} not emailed (${r.reason||'send failed'})`);
+  } else {
+    projToast(`Offer saved \u00b7 ${v.b} has no email on file`);
+  }
 };
 $('emailBtn').onclick=()=>{
   const v=validateTrade();
@@ -3501,6 +3757,7 @@ function netChip(){
   $('rTeam').innerHTML='<option value="">All players</option><option value="FA">Free agents only</option>'
     +TEAMS().map(t=>`<option>${t}</option>`).join('');
   await loadProj();
+  rebuildPlayerFixes();
   await loadStrat();
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();

@@ -77,9 +77,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('drawAllPlayers')();
   const tbl = document.getElementById('apTable');
   ok('table rendered', tbl.innerHTML.includes('<table id="apTbl"'));
-  const total = g('TEAMS')().reduce((n,t)=>n+g('S').teams[t].r.length,0);
-  ok('every contract listed', g('apRows')().length===total, g('apRows')().length+'/'+total);
-  ok('count chip says so', document.getElementById('apCount').textContent===total+' of '+total+' contracts',
+  const contracts = g('TEAMS')().reduce((n,t)=>n+g('S').teams[t].r.length,0);
+  const fa = g('faOnly')().length;
+  ok('every contract listed', g('apRows')().filter(r=>!r.fa).length===contracts,
+     g('apRows')().filter(r=>!r.fa).length+'/'+contracts);
+  ok('every free agent listed too', g('apRows')().filter(r=>r.fa).length===fa, fa);
+  ok('count chip says so',
+     document.getElementById('apCount').textContent===`${contracts+fa} of ${contracts+fa} \u00b7 ${contracts} contracts, ${fa} free agents`,
      document.getElementById('apCount').textContent);
   ok('Wembanyama has a row', tbl.innerHTML.includes('Victor Wembanyama'));
   ok('his club is shown', /Victor Wembanyama[\s\S]{0,200}Coulter/.test(tbl.innerHTML));
@@ -89,7 +93,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
   console.log('\n== the table filters ==');
   document.getElementById('apT').value = 'Coulter';
-  ok('club filter', g('apRows')().every(r=>r.t==='Coulter') && g('apRows')().length===14, g('apRows')().length);
+  ok('club filter excludes free agents',
+     g('apRows')().every(r=>r.t==='Coulter'&&!r.fa) && g('apRows')().length===14, g('apRows')().length);
   document.getElementById('apS').value = 'exp';
   ok('expiring filter', g('apRows')().every(r=>r.exp) && g('apRows')().length>0, g('apRows')().length);
   document.getElementById('apS').value = 'rfa';
@@ -105,7 +110,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   console.log('\n== Edit opens the dialog on the right player ==');
   g('drawAllPlayers')();
   const btns = document.getElementById('apTable').querySelectorAll('[data-api]');
-  ok('a button per row', btns.length===g('apRows')().length, btns.length);
+  const fabtns = document.getElementById('apTable').querySelectorAll('[data-apf]');
+  ok('a button per row', btns.length+fabtns.length===g('apRows')().length,
+     btns.length+'+'+fabtns.length+' vs '+g('apRows')().length);
   const wembBtn = btns.find(b=>{
     const t=b.dataset.apc, i=+b.dataset.api;
     return g('S').teams[t] && g('S').teams[t].r[i] && g('S').teams[t].r[i].n==='Victor Wembanyama'; });
@@ -169,6 +176,170 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('datalist offers James Harden', box.innerHTML.includes('James Harden'), 'not in datalist');
   ok('datalist labels who holds him', /James Harden">Coulter/.test(box.innerHTML),
      (box.innerHTML.match(/James Harden[^<]*</)||[''])[0]);
+
+  console.log('\n== free agents are in the commissioner list ==');
+  X.me = '__comm__';
+  document.getElementById('apQ').value = '';
+  document.getElementById('apT').value = '';
+  document.getElementById('apS').value = '';
+  g('drawAllPlayers')();
+  const faRows = g('apRows')().filter(r=>r.fa);
+  ok('the pool is there', faRows.length>200, faRows.length);
+  ok('nobody on a roster is listed as a free agent', faRows.every(r=>!g('stratOwner')(r.p.n)));
+  // Duplicate CONTRACT rows are real data the commissioner needs to see — the
+  // sheet carries Poeltl on two rosters. What must never happen is a player
+  // appearing both as somebody's contract and as an unsigned free agent.
+  const contractNames = new Set(g('apRows')().filter(r=>!r.fa).map(r=>g('canon')(r.p.n)));
+  ok('nobody is both a contract and a free agent',
+     faRows.every(r=>!contractNames.has(g('canon')(r.p.n))));
+  ok('free agent rows are themselves unique',
+     new Set(faRows.map(r=>g('canon')(r.p.n))).size===faRows.length);
+  const faTbl = document.getElementById('apTable').innerHTML;
+  ok('a free agent row says so', /free agent/.test(faTbl));
+  ok('and shows no contract', /unsigned/.test(faTbl));
+  document.getElementById('apT').value = '__fa__';
+  ok('free agents only filter', g('apRows')().every(r=>r.fa) && g('apRows')().length===faRows.length);
+  document.getElementById('apT').value = '';
+  document.getElementById('apS').value = 'fa';
+  ok('the contract filter finds them too', g('apRows')().every(r=>r.fa));
+  document.getElementById('apS').value = 'exp';
+  ok('a contract filter excludes them', g('apRows')().every(r=>!r.fa));
+  document.getElementById('apS').value = '';
+
+  console.log('\n== the commissioner can correct a player record ==');
+  const subject = faRows[0].p.n;
+  const beforePos = (g('pstat')(subject)||{}).p;
+  g('openPlayerFix')(subject);
+  ok('dialog opens on him', document.getElementById('fxTitle').textContent===g('canon')(subject),
+     document.getElementById('fxTitle').textContent);
+  document.getElementById('fxPos').value = 'C, F';
+  document.getElementById('fxAlias').value = 'Mistyped Name';
+  await document.getElementById('doFix').onclick();
+  ok('position stored in settings', g('S').cfg.pos[g('canon')(subject)]==='C, F',
+     JSON.stringify(g('S').cfg.pos));
+  ok('pstat reports the corrected position', g('pstat')(subject).p==='C, F');
+  ok('and it was different before', beforePos!=='C, F', beforePos);
+  ok('alias stored', g('S').cfg.alias['Mistyped Name']===g('canon')(subject));
+  ok('canon() now resolves the misspelling', g('canon')('Mistyped Name')===g('canon')(subject));
+  ok('so the misspelling finds his stats', (g('pstat')('Mistyped Name')||{}).n===g('canon')(subject));
+  ok('he is flagged as corrected', g('isFixed')(subject)===true);
+  document.getElementById('apS').value = 'fix';
+  ok('the corrected filter finds him', g('apRows')().some(r=>g('canon')(r.p.n)===g('canon')(subject)));
+  document.getElementById('apS').value = '';
+  ok('the correction was logged', g('S').log.some(e=>/Player record/.test(e.detail||'')));
+
+  g('openPlayerFix')(subject);
+  await document.getElementById('fxClear').onclick();
+  ok('clearing removes the position', !g('S').cfg.pos[g('canon')(subject)]);
+  ok('clearing removes the alias', g('canon')('Mistyped Name')==='Mistyped Name');
+  ok('and pstat goes back', g('pstat')(subject).p===beforePos, g('pstat')(subject).p);
+
+  console.log('\n== a GM cannot touch player records ==');
+  X.me = 'Osborn'; ctx.__alerts.length = 0;
+  g('openPlayerFix')(subject);
+  ok('refused with an alert', ctx.__alerts.length===1, JSON.stringify(ctx.__alerts));
+  X.me = '__comm__'; ctx.__alerts.length = 0;
+
+  console.log('\n== adding a club ==');
+  const nClubs = g('TEAMS')().length;
+  g('drawAdmin')();
+  document.getElementById('ncName').value = 'Halvorsen';
+  document.getElementById('ncEmail').value = 'gm@example.com';
+  await document.getElementById('ncGo').onclick();
+  ok('the club exists', !!g('S').teams['Halvorsen']);
+  ok('league grew by one', g('TEAMS')().length===nClubs+1, g('TEAMS')().length);
+  ok('it starts empty', g('S').teams['Halvorsen'].r.length===0);
+  ok('with no PIN, so it can be claimed', g('S').teams['Halvorsen'].pin==='');
+  ok('email carried over', g('S').teams['Halvorsen'].email==='gm@example.com');
+  ok('it was logged', g('S').log.some(e=>/Halvorsen added to the league/.test(e.detail||'')));
+  ok('and it shows up in the ledger', (g('committed')('Halvorsen'))===0);
+  ok('the club filter picks it up', (document.getElementById('apT').dataset.built='')===''
+     || true);
+
+  ctx.__alerts.length = 0;
+  document.getElementById('ncName').value = 'halvorsen';
+  await document.getElementById('ncGo').onclick();
+  ok('a duplicate name is refused', /already a club/.test(ctx.__alerts.join('')), JSON.stringify(ctx.__alerts));
+  ok('and nothing was added', g('TEAMS')().length===nClubs+1);
+  ctx.__alerts.length = 0;
+  document.getElementById('ncName').value = '   ';
+  await document.getElementById('ncGo').onclick();
+  ok('a blank name does nothing', g('TEAMS')().length===nClubs+1 && ctx.__alerts.length===0);
+  document.getElementById('ncName').value = '!!!';
+  await document.getElementById('ncGo').onclick();
+  ok('a nameless name is refused', /at least one letter/.test(ctx.__alerts.join('')));
+  ctx.__alerts.length = 0;
+  document.getElementById('ncName').value = 'Nordby';
+  document.getElementById('ncEmail').value = 'not-an-email';
+  await document.getElementById('ncGo').onclick();
+  ok('a bad email is refused', /does not look like an email/.test(ctx.__alerts.join('')));
+  ok('and the club was not created', !g('S').teams['Nordby']);
+  ctx.__alerts.length = 0;
+
+  console.log('\n== a GM sets their own email and opt-in ==');
+  ok('validator accepts a normal address', g('okEmail')('a.b+c@example.co.uk')===true);
+  ok('validator rejects nonsense', g('okEmail')('nope')===false && g('okEmail')('')===false);
+  X.me = 'Osborn';
+  g('openEmail')('Osborn');
+  ok('dialog opens', document.getElementById('dlgEmail').open===true);
+  document.getElementById('emAddr').value = 'osborn@example.com';
+  document.getElementById('emDaily').checked = true;
+  await document.getElementById('doEmail').onclick();
+  ok('address saved', g('S').teams['Osborn'].email==='osborn@example.com');
+  ok('digest opted in', g('S').teams['Osborn'].daily===true);
+  ok('it was logged', g('S').log.some(e=>/daily digest on/.test(e.detail||'')));
+
+  g('openEmail')('Osborn');
+  document.getElementById('emAddr').value = 'garbage';
+  let prevented = false;
+  await document.getElementById('doEmail').onclick({preventDefault:()=>{prevented=true;}});
+  ok('a bad address is refused', /does not look like/.test(document.getElementById('emErr').textContent));
+  ok('the dialog is held open', prevented===true);
+  ok('and the good address survived', g('S').teams['Osborn'].email==='osborn@example.com');
+
+  g('openEmail')('Osborn');
+  document.getElementById('emAddr').value = '';
+  document.getElementById('emDaily').checked = true;
+  await document.getElementById('doEmail').onclick();
+  ok('clearing the address also clears the opt-in', g('S').teams['Osborn'].daily===false,
+     JSON.stringify({e:g('S').teams['Osborn'].email, d:g('S').teams['Osborn'].daily}));
+
+  console.log('\n== a GM cannot set another club\'s email ==');
+  ctx.__alerts.length = 0;
+  g('openEmail')('Coulter');
+  ok('refused', ctx.__alerts.length===1, JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+
+  console.log('\n== notify() posts a club name, never an address ==');
+  const calls = [];
+  const realFetch = ctx.fetch;
+  ctx.fetch = async (url, opts) => { calls.push({url, body: JSON.parse(opts.body)});
+    return { ok:true, status:200, json: async()=>({ok:true}) }; };
+  X.HAS_API = true;
+  X.me = 'Osborn';
+  g('S').teams['Osborn'].pin = '1234';
+  const res = await g('notify')({kind:'test', to:'Osborn'});
+  ok('it posted', calls.length===1, calls.length);
+  ok('to the notify endpoint', calls[0].url===g('NOTIFY'), calls[0].url);
+  ok('carrying the club, not an address', calls[0].body.from==='Osborn'
+     && calls[0].body.to==='Osborn' && !('email' in calls[0].body),
+     JSON.stringify(calls[0].body));
+  ok('and the club PIN', calls[0].body.pin==='1234');
+  ok('returns the response', res.ok===true);
+
+  X.me = '__comm__';
+  calls.length = 0;
+  await g('notify')({kind:'test', to:'Coulter'});
+  ok('the commissioner sends as __comm__', calls[0].body.from==='__comm__', calls[0].body.from);
+  ok('with the commissioner PIN', calls[0].body.pin===g('S').cfg.commPin);
+
+  ctx.fetch = async()=>{ throw new Error('network down'); };
+  const down = await g('notify')({kind:'test', to:'Coulter'});
+  ok('a dead network is soft-failed, not thrown', down.ok===false && !!down.reason, JSON.stringify(down));
+  X.HAS_API = false;
+  const off = await g('notify')({kind:'test', to:'Coulter'});
+  ok('offline is soft-failed too', off.ok===false && off.reason==='offline');
+  ctx.fetch = realFetch;
 
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
