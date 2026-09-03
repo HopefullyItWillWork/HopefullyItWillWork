@@ -327,7 +327,10 @@ font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
 tbody td.pname{cursor:pointer}
 tbody td.pname:hover{color:var(--amber);text-decoration:underline}
 dialog:not([open]){display:none}
-dialog{background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--chalk);padding:0;max-width:420px;width:92%}
+/* margin:auto is what centres a modal dialog, and the * reset above wipes it out,
+   leaving every dialog jammed into the top-left corner. On a phone the box is
+   92% of the screen so it goes unnoticed; on a desktop monitor it is obvious. */
+dialog{background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--chalk);padding:0;max-width:420px;width:92%;margin:auto}
 dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg{padding:20px}
 .dlg h4{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.04em;margin-bottom:5px}
@@ -2342,6 +2345,15 @@ document.addEventListener('click',e=>{
   if(!c) return;
   if(e.target.closest('button')) return;      // let row buttons do their own thing
   openPlayerCard(c.dataset.player);
+});
+/* The card is modal, so while it is open every control behind it is inert —
+   no dropdown, button or tab will respond. A <dialog> does not close when its
+   backdrop is clicked, so clicking away from the card left the page looking
+   frozen instead of dismissing it. Treat a click on the backdrop as a close.
+   The card is read-only, so there is nothing to lose by dismissing it this way;
+   the editable dialogs still require Cancel or Escape on purpose. */
+$('dlgPlayer').addEventListener('click',e=>{
+  if(e.target===$('dlgPlayer')) closeModal('dlgPlayer');
 });
 
 const DCATS=[["g","Games",0],["PTS","Points",1],["TRB","Rebounds",1],["AST","Assists",1],
