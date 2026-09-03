@@ -341,6 +341,164 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('offline is soft-failed too', off.ok===false && off.reason==='offline');
   ctx.fetch = realFetch;
 
+  console.log('\n== the trade block ==');
+  X.me = 'Coulter';
+  const cRoster = g('S').teams['Coulter'].r;
+  const iBooker = cRoster.findIndex(p=>p.n==='Devin Booker');
+  ok('nothing listed to start', g('blockList')().length===0, g('blockList')().length);
+  await g('toggleBlock')('Coulter', iBooker);
+  ok('the flag lands on the roster entry', cRoster[iBooker].blk===true);
+  ok('so it rides the rosters slice', 'blk' in cRoster[iBooker]);
+  ok('he shows up on the block', g('blockList')().some(x=>x.p.n==='Devin Booker'));
+  ok('it was logged', g('S').log.some(e=>/Devin Booker listed on the trade block/.test(e.detail||'')));
+  await g('toggleBlock')('Coulter', iBooker);
+  ok('and it toggles back off', cRoster[iBooker].blk===false && g('blockList')().length===0);
+  ok('unlisting is logged too', g('S').log.some(e=>/taken off the trade block/.test(e.detail||'')));
+  await g('toggleBlock')('Coulter', iBooker);
+
+  console.log('\n== a GM can only list their own ==');
+  ctx.__alerts.length = 0;
+  const oIdx = g('S').teams['Osborn'].r.findIndex(p=>p.n==='Luka Doncic');
+  await g('toggleBlock')('Osborn', oIdx);
+  ok('refused', ctx.__alerts.length===1, JSON.stringify(ctx.__alerts));
+  ok('and nothing changed', !g('S').teams['Osborn'].r[oIdx].blk);
+  ctx.__alerts.length = 0;
+
+  console.log('\n== an unrestricted free agent cannot be listed ==');
+  // Expiring, no option, no rights: tradeRight() says nobody can trade him.
+  g('S').teams['Coulter'].r.push({n:'Nobody At All',p:'G',y:[1.0,null,null,null],o:'',b:'',acq:2020,cut:false});
+  const iNo = g('S').teams['Coulter'].r.length-1;
+  ok('he really is untradeable', g('tradeable')(g('S').teams['Coulter'].r[iNo])===false);
+  ctx.__alerts.length = 0;
+  await g('toggleBlock')('Coulter', iNo);
+  ok('listing him is refused', /nothing to trade/.test(ctx.__alerts.join('')), JSON.stringify(ctx.__alerts));
+  ok('and he is not on the block', !g('blockList')().some(x=>x.p.n==='Nobody At All'));
+  g('S').teams['Coulter'].r.pop();
+  ctx.__alerts.length = 0;
+
+  console.log('\n== the block renders and loads into the builder ==');
+  g('render')();
+  const blkHtml = document.getElementById('blockList').innerHTML;
+  ok('Booker is in the table', blkHtml.includes('Devin Booker'));
+  ok('with his club', /Devin Booker[\s\S]{0,300}Coulter/.test(blkHtml));
+  ok('and last season on the row', /\d+ G/.test(blkHtml));
+  ok('count chip', /1 of 1 listed/.test(document.getElementById('blkCount').textContent),
+     document.getElementById('blkCount').textContent);
+
+  X.me = 'Osborn';
+  X.selA.clear(); X.selB.clear();
+  g('blockPick')('Coulter', cRoster[iBooker]);
+  ok('his club goes on the far side', document.getElementById('tB').value==='Coulter',
+     document.getElementById('tB').value);
+  ok('and he is selected there', X.selB.has('Devin Booker'));
+  ok('my own club takes the near side', document.getElementById('tA').value==='Osborn',
+     document.getElementById('tA').value);
+
+  console.log('\n== listing my own player puts him on my side ==');
+  const oi = g('S').teams['Osborn'].r.findIndex(p=>p.n==='Luka Doncic');
+  await g('toggleBlock')('Osborn', oi);
+  X.selA.clear(); X.selB.clear();
+  g('blockPick')('Osborn', g('S').teams['Osborn'].r[oi]);
+  ok('my club on the near side', document.getElementById('tA').value==='Osborn');
+  ok('and he is selected there', X.selA.has('Luka Doncic'));
+  ok('the other side is somebody else', document.getElementById('tB').value!=='Osborn');
+
+  console.log('\n== an empty block says so, and filters work ==');
+  // Each GM has to unlist his own — that is the point of the permission check.
+  await g('toggleBlock')('Osborn', oi);
+  X.me = 'Coulter';
+  await g('toggleBlock')('Coulter', iBooker);
+  ok('nothing is listed now', g('blockList')().length===0, g('blockList')().length);
+  g('drawBlock')();
+  ok('empty state shown', /Nobody is on the block/.test(document.getElementById('blockList').innerHTML));
+  await g('toggleBlock')('Coulter', iBooker);
+  X.me = 'Osborn';
+  await g('toggleBlock')('Osborn', oi);
+  g('drawBlock')();
+  ok('two clubs listed', g('blockList')().length===2, g('blockList')().length);
+  document.getElementById('blkT').value = 'Coulter';
+  g('drawBlock')();
+  ok('club filter', /1 of 2 listed/.test(document.getElementById('blkCount').textContent),
+     document.getElementById('blkCount').textContent);
+  ok('and only that club renders',
+     document.getElementById('blockList').innerHTML.includes('Devin Booker')
+     && !document.getElementById('blockList').innerHTML.includes('Luka Doncic'));
+  document.getElementById('blkT').value = '';
+  document.getElementById('blkQ').value = 'luka';
+  g('drawBlock')();
+  ok('search filter', /1 of 2 listed/.test(document.getElementById('blkCount').textContent));
+  document.getElementById('blkQ').value = '';
+  g('drawBlock')();
+
+  console.log('\n== stats show in the pick lists ==');
+  document.getElementById('tA').value = 'Osborn';
+  document.getElementById('tB').value = 'Coulter';
+  X.selA.clear(); X.selB.clear();
+  g('drawTradeLists')();
+  const listA = document.getElementById('listA').innerHTML;
+  ok('a stat line per player', (listA.match(/pkline/g)||[]).length>10,
+     (listA.match(/pkline/g)||[]).length);
+  ok('games are first, because of the 920 cap', /\d+ G · /.test(listA));
+  ok('points, rebounds, assists, threes', /pts · .* reb · .* ast · .* 3p/.test(listA));
+  ok('statLine handles a player with no games',
+     g('statLine')('Nobody Who Ever Played').includes('no 2025'),
+     g('statLine')('Nobody Who Ever Played'));
+
+  console.log('\n== the category comparison ==');
+  X.selA.add('Luka Doncic');
+  X.selB.add('Devin Booker');
+  g('drawTrade')();
+  const tc = document.getElementById('tradeCats').innerHTML;
+  ok('the table renders', tc.includes('<table id="tcTbl"'));
+  ok('both clubs send a row', /Osborn sends/.test(tc) && /Coulter sends/.test(tc));
+  ok('both clubs get a net row', /Osborn net/.test(tc) && /Coulter net/.test(tc));
+  ok('all nine categories are columns',
+     g('PCATS').every(([,l])=>tc.includes('>'+l+'<')), 'missing a header');
+  ok('games are a column of their own', /<th>G<\/th>/.test(tc));
+
+  const A = g('tradeCats')([g('S').teams['Osborn'].r.find(p=>p.n==='Luka Doncic')]);
+  const B = g('tradeCats')([g('S').teams['Coulter'].r.find(p=>p.n==='Devin Booker')]);
+  ok('totals are a season, not a per-game rate', A.v.PTS>500, A.v.PTS);
+  ok('and match games times rate',
+     Math.abs(A.v.PTS - g('pstat')('Luka Doncic').s.PTS*g('pstat')('Luka Doncic').g)<0.01);
+  ok('percentages come back as fractions', A.v.FG>0 && A.v.FG<1, A.v.FG);
+  ok('games are summed', A.g===g('pstat')('Luka Doncic').g, A.g);
+  ok('an empty side is zero, not NaN',
+     g('tradeCats')([]).v.PTS===0 && g('tradeCats')([]).g===0);
+  const noGames = g('tradeCats')([{n:'Nobody Who Ever Played'}]);
+  ok('a player with no games is counted as unrated, not NaN',
+     noGames.unrated===1 && noGames.v.PTS===0, JSON.stringify(noGames));
+
+  console.log('\n== turnovers read the right way round ==');
+  ok('shedding turnovers is a gain', g('catGood')('TOV', -40)==='good');
+  ok('taking them on is a loss', g('catGood')('TOV', 40)==='bad');
+  ok('points are the other way', g('catGood')('PTS', 40)==='good' && g('catGood')('PTS',-40)==='bad');
+  ok('no change is neutral', g('catGood')('PTS', 0)==='');
+  ok('percentages are not netted', /netrow[\s\S]{0,400}dimx/.test(tc));
+
+  console.log('\n== a listing does not travel with the player ==');
+  X.me = 'Coulter';
+  const bIdx = g('S').teams['Coulter'].r.findIndex(p=>p.n==='Devin Booker');
+  if(!g('S').teams['Coulter'].r[bIdx].blk) await g('toggleBlock')('Coulter', bIdx);
+  ok('listed by Coulter', g('S').teams['Coulter'].r[bIdx].blk===true);
+  X.me = '__comm__';
+  await g('applyTrade')({a:'Coulter', b:'Brice', give:['Devin Booker'], get:[]});
+  const landed = g('S').teams['Brice'].r.find(p=>p.n==='Devin Booker');
+  ok('he arrived at Brice', !!landed);
+  ok('and is not still advertised', !landed.blk, JSON.stringify(landed.blk));
+  ok('so the block is empty again', !g('blockList')().some(x=>x.p.n==='Devin Booker'));
+  // put him back
+  await g('applyTrade')({a:'Brice', b:'Coulter', give:['Devin Booker'], get:[]});
+  ok('applyTrade confirms each move', ctx.__alerts.length===2, JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;   // its own "trade complete" notices, not stray ones
+  X.me = 'Osborn';
+
+  console.log('\n== the comparison clears when nothing is selected ==');
+  X.selA.clear(); X.selB.clear();
+  g('drawTrade')();
+  ok('empty', document.getElementById('tradeCats').innerHTML==='');
+  await g('toggleBlock')('Osborn', oi);
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

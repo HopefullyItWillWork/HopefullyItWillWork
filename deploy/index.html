@@ -136,6 +136,8 @@ tbody tr.iscut td:first-child{text-decoration:line-through;text-decoration-color
 .exp{color:var(--dim)}
 .tag{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.09em;padding:1.5px 5px;border-radius:2px;margin-left:6px;vertical-align:1px;font-weight:500}
 .t-to{background:var(--tto-b);color:var(--tto-t)}.t-ro{background:var(--tro-b);color:var(--tro-t)}.t-po{background:var(--tpo-b);color:var(--tpo-t)}
+.t-blk{background:var(--amber);color:var(--ink);font-weight:700}
+.act.on{border-color:var(--amber);color:var(--amber)}
 .t-bird{background:var(--tbi-b);color:var(--tbi-t)}.t-eb{background:var(--teb-b);color:var(--teb-t)}
 .t-rfa{background:var(--trf-b);color:var(--trf-t)}.t-cut{background:var(--tcu-b);color:var(--tcu-t)}
 tfoot td{padding:11px 9px;font-family:var(--mono);font-size:13px;font-weight:700;text-align:right;border-top:1px solid var(--line)}
@@ -202,6 +204,13 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 .pk.on .s{color:var(--space)}
 /* Rights sit below the contracts, which puts them under the scroll on a full
    roster. The heading makes the section findable and says why they cost $0. */
+.pkn{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pkline{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim);white-space:nowrap}
+.dimx{color:var(--dim)}
+#tcTbl td,#tcTbl th{font-family:var(--mono);white-space:nowrap}
+#tcTbl tr.netrow td{border-top:1px solid var(--line);font-weight:700}
+#tcTbl td.good{color:var(--space)}
+#tcTbl td.bad{color:var(--tax)}
 .pkhd{position:sticky;top:0;background:var(--panel2);border-bottom:1px solid var(--line);
   padding:5px 10px;font-family:var(--mono);font-size:9px;letter-spacing:.11em;
   text-transform:uppercase;color:var(--dim)}
@@ -599,7 +608,17 @@ thead th.hide,tbody td.hide{display:none}}
   </section>
 
   <section class="view" id="v-trade" role="tabpanel" hidden>
-    <h2>Build a trade</h2>
+    <h2>Trade block</h2>
+    <p class="note">Players their clubs have said they will listen on. Pick one to load him straight
+      into the builder below. List your own from the roster table on My Team.</p>
+    <div class="filters">
+      <input id="blkQ" placeholder="Search the block" autocomplete="off">
+      <select id="blkT"></select>
+      <span class="fcount" id="blkCount"></span>
+    </div>
+    <div class="scroller" id="blockList"></div>
+
+    <h2 class="sub">Build a trade</h2>
     <div class="tradebox">
       <div class="side">
         <label for="tA">Club A</label><select id="tA"></select>
@@ -613,6 +632,7 @@ thead th.hide,tbody td.hide{display:none}}
         <div class="sidefoot" id="footB"></div>
       </div>
     </div>
+    <div id="tradeCats"></div>
     <div id="tradeDetail"></div>
     <div id="verdict"></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
@@ -1171,6 +1191,40 @@ async function toggleIR(team,idx){
   p.ir=!p.ir;
   await commit({kind:'edit',team,detail:`${p.n} ${p.ir?'moved to':'activated from'} injured reserve`});
 }
+/* The trade block is one boolean on the roster entry, not a separate list. It
+   therefore rides the rosters slice and merges per club exactly like a cut or a
+   signing — two GMs listing players at the same moment cannot collide, and a
+   player who is traded or released takes his listing with him instead of
+   stranding an orphaned name in some other structure.
+
+   Only tradeable players can be listed: an unrestricted free agent in the last
+   year of a deal is nobody's to offer. */
+async function toggleBlock(team,idx){
+  if(!canEdit(team)) return alert('You can only list your own players.');
+  const p=S.teams[team].r[idx];
+  if(!p) return;
+  if(!p.blk && !tradeable(p))
+    return alert(`${p.n} has no contract and no rights held \u2014 there is nothing to trade.`);
+  p.blk=!p.blk;
+  await commit({kind:'edit',team,
+    detail:`${p.n} ${p.blk?'listed on the trade block':'taken off the trade block'}`},['rosters']);
+}
+/* A listing belongs to the club that made it, so it does not travel with the
+   player. Without this a man traded away arrives at his new club still on the
+   block, advertising him on behalf of a GM who never listed him. Call this
+   anywhere a roster entry moves between clubs. */
+function unlist(p){ if(p&&p.blk) delete p.blk; return p; }
+/* Every player any club has listed, contracts before rights. */
+function blockList(){
+  const out=[];
+  TEAMS().forEach(t=>S.teams[t].r.forEach((p,i)=>{ if(p.blk&&tradeable(p)) out.push({t,i,p}); }));
+  return out.sort((a,b)=>{
+    const ca=contracted(a.p), cb=contracted(b.p);
+    if(ca!==cb) return ca?-1:1;
+    if(ca) return b.p.y[1]-a.p.y[1];
+    return ((rtg(b.p.n))??-99)-((rtg(a.p.n))??-99);
+  });
+}
 const deadMoney=t=>(S.teams[t].cuts||[]).reduce((s,c)=>s+(c.s||0),0);
 function freeAgents(){
   const out=[], seen=new Set();
@@ -1246,6 +1300,7 @@ async function signPlayer(name,team,price,years){
     const i=S.teams[t].r.findIndex(p=>p.n===name&&p.y[1]==null);
     if(i>=0){const p=S.teams[t].r.splice(i,1)[0];
       p.y=y;p.o='';p.acq=p.acq&&t===team?p.acq:new Date().getFullYear();
+      if(t!==team) unlist(p);
       S.teams[team].r.push(p);moved=true;break;}
   }
   if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:new Date().getFullYear(),cut:false});
@@ -1307,7 +1362,7 @@ $('doEdit').onclick=async()=>{
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
     p.b=$('edBird').value;
     const to=$('edClub').value;
-    if(to&&to!==team&&S.teams[to]){ S.teams[team].r.splice(idx,1); S.teams[to].r.push(p); moved=to; }
+    if(to&&to!==team&&S.teams[to]){ S.teams[team].r.splice(idx,1); S.teams[to].r.push(unlist(p)); moved=to; }
   }
   editing=null;
   await commit(moved
@@ -1731,7 +1786,7 @@ function drawAdmin(){
       if(from===to) return alert(`${n} is already on ${to}.`);
       const p=S.teams[from].r.splice(idx,1)[0];
       if(sal>=1) p.y[1]=Math.round(sal*4)/4;
-      S.teams[to].r.push(p);
+      S.teams[to].r.push(unlist(p));
       $('mvP').value='';$('mvS').value='';
       await commit({kind:'trade',team:`${from} / ${to}`,detail:`Commissioner moved ${n} to ${to}`});
     };
@@ -1808,7 +1863,7 @@ function render(){
     $('tA').value=(me&&me!=='__comm__')?me:TEAMS()[0];
     $('tB').value=TEAMS().find(t=>t!==$('tA').value);
   }
-  drawTradeLists();drawTrade();drawOffers();
+  drawBlock();drawTradeLists();drawTrade();drawOffers();
   drawRater();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
   exportBtn('expRater','player-rater.csv','raterTbl');
   exportBtn('expLabPool','player-pool.csv','labPoolTbl');
@@ -1965,9 +2020,11 @@ function drawMe(){
     <th data-k="sal">Salary</th><th class="hide2" data-k="rtg">Rating</th>${canAct?'<th></th>':''}</tr></thead>
     <tbody>${mrows.map(p=>{
       const i=S.teams[T].r.findIndex(x=>x.n===p.n);
-      return `<tr><td class="pname" data-player="${p.n}">${p.n}${tags(p)}</td><td>${money(p.y[1])}</td>
+      return `<tr><td class="pname" data-player="${p.n}">${p.n}${tags(p)}${
+        p.blk?'<span class="tag t-blk">On the block</span>':''}</td><td>${money(p.y[1])}</td>
       <td class="hide2">${rtg(p.n)!=null?(rtg(p.n)>0?'+':'')+rtg(p.n):'&#8212;'}</td>
       ${canAct?`<td><button class="act edit" data-mre="${i}">Edit</button>
+        <button class="act edit${p.blk?' on':''}" data-mrb="${i}">${p.blk?'Unlist':'Block'}</button>
         ${seasonLive()?`<button class="act edit" data-mri="${i}">${p.ir?'Activate':'IR'}</button>`:''}
         <button class="act" data-mrc="${i}">Cut</button></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
@@ -1975,6 +2032,7 @@ function drawMe(){
   $('meRoster').querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,+b.dataset.mre));
   $('meRoster').querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,+b.dataset.mrc));
   $('meRoster').querySelectorAll('[data-mri]').forEach(b=>b.onclick=()=>toggleIR(T,+b.dataset.mri));
+  $('meRoster').querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,+b.dataset.mrb));
   sortable('meRosTbl','mine','sal',true); redraw.mine=drawMe;
   if($('goTrades')) $('goTrades').onclick=()=>goTab('v-trade');
   if($('labGo')) $('labGo').onclick=()=>goTab('v-me');
@@ -3330,7 +3388,9 @@ function drawTradeLists(){
       const head = right && (i===0||!tradeRight(all[i-1]))
         ? '<div class="pkhd">Rights held \u2014 no salary next season</div>' : '';
       return `${head}<label class="pk ${sel.has(p.n)?'on':''}"><input type="checkbox" data-${tag}="${p.n}" ${sel.has(p.n)?'checked':''}>
-      <span>${p.n}${hasProj(p.n)?'<span class="edited"> &#8226;</span>':''}${right?tags(p):''}</span>
+      <span class="pkn">${p.n}${hasProj(p.n)?'<span class="edited"> &#8226;</span>':''}${right?tags(p):''}${
+        p.blk?'<span class="tag t-blk">block</span>':''}
+        <span class="pkline">${statLine(p.n)}</span></span>
       <span class="s" style="margin-left:auto">${r==null?'':(r>0?'+':'')+r}</span>
       <span class="s" style="margin-left:9px">${right?'rights only':money(p.y[1])}</span>
       <button type="button" class="act edit" data-tp="${p.n}">Stats</button></label>`;}).join('')
@@ -3347,6 +3407,128 @@ function drawTradeLists(){
     wirePlayerCard($('tradeDetail'));
     $('tradeDetail').scrollIntoView({behavior:'smooth',block:'nearest'});});
 }
+/* The one-line summary under a name in the pick lists. Games first: the league
+   caps a club at 920 player-games, so what a player costs in slots matters as
+   much as what he produces in them. */
+function statLine(name){
+  const r=pstat(name);
+  if(!r||!r.g) return '<span class="dimx">no 2025\u201326 games on file</span>';
+  const n=(k,d)=>r.s[k]==null?'\u2013':r.s[k].toFixed(d==null?1:d);
+  return `${r.g} G \u00b7 ${n('PTS')} pts \u00b7 ${n('TRB')} reb \u00b7 ${n('AST')} ast \u00b7 ${n('P3')} 3p`;
+}
+/* Season totals for a set of players, the same way clubTotals() and standings()
+   count — this is a totals league, so what moves in a trade is a season's worth
+   of production, not a per-game rate. Percentages are weighted by attempts, as
+   everywhere else. */
+function tradeCats(players){
+  const a={FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0};
+  let g=0, rated=0, unrated=0;
+  players.forEach(p=>{
+    const r=pstat(p.n);
+    if(!r||!r.g){ unrated++; return; }
+    rated++; g+=r.g;
+    Object.keys(a).forEach(k=>a[k]+=(r.s[k]||0)*r.g);
+  });
+  return {g, rated, unrated,
+    v:{FG:a.FGA?a.FG/a.FGA:null, FT:a.FTA?a.FT/a.FTA:null,
+       P3:a.P3, TRB:a.TRB, AST:a.AST, STL:a.STL, BLK:a.BLK, TOV:a.TOV, PTS:a.PTS}};
+}
+const catCell=(k,v)=>v==null?'\u2013'
+  :(k==='FG'||k==='FT') ? (v*100).toFixed(1)+'%' : Math.round(v).toLocaleString();
+/* Turnovers are the one category where less is better, so a club shedding them
+   is gaining ground. Everything else reads the obvious way. */
+const catGood=(k,d)=> d===0 ? '' : ((k==='TOV') ? (d<0?'good':'bad') : (d>0?'good':'bad'));
+
+function drawTradeCats(v){
+  const box=$('tradeCats'); if(!box) return;
+  if(!v.pa.length&&!v.pb.length){ box.innerHTML=''; return; }
+  const A=tradeCats(v.pa), B=tradeCats(v.pb);
+  const row=(label,cells,cls)=>`<tr class="${cls||''}"><td class="l">${label}</td>${cells}</tr>`;
+  const side=(t,c)=>row(`${htmlEsc(t)} sends`,
+    `<td>${c.g?c.g.toLocaleString():'\u2013'}</td>`
+    +PCATS.map(([k])=>`<td>${catCell(k,c.v[k])}</td>`).join(''));
+  /* What each club ends up with: it loses what it sends and gains what it gets.
+     Shooting percentages do not subtract, so they are shown per side only. */
+  const net=(t,out,inc)=>row(`${htmlEsc(t)} net`,
+    `<td class="${catGood('g',inc.g-out.g)}">${(inc.g-out.g>0?'+':'')+(inc.g-out.g).toLocaleString()}</td>`
+    +PCATS.map(([k])=>{
+      if(k==='FG'||k==='FT') return '<td class="dimx">\u2013</td>';
+      const d=Math.round((inc.v[k]||0)-(out.v[k]||0));
+      return `<td class="${catGood(k,d)}">${d>0?'+':''}${d.toLocaleString()}</td>`;
+    }).join(''), 'netrow');
+  const missing=A.unrated+B.unrated;
+  box.innerHTML=`<h3 class="sub" style="margin-top:20px">What moves</h3>
+    <p class="note">Last season's totals, counted the way the league scores. Turnovers count against
+      you, so shedding them shows as a gain. Percentages are weighted by attempts and do not add up
+      across clubs, so they are shown per side only. Games matter on their own: the league caps a
+      club at ${S.cfg.gamecap||920} player-games, and slots you cannot use are wasted.</p>
+    <div class="scroller"><table id="tcTbl"><thead><tr>
+      <th class="l">Club</th><th>G</th>${PCATS.map(([,l])=>`<th>${l}</th>`).join('')}
+    </tr></thead><tbody>
+      ${side(v.a,A)}${side(v.b,B)}
+      ${net(v.a,A,B)}${net(v.b,B,A)}
+    </tbody></table></div>
+    ${missing?`<p class="note">${missing} player${missing===1?'':'s'} in this offer had no games
+      in 2025\u201326 and count as zero here.</p>`:''}`;
+}
+
+function drawBlock(){
+  const box=$('blockList'); if(!box) return;
+  const all=blockList();
+  if($('blkT')&&!$('blkT').dataset.built){
+    $('blkT').innerHTML='<option value="">Every club</option>'
+      +TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+    $('blkT').dataset.built='1';
+    $('blkT').onchange=drawBlock;
+    if($('blkQ')) $('blkQ').oninput=drawBlock;
+  }
+  const q=(($('blkQ')&&$('blkQ').value)||'').trim().toLowerCase();
+  const tf=($('blkT')&&$('blkT').value)||'';
+  const rows=all.filter(x=>(!tf||x.t===tf)
+    &&(!q||x.p.n.toLowerCase().includes(q)||x.t.toLowerCase().includes(q)));
+  if($('blkCount')) $('blkCount').textContent=all.length
+    ? `${rows.length} of ${all.length} listed` : '';
+  if(!all.length){
+    box.innerHTML='<div class="empty">Nobody is on the block. '
+      +(me&&!isComm()?'List your own from the roster table on My Team.'
+                     :'A GM lists players from the roster table on My Team.')+'</div>';
+    return;
+  }
+  if(!rows.length){ box.innerHTML='<div class="empty">Nobody listed matches that.</div>'; return; }
+  box.innerHTML=`<table id="blkTbl"><thead><tr>
+    <th class="l" data-k="n">Player</th><th class="l" data-k="club">Club</th>
+    <th class="l hide" data-k="pos">Pos</th><th data-k="sal">Salary</th>
+    <th data-k="rtg">Rating</th><th class="l hide2" data-k="line">Last season</th>
+    <th></th></tr></thead><tbody>${rows.map(({t,i,p})=>{
+    const r=rtg(p.n), right=tradeRight(p), st=pstat(p.n);
+    return `<tr><td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}${tags(p)}</td>
+      <td class="l">${htmlEsc(t)}</td>
+      <td class="pos l hide">${st&&st.p?htmlEsc(st.p):'&#8212;'}</td>
+      <td class="${right?'exp':''}">${right?'rights only':money(p.y[1])}</td>
+      <td>${r!=null?(r>0?'+':'')+r:'&#8212;'}</td>
+      <td class="l hide2"><span class="pkline">${statLine(p.n)}</span></td>
+      <td><button class="act edit" data-bkp="${htmlEsc(t)}" data-bki="${i}">Add to trade</button></td>
+    </tr>`;}).join('')}</tbody></table>`;
+  box.querySelectorAll('[data-bki]').forEach(b=>b.onclick=()=>
+    blockPick(b.dataset.bkp, S.teams[b.dataset.bkp].r[+b.dataset.bki]));
+  sortable('blkTbl','blk','sal',true); redraw.blk=drawBlock;
+}
+/* Loading a listed player into the builder. His own club goes on the side he is
+   not being asked to receive from: your club stays on the left where you can see
+   what you are giving up. */
+function blockPick(team,p){
+  if(!p) return;
+  const mine = (me&&!isComm()) ? me : null;
+  if(team===mine){ $('tA').value=team; selA.add(p.n);
+    if($('tB').value===team) $('tB').value=TEAMS().find(t=>t!==team)||team; }
+  else {
+    $('tB').value=team; selB.add(p.n);
+    if(mine && $('tA').value!==mine) { $('tA').value=mine; selA.clear(); }
+    else if($('tA').value===team) $('tA').value=TEAMS().find(t=>t!==team)||team;
+  }
+  drawTradeLists(); drawTrade();
+  $('tradeCats').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function drawTrade(){
   const v=validateTrade();
   const foot=(t)=>{
@@ -3358,6 +3540,7 @@ function drawTrade(){
       <div class="${s.taxOk?'pass':'fail'}"><span>Room to tax</span><b>${money(S.cfg.tax-s.after)}</b></div>`;
   };
   $('footA').innerHTML=foot(v.a);$('footB').innerHTML=foot(v.b);
+  drawTradeCats(v);
   if(!v.pa.length&&!v.pb.length){$('verdict').innerHTML='';}
   else $('verdict').innerHTML=v.ok
     ? `<div class="vd ok"><h5>Legal trade</h5>${v.a} sends ${money(v.outA)}, ${v.b} sends ${money(v.outB)}. Both clubs clear salary matching, the hard cap, and roster limits.</div>`
@@ -3402,7 +3585,8 @@ async function applyTrade(tr){
   const move=(from,to,names)=>{
     names.forEach(n=>{
       const i=S.teams[from].r.findIndex(p=>p.n===n);
-      if(i>=0){const p=S.teams[from].r.splice(i,1)[0];S.teams[to].r.push(p);} // Bird rights travel with the player
+      // Bird rights travel with the player; a trade-block listing does not.
+      if(i>=0){const p=S.teams[from].r.splice(i,1)[0];S.teams[to].r.push(unlist(p));}
     });
   };
   move(tr.a,tr.b,tr.give);move(tr.b,tr.a,tr.get);

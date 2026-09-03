@@ -214,6 +214,43 @@ really does carry Poeltl on two rosters, and hiding that would hide the problem.
 no PIN, so the first person to sign in as it claims it. Nothing else is
 league-wide — the cap, the tax and the 920-game limit are all per club.
 
+**The trade block** is one boolean, `p.blk`, on the roster entry — not a separate
+list. It therefore rides the `rosters` slice and merges per club exactly like a
+cut or a signing, so two GMs listing players at the same moment cannot collide.
+A GM lists his own from the roster table on My Team; `toggleBlock()` enforces
+that, and refuses a player `tradeable()` rejects — an expiring player with no
+rights is an unrestricted free agent nobody can offer.
+
+**A listing does not travel with the player.** Bird rights do; a listing belongs
+to the club that made it. Every point where a roster entry crosses clubs calls
+`unlist()` — `applyTrade()`, the commissioner's Move tool, the club select on the
+edit dialog, and `signPlayer()` when it moves an expiring man. Miss one and a
+traded player arrives at his new club still advertised, on behalf of a GM who
+never listed him.
+
+The Trades tab opens with the block, filterable by club and name. "Add to trade"
+loads the player into the builder: his club goes on the far side and yours on the
+near one, so you are always looking at what you would give up.
+
+**Stats in the trade machine.** Each pick-list row carries a line under the name —
+games first, then points, rebounds, assists and threes. Games lead because of the
+920-game cap: what a player costs in slots matters as much as what he does in
+them.
+
+Below the builder, `drawTradeCats()` shows what each side sends across all nine
+categories and the net swing for each club. These are **season totals**, counted
+the way `clubTotals()` and `standings()` count, because the league scores totals
+rather than rates. Two things are easy to get backwards:
+
+- **Turnovers invert.** A club shedding them is gaining ground, so `catGood()`
+  reads a negative delta as good for `TOV` and bad for everything else.
+- **Percentages do not net.** FG% and FT% are attempt-weighted and cannot be
+  added across clubs, so they are shown per side and the net row leaves them
+  blank rather than printing a meaningless number.
+
+A player with no games on file counts as zero and is reported in a footnote, not
+silently dropped.
+
 **Cuts** depend on season phase, and this is the part that is easy to get wrong:
 - **In season**: salary stays on the cap until the season ends, then clears. It
   never carries into the next year.
@@ -311,7 +348,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 121 assertions against the real functions
+node tests/test.js        the app: 175 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
