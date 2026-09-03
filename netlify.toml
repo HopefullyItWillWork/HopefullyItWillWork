@@ -1,0 +1,10 @@
+# Git-connected builds. Netlify only reads netlify.toml from the repo root,
+# so the base directory has to be declared here — the copy inside deploy/
+# is for drag-and-drop deploys and is never seen by a git build.
+[build]
+  base = "deploy"
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
