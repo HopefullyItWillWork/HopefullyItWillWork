@@ -1,6 +1,9 @@
+# Drag-and-drop deploys: publish is this folder itself. No `base` here —
+# it is meaningless outside a git build. Git builds are configured by the
+# netlify.toml at the repository root.
 [build]
-  base = "deploy"
   publish = "."
   functions = "netlify/functions"
+
 [functions]
   node_bundler = "esbuild"
