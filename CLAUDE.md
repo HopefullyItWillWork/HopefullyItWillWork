@@ -128,6 +128,21 @@ Matching applies only to a club that is over the cap before the trade or that th
 trade pushes over. Re-validate at accept time — rosters move between offer and
 acceptance.
 
+A club can also trade the **rights** it holds to a player whose deal is expiring
+— Bird, Early Bird, or restricted — and the rights travel with him. `tradeRight()`
+decides: an expiring player with no rights at all is an unrestricted free agent
+nobody can trade, and a player who has cleared waivers is gone.
+
+Those players carry no salary for next season, so they move **$0**. Two things
+follow, and both were wrong the first time:
+
+- They are not in `headcount()`, so the roster delta must count contracts only.
+  Counting selected players instead let a club at the roster limit send rights
+  and take back a contract.
+- `$0` is not the same as missing. Checking `y[1]` alone to confirm a club still
+  has a player rejected every rights trade at accept time as though the player
+  had left.
+
 **Cuts** depend on season phase, and this is the part that is easy to get wrong:
 - **In season**: salary stays on the cap until the season ends, then clears. It
   never carries into the next year.
@@ -206,6 +221,11 @@ syntactically perfect and completely broken:
   correctly every time and was never visible.
 - `S.teams[t].pin` throwing inside a form-submit handler, so sign-in died silently
   and the dialog closed. Users reported "nothing happens."
+- Deferring focus into the sign-in dialog by 50ms. `showModal()` focuses the club
+  select, so anything typed in that window went into the dropdown — changing the
+  club by type-ahead — and a field-blanking step on the same timer wiped the PIN.
+  Typing "1234" the instant the box opened left "4". Nothing about opening that
+  dialog may be deferred; the PIN carries `autofocus` and is focused synchronously.
 
 The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. Build one, run the interaction, assert on the result.

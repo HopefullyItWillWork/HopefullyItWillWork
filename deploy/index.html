@@ -200,6 +200,11 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 .pk .s{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--steel)}
 .pk.on{background:var(--sel)}
 .pk.on .s{color:var(--space)}
+/* Rights sit below the contracts, which puts them under the scroll on a full
+   roster. The heading makes the section findable and says why they cost $0. */
+.pkhd{position:sticky;top:0;background:var(--panel2);border-bottom:1px solid var(--line);
+  padding:5px 10px;font-family:var(--mono);font-size:9px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--dim)}
 .sidefoot{margin-top:11px;display:grid;gap:5px;font-family:var(--mono);font-size:11.5px;color:var(--steel)}
 .sidefoot div{display:flex;justify-content:space-between;gap:10px}
 .sidefoot b{color:var(--chalk);font-weight:500}
@@ -733,7 +738,7 @@ thead th.hide,tbody td.hide{display:none}}
   <h4>Sign in</h4><p>Pick your club. If it has no PIN yet, the one you enter becomes its PIN.</p>
   <div class="fields">
     <div><label for="inTeam">Club</label><select id="inTeam"></select></div>
-    <div><label for="inPin">PIN</label><input id="inPin" name="league-pin" type="password" inputmode="numeric"
+    <div><label for="inPin">PIN</label><input id="inPin" name="league-pin" type="password" inputmode="numeric" autofocus
       autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
   </div>
   <div class="err" id="signErr"></div>
@@ -1147,9 +1152,14 @@ function drawWho(){
     $('signErr').textContent = list.length ? '' : 'Waiting for league data. Try again in a moment.';
     $('inPin').value='';
     if(!openModal('dlgSign')){ $('signErr').textContent='This browser cannot open the sign-in box.'; return; }
-    /* Chrome can autofill a saved password into the PIN after the box opens;
-       clear it again on the next frame so nobody submits a stale value blind. */
-    setTimeout(()=>{ try{ $('inPin').value=''; $('inPin').focus(); }catch(e){} },50);};
+    /* Focus synchronously, and let the input's autofocus attribute put the
+       dialog's own focusing steps on the PIN too. Both of these used to happen on
+       a 50ms timer, which lost whatever was typed first: showModal() focuses the
+       club select, so early keystrokes went into the dropdown -- changing the
+       selected club by type-ahead -- and a blanking step on the same timer wiped
+       the field, so a quick typist got "Enter your PIN." on a PIN they had just
+       entered. Nothing here may be deferred. */
+    try{ $('inPin').focus(); }catch(e){}};
   if($('signCTA'))$('signCTA').onclick=openSignIn;
   if($('signBtn'))$('signBtn').onclick=openSignIn;
   if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};STRAT=[];render();};
@@ -2810,6 +2820,22 @@ function maxIncoming(out){
   return out*1.25;
 }
 const salOf=p=>p.y[1]!=null?p.y[1]:0;
+/* A club may trade the rights it holds to a player whose deal is expiring —
+   Bird, Early Bird, or restricted — and those rights travel with him. Such a
+   player carries no salary for next season, so he moves $0: he neither helps
+   nor hurts salary matching, and he is not in headcount(), so he must not move
+   the roster count either. A player who has cleared waivers is gone and the
+   club holds nothing; an expiring player with no rights at all is an
+   unrestricted free agent nobody can trade. */
+function tradeRight(p){
+  if(p.y[1]!=null||p.cut) return null;
+  if(p.b==='Yes') return 'Bird';
+  if(p.b) return 'Early Bird';
+  if(p.o) return 'Restricted';
+  return null;
+}
+const contracted=p=>p.y[1]!=null;
+const tradeable=p=>contracted(p)||!!tradeRight(p);
 function tradeSides(){
   const a=$('tA').value,b=$('tB').value;
   const pa=S.teams[a].r.filter(p=>selA.has(p.n)), pb=S.teams[b].r.filter(p=>selB.has(p.n));
@@ -2821,7 +2847,8 @@ function validateTrade(){
   const res={a,b,pa,pb,outA,outB,ok:true,fails:[],sides:{}};
   if(a===b){res.ok=false;res.fails.push('Pick two different clubs.');return res;}
   if(!pa.length&&!pb.length){res.ok=false;res.fails.push('Select at least one player.');return res;}
-  [[a,outA,outB,pa.length,pb.length],[b,outB,outA,pb.length,pa.length]].forEach(([t,out,inc,nOut,nIn])=>{
+  const nA=pa.filter(contracted).length, nB=pb.filter(contracted).length;
+  [[a,outA,outB,nA,nB],[b,outB,outA,nB,nA]].forEach(([t,out,inc,nOut,nIn])=>{
     const before=committed(t), after=before-out+inc;
     const overCap=before>cap||after>cap;
     const lim=maxIncoming(out);
@@ -2840,14 +2867,23 @@ function validateTrade(){
 function drawTradeLists(){
   const a=$('tA').value,b=$('tB').value;
   const RG=ratings();
-  const mk=(t,sel,tag)=>S.teams[t].r.filter(p=>p.y[1]!=null).sort((x,y)=>y.y[1]-x.y[1])
-    .map(p=>{const r=RG[canon(p.n)];
-      return `<label class="pk ${sel.has(p.n)?'on':''}"><input type="checkbox" data-${tag}="${p.n}" ${sel.has(p.n)?'checked':''}>
-      <span>${p.n}${hasProj(p.n)?'<span class="edited"> &#8226;</span>':''}</span>
+  /* Contracts first by salary, then the rights players — nulls sort last, as
+     everywhere else in the app. */
+  const mk=(t,sel,tag)=>S.teams[t].r.filter(tradeable).sort((x,y)=>{
+      const cx=contracted(x), cy=contracted(y);
+      if(cx!==cy) return cx?-1:1;
+      if(cx) return y.y[1]-x.y[1];
+      return ((RG[canon(y.n)])??-99)-((RG[canon(x.n)])??-99);
+    })
+    .map((p,i,all)=>{const r=RG[canon(p.n)], right=tradeRight(p);
+      const head = right && (i===0||!tradeRight(all[i-1]))
+        ? '<div class="pkhd">Rights held \u2014 no salary next season</div>' : '';
+      return `${head}<label class="pk ${sel.has(p.n)?'on':''}"><input type="checkbox" data-${tag}="${p.n}" ${sel.has(p.n)?'checked':''}>
+      <span>${p.n}${hasProj(p.n)?'<span class="edited"> &#8226;</span>':''}${right?tags(p):''}</span>
       <span class="s" style="margin-left:auto">${r==null?'':(r>0?'+':'')+r}</span>
-      <span class="s" style="margin-left:9px">${money(p.y[1])}</span>
+      <span class="s" style="margin-left:9px">${right?'rights only':money(p.y[1])}</span>
       <button type="button" class="act edit" data-tp="${p.n}">Stats</button></label>`;}).join('')
-      ||'<div class="empty">No players under contract.</div>';
+      ||'<div class="empty">Nothing to trade \u2014 no contracts and no rights held.</div>';
   $('listA').innerHTML=mk(a,selA,'a');
   $('listB').innerHTML=mk(b,selB,'b');
   $('listA').querySelectorAll('[data-a]').forEach(c=>c.onchange=()=>{
@@ -2881,7 +2917,8 @@ function drawTrade(){
   $('tCount').textContent=pend?` (${pend})`:'';
 }
 function tradeText(v){
-  const L=(t,ps)=>ps.length?ps.map(p=>`  ${p.n} (${money(p.y[1])})`).join('\n'):'  nothing';
+  const L=(t,ps)=>ps.length?ps.map(p=>{const rt=tradeRight(p);
+    return `  ${p.n} (${rt?rt+' rights, no salary':money(p.y[1])})`;}).join('\n'):'  nothing';
   return `${v.a} sends:\n${L(v.a,v.pa)}\n\n${v.b} sends:\n${L(v.b,v.pb)}\n\n`
    +`${v.a}: ${money(v.sides[v.a].before)} -> ${money(v.sides[v.a].after)}\n`
    +`${v.b}: ${money(v.sides[v.b].before)} -> ${money(v.sides[v.b].after)}\n\n`
@@ -2889,13 +2926,18 @@ function tradeText(v){
 }
 function recheckTrade(tr){
   const {cap,tax,roster}=S.cfg, fails=[];
-  const salOfName=(t,n)=>{const p=S.teams[t].r.find(x=>x.n===n);return p&&p.y[1]!=null?p.y[1]:null;};
-  const outA=tr.give.map(n=>salOfName(tr.a,n)), outB=tr.get.map(n=>salOfName(tr.b,n));
-  if(outA.some(v=>v==null)) fails.push(`${tr.a} no longer has every player in this offer.`);
-  if(outB.some(v=>v==null)) fails.push(`${tr.b} no longer has every player in this offer.`);
+  /* A rights player is worth $0, which is not the same as missing — checking the
+     salary alone used to reject every rights trade as though the club no longer
+     had the player. Look him up, then confirm the club still has something to
+     trade: a contract, or rights it has not since lost to a waiver claim. */
+  const onRoster=(t,n)=>S.teams[t].r.find(x=>x.n===n);
+  const outA=tr.give.map(n=>onRoster(tr.a,n)), outB=tr.get.map(n=>onRoster(tr.b,n));
+  if(outA.some(p=>!p||!tradeable(p))) fails.push(`${tr.a} no longer has every player in this offer.`);
+  if(outB.some(p=>!p||!tradeable(p))) fails.push(`${tr.b} no longer has every player in this offer.`);
   if(fails.length) return fails;
-  const sA=outA.reduce((x,y)=>x+y,0), sB=outB.reduce((x,y)=>x+y,0);
-  [[tr.a,sA,sB,tr.give.length,tr.get.length],[tr.b,sB,sA,tr.get.length,tr.give.length]]
+  const sA=outA.reduce((x,p)=>x+salOf(p),0), sB=outB.reduce((x,p)=>x+salOf(p),0);
+  const cA=outA.filter(contracted).length, cB=outB.filter(contracted).length;
+  [[tr.a,sA,sB,cA,cB],[tr.b,sB,sA,cB,cA]]
     .forEach(([t,out,inc,nOut,nIn])=>{
       const before=committed(t), after=before-out+inc;
       if((before>cap||after>cap)&&inc>maxIncoming(out)+0.001)
