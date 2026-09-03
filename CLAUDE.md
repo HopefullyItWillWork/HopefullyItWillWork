@@ -321,6 +321,48 @@ the key fell back to `proj_anon`.
 
 ---
 
+## Working on this together
+
+**Before opening a pull request, and again before merging one, check that the
+code you touched has not changed underneath you.** This applies to everyone —
+human or Claude, every time, no exceptions for a small diff.
+
+```
+git fetch origin main
+git log --oneline <your-branch>..origin/main            # has main moved?
+git log --oneline <base-sha>..origin/main -- <files>    # did anyone touch what you touched?
+git status --short                                      # is your tree clean?
+```
+
+If `main` has moved: merge it into your branch, re-run `node tests/test.js` and
+`node tests/smoke.js`, and only then open or merge the PR. Never merge a branch
+whose base has moved without re-running the tests — a clean textual merge of this
+file proves nothing about whether the two changes still work together.
+
+This matters more here than in a normal repo, and for one reason: **the whole app
+is a single 333KB file.** Two people working on `deploy/index.html` for more than
+a day or two will collide, and a conflict in that file is miserable to resolve by
+hand. So:
+
+- Keep branches short-lived. Merge within a day or two rather than letting a
+  branch run for weeks.
+- Pull `main` into your branch regularly while you work, not once at the end.
+- Say what you are touching before you start, if someone else is active.
+
+**Roster data is not a merge concern — it is a data-loss concern.** `deploy/index.html`
+carries the `SEED` rosters and the PINs. Merging the file merges the *code*; league
+data edited on two branches ends up an arbitrary mix of both. Roster changes belong
+in the app, which writes them to Netlify Blobs. Edit `SEED` only to correct the
+original spreadsheet, and never to record a transaction.
+
+**Never merge a red or conflicted PR.** Netlify builds a deploy preview for every
+PR (site `symphonious-elf-169404`). Open it and confirm the header chip reads
+"shared · N transactions" rather than "this device only" — that is the one check
+that proves the function bundled and the Blobs store is reachable. A preview that
+renders correctly but says "this device only" is a broken deploy that looks fine.
+
+---
+
 ## Not yet built
 
 - Nightly stats feed. The rolling-15-day chart is built and waiting on a
