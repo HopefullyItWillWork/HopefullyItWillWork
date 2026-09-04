@@ -1548,6 +1548,138 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.phase = 'offseason';
   X.me = 'Osborn';
 
+  console.log('\n== free agency is a season activity ==');
+  // Earlier blocks left S.cfg.roster pinned to one club's headcount; put the
+  // rulebook back and pick a club with room.
+  g('S').cfg.roster = 15;
+  X.me = g('TEAMS')().find(t => g('headcount')(t) < 15) || 'Brice';
+  const faClub = X.me;
+  g('S').cfg.phase = 'offseason';
+  g('S').cfg.minSal = 1.00;
+  g('S').cfg.deadline = '';
+  ok('a GM cannot sign in the offseason', g('canSignFA')(faClub) === false);
+  ctx.__alerts.length = 0;
+  const freeMan = g('faPool')().find(p => g('rtg')(p.n) != null && !g('signedClub')(p.n)).n;
+  await g('signFA')(faClub, freeMan);
+  ok('and is told why', /auction/.test(ctx.__alerts[0] || ''), JSON.stringify(ctx.__alerts));
+  ok('nobody was signed', !g('signedClub')(freeMan));
+  ctx.__alerts.length = 0;
+  g('S').cfg.phase = 'season';
+  ok('in season he can', g('canSignFA')(faClub) === true);
+
+  console.log('\n== before the deadline is Early Bird, after it is a rental ==');
+  g('S').cfg.deadline = '2099-01-01';
+  ok('a far-off deadline has not passed', g('deadlinePassed')() === false);
+  await g('signFA')(faClub, freeMan);
+  const faSigned = g('S').teams[faClub].r.find(p => p.n === freeMan);
+  ok('he is signed to the club', !!faSigned && g('signedClub')(freeMan) === faClub);
+  ok('at the league minimum', faSigned.y[1] === g('minSal')(), faSigned.y[1] + ' vs ' + g('minSal')());
+  ok('for one year only', faSigned.y[2] == null && faSigned.y[3] == null);
+  ok('with Early Bird rights', g('birdKind')(faSigned.b) === 'Early', faSigned.b);
+  ok('and the log says so', g('S').log.some(e => /Early Bird/.test(e.detail || '')),
+     g('S').log[0].detail);
+
+  const faIdx = g('S').teams[faClub].r.findIndex(p => p.n === freeMan);
+  g('S').teams[faClub].r.splice(faIdx, 1);
+  g('S').cfg.deadline = '2000-01-01';
+  ok('a past deadline has passed', g('deadlinePassed')() === true);
+  await g('signFA')(faClub, freeMan);
+  const rental = g('S').teams[faClub].r.find(p => p.n === freeMan);
+  ok('he is still signed', !!rental);
+  ok('but holds no rights at all', g('birdKind')(rental.b) === '', JSON.stringify(rental.b));
+  ok('and the log calls it a rental', g('S').log.some(e => /rental/.test(e.detail || '')),
+     g('S').log[0].detail);
+  g('S').teams[faClub].r.splice(g('S').teams[faClub].r.findIndex(p => p.n === freeMan), 1);
+  g('S').cfg.deadline = '';
+
+  console.log('\n== the minimum contract is a setting ==');
+  g('S').cfg.minSal = 1.75;
+  ok('it is read, not hard-coded', g('minSal')() === 1.75);
+  await g('signFA')(faClub, freeMan);
+  ok('and a signing uses it',
+     g('S').teams[faClub].r.find(p => p.n === freeMan).y[1] === 1.75);
+  g('S').teams[faClub].r.splice(g('S').teams[faClub].r.findIndex(p => p.n === freeMan), 1);
+  g('S').cfg.minSal = 1.00;
+  ok('nonsense falls back to a dollar',
+     (g('S').cfg.minSal = 0) === 0 && g('minSal')() === 1.00);
+  g('S').cfg.minSal = 1.00;
+
+  console.log('\n== three tabs belong to the offseason ==');
+  /* The DOM stub's querySelectorAll only understands attribute selectors, so
+     "#tabs button" — which markPhaseTabs() and goTab() both use — finds nothing
+     here. What can be checked in Node is the rule; the hiding itself was
+     verified in a real browser. */
+  ok('the three offseason-only views are named in one place',
+     JSON.stringify(g('OFFSEASON_TABS')) === JSON.stringify(['v-auction', 'v-fa', 'v-rookie']),
+     JSON.stringify(g('OFFSEASON_TABS')));
+  g('S').cfg.phase = 'season';
+  ctx.__alerts.length = 0;
+  g('render')();
+  ok('rendering live season runs markPhaseTabs without complaint', ctx.__alerts.length === 0,
+     JSON.stringify(ctx.__alerts));
+  g('S').cfg.phase = 'offseason';
+  g('render')();
+  ok('and rendering the offseason too', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+
+  console.log('\n== the auction nominates on a snake ==');
+  {
+    const T = g('TEAMS')();
+    g('S').cfg.phase = 'offseason';
+    g('S').cfg.roster = 15;
+    g('S').cfg.nomOrder = [];
+    ok('with no order set anybody may nominate', g('canNominate')(T[0]) === true
+       && g('canNominate')(T[1]) === true);
+    ok('and there is no clock', g('nomOnClock')() === null);
+
+    g('S').cfg.nomOrder = T.slice();
+    const before = g('nomCount')();
+    ok('round one runs top to bottom',
+       g('nomSlot')(before + 0) === T[0] && g('nomSlot')(before + 1) === T[1]);
+    // Positions are absolute, so read the snake from zero rather than from now.
+    ok('the first round is the order as given',
+       T.every((t, i) => g('nomSlot')(i) === t));
+    ok('the second round runs back up',
+       g('nomSlot')(T.length) === T[T.length - 1]
+       && g('nomSlot')(T.length + 1) === T[T.length - 2],
+       g('nomSlot')(T.length) + '/' + g('nomSlot')(T.length + 1));
+    ok('the third turns round again', g('nomSlot')(T.length * 2) === T[0]);
+    ok('the turn at each end doubles, as a snake does',
+       g('nomSlot')(T.length - 1) === T[T.length - 1]
+       && g('nomSlot')(T.length) === T[T.length - 1]);
+
+    console.log('\n== only the club on the clock may nominate ==');
+    const clock = g('nomOnClock')();
+    ok('somebody is on the clock', !!clock && !!clock.team, JSON.stringify(clock));
+    ok('he may nominate', g('canNominate')(clock.team) === true);
+    const other = T.find(t => t !== clock.team);
+    ok('nobody else may', g('canNominate')(other) === false, other);
+    X.me = other;
+    ctx.__alerts.length = 0;
+    const someFA = g('faPool')().find(p => !g('signedClub')(p.n)).n;
+    await g('nominate')(someFA, other, 1);
+    ok('so his nomination is refused', !g('A')() || g('A')().player !== someFA,
+       JSON.stringify(ctx.__alerts));
+    ok('and he is told whose turn it is',
+       (ctx.__alerts[0] || '').includes(clock.team), JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    console.log('\n== a full club is skipped, not waited on ==');
+    // Pin the limit to the club on the clock so he reads as full.
+    g('S').cfg.roster = g('headcount')(clock.team);
+    ok('he is full', g('nomFull')(clock.team) === true);
+    ok('and cannot nominate', g('canNominate')(clock.team) === false);
+    const next = g('nomOnClock')();
+    ok('the clock has moved past him', !!next && next.team !== clock.team,
+       JSON.stringify(next));
+    ok('and says how many it stepped over', next.skipped >= 1, String(next.skipped));
+    g('S').cfg.roster = 15;
+    ok('with room again he is back on the clock', g('nomOnClock')().team === clock.team);
+
+    g('S').cfg.nomOrder = [];
+    g('S').auction = null;
+    X.me = 'Osborn';
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

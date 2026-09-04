@@ -279,6 +279,10 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 .lurowctl .act{margin-left:0;flex:none}
 /* A player on the injured reserve is dimmed and struck through wherever he is
    listed, so a roster with two of them reads at a glance. */
+/* The what-if roster sits in a half-width column, so the shared .scroller
+   min-width put its Drop button off the right edge — the same bug My Roster had.
+   .rosterwrap sizes to its column instead. */
+.rosterwrap table{min-width:0}
 tbody tr.isir td{opacity:.55}
 tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:var(--steel)}
 @media (max-width:1000px){
@@ -564,7 +568,7 @@ thead th.hide,tbody td.hide{display:none}}
     <button role="tab" data-v="v-me" aria-selected="false" id="meTab" hidden>My Team</button>
     <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
     <button role="tab" data-v="v-contracts" aria-selected="true">Contracts</button>
-    <button role="tab" data-v="v-rater" aria-selected="false">Players</button>
+    <button role="tab" data-v="v-rater" aria-selected="false">Player rater</button>
     <button role="tab" data-v="v-trade" aria-selected="false">Trades <span id="tCount"></span></button>
 
     <div class="more">
@@ -653,11 +657,11 @@ thead th.hide,tbody td.hide{display:none}}
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button class="btn ghost" id="expLab">Export this roster</button></div>
     <div class="twocol wide">
-      <div class="scroller" id="labRoster"></div>
+      <div class="rosterwrap" id="labRoster"></div>
       <div id="labTotals"></div>
     </div>
   
-    <h2 class="sub">Available free agents</h2>
+    <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
     <div class="filters">
       <input id="faSearch" placeholder="Search" list="faSearchList" autocomplete="off">
       <datalist id="faSearchList"></datalist>
@@ -679,6 +683,7 @@ thead th.hide,tbody td.hide{display:none}}
   <section class="view" id="v-auction" role="tabpanel" hidden>
     <h2>Auction room</h2>
     <div id="auctionMain"></div>
+    <div class="filters" id="nomWho"></div>
     <div id="nomBox"></div>
 
     <div id="stratWrap" hidden>
@@ -716,7 +721,21 @@ thead th.hide,tbody td.hide{display:none}}
       <button class="btn" id="add">Record</button>
     </div>
     <p class="note" id="draftNote"></p>
-    <h2>Recent signings</h2>
+
+    <h2 class="sub">The free agent pool <span class="fcount" id="qsCount"></span></h2>
+    <p class="note">Everyone not under contract for next season, which is the same list the auction
+      and the strategy board read. Pick loads a name into the form above.</p>
+    <div class="filters">
+      <input id="qsSearch" placeholder="Search players" autocomplete="off">
+      <select id="qsPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
+      <select id="qsOnly"><option value="">Everyone</option>
+        <option value="rated">Rated only</option>
+        <option value="rights">Somebody holds rights</option>
+        <option value="rookie">Undrafted rookies</option></select>
+    </div>
+    <div class="scroller" id="qsTable"></div>
+
+    <h2 class="sub">Recent signings</h2>
     <div class="log" id="recent"></div>
   </section>
 
@@ -932,6 +951,8 @@ thead th.hide,tbody td.hide{display:none}}
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
       <div><label for="sTax">Luxury tax / hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
       <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
+      <div><label for="sMin">Minimum contract</label><input id="sMin" class="mono" type="number" step="0.25" min="0.25"></div>
+      <div><label for="sDeadline">Trade deadline</label><input id="sDeadline" class="mono" placeholder="2027-02-05" autocomplete="off"></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
     <h2 class="sub">Clubs</h2>
@@ -969,6 +990,18 @@ thead th.hide,tbody td.hide{display:none}}
         <option value="offseason">Offseason</option><option value="season">Season is live</option></select></div>
       <div><label for="sIR">IR slots per club</label><input id="sIR" class="mono" type="number" min="0" max="5"></div>
       <div></div><button class="btn" id="savePhase">Save</button>
+    </div>
+
+    <h2 class="sub">Auction nomination order</h2>
+    <p class="note">Round one runs top to bottom; round two runs back up, and so on &#8212; a snake.
+      Only the club on the clock may put a player on the block, and a club already carrying a full
+      roster is skipped, since it has nothing to bid with. Leave every row blank and nomination is a
+      free-for-all, which is how it worked before.</p>
+    <div class="log" id="nomRows"></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn" id="nomSave">Save the order</button>
+      <button class="btn ghost" id="nomClear">Clear it</button>
+      <span class="fcount" id="nomState" style="align-self:center"></span>
     </div>
 
     <h2 class="sub">Tip-off times</h2>
@@ -1412,7 +1445,8 @@ function fresh(){
      reserve — so 15 active plus 1 IR slot is the rulebook's "16 men, and only if
      one of them is hurt". The offseason has no IR at all, which makes the same
      number mean 15 flat. */
-  return {cfg:{cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,phase:'offseason',ir:1},teams:t,log:[]};
+  return {cfg:{cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,
+    phase:'offseason',ir:1,minSal:1.00,deadline:'',nomOrder:[]},teams:t,log:[]};
 }
 const TEAMS=()=>Object.keys(S.teams).sort();
 const isComm=()=>me==='__comm__';
@@ -1629,7 +1663,33 @@ function sliceGuess(entry){
 }
 
 /* ---------- actions ---------- */
-async function signPlayer(name,team,price,years){
+const minSal=()=>{const v=parseFloat(S.cfg.minSal); return v>0?Math.round(v*4)/4:1.00;};
+/* The trade deadline, as a league date. Signing before it earns Early Bird
+   rights — the club finished the year with him, which is what the rulebook asks
+   for. After it he is a rental: one year, no rights, gone in the summer. With no
+   deadline set nothing has passed it, so every in-season signing earns them. */
+const deadlinePassed=()=>{
+  const d=String(S.cfg.deadline||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  return dayKey()>d;
+};
+/* Free agency is a season activity. In the offseason a club adds players by
+   winning them at auction or drafting them, so a GM signing one directly would
+   be going around the auction entirely. The commissioner is not bound by this:
+   his tools exist to make the ledger match reality. */
+const canSignFA=team=>seasonLive()&&canEdit(team);
+async function signFA(team,name){
+  if(!canEdit(team)) return alert('You can only sign to your own club.');
+  if(!seasonLive())
+    return alert('Free agents are signed at auction in the offseason. This opens once the season is live.');
+  const sal=minSal(), early=!deadlinePassed();
+  if(!confirm(`Sign ${name} for the rest of the season at ${money(sal)}?\n\n`
+    +(early ? 'Signed before the trade deadline, so your club earns Early Bird rights on him.'
+            : 'Signed after the trade deadline \u2014 this is a rental. No rights, and he leaves in the summer.'))) return;
+  await signPlayer(name,team,sal,1,{bird:early?'Early':'', why:early?'in-season, Early Bird':'in-season rental'});
+}
+async function signPlayer(name,team,price,years,opts){
+  opts=opts||{};
   if(!canEdit(team)) return alert('You can only sign players to your own club.');
   const cr=cutRestriction(team,name);
   if(cr&&cr.hard)
@@ -1653,7 +1713,14 @@ async function signPlayer(name,team,price,years){
       S.teams[team].r.push(p);moved=true;break;}
   }
   if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:new Date().getFullYear(),cut:false});
-  await commit({kind:'sign',team,detail:`${name} \u2014 ${money(price)} \u00d7 ${years} yr${years>1?'s':''}`});
+  /* An in-season signing carries the rights the calendar earns him. Everything
+     else leaves p.b alone, because the auction and the draft set their own. */
+  if(opts.bird!=null){
+    const p=S.teams[team].r.find(x=>x.n===name);
+    if(p) p.b=opts.bird;
+  }
+  await commit({kind:'sign',team,detail:`${name} \u2014 ${money(price)} \u00d7 ${years} yr${years>1?'s':''}`
+    +(opts.why?` (${opts.why})`:'')});
 }
 /* The release itself, with no confirming and no commit, so every path that has
    to drop somebody records it the same way — the roster splice and the cuts
@@ -2039,6 +2106,57 @@ function drawFA(){
      scrolling past four sorted tables to read the stats you just asked for. */
   $('falist').innerHTML=fa.map(p=>`<option value="${p.n}">${p.from}${p.y[0]?' &#183; last '+money(p.y[0]):''}</option>`).join('');
 }
+/* The Quick sign pool: the same free agent class every other screen reads, with
+   the numbers a GM actually chooses on and a filter over the top. It used to be
+   a bare name box and a datalist, which is fine if you already know who you
+   want and useless if you are looking. */
+let qsSel=null;
+function drawQuickPool(){
+  const box=$('qsTable'); if(!box) return;
+  const q=(($('qsSearch')&&$('qsSearch').value)||'').trim().toLowerCase();
+  const pf=($('qsPos')&&$('qsPos').value)||'';
+  const only=($('qsOnly')&&$('qsOnly').value)||'';
+  const RG=ratings();
+  let rows=faPool().filter(p=>{
+    if(q&&!p.n.toLowerCase().includes(q)) return false;
+    if(pf&&!(p.p||'').includes(pf)) return false;
+    if(only==='rated'&&RG[canon(p.n)]==null) return false;
+    if(only==='rookie'&&!p.rookie) return false;
+    if(only==='rights'&&!rightsOf(null,p.n).club) return false;
+    return true;
+  }).map(p=>{const v=pstat(p.n)||p;
+    return {...v,n:p.n,p:v.p||p.p,rtg:RG[canon(p.n)],from:ownerOf(p.n)};});
+  const S0=SORTS.qs||{col:'rtg',desc:true};
+  const val=(p,c)=>c==='n'?p.n:c==='from'?p.from:c==='rtg'?p.rtg:c==='g'?p.g:(p.s?p.s[c]:null);
+  rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
+  if($('qsCount')) $('qsCount').textContent=`${rows.length} free agents`;
+  const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
+  box.innerHTML=`<table class="fatab" id="qsTbl"><thead><tr>
+    ${H('n','Player','l')}<th class="l hide">Pos</th>${H('from','Rights','l hide2')}
+    ${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}${H('AST','AST')}${H('P3','3P')}
+    ${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}${H('TOV','TO','hide2')}
+    ${H('rtg','Rating')}<th></th></tr></thead><tbody>${
+    rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
+      <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
+      <td class="pos l hide">${htmlEsc(p.p||'—')}</td>
+      <td class="l hide2" style="font-size:11.5px">${htmlEsc(p.from)}</td>
+      ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
+        <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
+        <td class="hide2">${p.s.TOV}</td>`
+       :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+      <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
+      <td><button class="act edit" data-qs="${htmlEsc(p.n)}">Pick</button></td></tr>`).join('')}
+    </tbody></table>`;
+  sortable('qsTbl','qs','rtg',true); redraw.qs=drawQuickPool;
+  box.querySelectorAll('[data-qs]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    qsSel=b.dataset.qs;
+    $('fPlayer').value=qsSel;
+    drawQuickPool();
+    $('fPlayer').scrollIntoView&&$('fPlayer').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+}
+
 function entry(e,i){
   return `<div class="ent"><div class="t">${fmt(e.ts)}</div><div class="k ${e.kind}">${e.kind}</div>
     <div>${e.detail}</div><div class="by">${e.team||''} &#183; ${e.by}</div>
@@ -2050,10 +2168,19 @@ function drawLogs(){
   const sg=L.filter(e=>e.kind==='sign').slice(0,12);
   $('recent').innerHTML=sg.length?sg.map((e,i)=>entry(e,L.indexOf(e))).join(''):'<div class="empty">No signings recorded yet.</div>';
   document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>undo(+b.dataset.u));
-  $('draftNote').textContent = me
-    ? `Signed in as ${isComm()?'commissioner — you can sign for any club':me+' — you can only sign for your own club'}. Every move is shared with the league and logged.`
-    : 'Sign in to record a signing. Everything here is shared with the whole league.';
-  $('add').disabled=!me;
+  drawQuickPool();
+  if($('qsSearch')&&!$('qsSearch').dataset.built){
+    $('qsSearch').dataset.built='1';
+    $('qsSearch').oninput=drawQuickPool;
+    $('qsPos').onchange=drawQuickPool;
+    $('qsOnly').onchange=drawQuickPool;
+  }
+  $('draftNote').textContent = !me
+    ? 'Sign in to record a signing. Everything here is shared with the whole league.'
+    : (!seasonLive()&&!isComm())
+      ? 'The offseason signs free agents at auction. This form is the commissioner’s record of what the room did.'
+      : `Signed in as ${isComm()?'commissioner — you can sign for any club':me+' — you can only sign for your own club'}. Every move is shared with the league and logged.`;
+  $('add').disabled=!me||(!seasonLive()&&!isComm());
 }
 /* ---- every contract in the league, on one screen ----
    The club pages show one roster at a time and the Move tool only lists players
@@ -2236,6 +2363,28 @@ function drawAdmin(){
         detail:`Season phase set to ${now==='season'?'live':'offseason'}, ${ir} IR slots`});
     };
   }
+  if($('nomRows')){
+    const teams=TEAMS(), cur=S.cfg.nomOrder||[];
+    $('nomRows').innerHTML=teams.map((_,i)=>`<div class="ent" style="grid-template-columns:70px 1fr">
+      <div class="mono">Pick ${i+1}</div>
+      <select data-nom="${i}"><option value="">&#8212; not set &#8212;</option>
+        ${teams.map(t=>`<option${cur[i]===t?' selected':''}>${htmlEsc(t)}</option>`).join('')}</select></div>`).join('');
+    const c=nomOnClock();
+    $('nomState').textContent = !nomOrder().length ? 'no order set — anyone may nominate'
+      : c ? `${nomCount()} nominations made · ${c.team} is on the clock (round ${c.round})`
+          : `${nomCount()} nominations made · every club is full`;
+    $('nomSave').onclick=async()=>{
+      const list=[...$('nomRows').querySelectorAll('[data-nom]')].map(el=>el.value).filter(Boolean);
+      if(new Set(list).size!==list.length) return alert('A club appears twice in the order.');
+      if(list.length&&list.length!==TEAMS().length
+        &&!confirm(`Only ${list.length} of ${TEAMS().length} clubs are in the order. The rest never nominate. Save anyway?`)) return;
+      await saveNomOrder(list);
+    };
+    $('nomClear').onclick=async()=>{
+      if(!confirm('Clear the nomination order? Anyone will be able to nominate.')) return;
+      await saveNomOrder([]);
+    };
+  }
   if($('tipBox')&&!$('tipBox').dataset.built){
     $('tipBox').dataset.built='1';
     $('tipDay').value=dayKey();
@@ -2267,6 +2416,8 @@ function drawAdmin(){
     };
   }
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
+  if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
+  if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
   if($('ncGo')) $('ncGo').onclick=async()=>{
     const raw=$('ncName').value.trim();
     if(!raw) return $('ncName').focus();
@@ -2367,6 +2518,7 @@ $('pinSave').onclick=async e=>{
 function render(){
   if(typeof netChip==='function') netChip();
   if(typeof markMore==='function') markMore();
+  if(typeof markPhaseTabs==='function') markPhaseTabs();
   $('seasonL').textContent=S.cfg.season;
   if(!activeTeam)activeTeam=me&&me!=='__comm__'?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();
@@ -2456,6 +2608,11 @@ function drawFAList(){
   const val=(p,c)=>c==='n'?p.n:c==='rtg'?p.rtg:c==='ceil'?p.ceil:c==='g'?p.g:p.s[c];
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   $('faCount').textContent=`${rows.length} available`;
+  if($('faSignNote')) $('faSignNote').textContent = !seasonLive()
+    ? 'signed at auction in the offseason'
+    : `sign for ${money(minSal())} \u00b7 ${deadlinePassed()
+        ? 'past the deadline, so a rental with no rights'
+        : 'before the deadline, so Early Bird rights'}`;
   // No slice: a rookie has no rating and sorts last, so a cap would hide the
   // whole class from the one control a GM uses to find a name.
   $('faSearchList').innerHTML=faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('');
@@ -2463,7 +2620,8 @@ function drawFAList(){
   $('faTable').innerHTML=`<table class="fatab" id="faTbl"><thead><tr>
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}
     ${H('AST','AST')}${H('P3','3P')}${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}
-    ${H('TOV','TO','hide2')}${H('rtg','Rating')}${H('ceil','Max bid')}</tr></thead><tbody>${
+    ${H('TOV','TO','hide2')}${H('rtg','Rating')}${H('ceil','Max bid')}${
+      canSignFA(me2)?'<th></th>':''}</tr></thead><tbody>${
     rows.slice(0,160).map(p=>{
       const R=rightsOf(me2,p.n), e=hasProj(p.n);
       return `<tr data-p="${p.n}" class="${faSel===p.n?'sel':''} ${e?'hasproj':''}">
@@ -2476,9 +2634,12 @@ function drawFAList(){
       <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>`
       :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
-      <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td></tr>`;}).join('')}
+      <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
+      ${canSignFA(me2)?`<td><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
   sortable('faTbl','fa','rtg',true);
+  $('faTable').querySelectorAll('[data-fasign]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); signFA(me2,b.dataset.fasign);});
   $('faTable').querySelectorAll('[data-p]').forEach(tr=>tr.onclick=()=>{
     faSel=tr.dataset.p; drawFAList(); drawFAPanel();});
   if(faSel) drawFAPanel();
@@ -3001,13 +3162,26 @@ function drawAuction(){
       <div class="who2">${b.t}</div><div style="color:var(--dim);font-size:11px">${b.auto?'automatic':''}</div>
       <div class="amt3">${money(b.amt)}</div></div>`).join('');
   }
-  const can=me&&!isComm()&&(!a||a.status!=='open');
+  const clock=nomOnClock(), ordered=nomOrder().length>0;
+  const myTurn=me&&!isComm()&&canNominate(me)&&!nomFull(me);
+  const can=me&&!isComm()&&(!a||a.status!=='open')&&myTurn;
+  if($('nomWho')) $('nomWho').innerHTML = !ordered
+    ? '<span class="fcount">No nomination order set &#8212; anyone may nominate.</span>'
+    : clock
+      ? `<span class="pill ${clock.team===me?'good':''}">On the clock: ${htmlEsc(clock.team)}</span>
+         <span class="fcount">round ${clock.round} of the snake${
+           clock.skipped?` &#183; ${clock.skipped} full club${clock.skipped===1?'':'s'} skipped`:''}</span>`
+      : '<span class="pill bad">Every club is full &#8212; nobody left to nominate.</span>';
   $('nomBox').innerHTML=can?`<div class="form f4" style="margin-top:14px">
       <div><label for="nomP">Nominate a player</label><input id="nomP" list="falist2" placeholder="Player name" autocomplete="off">
         <datalist id="falist2">${faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
       <div><label for="nomO">Opening bid</label><input id="nomO" class="mono" type="number" step="0.25" min="1" value="1.00"></div>
       <div></div><button class="btn" id="nomGo">Put on the block</button></div>`
-    : (me?'':'<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>');
+    : !me ? '<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>'
+      : isComm() ? ''
+      : nomFull(me) ? `<p class="note" style="margin-top:14px">${me} carries ${S.cfg.roster} players and cannot nominate.</p>`
+      : (ordered&&clock&&clock.team!==me) ? `<p class="note" style="margin-top:14px">Waiting on ${htmlEsc(clock.team)} to nominate.</p>`
+      : '';
   if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1);
   drawAuctRoster();
   drawStrategy();
@@ -3633,6 +3807,22 @@ $('pjSearch').oninput=drawProjTab; $('pjFilter').onchange=drawProjTab;
 
 
 /* ---------- navigation ---------- */
+/* Three screens are offseason business and nothing else: the auction, the free
+   agent classes that feed it, and the rookie draft that follows it. Once the
+   season is live they are noise at best and a way to sign somebody who should be
+   auctioned at worst, so the buttons go. markPhaseTabs() hides them and moves
+   anyone standing on one somewhere real — a hidden tab whose panel is still open
+   is worse than either state. */
+const OFFSEASON_TABS=['v-auction','v-fa','v-rookie'];
+function markPhaseTabs(){
+  const live=seasonLive();
+  [...document.querySelectorAll('#tabs button'),...document.querySelectorAll('#moreMenu button')]
+    .forEach(b=>{ if(OFFSEASON_TABS.includes(b.dataset.v)) b.hidden=live; });
+  if(live){
+    const open=OFFSEASON_TABS.find(v=>{const el=$(v); return el&&!el.hidden;});
+    if(open) goTab(me?'v-me':'v-contracts');
+  }
+}
 function goTab(id){
   // Tab buttons live in two places: the strip (#tabs) and the overflow menu,
   // which sits outside #tabs so it is not clipped by the strip's overflow.
@@ -4011,8 +4201,61 @@ async function placeBid(team,amt,isMax){
   }
   await commit(null,['auction']);
 }
+
+/* ================= NOMINATION ORDER =================
+   The auction runs on a snake: the commissioner sets the order for round one,
+   round two runs it backwards, round three forwards again. Only the club on the
+   clock may put a player up, and a club already carrying a full roster has
+   nothing to bid with, so the clock passes it by.
+
+   How far through the order we are is **counted from the transaction log**
+   rather than stored. The log is the append-only record of what happened and
+   every nomination writes one line to it, so there is no counter to get out of
+   step with reality, nothing to reset, and two GMs cannot race it. */
+const nomOrder=()=>{
+  const set=(S.cfg.nomOrder||[]).filter(t=>S.teams[t]);
+  return set.length?set:[];
+};
+const nomCount=()=>(S.log||[]).filter(e=>e.kind==='sign'&&/^Nominated /.test(e.detail||'')).length;
+/* The club at position i of the snake, ignoring who is full. */
+function nomSlot(i){
+  const o=nomOrder();
+  if(!o.length) return null;
+  const round=Math.floor(i/o.length), at=i%o.length;
+  return round%2===0 ? o[at] : o[o.length-1-at];
+}
+const nomFull=t=>headcount(t)>=S.cfg.roster;
+/* Whose turn it is. A full club is skipped rather than blocking the room — it
+   cannot sign anybody, so waiting on it would stall the auction. The search is
+   bounded: if every club is full the auction is over. */
+function nomOnClock(){
+  const o=nomOrder();
+  if(!o.length) return null;
+  const start=nomCount();
+  for(let i=start;i<start+o.length*2;i++){
+    const t=nomSlot(i);
+    if(t&&!nomFull(t)) return {team:t,at:i,round:Math.floor(i/o.length)+1,skipped:i-start};
+  }
+  return null;
+}
+const canNominate=t=>{
+  const c=nomOnClock();
+  if(!nomOrder().length) return true;      // no order set: the old free-for-all
+  return !!c&&c.team===t;
+};
+async function saveNomOrder(list){
+  if(!isComm()) return;
+  S.cfg.nomOrder=list.filter(t=>S.teams[t]);
+  await commit({kind:'edit',
+    detail:`Auction nomination order set — ${S.cfg.nomOrder.join(', ')||'cleared'}`},['settings']);
+}
 async function nominate(name,team,open){
   if(!name) return;
+  if(!canNominate(team)){
+    const c=nomOnClock();
+    return alert(c ? `It is ${c.team}'s nomination.` : 'Every club is full — there is nobody left to nominate for.');
+  }
+  if(nomFull(team)) return alert(`${team} already carries ${S.cfg.roster} players and cannot bid.`);
   S.auction={player:name,by:team,bid:Math.round((open||1)*4)/4,leader:team,
     bids:[{t:team,amt:Math.round((open||1)*4)/4,ts:now()}],max:{},status:'open',ts:now()};
   await commit({kind:'sign',team,detail:`Nominated ${name} at ${money(open||1)}`},['auction']);
@@ -5588,16 +5831,28 @@ $('add').onclick=async()=>{
         y=parseInt($('fYears').value)||1,t=$('fTeam').value;
   if(!n)return $('fPlayer').focus();
   if(!(pr>=1))return $('fPrice').focus();
+  /* The auction is how a club adds players in the offseason. The commissioner
+     still records what the league did; a GM signing here would be going round
+     the room. */
+  if(!seasonLive()&&!isComm())
+    return alert('Free agents are signed at auction in the offseason. The commissioner records auction results.');
   await signPlayer(n,t,Math.round(pr*4)/4,y);
   $('fPlayer').value='';$('fPrice').value='';$('fYears').value=1;$('fPlayer').focus();
 };
 $('fPrice').onkeydown=e=>{if(e.key==='Enter')$('add').click();};
 $('fPlayer').onkeydown=e=>{if(e.key==='Enter')$('fPrice').focus();};
 $('saveCfg').onclick=async()=>{
+  const dl=($('sDeadline').value||'').trim();
+  if(dl&&!/^\d{4}-\d{2}-\d{2}$/.test(dl))
+    return alert('The trade deadline reads as YYYY-MM-DD, or leave it blank.');
   S.cfg.cap=parseFloat($('sCap').value)||S.cfg.cap;
   S.cfg.tax=parseFloat($('sTax').value)||S.cfg.tax;
   S.cfg.roster=parseInt($('sRoster').value)||S.cfg.roster;
-  await commit({kind:'edit',detail:`League settings \u2014 cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, roster ${S.cfg.roster}`});
+  const mn=parseFloat($('sMin').value);
+  if(mn>0) S.cfg.minSal=Math.round(mn*4)/4;
+  S.cfg.deadline=dl;
+  await commit({kind:'edit',detail:`League settings \u2014 cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
+    +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}`});
 };
 $('exportBtn').onclick=()=>{
   const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
