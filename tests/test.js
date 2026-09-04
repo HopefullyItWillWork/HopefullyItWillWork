@@ -35,7 +35,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   // An expiring player marked "No" who has not served his three seasons.
   const S = g('S');
   const LY = g('leagueYear')();
-  S.teams['Osborn'].r.push({n:'Test Nobody',p:'G',y:[1.0,null,null,null],o:'',b:'No',acq:LY,cut:false});
+  S.teams['Osborn'].r.push({n:'Test Nobody',p:'G',y:{'2025-26':1.0},o:'',b:'No',acq:LY,cut:false});
   const rn = g('rightsOf')('Osborn','Test Nobody');
   ok('"No" reads as no rights', rn.club==='Osborn' && rn.bird==='', JSON.stringify(rn));
   S.teams['Osborn'].r.pop();
@@ -138,7 +138,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   document.getElementById('edBird').value = 'Early';
   await document.getElementById('doEdit').onclick();
   const w = g('S').teams['Coulter'].r.find(p=>p.n==='Victor Wembanyama');
-  ok('salary saved', w.y[1]===9.5, JSON.stringify(w.y));
+  ok('salary saved', g('salNow')(w)===9.5, JSON.stringify(w.y));
   ok('option cleared', w.o==='', JSON.stringify(w.o));
   ok('rights saved', w.b==='Early', w.b);
   ok('now signed, so he leaves the board pool',
@@ -278,9 +278,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   await document.getElementById('doEdit').onclick();
   const placed = g('S').teams['Osborn'].r.find(p=>p.n===g('canon')(target));
   ok('he is on the roster now', !!placed, target);
-  ok('with the salary given', placed && placed.y[1]===6.25, placed && JSON.stringify(placed.y));
-  ok('and the second year', placed && placed.y[2]===6.5);
-  ok('and no third year', placed && placed.y[3]===null);
+  ok('with the salary given', placed && g('salNow')(placed)===6.25, placed && JSON.stringify(placed.y));
+  ok('and the second year', placed && g('salOff')(placed,1)===6.5);
+  ok('and no third year', placed && g('salOff')(placed,2)==null);
   ok('position saved on the roster entry', placed && placed.p==='G');
   ok('option saved', placed && placed.o==='TO');
   ok('rights saved', placed && placed.b==='Early');
@@ -470,7 +470,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
   console.log('\n== an unrestricted free agent cannot be listed ==');
   // Expiring, no option, no rights: tradeRight() says nobody can trade him.
-  g('S').teams['Coulter'].r.push({n:'Nobody At All',p:'G',y:[1.0,null,null,null],o:'',b:'',acq:2020,cut:false});
+  g('S').teams['Coulter'].r.push({n:'Nobody At All',p:'G',y:{'2025-26':1.0},o:'',b:'',acq:2020,cut:false});
   const iNo = g('S').teams['Coulter'].r.length-1;
   ok('he really is untradeable', g('tradeable')(g('S').teams['Coulter'].r[iNo])===false);
   ctx.__alerts.length = 0;
@@ -628,7 +628,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   const signed = g('S').teams[T9[0]].r.find(p => p.n === rook);
   ok('he is on the roster', !!signed && g('S').teams[T9[0]].r.length === preCount + 1);
   ok('three years at the slot salary',
-     signed && signed.y[1] === scale[0] && signed.y[2] === scale[0] && signed.y[3] === scale[0],
+     signed && g('salNow')(signed) === scale[0] && g('salOff')(signed, 1) === scale[0] && g('salOff')(signed, 2) === scale[0],
      signed && JSON.stringify(signed.y));
   ok('with a rookie option on the last', signed && signed.o === 'RO', signed && signed.o);
   ok('he is out of the pool', !g('undraftedRookies')().some(r => r.n === rook));
@@ -744,7 +744,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('drawAllPlayers')();
   const csv = g('leagueCSV')(g('apRows')());
   const lines = csv.split('\n');
-  ok('header is the column list', lines[0] === g('CSVCOLS').join(','), lines[0]);
+  /* The salary columns are named for the seasons they hold, not their position —
+     position stopped meaning anything when contracts became season-keyed. */
+  const wantHead = g('CSVFIXED').concat(g('csvSeasonCols')(), g('CSVTAIL')).join(',');
+  ok('header is the column list', lines[0] === wantHead, lines[0]);
+  ok('...and its salary columns name their seasons',
+     g('csvSeasonCols')().join() === 'salary_2025-26,salary_2026-27,salary_2027-28,salary_2028-29',
+     g('csvSeasonCols')().join());
   ok('a row per contract and per free agent', lines.length - 1 === g('apRows')().length,
      (lines.length - 1) + ' vs ' + g('apRows')().length);
   const cell = (line, col) => {
@@ -1222,15 +1228,15 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.phase = 'season';
   g('S').cfg.ir = 1;
   const BR = () => g('S').teams['Brice'];
-  const activeBr = () => BR().r.filter(p => p.y[1] != null && !g('onIR')(p));
+  const activeBr = () => BR().r.filter(p => g('contracted')(p) && !g('onIR')(p));
   g('S').cfg.roster = activeBr().length;            // the club is now exactly full
   const full = g('S').cfg.roster;
-  const hurtIdx = BR().r.findIndex(p => p.y[1] != null && !g('onIR')(p));
+  const hurtIdx = BR().r.findIndex(p => g('contracted')(p) && !g('onIR')(p));
   const hurt = BR().r[hurtIdx].n;
   await g('toggleIR')('Brice', hurtIdx);
   ok('one man goes on the IR', g('irCount')('Brice') === 1);
   ok('so the active roster drops by one', g('headcount')('Brice') === full - 1);
-  const secondIdx = BR().r.findIndex(p => p.y[1] != null && !g('onIR')(p));
+  const secondIdx = BR().r.findIndex(p => g('contracted')(p) && !g('onIR')(p));
   ctx.__alerts.length = 0;
   await g('toggleIR')('Brice', secondIdx);
   ok('a second man cannot join him with only one slot',
@@ -1244,7 +1250,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   await g('signPlayer')(spare.n, 'Brice', 1.00, 1);
   ok('the sixteenth man is signed while one is hurt', g('headcount')('Brice') === full,
      g('headcount')('Brice') + '/' + full);
-  ok('sixteen bodies in all', BR().r.filter(p => p.y[1] != null).length === full + 1);
+  ok('sixteen bodies in all', BR().r.filter(p => g('contracted')(p)).length === full + 1);
   const irIdx2 = BR().r.findIndex(p => p.n === hurt);
   await g('toggleIR')('Brice', irIdx2);
   ok('activating him opens the swap instead of toggling',
@@ -1275,7 +1281,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      JSON.stringify(g('S').log[0]));
 
   console.log('\n== closing the season empties the injured reserve ==');
-  const hIdx = BR().r.findIndex(p => p.y[1] != null && !g('onIR')(p));
+  const hIdx = BR().r.findIndex(p => g('contracted')(p) && !g('onIR')(p));
   await g('toggleIR')('Brice', hIdx);
   ok('somebody is hurt again', g('irCount')('Brice') === 1);
   X.me = '__comm__';
@@ -1286,8 +1292,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   await document.getElementById('savePhase').onclick();
   ok('the phase changed', g('S').cfg.phase === 'offseason');
   ok('the injured reserve is empty', g('irCount')('Brice') === 0);
-  ok('and everyone is active again', BR().r.filter(p => p.y[1] != null && !g('onIR')(p)).length
-     === BR().r.filter(p => p.y[1] != null).length);
+  ok('and everyone is active again', BR().r.filter(p => g('contracted')(p) && !g('onIR')(p)).length
+     === BR().r.filter(p => g('contracted')(p)).length);
   ok('the commissioner is told what happened',
      ctx.__alerts.some(a => /injured reserve/.test(a)), JSON.stringify(ctx.__alerts));
   ok('and which clubs are now over the limit',
@@ -1305,7 +1311,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('render')();
   const benched = g('benchOf')('N. Fink');
   ok('everybody is on the bench with the lineup cleared',
-     benched.length === g('S').teams['N. Fink'].r.filter(p => p.y[1] != null && !g('onIR')(p)).length);
+     benched.length === g('S').teams['N. Fink'].r.filter(p => g('contracted')(p) && !g('onIR')(p)).length);
   const bHtml = document.getElementById('luSlots').innerHTML;
   ok('each bench man carries a Start control', /data-start=/.test(bHtml));
   ok('and it lists a slot he actually fits', /<option value="C"|<option value="G1"|<option value="U1"/.test(bHtml));
@@ -1388,7 +1394,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   const night = g('dayKey')();
   // Pretend the feed answered. It uses NBA tricodes; NBATM uses the short ones.
   const someone = g('startedOn')('N. Fink')[0]
-    || g('S').teams['N. Fink'].r.find(p => p.y[1] != null && g('NBATM')[g('canon')(p.n)]).n;
+    || g('S').teams['N. Fink'].r.find(p => g('contracted')(p) && g('NBATM')[g('canon')(p.n)]).n;
   const short = g('NBATM')[g('canon')(someone)];
   const tri = g('TRICODE')[short] || short;
   X.SCHED = {day: night, tips: {[tri]: '00:00'}, ok: true, reason: ''};
@@ -1405,7 +1411,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      JSON.stringify(g('lockOf')(someone)));
   ok('and the row shows the overridden time', /23:59/.test(g('lockOf')(someone).why),
      g('lockOf')(someone).why);
-  const another = g('S').teams['N. Fink'].r.find(p => p.y[1] != null
+  const another = g('S').teams['N. Fink'].r.find(p => g('contracted')(p)
     && g('NBATM')[g('canon')(p.n)] && g('NBATM')[g('canon')(p.n)] !== short);
   if (another) {
     const s2 = g('NBATM')[g('canon')(another.n)];
@@ -1574,8 +1580,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   await g('signFA')(faClub, freeMan);
   const faSigned = g('S').teams[faClub].r.find(p => p.n === freeMan);
   ok('he is signed to the club', !!faSigned && g('signedClub')(freeMan) === faClub);
-  ok('at the league minimum', faSigned.y[1] === g('minSal')(), faSigned.y[1] + ' vs ' + g('minSal')());
-  ok('for one year only', faSigned.y[2] == null && faSigned.y[3] == null);
+  ok('at the league minimum', g('salNow')(faSigned) === g('minSal')(), g('salNow')(faSigned) + ' vs ' + g('minSal')());
+  ok('for one year only', g('salOff')(faSigned, 1) == null && g('salOff')(faSigned, 2) == null);
   ok('with Early Bird rights', g('birdKind')(faSigned.b) === 'Early', faSigned.b);
   ok('and the log says so', g('S').log.some(e => /Early Bird/.test(e.detail || '')),
      g('S').log[0].detail);
@@ -1598,7 +1604,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('it is read, not hard-coded', g('minSal')() === 1.75);
   await g('signFA')(faClub, freeMan);
   ok('and a signing uses it',
-     g('S').teams[faClub].r.find(p => p.n === freeMan).y[1] === 1.75);
+     g('salNow')(g('S').teams[faClub].r.find(p => p.n === freeMan)) === 1.75);
   g('S').teams[faClub].r.splice(g('S').teams[faClub].r.findIndex(p => p.n === freeMan), 1);
   g('S').cfg.minSal = 1.00;
   ok('nonsense falls back to a dollar',
@@ -1792,9 +1798,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     await g('closeAuction')();
     ok('a deputy can award', g('A')().status === 'closed', JSON.stringify(g('A')()));
     ok('...and the player lands on the winning club',
-       CS.teams[buyer].r.some(p => p.n === guy && p.y[1] === 2.00));
+       CS.teams[buyer].r.some(p => p.n === guy && g('salNow')(p) === 2.00));
     ok('...at the winning price for one year',
-       CS.teams[buyer].r.find(p => p.n === guy).y[2] == null);
+       g('salOff')(CS.teams[buyer].r.find(p => p.n === guy), 1) == null);
     ok('...and it is logged',
        CS.log.some(e => (e.detail || '').startsWith('Won ' + guy)));
     CS.teams[buyer].r = CS.teams[buyer].r.filter(p => p.n !== guy);
@@ -1829,7 +1835,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
                                        && CS.cfg.cap - g('committed')(t) > 8);
     const rfa = 'Award Test RFA';
     // An expiring contract with an option played out is exactly a restricted FA.
-    CS.teams[holder].r.push({n:rfa, p:'G', y:[2.00, null, null, null], o:'RO', b:'', acq:2024, cut:false});
+    CS.teams[holder].r.push({n:rfa, p:'G', y:{'2025-26':2.00}, o:'RO', b:'', acq:2024, cut:false});
     ok('he reads as restricted', g('rightsOf')(null, rfa).rfa === true);
 
     const putUp = () => { CS.auction = {player:rfa, by:bidder, bid:3.00, leader:bidder,
@@ -1839,7 +1845,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     await g('closeAuction')();
     ok('awarding parks the lot in a match', g('A')().status === 'match', g('A')().status);
     ok('nobody has signed him yet',
-       !CS.teams[bidder].r.some(p => p.n === rfa && p.y[1] != null));
+       !CS.teams[bidder].r.some(p => p.n === rfa && g('contracted')(p)));
     const offer = g('matchOffer')();
     ok('the offer names the rights holder, the winner and the price',
        offer.club === holder && offer.winner === bidder && offer.price === 3.00,
@@ -1873,7 +1879,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     await g('answerMatch')(true);
     ok('the lot closes', g('A')().status === 'closed');
     ok('the rights holder keeps him at the winning price',
-       CS.teams[holder].r.some(p => p.n === rfa && p.y[1] === 3.00),
+       CS.teams[holder].r.some(p => p.n === rfa && g('salNow')(p) === 3.00),
        JSON.stringify(CS.teams[holder].r.filter(p => p.n === rfa)));
     ok('the winner does not get him', !CS.teams[bidder].r.some(p => p.n === rfa));
     ok('and the log says it was matched',
@@ -1882,7 +1888,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction = null;
 
     console.log('\n-- declining sends him to the winner --');
-    CS.teams[holder].r.push({n:rfa, p:'G', y:[2.00, null, null, null], o:'RO', b:'', acq:2024, cut:false});
+    CS.teams[holder].r.push({n:rfa, p:'G', y:{'2025-26':2.00}, o:'RO', b:'', acq:2024, cut:false});
     putUp();
     X.me = '__comm__';
     await g('closeAuction')();
@@ -1891,7 +1897,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     await g('answerMatch')(false);
     ok('the lot closes', g('A')().status === 'closed');
     ok('the winning bidder signs him',
-       CS.teams[bidder].r.some(p => p.n === rfa && p.y[1] === 3.00));
+       CS.teams[bidder].r.some(p => p.n === rfa && g('salNow')(p) === 3.00));
     ok('...and he is off the old club', !CS.teams[holder].r.some(p => p.n === rfa));
     ok('the log says the match was declined',
        CS.log.some(e => /declined to match/.test(e.detail || '')));
@@ -1909,12 +1915,12 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const bidder = g('TEAMS')().find(t => t !== holder && g('headcount')(t) < CS.cfg.roster
                                        && CS.cfg.cap - g('committed')(t) > 8);
     const rfa2 = 'Award Test RFA2';
-    CS.teams[holder].r.push({n:rfa2, p:'G', y:[2.00, null, null, null], o:'RO', b:'', acq:2024, cut:false});
+    CS.teams[holder].r.push({n:rfa2, p:'G', y:{'2025-26':2.00}, o:'RO', b:'', acq:2024, cut:false});
     // Fill the holder's roster so no contract of any size fits — with real
     // contracts, not by moving the limit, which would strand the bidder too.
     const filler = [];
     while (g('headcount')(holder) < CS.cfg.roster) {
-      const f = {n:'Award Filler ' + filler.length, p:'G', y:[0.25, 0.25, null, null],
+      const f = {n:'Award Filler ' + filler.length, p:'G', y:{'2025-26':0.25, '2026-27':0.25},
                  o:'', b:'', acq:2024, cut:false};
       filler.push(f); CS.teams[holder].r.push(f);
     }
@@ -1924,7 +1930,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     X.me = '__comm__';
     await g('closeAuction')();
     ok('the lot goes straight to the winner', g('A')().status === 'closed', g('A')().status);
-    ok('...who signs him', CS.teams[bidder].r.some(p => p.n === rfa2 && p.y[1] === 3.00));
+    ok('...who signs him', CS.teams[bidder].r.some(p => p.n === rfa2 && g('salNow')(p) === 3.00));
     ok('...and the log says why', CS.log.some(e => /could not match/.test(e.detail || '')));
     CS.teams[bidder].r = CS.teams[bidder].r.filter(p => p.n !== rfa2);
     CS.teams[holder].r = CS.teams[holder].r.filter(p => p.n !== rfa2 && !filler.includes(p));
@@ -1960,7 +1966,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     })());
     ok('three seasons is the rule', g('birdYears')() === 3);
 
-    const mk = (b, acq) => ({n:'Bird Test', p:'G', y:[1,null,null,null], o:'', b, acq, cut:false});
+    const mk = (b, acq) => ({n:'Bird Test', p:'G', y:{'2025-26':1}, o:'', b, acq, cut:false});
     ok('tenure is seasons with the club', g('tenureOf')(mk('', yr - 4)) === 4);
     ok('a missing year has no tenure', g('tenureOf')(mk('', null)) === null);
 
@@ -1982,7 +1988,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
     console.log('\n-- rights travel in a trade and restart any other way --');
     const [c1, c2] = g('TEAMS')();
-    const vet = {n:'Bird Travel Guy', p:'G', y:[2, 2, null, null], o:'', b:'', acq: yr - 4, cut:false};
+    const vet = {n:'Bird Travel Guy', p:'G', y:{'2025-26':2, '2026-27':2}, o:'', b:'', acq: yr - 4, cut:false};
     CS.teams[c1].r.push(vet);
     ok('four seasons in, he carries Bird', g('rightsOf')(c1, 'Bird Travel Guy').bird === '');
     // rightsOf only answers for an EXPIRING player, so read the entry directly.
@@ -1999,7 +2005,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const club = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster
                                       && CS.cfg.cap - g('committed')(t) > 3);
     const other = g('TEAMS')().find(t => t !== club);
-    CS.teams[other].r.push({n:'Bird Walk Guy', p:'G', y:[2, null, null, null], o:'', b:'Yes',
+    CS.teams[other].r.push({n:'Bird Walk Guy', p:'G', y:{'2025-26':2}, o:'', b:'Yes',
                             acq: yr - 6, cut:false});
     X.me = club;
     await g('signPlayer')('Bird Walk Guy', club, 2, 1);
@@ -2256,15 +2262,27 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   {
     const CS = g('S');
     const club = 'N. Fink', guy = 'Myles Turner';
-    ok('an unstamped release reads as this cycle',
-       g('cutCurrent')({n:guy, s:5}) === true);
-    /* ...and is stamped the first time it is read, so the bar it carries lapses
-       with the season instead of following the club for ever. */
+    ok('a release in the season just played is still barred in this offseason',
+       g('cutCurrent')({n:guy, s:5, at:g('seasonPrev')(g('curSeason')())}) === true);
+    ok('...and one made during the current season certainly is',
+       g('cutCurrent')({n:guy, s:5, at:CS.cfg.season}) === true);
+    ok('...but an older one has lapsed',
+       g('cutCurrent')({n:guy, s:5, at:'2019-20'}) === false);
+    ok('an unstamped release is read as the season just played',
+       g('cutSeason')({n:guy, s:5}) === g('seasonPrev')(g('curSeason')()));
     ok('the seed cuts were stamped on load',
        g('TEAMS')().every(t => (CS.teams[t].cuts || []).every(c => !!c.at)),
        JSON.stringify((CS.teams['N. Fink'].cuts || [])[0]));
-    ok('...with the season they were first seen in',
-       (CS.teams['N. Fink'].cuts || []).every(c => c.at === CS.cfg.season));
+    /* The seed's releases happened in the season just PLAYED, not the one being
+       built — Pritchard went during 2025-26, which is why his bar covers the
+       2026 auction and lapses when 2026-27 starts. Stamping them with the
+       current season put the bar a year late and, because the season never
+       moved, made it permanent. */
+    ok('...with the season just played, not the one being built',
+       (CS.teams['N. Fink'].cuts || []).every(c => c.at === g('seasonPrev')(g('curSeason')())),
+       JSON.stringify((CS.teams['N. Fink'].cuts || [])[0]));
+    ok('...and carry the stamp version that says so',
+       (CS.teams['N. Fink'].cuts || []).every(c => c.cv === g('CUTV')));
     ok('...and one stamped with this season does too',
        g('cutCurrent')({n:guy, s:5, at:CS.cfg.season}) === true);
     ok('...but an older one does not',
@@ -2280,20 +2298,23 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('and it comes back when the season does',
        (g('cutRestriction')(club, guy) || {}).hard === true);
 
-    /* The bar runs the rest of the season AND the following offseason, so it is
-       the same answer on either side of the phase switch. Without the in-season
-       half a club could cut a $4.00 man in February and re-sign him at $1.00 the
-       same afternoon, clearing his books for next season. */
-    CS.cfg.phase = 'season';
-    ok('in season the above-minimum release bars him too',
-       (g('cutRestriction')(club, guy) || {}).hard === true,
-       JSON.stringify(g('cutRestriction')(club, guy)));
-    ok('...and the list is the same either side of the phase',
-       g('unsignableFor')(club).length > 0);
+    /* The window is the rest of the season he was cut in PLUS the offseason
+       after it. Myles Turner went during 2025-26, so the bar covers the 2026
+       auction — now — and lapses the moment 2026-27 goes live. That is the
+       Pritchard rule, and it is why the league year has to be able to move. */
+    ok('the bar is live in the offseason before the next season',
+       (g('cutRestriction')(club, guy) || {}).hard === true);
     ok('...and the reason names the window',
        /rest of this season/.test(g('cutRestriction')(club, guy).why)
        && /following offseason/.test(g('cutRestriction')(club, guy).why),
        g('cutRestriction')(club, guy).why);
+    CS.cfg.phase = 'season';
+    ok('and it lapses the moment that season goes live',
+       g('cutRestriction')(club, guy) === null,
+       JSON.stringify(g('cutRestriction')(club, guy)));
+    ok('...so he is off the barred list too',
+       g('unsignableFor')(club).length === 0,
+       JSON.stringify(g('unsignableFor')(club)));
     CS.cfg.phase = 'offseason';
 
     /* The rulebook's own rule still stands on top of it: a multi-year deal is
@@ -2320,7 +2341,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
                                       && CS.cfg.cap - g('committed')(t) > 10);
     /* One year, so the rulebook's multi-year rule cannot be what catches him —
        this is the above-minimum bar doing the work, and it used to do none. */
-    const dear = {n:'Loophole Guy', p:'G', y:[4.00, 4.00, null, null], o:'', b:'', acq:2025, cut:false};
+    const dear = {n:'Loophole Guy', p:'G', y:{'2025-26':4.00, '2026-27':4.00}, o:'', b:'', acq:2025, cut:false};
     CS.teams[club].r.push(dear);
     X.me = club;
     g('releaseRecord')(club, CS.teams[club].r.indexOf(dear));
@@ -2351,14 +2372,14 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
     /* A minimum man is not a renegotiation, so he can come straight back — a GM
        parking an injured minimum player must not be locked out of his own club. */
-    const cheap = {n:'Minimum Guy', p:'G', y:[1.00, 1.00, null, null], o:'', b:'', acq:2025, cut:false};
+    const cheap = {n:'Minimum Guy', p:'G', y:{'2025-26':1.00, '2026-27':1.00}, o:'', b:'', acq:2025, cut:false};
     CS.teams[club].r.push(cheap);
     g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
     ok('a minimum release bars nothing in season',
        g('cutRestriction')(club, 'Minimum Guy') === null);
     await g('signFA')(club, 'Minimum Guy');
     ok('...and he can be signed straight back',
-       CS.teams[club].r.some(p => p.n === 'Minimum Guy' && p.y[1] === 1.00),
+       CS.teams[club].r.some(p => p.n === 'Minimum Guy' && g('salNow')(p) === 1.00),
        JSON.stringify(ctx.__alerts));
 
     CS.teams[club].r = CS.teams[club].r.filter(p => p.n !== 'Minimum Guy');
@@ -2374,15 +2395,18 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const CS = g('S');
     CS.cfg.phase = 'offseason'; CS.cfg.roster = 15;
     const club = g('TEAMS')().find(t => t !== 'N. Fink' && t !== 'D. Fink' && t !== 'N. Daman');
-    const dear = {n:'Fresh Cut Guy', p:'G', y:[4.00, 4.00, null, null], o:'', b:'', acq:2025, cut:false};
+    const dear = {n:'Fresh Cut Guy', p:'G', y:{'2025-26':4.00, '2026-27':4.00}, o:'', b:'', acq:2025, cut:false};
     CS.teams[club].r.push(dear);
     X.me = club;
     g('releaseRecord')(club, CS.teams[club].r.indexOf(dear));
     ok('the release is recorded at his salary',
        (g('cutRecords')(club, 'Fresh Cut Guy')[0] || {}).s === 4.00,
        JSON.stringify(g('cutRecords')(club, 'Fresh Cut Guy')));
-    ok('...stamped with this season',
-       g('cutRecords')(club, 'Fresh Cut Guy')[0].at === CS.cfg.season);
+    /* A cut made NOW is stamped with the season the league is on, which is what
+       makes its bar run this season and the offseason after it. */
+    ok('...stamped with the season the league is on',
+       g('cutRecords')(club, 'Fresh Cut Guy')[0].at === g('curSeason')(),
+       JSON.stringify(g('cutRecords')(club, 'Fresh Cut Guy')[0]));
     ok('so the club cannot bid on him',
        (g('cutRestriction')(club, 'Fresh Cut Guy') || {}).hard === true);
     ok('...and he shows on its barred list',
@@ -2392,7 +2416,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        g('cutRestriction')(rival2, 'Fresh Cut Guy') === null);
 
     /* A minimum release is not a renegotiation, so it bars nothing. */
-    const cheap = {n:'Cheap Cut Guy', p:'G', y:[1.00, 1.00, null, null], o:'', b:'', acq:2025, cut:false};
+    const cheap = {n:'Cheap Cut Guy', p:'G', y:{'2025-26':1.00, '2026-27':1.00}, o:'', b:'', acq:2025, cut:false};
     CS.teams[club].r.push(cheap);
     g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
     ok('a minimum release bars nothing',
@@ -2401,6 +2425,178 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
     CS.teams[club].cuts = CS.teams[club].cuts.filter(
       c => c.n !== 'Fresh Cut Guy' && c.n !== 'Cheap Cut Guy');
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+  }
+
+
+  /* ============ SEASONS, CONTRACTS AND THE ROLL ============ */
+  console.log('\n== a season key compares equal to itself ==');
+  {
+    const sk = g('seasonKey');
+    /* The seed writes an en dash, a commissioner might type a hyphen, and the
+       roll computes from a number. A key that does not compare equal to itself
+       is the one bug this design cannot have. */
+    ['2026–27', '2026-27', '2026', 2026, '2026–2027', ' 2026 - 27 ']
+      .forEach(v => ok('  ' + JSON.stringify(String(v)) + ' -> 2026-27', sk(v) === '2026-27', sk(v)));
+    ok('a century rolls over cleanly', sk(2099) === '2099-00', sk(2099));
+    ok('nonsense is empty, not a wrong answer', sk('later') === '' && sk(null) === '');
+    ok('seasonAt walks forwards', g('seasonAt')('2026-27', 1) === '2027-28');
+    ok('...and backwards', g('seasonAt')('2026-27', -1) === '2025-26');
+    ok('...and stays put at zero', g('seasonAt')('2026-27', 0) === '2026-27');
+    ok('seasonStart is the first year', g('seasonStart')('2026-27') === 2026);
+    ok('the league is on 2026-27', g('curSeason')() === '2026-27');
+    /* One style everywhere. The seed wrote an en dash and a roll computes a
+       hyphen, so without canonicalising cfg.season the header changed
+       punctuation the first time the league moved — and a hand-typed season
+       would not have matched the keys on a contract. */
+    ok('cfg.season is canonicalised on load',
+       g('S').cfg.season === '2026-27', JSON.stringify(g('S').cfg.season));
+    ok('...even from the en-dashed form the seed used',
+       g('normCfg')({season:'2030–31'}).season === '2030-31');
+    ok('...and a season it cannot read is left alone rather than blanked',
+       g('normCfg')({season:'later'}).season === 'later');
+  }
+
+  console.log('\n== a contract is money against a named season ==');
+  {
+    const CS = g('S');
+    const sga = CS.teams['N. Fink'].r.find(p => /Gilgeous/.test(p.n));
+    ok('the seed carries season keys, not a four-slot array',
+       !Array.isArray(sga.y) && sga.y['2026-27'] === 41, JSON.stringify(sga.y));
+    ok('salNow is what he is owed this season', g('salNow')(sga) === 41);
+    ok('salPrev is the season just played', g('salPrev')(sga) === 39.25);
+    ok('salOff walks forward from now', g('salOff')(sga, 1) === null);
+    ok('yrsLeft counts from the current season', g('yrsLeft')(sga) === 1);
+
+    /* The four-slot array is still READ, because the live league's blob is full
+       of them until the next write. Index 1 was always "now". */
+    const legacy = {n:'Legacy Shape', y:[1.00, 2.00, 3.00, null]};
+    ok('an array still reads correctly', g('salNow')(legacy) === 2.00
+       && g('salPrev')(legacy) === 1.00 && g('salOff')(legacy, 1) === 3.00);
+    ok('...and converts to the same thing',
+       JSON.stringify(g('normContract')([1.00, 2.00, 3.00, null], '2026-27'))
+       === JSON.stringify({'2025-26':1, '2026-27':2, '2027-28':3}));
+    ok('converting a map is a no-op, so it is safe on every load',
+       JSON.stringify(g('normContract')({'2026-27':5}, '2026-27')) === JSON.stringify({'2026-27':5}));
+    ok('...including the en-dashed keys an older build could have written',
+       JSON.stringify(g('normContract')({'2026–27':5}, '2026-27')) === JSON.stringify({'2026-27':5}));
+
+    ok('termFrom builds a run of seasons from now',
+       JSON.stringify(g('termFrom')(4, 3)) ===
+       JSON.stringify({'2026-27':4, '2027-28':4, '2028-29':4}));
+    ok('...and one year is one season', Object.keys(g('termFrom')(4, 1)).length === 1);
+  }
+
+  console.log('\n== advancing the league year rewrites nothing ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'offseason';
+    const before = JSON.stringify(CS.teams);
+    const cur = g('curSeason')(), next = g('seasonNext')(cur);
+    const v = g('rollPreview')();
+    ok('the preview names both seasons', v.cur === cur && v.next === next);
+    ok('...and is pure — no roster is touched by asking',
+       JSON.stringify(CS.teams) === before);
+    ok('...and reports what would expire', v.expiring.length > 0, String(v.expiring.length));
+
+    /* A player owed money in 2026-27 but not 2027-28 is under contract now and
+       expiring after the roll. Nothing about HIM changes — only the year does. */
+    const sga = CS.teams['N. Fink'].r.find(p => /Gilgeous/.test(p.n));
+    ok('he is under contract before the roll', g('contracted')(sga) === true);
+    const y0 = JSON.stringify(sga.y);
+
+    CS.cfg.season = next;                       // the roll, in full
+    ok('the same contract now reads as expiring', g('contracted')(sga) === false);
+    ok('...and his money for the season just played is still on file',
+       g('salPrev')(sga) === 41);
+    ok('...because the contract itself was never rewritten',
+       JSON.stringify(sga.y) === y0, JSON.stringify(sga.y));
+    ok('a deal running into the new season survives it',
+       CS.teams['Osborn'].r.some(p => g('contracted')(p)));
+
+    /* Rolling twice by accident is the failure mode a destructive shift would
+       have had. Here the second roll to the same year is simply idempotent. */
+    CS.cfg.season = next;
+    ok('setting the same year again changes nothing', JSON.stringify(sga.y) === y0);
+
+    CS.cfg.season = cur;
+    ok('and setting it back restores every contract',
+       g('contracted')(sga) === true && JSON.stringify(CS.teams) === before);
+  }
+
+  console.log('\n== Bird rights vest because the year moves ==');
+  {
+    const CS = g('S');
+    const club = g('TEAMS')()[0];
+    /* Three COMPLETED seasons. Signed in 2024: two are done by the 2026-27
+       league year, so no Bird; the roll to 2027-28 makes it three. */
+    const man = {n:'Vesting Guy', p:'G', y:{'2026-27':2, '2027-28':2}, o:'', b:'', acq:2024, cut:false};
+    CS.teams[club].r.push(man);
+    CS.cfg.season = '2026-27';
+    ok('two completed seasons is not Bird', g('tenureOf')(man) === 2 && g('birdRight')(man) === '');
+    ok('the preview says he is about to vest',
+       g('rollPreview')().bird.some(x => x.n === 'Vesting Guy'),
+       JSON.stringify(g('rollPreview')().bird.slice(0, 3)));
+    CS.cfg.season = '2027-28';
+    ok('after the roll he has three, and the club has Bird',
+       g('tenureOf')(man) === 3 && g('birdRight')(man) === 'Yes');
+    CS.cfg.season = '2026-27';
+    CS.teams[club].r = CS.teams[club].r.filter(p => p.n !== 'Vesting Guy');
+  }
+
+  console.log('\n== Payton Pritchard, end to end ==');
+  {
+    const CS = g('S');
+    const club = 'N. Daman', guy = 'Payton Pritchard';
+    CS.cfg.season = '2026-27'; CS.cfg.phase = 'offseason';
+    const rec = (CS.teams[club].cuts || []).find(c => c.n === guy);
+    ok('he was released during 2025-26', rec && rec.at === '2025-26', JSON.stringify(rec));
+    ok('...above the minimum', rec.s === 1.25 && g('cutAboveMin')(rec) === true);
+
+    ok('at the 2026 auction N. Daman cannot sign him',
+       (g('cutRestriction')(club, guy) || {}).hard === true);
+    ok('...and he is on their barred list',
+       g('unsignableFor')(club).some(c => c.n === guy));
+    ok('...while every other club may have him',
+       g('TEAMS')().filter(t => t !== club)
+         .every(t => g('cutRestriction')(t, guy) === null));
+
+    CS.cfg.phase = 'season';
+    ok('once 2026-27 goes live he is free to N. Daman as a free agent',
+       g('cutRestriction')(club, guy) === null);
+    ok('...and off the barred list', g('unsignableFor')(club).length === 0);
+
+    CS.cfg.phase = 'offseason';
+    ok('and the bar is back if the season is re-opened as the offseason',
+       (g('cutRestriction')(club, guy) || {}).hard === true);
+    CS.cfg.season = '2027-28';
+    ok('a year later it has lapsed for good',
+       g('cutRestriction')(club, guy) === null);
+    CS.cfg.season = '2026-27';
+  }
+
+  console.log('\n== a signing writes the season it is made in ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'season'; CS.cfg.roster = 15; CS.cfg.minSal = 1.00;
+    const club = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster
+                                      && CS.cfg.cap - g('committed')(t) > 10);
+    X.me = club;
+    const who = g('faPool')().find(p => !g('signedClub')(p.n) && !g('cutRestriction')(club, p.n)).n;
+    await g('signFA')(club, who);
+    const got = CS.teams[club].r.find(p => p.n === who);
+    ok('the contract is keyed to the current season',
+       got && got.y['2026-27'] === 1.00 && Object.keys(got.y).length === 1,
+       got && JSON.stringify(got.y));
+    ok('...so it expires when the year moves', (() => {
+      CS.cfg.season = '2027-28';
+      const gone = !g('contracted')(got);
+      CS.cfg.season = '2026-27';
+      return gone;
+    })());
+    CS.teams[club].r = CS.teams[club].r.filter(p => p.n !== who);
+    CS.cfg.phase = 'offseason';
     X.me = 'Osborn';
     ctx.__alerts.length = 0;
   }
