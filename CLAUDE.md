@@ -748,6 +748,20 @@ The Trades tab opens with the block, filterable by club and name. "Add to trade"
 loads the player into the builder: his club goes on the far side and yours on the
 near one, so you are always looking at what you would give up.
 
+**Anyone may build any trade; only the clubs in it may propose it.**
+`tradeSideOf(v)` returns the signed-in GM's side or null, and both `drawTrade()`
+(which disables the button and says why) and the click handler check it — a
+disabled button is a signpost, not a rule, and a stale render leaves it
+clickable. The machine is for working out what a deal between two rivals would do
+as much as one of your own, so building stays open to everybody. The commissioner
+has no club, so he answers for whichever club he is acting as on My Team.
+
+**The Stats button in the pick lists opens the shared modal**, like every other
+clickable player name. It used to render a card into a panel below the builder,
+so reading the stats you had just asked for meant scrolling past both pick lists
+and losing your place — the same fault the Free agent classes tab had, and the
+same fix. `#tradeDetail` is gone.
+
 **Stats in the trade machine.** Each pick-list row carries a line under the name —
 games first, then points, rebounds, assists and threes. Games lead because of the
 920-game cap: what a player costs in slots matters as much as what he does in
@@ -974,7 +988,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 772 assertions against the real functions
+node tests/test.js        the app: 784 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock

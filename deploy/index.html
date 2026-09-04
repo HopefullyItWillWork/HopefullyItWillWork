@@ -877,13 +877,13 @@ thead th.hide,tbody td.hide{display:none}}
       </div>
     </div>
     <div id="tradeCats"></div>
-    <div id="tradeDetail"></div>
     <div id="verdict"></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
       <button class="btn" id="propose">Propose trade</button>
       <button class="btn ghost" id="emailBtn">Email this offer</button>
       <button class="btn ghost" id="clearTrade">Clear</button>
     </div>
+    <p class="note" id="proposeNote"></p>
     <h2 class="sub">Open offers</h2>
     <div class="log" id="offers"></div>
   </section>
@@ -5362,11 +5362,13 @@ function drawTradeLists(){
   document.querySelectorAll('[data-roll]').forEach(c=>c.onchange=()=>{
     const id=c.dataset.roll;
     PICKPROT[id]={...(PICKPROT[id]||{}),roll:c.checked};});
+  /* The shared modal, like everywhere else a player name is clickable. It used
+     to render a card into a panel below the builder, so reading the stats you
+     had just asked for meant scrolling past both pick lists and losing your
+     place in them — the same fault the Free agent classes tab had. */
   document.querySelectorAll('[data-tp]').forEach(b=>b.onclick=e=>{
     e.preventDefault();e.stopPropagation();
-    $('tradeDetail').innerHTML=`<div style="margin-top:16px">${playerCard(b.dataset.tp)}</div>`;
-    wirePlayerCard($('tradeDetail'));
-    $('tradeDetail').scrollIntoView({behavior:'smooth',block:'nearest'});});
+    openPlayerCard(b.dataset.tp);});
 }
 /* The one-line summary under a name in the pick lists. Games first: the league
    caps a club at 920 player-games, so what a player costs in slots matters as
@@ -5493,6 +5495,13 @@ function blockPick(team,p){
   drawTradeLists(); drawTrade();
   $('tradeCats').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
+/* Which side of the builder is the signed-in GM's, or null if neither. The
+   commissioner has no club, so he answers for whichever club he is acting as. */
+function tradeSideOf(v){
+  if(!me) return null;
+  const t=isComm()?meTeam():me;
+  return (v.a===t||v.b===t) ? t : null;
+}
 function drawTrade(){
   const v=validateTrade();
   const foot=(t)=>{
@@ -5511,7 +5520,20 @@ function drawTrade(){
         v.ka.length?` and ${v.ka.length} pick${v.ka.length===1?'':'s'}`:''}, ${v.b} sends ${money(v.outB)}${
         v.kb.length?` and ${v.kb.length} pick${v.kb.length===1?'':'s'}`:''}. Both clubs clear salary matching, the hard cap, and roster limits.</div>`
     : `<div class="vd no"><h5>Not permitted</h5><ul>${v.fails.map(f=>`<li>${f}</li>`).join('')}</ul></div>`;
-  $('propose').disabled=!v.ok||!me;
+  /* A GM may build any trade he likes — the machine is for working out what a
+     deal between two rivals would do as much as one of his own — but he may only
+     PUT one of them to somebody, and only when it is his club on one side. The
+     commissioner is not bound by it: his tools exist to make the ledger match
+     reality, including recording a deal the two clubs agreed away from the app. */
+  const mine=tradeSideOf(v);
+  $('propose').disabled=!v.ok||!me||!mine;
+  $('propose').title = !me ? 'Sign in to propose a trade.'
+    : !mine ? 'You can only propose a trade your own club is in.' : '';
+  if($('proposeNote')) $('proposeNote').textContent = !me
+    ? 'Sign in to propose a trade. Anyone can build one here and see what it would do.'
+    : !mine ? `Build any trade you like here \u2014 but ${
+        isComm()?'pick a club you are acting for to propose it':'you can only propose one your own club is in'}.`
+    : '';
   $('emailBtn').disabled=!v.pa.length&&!v.pb.length&&!v.ka.length&&!v.kb.length;
   const pend=(S.trades||[]).filter(t=>t.status==='pending').length;
   $('tCount').textContent=pend?` (${pend})`:'';
@@ -5644,6 +5666,11 @@ function drawOffers(){
 $('propose').onclick=async()=>{
   const v=validateTrade();
   if(!v.ok||!me)return;
+  /* The disabled button is the signpost; this is the rule. */
+  if(!tradeSideOf(v))
+    return alert(`You can only propose a trade your own club is in.\n\n`
+      +`This one is between ${v.a} and ${v.b}. Build whatever you like here \u2014 `
+      +'proposing it is for the clubs involved.');
   S.trades=S.trades||[];
   /* Picks travel in their own arrays. The protection a GM set in the builder is
      captured with the offer, not written to the pick — until the other club
