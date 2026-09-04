@@ -102,6 +102,33 @@ no network — the save toast says "synced" or "this device only". Changing a PI
 makes the stored copy undecryptable; the client falls back to its local copy and
 re-uploads rather than losing the board.
 
+### An expiring contract is a free agent
+He is sitting on a roster this minute, but nobody has committed a dollar to him
+for next season, and that is the only test the auction, the strategy board and
+`faPool()` have ever used. Three functions say it in one place:
+
+- `signedClub(name)` — the club with salary on him for next season, or null.
+- `liveClub(name)` — whichever club carries him on its sheet today, expiring or
+  not.
+- `isFreeAgent(name)` — no `signedClub`. This is the predicate every "is he
+  available" question must use.
+
+`ownerOf()` renders the two together: `Osborn`, `Coulter (expiring)`, or
+`Free agent`. `ownerLabel()` is the same in the lower case the player cards use.
+
+The what-if roster's "free agents only" filter used to mean *unrostered*, which
+hid every expiring player from the one screen built for planning around them.
+
+**None of this reads `RATER`'s `t` field.** That is the club stamped on a player
+when the 2025-26 numbers were transcribed; it does not follow a trade, a signing,
+a cut or the draft. A screen showing `p.t` is showing last season, and the
+Players tab, the projections table and all three player cards were doing exactly
+that.
+
+The commissioner's player table is the deliberate exception, and for a different
+reason — see below: an expiring man is already listed under his club there, and
+a second row would let the commissioner edit two of him.
+
 ### One free agent pool, read by every screen
 `faPool()` is the single definition of the free agent class, and `stratPool()`
 and `freeAgents()` both agree with it: a player counts as taken only when `y[1]`
@@ -465,7 +492,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 296 assertions against the real functions
+node tests/test.js        the app: 315 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```

@@ -856,6 +856,70 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   X.me = 'Osborn';
   g('saveNotes')('');
 
+  console.log('\n== an expiring contract is a free agent, everywhere it is asked ==');
+  X.me = 'Osborn';
+  // Kevin Durant is Coulter's, playing out the last year of his deal.
+  ok('he counts as a free agent', g('isFreeAgent')('Kevin Durant')===true);
+  ok('nobody has signed him for next season', g('signedClub')('Kevin Durant')===null);
+  ok('but he is on Coulter today', g('liveClub')('Kevin Durant')==='Coulter',
+     g('liveClub')('Kevin Durant'));
+  ok('and the label says both', g('ownerOf')('Kevin Durant')==='Coulter (expiring)',
+     g('ownerOf')('Kevin Durant'));
+  ok('a signed man is not a free agent', g('isFreeAgent')('Chet Holmgren')===false);
+  ok('his club is his club', g('ownerOf')('Chet Holmgren')==='N. Fink', g('ownerOf')('Chet Holmgren'));
+
+  console.log('\n== the what-if pool offers him under "free agents" ==');
+  X.LAB = [];
+  document.getElementById('labSearch2').value = '';
+  document.getElementById('labPos').value = '';
+  document.getElementById('labOwn').value = 'fa';
+  g('drawLabPool')();
+  const fapool = document.getElementById('labPool').innerHTML;
+  ok('an expiring player is in the free agent view', fapool.includes('Kevin Durant'));
+  ok('shown with the club he is expiring off', /Kevin Durant[\s\S]{0,200}Coulter \(expiring\)/.test(fapool));
+  ok('a signed player is not', !fapool.includes('Chet Holmgren'));
+  document.getElementById('labOwn').value = 'own';
+  g('drawLabPool')();
+  const owned = document.getElementById('labPool').innerHTML;
+  ok('and "signed for next season" is the exact complement',
+     owned.includes('Chet Holmgren') && !owned.includes('Kevin Durant'));
+  document.getElementById('labOwn').value = '';
+
+  console.log('\n== the club column is live state, not the RATER snapshot ==');
+  document.getElementById('rSearch').value = 'Kevin Durant';
+  document.getElementById('rTeam').value = '';
+  document.getElementById('rPos').value = '';
+  g('drawRater')();
+  ok('the rater shows where he is now',
+     /Coulter \(expiring\)/.test(document.getElementById('raterBody').innerHTML),
+     document.getElementById('raterBody').innerHTML.slice(0, 300));
+  document.getElementById('rSearch').value = '';
+  document.getElementById('rTeam').value = 'FA';
+  g('drawRater')();
+  const raterFA = document.getElementById('raterBody').innerHTML;
+  ok('"free agents" on the rater includes him too', raterFA.includes('Kevin Durant'));
+  ok('and excludes a signed man', !raterFA.includes('Chet Holmgren'));
+  document.getElementById('rTeam').value = 'Coulter';
+  g('drawRater')();
+  ok('a club filter still finds his expiring players',
+     document.getElementById('raterBody').innerHTML.includes('Kevin Durant'));
+  document.getElementById('rTeam').value = '';
+  g('drawRater')();
+
+  console.log('\n== signing him takes him out of every one of those ==');
+  X.me = 'Brice';
+  await g('signPlayer')('Kevin Durant', 'Brice', 4.00, 1);
+  ok('now signed', g('signedClub')('Kevin Durant')==='Brice', g('signedClub')('Kevin Durant'));
+  ok('so not a free agent', g('isFreeAgent')('Kevin Durant')===false);
+  ok('and the label is plain', g('ownerOf')('Kevin Durant')==='Brice');
+  document.getElementById('labOwn').value = 'fa';
+  g('drawLabPool')();
+  ok('gone from the what-if free agents',
+     !document.getElementById('labPool').innerHTML.includes('Kevin Durant'));
+  document.getElementById('labOwn').value = '';
+  ok('and gone from faPool too', !g('faPool')().some(p => p.n === 'Kevin Durant'));
+  X.me = 'Osborn';
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

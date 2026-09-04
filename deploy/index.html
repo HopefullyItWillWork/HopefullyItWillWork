@@ -558,7 +558,9 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="filters">
       <input id="labSearch2" placeholder="Filter the pool by name" autocomplete="off">
       <select id="labPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
-      <select id="labOwn"><option value="">Everyone</option><option value="fa">Free agents only</option><option value="own">Under contract</option></select>
+      <select id="labOwn"><option value="">Everyone</option>
+        <option value="fa">Free agents &#8212; includes expiring deals</option>
+        <option value="own">Signed for next season</option></select>
       <select id="labAddF"><option value="">Add a stat filter&#8230;</option>
         <option value="g">Games</option><option value="PTS">Points</option><option value="TRB">Rebounds</option>
         <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
@@ -735,11 +737,12 @@ thead th.hide,tbody td.hide{display:none}}
     <h2>Player rater &#8212; 2025&#8211;26</h2>
     <p class="note">What each player actually produced last season, scored the way this league counts. Every category is a
       z-score against the pool of rostered players; shooting percentages are weighted by attempts, so a big volume of bad
-      free throws hurts more than a handful does. Add the nine columns and you get the rating. Players under 15 games are listed but unrated, and anyone not on a
-      dynasty roster shows as a free agent. This is a record of last season, not a projection.</p>
+      free throws hurts more than a handful does. Add the nine columns and you get the rating. Players under 15 games are listed but unrated. The club column is
+      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
+      including the men playing out the last year of a deal. This is a record of last season, not a projection.</p>
     <div class="filters">
       <input id="rSearch" placeholder="Search players" autocomplete="off">
-      <select id="rTeam"><option value="">All players</option><option value="FA">Free agents only</option></select>
+      <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
       <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
       <span class="fcount" id="rCount"></span>
       <button class="btn ghost" id="expRater">Export CSV</button>
@@ -2445,14 +2448,37 @@ function fullTotals(names){
 }
 function clubNames(t){ return S.teams[t].r.filter(p=>p.y[1]!=null).map(p=>p.n); }
 
-function ownerOf(name){
+/* Who holds a player right now. Two facts, and they are not the same one:
+   `signedClub` is the club with salary committed to him for next season, and
+   `liveClub` is whichever club carries him on its sheet today, expiring or not.
+
+   **An expiring contract is a free agent.** He is sitting on a roster this
+   minute, but nobody has committed a dollar to him for next season, and that is
+   the only test the auction, the strategy board and faPool() have ever used.
+   Anywhere the app asks "is he available", it has to mean this — the what-if
+   roster's "free agents only" filter used to mean "unrostered", which hid every
+   expiring player from the one screen built for planning around them.
+
+   None of this reads RATER's `t`. That is the club stamped on the player when
+   the 2025-26 numbers were transcribed; it does not follow a trade, a signing, a
+   cut or the draft, so a screen that shows it is showing last season. */
+function signedClub(name){
   const c=canon(name);
-  for(const t of TEAMS()){
-    const p=S.teams[t].r.find(x=>canon(x.n)===c);
-    if(p) return p.y[1]!=null ? t : t+' (expiring)';
-  }
-  return 'Free agent';
+  return TEAMS().find(t=>S.teams[t].r.some(x=>!x.cut&&canon(x.n)===c&&x.y[1]!=null))||null;
 }
+function liveClub(name){
+  const c=canon(name);
+  return TEAMS().find(t=>S.teams[t].r.some(x=>!x.cut&&canon(x.n)===c))||null;
+}
+const isFreeAgent=name=>!signedClub(name);
+function ownerOf(name){
+  const t=signedClub(name);
+  if(t) return t;
+  const e=liveClub(name);
+  return e ? e+' (expiring)' : 'Free agent';
+}
+/* The same thing in the lower case the player cards use. */
+const ownerLabel=name=>{const o=ownerOf(name); return o==='Free agent'?'free agent':o;};
 /* ============ TEAM BUILDER (sandbox) ============ */
 let LAB=[], labFilters=[];
 function saveLab(){ try{localStorage.setItem('ll_lab',JSON.stringify(LAB));}catch(e){} }
@@ -2584,8 +2610,9 @@ function drawLabPool(){
     if(LAB.includes(p.n))return false;
     if(q&&!p.n.toLowerCase().includes(q))return false;
     if(pf&&!(p.p||'').includes(pf))return false;
-    if(of==='fa'&&ownerOf(p.n)!=='Free agent')return false;
-    if(of==='own'&&ownerOf(p.n)==='Free agent')return false;
+    // Expiring men are free agents: nobody has salary on them for next season.
+    if(of==='fa'&&!isFreeAgent(p.n))return false;
+    if(of==='own'&&isFreeAgent(p.n))return false;
     for(const f of labFilters){
       const v=statVal(p,f.k);
       if(v==null)return false;
@@ -2606,7 +2633,7 @@ function drawLabPool(){
     <th class="hide2" data-k="TOV">TO</th><th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
     rows.slice(0,140).map(p=>{const v=pstat(p.n)||p; const own=ownerOf(p.n);
       return `<tr><td class="pname" data-player="${p.n}">${p.n}</td>
-      <td class="l" style="font-size:12px;color:${own==='Free agent'?'var(--space)':'var(--steel)'}">${own}</td>
+      <td class="l" style="font-size:12px;color:${isFreeAgent(p.n)?'var(--space)':'var(--steel)'}">${own}</td>
       <td class="pos hide">${p.p||'&#8212;'}</td><td>${v.g}</td>
       <td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
       <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
@@ -3100,7 +3127,7 @@ function openProj(name){
   const b=RIDX[name]; if(!b) return;
   pjEditing=name; const o=PROJ[name]||{};
   $('pjName').textContent=name;
-  $('pjSub').textContent=`${b.t==='FA'?'free agent':b.t} \u00b7 last season ${b.g} games, ${b.s.PTS}p ${b.s.TRB}r ${b.s.AST}a`;
+  $('pjSub').textContent=`${ownerLabel(name)} \u00b7 last season ${b.g} games, ${b.s.PTS}p ${b.s.TRB}r ${b.s.AST}a`;
   const set=(id,v,ph)=>{const el=$(id);el.value=(v==null?'':v);el.placeholder=ph;};
   set('pjG',o.g,b.g);
   SKEYS.forEach(k=>{ if($('pj'+k)) set('pj'+k,o[k],b.s[k]); });
@@ -3149,7 +3176,7 @@ function drawProjTab(){
       const d=(k,cur)=>{const a=RIDX[p.n].s[k];return (e&&useProj&&Math.abs(cur-a)>0.001)
         ?`<span class="edited">${cur}</span>`:cur;};
       return `<tr class="${e?'hasproj':''}"><td>${p.n}</td>
-        <td class="l hide">${p.t==='FA'?'<span style="color:var(--dim)">free agent</span>':p.t}</td>
+        <td class="l hide">${raterClub(p.n)}</td>
         <td>${e&&useProj&&v.g!==RIDX[p.n].g?`<span class="edited">${v.g}</span>`:v.g}</td>
         <td>${d('PTS',v.s.PTS)}</td><td>${d('TRB',v.s.TRB)}</td><td>${d('AST',v.s.AST)}</td>
         <td>${d('P3',v.s.P3)}</td><td class="hide2">${d('STL',v.s.STL)}</td>
@@ -3261,7 +3288,7 @@ function playerCard(name,opts){
   const baseR=b.tot, projR=R[c];
   return `<div class="impact">
     <h4>${name}</h4>
-    <div class="sub2">${b.t==='FA'?'free agent':b.t} \u00b7 ${b.p||'\u2014'}
+    <div class="sub2">${ownerLabel(name)} \u00b7 ${b.p||'\u2014'}
       ${has?'\u00b7 <span class="edited">you have edited this player</span>':''}</div>
     <div class="drow dhead2"><span class="cat">PER GAME</span><span class="av">2025\u201326</span>
       <span class="pv">MY PROJ</span><span class="dv">DIFF</span></div>
@@ -3427,7 +3454,7 @@ function impactCard(team,name,priceNote){
       <span class="rk ${cls}">${rb}&#8594;${ra}</span></div>`;}).join('');
   const dp=I.dPts, df=I.dFin;
   return `<div class="impact"><h4>${name}</h4>
-    <div class="sub2">${r.t==='FA'?'free agent':r.t} &#183; ${r.g} games &#183; rating ${r.tot>0?'+':''}${r.tot}
+    <div class="sub2">${ownerLabel(name)} &#183; ${r.g} games &#183; rating ${r.tot>0?'+':''}${r.tot}
       ${priceNote?' &#183; '+priceNote:''}</div>
     <div class="irow ihead"><span class="cat">CAT</span><span></span>
       <span style="text-align:right">TOTAL</span><span class="dl">CHANGE</span>
@@ -4537,18 +4564,27 @@ function zColor(v){
   const rgb = a>=0 ? (light?'31,109,69':'85,166,122') : (light?'168,52,31':'201,85,63');
   return `background:rgba(${rgb},${alpha});color:var(--chalk)`;
 }
+/* The club cell in a stats table: dimmed when he is available. */
+const raterClub=n=>isFreeAgent(n)
+  ? `<span style="color:var(--dim)">${htmlEsc(ownerLabel(n))}</span>`
+  : htmlEsc(ownerOf(n));
 function drawRater(){
   const q=$('rSearch').value.trim().toLowerCase(), tf=$('rTeam').value, pf=$('rPos').value;
-  let rows=RATER.filter(p=>(!q||p.n.toLowerCase().includes(q))&&(!tf||p.t===tf)&&(!pf||(p.p||'').includes(pf)));
+  /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
+     means nobody has committed salary for next season. */
+  let rows=RATER.filter(p=>(!q||p.n.toLowerCase().includes(q))
+    &&(!tf||(tf==='FA'?isFreeAgent(p.n):liveClub(p.n)===tf))
+    &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
-  const val=(p,c)=>c==='n'?p.n:c==='t'?p.t:c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
+  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   $('rCount').textContent=`${rows.length} of ${RATER.length} players`;
   $('raterBody').innerHTML=rows.map(p=>{
-    if(!p.z) return `<tr><td class="l">&#8212;</td><td>${p.n}</td><td class="l hide">${p.t==='FA'?'<span style="color:var(--dim)">free agent</span>':p.t}</td>
+    const oc=raterClub(p.n);
+    if(!p.z) return `<tr><td class="l">&#8212;</td><td>${p.n}</td><td class="l hide">${oc}</td>
       <td class="hide2">${p.g}</td><td colspan="9" class="unrated" style="text-align:center">under 15 games &#8212; not rated</td>
       <td class="unrated">&#8212;</td></tr>`;
-    return `<tr><td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${p.t==='FA'?'<span style="color:var(--dim)">free agent</span>':p.t}</td><td class="hide2">${p.g}</td>
+    return `<tr><td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
       ${RCATS.map(c=>`<td><span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span></td>`).join('')}
       <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
   }).join('');
@@ -4792,7 +4828,8 @@ function netChip(){
   try{me=localStorage.getItem('ll_me');useProj=localStorage.getItem('ll_proj')==='1';}catch(e){}
   loadLab();
   if(me&&me!=='__comm__'&&!S.teams[me])me=null;
-  $('rTeam').innerHTML='<option value="">All players</option><option value="FA">Free agents only</option>'
+  $('rTeam').innerHTML='<option value="">All players</option>'
+    +'<option value="FA">Free agents \u2014 includes expiring deals</option>'
     +TEAMS().map(t=>`<option>${t}</option>`).join('');
   await loadProj();
   rebuildPlayerFixes();
