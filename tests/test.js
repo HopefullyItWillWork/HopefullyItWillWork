@@ -1052,6 +1052,142 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      X.useProj === false, X.PROJSRC);
   await g('setProjMode')('act');
 
+  console.log('\n== fifteen slots, and only the right men fit them ==');
+  const SLOTIDS = g('SLOTIDS');
+  ok('fifteen in all', SLOTIDS.length === 15, SLOTIDS.length);
+  const count = k => SLOTIDS.filter(i => i[0] === k).length;
+  ok('1 C, 4 G, 4 F, 6 UTIL',
+     count('C') === 1 && count('G') === 4 && count('F') === 4 && count('U') === 6,
+     SLOTIDS.join(','));
+  const ps = n => [...g('posSet')(n)].sort().join('');
+  ok('a two-way man is eligible at both', ps('Franz Wagner').length >= 1, ps('Franz Wagner'));
+  ok('utility takes anybody', g('slotOk')('U1', 'Nikola Jokic') && g('slotOk')('U6', 'Derrick White'));
+  const guard = g('S').teams['N. Fink'].r.find(p => p.p === 'G');
+  const centre = g('S').teams['N. Fink'].r.find(p => p.p === 'C');
+  ok('a pure guard cannot play centre', g('slotOk')('C', guard.n) === false, guard.n);
+  ok('and a pure centre cannot play guard', g('slotOk')('G1', centre.n) === false, centre.n);
+  ok('each in his own spot', g('slotOk')('G1', guard.n) && g('slotOk')('C', centre.n));
+
+  console.log('\n== the lineup opens with the season, not before ==');
+  X.me = 'N. Fink';
+  g('S').cfg.phase = 'offseason';
+  ctx.__alerts.length = 0;
+  await g('setSlot')('N. Fink', 'C', centre.n);
+  ok('a lineup cannot be set in the offseason',
+     g('startedOn')('N. Fink').length === 0 && /season live/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  g('S').cfg.phase = 'season';
+
+  console.log('\n== setting a lineup ==');
+  await g('setSlot')('N. Fink', 'C', centre.n);
+  ok('he starts at centre', g('lineupOf')('N. Fink').s.C === centre.n);
+  ok('startedOn reports him', g('startedOn')('N. Fink').includes(centre.n));
+  ok('and he leaves the bench', !g('benchOf')('N. Fink').some(p => p.n === centre.n));
+  await g('setSlot')('N. Fink', 'G1', centre.n);
+  ok('an ineligible slot is refused', g('lineupOf')('N. Fink').s.G1 === '',
+     JSON.stringify(ctx.__alerts));
+  ok('and says what he plays', /cannot fill/.test(ctx.__alerts[0] || ''), JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  await g('setSlot')('N. Fink', 'U1', centre.n);
+  ok('moving him to utility empties the old spot',
+     g('lineupOf')('N. Fink').s.C === '' && g('lineupOf')('N. Fink').s.U1 === centre.n);
+  ok('one player, one slot',
+     g('startedOn')('N. Fink').filter(n => n === centre.n).length === 1);
+  await g('setSlot')('N. Fink', 'U1', '');
+  ok('and clearing a spot works', g('lineupOf')('N. Fink').s.U1 === '');
+
+  console.log('\n== the injured reserve is out of the lineup ==');
+  const irIdx = g('S').teams['N. Fink'].r.findIndex(p => p.n === centre.n);
+  await g('toggleIR')('N. Fink', irIdx);
+  ok('he is on the IR', g('irOf')('N. Fink').some(p => p.n === centre.n));
+  ok('and off the bench', !g('benchOf')('N. Fink').some(p => p.n === centre.n));
+  ctx.__alerts.length = 0;
+  await g('setSlot')('N. Fink', 'C', centre.n);
+  ok('so he cannot be started', g('lineupOf')('N. Fink').s.C === '' && /injured reserve/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  await g('toggleIR')('N. Fink', irIdx);
+  ok('activating him puts him back on the bench',
+     g('benchOf')('N. Fink').some(p => p.n === centre.n));
+
+  console.log('\n== auto-fill takes the scarce slots first ==');
+  await g('clearLineup')('N. Fink');
+  await g('autoLineup')('N. Fink');
+  const lu = g('lineupOf')('N. Fink').s;
+  ok('the centre spot is filled if a centre exists', !!lu.C, JSON.stringify(lu));
+  ok('every filled spot is legal',
+     SLOTIDS.every(id => !lu[id] || g('slotOk')(id, lu[id])), JSON.stringify(lu));
+  ok('nobody is started twice',
+     new Set(g('startedOn')('N. Fink')).size === g('startedOn')('N. Fink').length);
+  ok('nobody on the IR was started',
+     !g('startedOn')('N. Fink').some(n => g('irOf')('N. Fink').some(p => p.n === n)));
+  ok('it stops at the roster, not the slot count',
+     g('startedOn')('N. Fink').length <= 15 && g('startedOn')('N. Fink').length > 0,
+     g('startedOn')('N. Fink').length);
+
+  console.log('\n== once his game tips off he is frozen for the night ==');
+  const started = g('startedOn')('N. Fink');
+  const withTeam = started.find(n => g('NBATM')[g('canon')(n)]);
+  ok('at least one starter has an NBA club on file', !!withTeam, started.join(','));
+  const tm = g('NBATM')[g('canon')(withTeam)];
+  g('S').cfg.sched = {[g('dayKey')()]: {[tm]: new Date(Date.now() - 3600e3).toISOString()}};
+  ok('he reads as locked', g('isLocked')(withTeam) === true);
+  ok('and the reason names his club', /tipped off/.test(g('lockOf')(withTeam).why),
+     g('lockOf')(withTeam).why);
+  const slotOfHim = SLOTIDS.find(id => g('lineupOf')('N. Fink').s[id] === withTeam);
+  ctx.__alerts.length = 0;
+  await g('setSlot')('N. Fink', slotOfHim, '');
+  ok('so he cannot be benched', g('lineupOf')('N. Fink').s[slotOfHim] === withTeam,
+     JSON.stringify(ctx.__alerts));
+  ok('and the app says why', /locked/.test(ctx.__alerts[0] || ''), JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  await g('clearLineup')('N. Fink');
+  ok('clearing the lineup leaves him where he is',
+     g('lineupOf')('N. Fink').s[slotOfHim] === withTeam);
+  ok('and everyone unlocked went to the bench',
+     g('startedOn')('N. Fink').every(n => g('isLocked')(n)),
+     g('startedOn')('N. Fink').join(','));
+  g('S').cfg.sched = {};
+  ok('with the game gone from the schedule he is free again', g('isLocked')(withTeam) === false);
+
+  console.log('\n== the league-wide lock is the stopgap until the feed lands ==');
+  ok('with nothing set, nothing locks', /nothing is locked/.test(g('lineupNote')()), g('lineupNote')());
+  g('S').cfg.lockAt = '00:00';
+  ok('a lock time in the past locks everyone', g('isLocked')(withTeam) === true);
+  ok('and the note says when', /locks at 00:00/.test(g('lineupNote')()), g('lineupNote')());
+  g('S').cfg.lockAt = '';
+  ok('clearing it unlocks', g('isLocked')(withTeam) === false);
+
+  console.log('\n== the roster screen renders the lineup while the season is live ==');
+  await g('clearLineup')('N. Fink');
+  await g('autoLineup')('N. Fink');
+  g('render')();
+  ok('the lineup block is visible', document.getElementById('luWrap').hidden === false);
+  ok('fifteen rows are drawn',
+     (document.getElementById('luSlots').innerHTML.match(/class="lurow/g) || []).length === 15);
+  ok('the bench is listed', document.getElementById('luBench').innerHTML.length > 0);
+  const first = g('startedOn')('N. Fink')[0];
+  ok('a starter is tagged on the roster table',
+     new RegExp(first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]{0,300}Starting')
+       .test(document.getElementById('meRoster').innerHTML), first);
+  await g('toggleIR')('N. Fink', irIdx);
+  g('render')();
+  const rosHtml = document.getElementById('meRoster').innerHTML;
+  ok('an IR player is marked', /Injured reserve/.test(rosHtml));
+  ok('and his row carries the dimming class', /class="isir"/.test(rosHtml));
+  const rows = [...rosHtml.matchAll(/<tr class="(isir)?"/g)].map(m => !!m[1]);
+  ok('the IR sinks to the bottom whatever the sort',
+     rows.indexOf(true) === -1 || rows.slice(rows.indexOf(true)).every(Boolean),
+     JSON.stringify(rows));
+  await g('toggleIR')('N. Fink', irIdx);
+  g('S').cfg.phase = 'offseason';
+  g('render')();
+  ok('and the whole block disappears in the offseason',
+     document.getElementById('luWrap').hidden === true);
+  X.me = 'Osborn';
+  ctx.__alerts.length = 0;
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

@@ -56,7 +56,8 @@ const EPILOGUE = ';globalThis.__X={' + [
   'notesKey','NOTES','normProj','normNotes','syncWord',
   'cboxRemoteKey','cboxLocalKey','cboxPick','cboxReadLocal','CBOXAT','CBOXREV',
   'isFreeAgent','ownerLabel','LAB','raterClub',
-  'AGG','PROJSRC','projFor','usingMine','usingAgg','projSrcLabel','RTGCACHE'
+  'AGG','PROJSRC','projFor','usingMine','usingAgg','projSrcLabel','RTGCACHE',
+  'NBATM','SLOTS','SLOTIDS','slotKind','slotLabel','isLocked','leagueTZ','irOf','posText'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
 
 try { vm.runInContext(src + EPILOGUE, ctx, {filename:'index.html'}); }
