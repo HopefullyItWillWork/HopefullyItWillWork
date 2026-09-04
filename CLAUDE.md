@@ -46,7 +46,7 @@ rather than something the merge logic has to be clever about.
 | Key        | Written                            | Conflict handling |
 |------------|------------------------------------|-------------------|
 | `settings` | rarely (cap, tax, roster, phase)   | last write wins |
-| `rosters`  | cuts, signings, trades             | per-club merge |
+| `rosters`  | cuts, signings, trades             | per-club **three-way** merge |
 | `auction`  | constantly during a draft          | isolated; bid lists unioned, highest wins |
 | `trades`   | offers                             | merged by offer id |
 | `log`      | every action                       | **append-only** |
@@ -70,6 +70,19 @@ during a live draft cannot collide with someone editing a roster in another tab.
 
 `commit(entry, only)` takes an optional slice list. `sliceGuess()` picks a
 sensible default from the entry kind. Pass `['auction']` explicitly for bidding.
+
+### The three-way rosters merge
+`mergeSlice('rosters')` compares three copies, not two. `BASE[k]` holds the last
+state **the server gave us** — anchored on the first read, on every poll that
+applies a slice, and after every successful write — and a club is taken from
+`mine` only where mine differs from that base, which is a change I actually made.
+A club I did not touch is left as the server has it.
+
+Comparing only mine against theirs meant any club that differed was taken as
+mine, so a write from a tab whose copy of another club was a few seconds stale
+**silently overwrote that GM's signing**. With no base copy — a first write
+before any read — every club reads as changed and the writer wins outright,
+which is the old behaviour and the right default for a league never read.
 
 ### Polling
 Every 4 seconds while an auction is open, 12 otherwise, paused when the tab is
@@ -988,7 +1001,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 784 assertions against the real functions
+node tests/test.js        the app: 839 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1154,6 +1167,39 @@ appointed him. `toggleDeputy()` writes the **settings** slice and logs it.
 present and empty — otherwise revoking the last deputy would silently re-grant
 him on the next load. It runs in `applySlice('settings')` and at boot.
 
+### Who runs a club, as opposed to what it is called
+A club name is a label, and labels change — clubs get renamed, sold and handed
+on. **`S.teams[t].gm = {first,last,at}`** is the person behind it, written once
+and then fixed. That is the whole point: a name its holder can edit is not an
+identity.
+
+It rides the **rosters** slice, so it merges per club like a cut or a signing,
+and `renameClub()` carries it across for free — the rename moves the whole club
+object, which is exactly the case this record exists for.
+
+| | |
+|---|---|
+| `gmOf(team)` | the record, or null |
+| `gmName(team)` | `'Nathan Daman'`, or `''` |
+| `clubWho(team)` | `'Osborn (Nathan Daman)'`, or just the club |
+| `gmNameError(f,l)` | why this pair cannot be recorded, or null |
+| `saveGmName(team,f,l)` | the one writer; confirms, because it is permanent |
+
+**Fixed means fixed *to the GM*.** `saveGmName()` refuses a second write unless
+`hasComm()`, so the commissioner can still correct a typo — an identity nobody
+can repair is worse than one its owner cannot casually rewrite, and he is
+already the reset path for a forgotten PIN. A correction keeps the original
+`at`; only the names change, and both writes are logged.
+
+Once it is on file the Settings form is **replaced by the record** rather than
+left editable-looking and then refused on save. The club page carries a
+`.gmpill` and the commissioner's GM access list shows it under the club name,
+which is where you go to ask who a club actually is.
+
+`nameClean()` collapses whitespace and trims; beyond "both names present, under
+40 characters, contains a letter" the app does not second-guess what somebody is
+called.
+
 ### A GM's own settings
 `v-settings` is his club's name, the address the league mails, and his PIN —
 three things he used to have to ask the commissioner for. The tab is hidden for
@@ -1176,6 +1222,24 @@ pending `match`), `cfg.nomOrder`, `cfg.deputies` and `cfg.draft.order`.
 **The transaction log is deliberately left alone**, and so is `HIST`. The log is
 the append-only record of what happened under the name the club had at the time;
 rewriting it to match a new name would make the ledger lie about its own history.
+
+**A rename REMOVES a key, and the rosters merge could not express a removal.**
+It started from the server's copy and only ever added or overwrote, so the old
+name came straight back and the league showed the club under *both* names on
+every screen that lists clubs — reported from a phone, on Contracts.
+`cfg.renames` is the fact the merge was missing: `renameClub()` and
+`removeClub()` both call `noteRename()`, and the merge drops a club only when
+`renamedAway()` says it went **and** my own copy agrees it is gone, so a name
+legitimately used again is never swept up. `renamedAway()` walks the journal in
+order, so a club renamed away and later renamed back reads as present.
+
+**Removing a club** is `removeClub()` on the Commissioner tab, and it exists
+because the app could add a club and never remove one — survivable until a
+rename could leave two. It sweeps exactly what `renameClub()` moves: picks whose
+origin was that club (on every club, not just its own), offers it is part of, a
+live auction lot it is in, and its place in `nomOrder`, `deputies` and the draft
+order. `clubRemovalCost()` is pure and is what the confirmation counts. The last
+club cannot be removed, and the log is left alone.
 
 `clubNameError()` is the check: blank, over 40 characters, `__comm__`, unchanged,
 or a name another club already has (case-insensitively).
