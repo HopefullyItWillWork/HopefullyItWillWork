@@ -2601,6 +2601,88 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__alerts.length = 0;
   }
 
+
+  console.log('\n== advancing the year is exactly reversible ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'season'; CS.cfg.season = '2026-27'; CS.cfg.roster = 15;
+    const club = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster);
+
+    /* Dead money used to be the one destructive thing a roll did: it set
+       c.live=false, which stepping back could not put right. It is derived now —
+       an in-season release, in the season the league is on, while that season is
+       live — so the roll writes the year and nothing else. */
+    const man = {n:'Dead Money Guy', p:'G', y:{'2026-27':6}, o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(man);
+    X.me = club;
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(man));
+    const rec = g('cutRecords')(club, 'Dead Money Guy')[0];
+    ok('an in-season release records that it was one', rec.live === true);
+    ok('...and is charged to the cap', g('stillCharged')(rec) === true
+       && g('deadSalary')(club) >= 6, String(g('deadSalary')(club)));
+
+    const paid = g('committed')(club), snap = JSON.stringify(CS.teams);
+
+    CS.cfg.season = '2027-28';
+    ok('after the roll it is no longer charged', g('stillCharged')(rec) === false);
+    ok('...and the payroll drops accordingly', g('committed')(club) < paid);
+    ok('...but the release record itself is untouched',
+       rec.live === true && rec.s === 6, JSON.stringify(rec));
+    ok('the roll wrote nothing to any roster',
+       JSON.stringify(CS.teams) === snap);
+
+    CS.cfg.season = '2026-27';
+    ok('stepping back charges it again', g('stillCharged')(rec) === true);
+    ok('...and restores the payroll to the penny', g('committed')(club) === paid,
+       g('committed')(club) + ' vs ' + paid);
+
+    /* Closing the season stops the charge too, without mutating anything. */
+    CS.cfg.phase = 'offseason';
+    ok('a closed season stops the charge as well', g('stillCharged')(rec) === false);
+    CS.cfg.phase = 'season';
+    ok('...and re-opening it resumes', g('stillCharged')(rec) === true);
+
+    CS.teams[club].cuts = CS.teams[club].cuts.filter(c => c.n !== 'Dead Money Guy');
+    CS.cfg.phase = 'offseason';
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+  }
+
+  console.log('\n== resetting to the spreadsheet brings the year with it ==');
+  {
+    const CS = g('S');
+    CS.cfg.season = '2026-27'; CS.cfg.phase = 'offseason';
+    const base = g('headcount')('N. Fink'), basePay = g('committed')('N. Fink');
+
+    /* The reset keeps the commissioner's settings and restores only the rosters.
+       The league year is a setting, and the spreadsheet's contracts are keyed to
+       the season it was written in — so handing them back while the league sits
+       a year later would leave every one of them reading as expired. That is why
+       the reset restores the year too, and why it is NOT the way to undo a roll:
+       it wipes every transaction as well. */
+    CS.cfg.season = '2027-28';
+    ok('a year on, the same rosters read as expired',
+       g('headcount')('N. Fink') < base,
+       g('headcount')('N. Fink') + ' vs ' + base);
+
+    const f = g('fresh')();
+    ok('fresh() carries the spreadsheet’s own season',
+       g('seasonKey')(f.cfg.season) === '2026-27', JSON.stringify(f.cfg.season));
+    /* What the reset button does — the rosters replaced from the spreadsheet,
+       the commissioner's settings kept, and the league year restored with them.
+       Mutated in place because the harness exposes S by reference, not as a live
+       binding, so reassigning it would not reach the app. */
+    CS.teams = f.teams;
+    CS.cfg.season = g('seasonKey')(f.cfg.season) || CS.cfg.season;
+    g('normRosters')(CS.teams);
+    ok('after the reset the year is back', g('curSeason')() === '2026-27');
+    ok('...and so are the contracts',
+       g('headcount')('N. Fink') === base && g('committed')('N. Fink') === basePay,
+       g('headcount')('N. Fink') + '/' + g('committed')('N. Fink'));
+    ok('...and the release stamps with them',
+       (g('S').teams['N. Daman'].cuts || []).find(c => c.n === 'Payton Pritchard').at === '2025-26');
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
