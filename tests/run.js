@@ -60,6 +60,8 @@ const EPILOGUE = ';globalThis.__X={' + [
   'NBATM','SLOTS','SLOTIDS','slotKind','slotLabel','isLocked','leagueTZ','irOf','posText','onIR','irCount','fresh','signedClub','swapping','LUCATS','hhmm','SLOTIDS','SCHED','TRICODE','tipFor',
   'minSal','deadlinePassed','canSignFA','nomOrder','nomFull','canNominate','OFFSEASON_TABS',
   'nomCount',
+  'render','clubNameError','moveClubLocals','drawSettings','clubPicks','takePick','draftCfg','committed','headcount',
+  'BIRDYRS','leagueYear','birdYears','tenureOf','birdRight','birdMismatch','SEASON_TABS','renameClub',
   'clubSlug','DEPUTY_SEED','deputies','isDeputy','hasComm','canGrantComm','normCfg',
   'signBlock','matchOffer','canAnswerMatch','awardTo','answerMatch','closeAuction','toggleDeputy'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
