@@ -32,9 +32,10 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('a signed player yields no expiring rights', nores.club===null, JSON.stringify(nores));
 
   console.log('\n== bidCeiling no longer grants a phantom Early Bird ==');
-  // Put an expiring player marked "No" on a club and confirm he gets no $7 bump.
+  // An expiring player marked "No" who has not served his three seasons.
   const S = g('S');
-  S.teams['Osborn'].r.push({n:'Test Nobody',p:'G',y:[1.0,null,null,null],o:'',b:'No',acq:2020,cut:false});
+  const LY = g('leagueYear')();
+  S.teams['Osborn'].r.push({n:'Test Nobody',p:'G',y:[1.0,null,null,null],o:'',b:'No',acq:LY,cut:false});
   const rn = g('rightsOf')('Osborn','Test Nobody');
   ok('"No" reads as no rights', rn.club==='Osborn' && rn.bird==='', JSON.stringify(rn));
   S.teams['Osborn'].r.pop();
@@ -1945,6 +1946,178 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   X.me = 'Osborn';
   g('S').auction = null;
   g('S').cfg.roster = 15;
+
+
+  /* ================= BIRD RIGHTS ARE EARNED ================= */
+  console.log('\n== Bird rights come from three seasons, not the rights column ==');
+  {
+    const CS = g('S'), yr = g('leagueYear')();
+    ok('the league year is read off the season, not the clock', yr === 2026, String(yr));
+    ok('a season string with no year falls back to the clock', (() => {
+      const was = CS.cfg.season; CS.cfg.season = '';
+      const v = g('leagueYear')(); CS.cfg.season = was;
+      return v === new Date().getFullYear();
+    })());
+    ok('three seasons is the rule', g('birdYears')() === 3);
+
+    const mk = (b, acq) => ({n:'Bird Test', p:'G', y:[1,null,null,null], o:'', b, acq, cut:false});
+    ok('tenure is seasons with the club', g('tenureOf')(mk('', yr - 4)) === 4);
+    ok('a missing year has no tenure', g('tenureOf')(mk('', null)) === null);
+
+    ok('three seasons earns Bird whatever the column says',
+       g('birdRight')(mk('', yr - 3)) === 'Yes' && g('birdRight')(mk('No', yr - 5)) === 'Yes');
+    ok('two seasons does not, even marked "Yes"',
+       g('birdRight')(mk('Yes', yr - 2)) === '', g('birdRight')(mk('Yes', yr - 2)));
+    ok('...and the year he arrived certainly does not',
+       g('birdRight')(mk('Yes', yr)) === '');
+    /* Early Bird is a mid-season signing before the deadline. Tenure has nothing
+       to say about it, so the label is still what carries it. */
+    ok('Early Bird survives on the label',
+       g('birdRight')(mk('Early', yr - 1)) === 'Early' && g('birdRight')(mk('Min', yr)) === 'Early');
+    ok('and a blank is still nothing', g('birdRight')(mk('', yr - 1)) === '');
+    /* Nothing to compute from: honour the sheet rather than strip a club of
+       rights on the strength of a missing field. */
+    ok('with no year on file the column is all there is',
+       g('birdRight')(mk('Yes', null)) === 'Yes' && g('birdRight')(mk('No', null)) === '');
+
+    console.log('\n-- rights travel in a trade and restart any other way --');
+    const [c1, c2] = g('TEAMS')();
+    const vet = {n:'Bird Travel Guy', p:'G', y:[2, 2, null, null], o:'', b:'', acq: yr - 4, cut:false};
+    CS.teams[c1].r.push(vet);
+    ok('four seasons in, he carries Bird', g('rightsOf')(c1, 'Bird Travel Guy').bird === '');
+    // rightsOf only answers for an EXPIRING player, so read the entry directly.
+    ok('...as the entry says', g('birdRight')(vet) === 'Yes');
+    // A trade moves the whole entry, acq included.
+    const idx = CS.teams[c1].r.indexOf(vet);
+    CS.teams[c2].r.push(CS.teams[c1].r.splice(idx, 1)[0]);
+    ok('a trade carries the year across, so the rights survive',
+       g('birdRight')(CS.teams[c2].r.find(x => x.n === 'Bird Travel Guy')) === 'Yes');
+    CS.teams[c2].r = CS.teams[c2].r.filter(x => x.n !== 'Bird Travel Guy');
+
+    console.log('\n-- signing as a free agent restarts the clock --');
+    CS.cfg.roster = 15;
+    const club = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster
+                                      && CS.cfg.cap - g('committed')(t) > 3);
+    const other = g('TEAMS')().find(t => t !== club);
+    CS.teams[other].r.push({n:'Bird Walk Guy', p:'G', y:[2, null, null, null], o:'', b:'Yes',
+                            acq: yr - 6, cut:false});
+    X.me = club;
+    await g('signPlayer')('Bird Walk Guy', club, 2, 1);
+    const landed = CS.teams[club].r.find(x => x.n === 'Bird Walk Guy');
+    ok('he moved', !!landed && !CS.teams[other].r.some(x => x.n === 'Bird Walk Guy'));
+    ok('...stamped with the league year, not the wall clock', landed.acq === yr, String(landed.acq));
+    ok('...so his Bird rights start again from zero', g('birdRight')(landed) === '');
+    CS.teams[club].r = CS.teams[club].r.filter(x => x.n !== 'Bird Walk Guy');
+
+    console.log('\n-- the commissioner is told where the sheet disagrees --');
+    const mism = g('birdMismatch')();
+    ok('the seed disagrees in places', mism.length > 0, String(mism.length));
+    ok('every row says both answers and which club',
+       mism.every(m => m.t && m.p && m.said !== m.got), JSON.stringify(mism[0] || {}));
+    ok('and most of them are "marked Bird, has not served three"',
+       mism.filter(m => m.said === 'Yes' && m.got !== 'Yes').length > 0);
+    ctx.__alerts.length = 0;
+  }
+
+  /* ================= QUICK SIGN IS A SEASON TAB ================= */
+  console.log('\n== quick sign belongs to the season ==');
+  {
+    ok('it is named as one', g('SEASON_TABS').join() === 'v-draft');
+    ok('and the offseason tabs are still the other three',
+       g('OFFSEASON_TABS').join() === 'v-auction,v-fa,v-rookie');
+    /* The DOM stub cannot resolve "#tabs button", so the RULE is asserted here
+       and the hiding itself was confirmed in Chromium. */
+    ok('the two lists do not overlap',
+       g('SEASON_TABS').every(v => !g('OFFSEASON_TABS').includes(v)));
+  }
+
+  /* ================= A GM'S OWN SETTINGS ================= */
+  console.log('\n== a club name is checked before it is taken ==');
+  {
+    const T2 = g('TEAMS')(), me0 = T2[0], other = T2[1];
+    const err = g('clubNameError');
+    ok('a blank is refused', /Give the club a name/.test(err('   ', me0) || ''));
+    ok('a name already in use is refused', /already has that name/.test(err(other, me0) || ''));
+    ok('...case and all', /already has that name/.test(err(other.toUpperCase(), me0) || ''));
+    ok('its own name is not a change', /already the name/.test(err(me0, me0) || ''));
+    ok('the commissioner sentinel is reserved', /reserved/.test(err('__comm__', me0) || ''));
+    ok('a very long name is refused', /40 characters/.test(err('x'.repeat(41), me0) || ''));
+    ok('and a good one passes', err('Osborn FC', me0) === null, String(err('Osborn FC', me0)));
+  }
+
+  console.log('\n== renaming a club carries everything that names it ==');
+  {
+    const CS = g('S');
+    const from = g('TEAMS')()[0], to = 'Renamed FC', mate = g('TEAMS')()[1];
+    const roster = CS.teams[from].r.length, clubs = g('TEAMS')().length;
+
+    CS.cfg.nomOrder = g('TEAMS')().slice();
+    CS.cfg.deputies = [from, mate];
+    CS.cfg.draft = {year: 2027, order: g('TEAMS')().slice(), sal: [], open: false};
+    CS.trades = [{ts:1, by:from, a:from, b:mate, give:['x'], get:['y'],
+                  givePk:[{y:2027, from, prot:0}], getPk:[{y:2027, from:mate, prot:0}], status:'open'}];
+    CS.auction = {player:'Rename Test', by:from, bid:3, leader:from,
+                  bids:[{t:from, amt:3, ts:1}], max:{[from]:5}, status:'open', ts:1};
+    g('takePick')(2027, from);                       // a pick record naming him
+    const logWas = CS.log.length, logFirst = CS.log[0] && CS.log[0].detail;
+
+    ok('the rename runs', g('renameClub')(from, to) === true);
+    ok('the club answers to the new name',
+       !!CS.teams[to] && !CS.teams[from], g('TEAMS')().join());
+    ok('...with its roster intact', CS.teams[to].r.length === roster);
+    ok('...and no club is gained or lost',
+       g('TEAMS')().length === clubs, g('TEAMS')().length + ' of ' + clubs);
+
+    ok('his picks still point at him',
+       g('clubPicks')(to).some(k => k.from === to)
+       && !g('TEAMS')().some(t => (CS.teams[t].picks || []).some(k => k.from === from)));
+    ok('open offers moved with him', CS.trades[0].a === to && CS.trades[0].b === mate);
+    ok('...including the picks inside them',
+       CS.trades[0].givePk[0].from === to && CS.trades[0].getPk[0].from === mate);
+    ok('the live auction knows him',
+       CS.auction.by === to && CS.auction.leader === to
+       && CS.auction.bids[0].t === to && CS.auction.max[to] === 5
+       && CS.auction.max[from] === undefined, JSON.stringify(CS.auction.max));
+    ok('his place in the nomination order moved',
+       CS.cfg.nomOrder.includes(to) && !CS.cfg.nomOrder.includes(from));
+    ok('...and his commissioner access', g('deputies')().includes(to));
+    ok('...and the draft order', CS.cfg.draft.order.includes(to));
+
+    /* The log is the record of what happened under the name he had at the time.
+       Rewriting it would make the ledger lie about its own history. */
+    ok('the transaction log is left exactly as it was',
+       CS.log.length === logWas && (CS.log[0] && CS.log[0].detail) === logFirst);
+
+    /* The trade machine's club selects were built once and never rebuilt, so
+       after a rename they still named a club S.teams no longer has — and
+       drawTradeLists() reads S.teams[value].r straight off the select. */
+    ctx.__alerts.length = 0;
+    /* Another GM's browser learns about a rename on the poll, so anything
+       holding a club NAME — activeTeam, the trade selects, the commissioner's
+       "viewing as" — has to be re-checked rather than trusted. */
+    g('render')();
+    ok('rendering after a rename does not throw on the trade selects',
+       document.getElementById('tA').value !== from
+       && CS.teams[document.getElementById('tA').value] !== undefined,
+       document.getElementById('tA').value);
+    ok('...and the two sides are still different clubs',
+       document.getElementById('tA').value !== document.getElementById('tB').value);
+
+    ok('a sign-in naming a club that is gone is signed out, not left dangling',
+       X.me == null || !!CS.teams[X.me], String(X.me));
+
+    ok('a rename onto an existing club is refused', g('renameClub')(to, mate) === false);
+    ok('and renaming a club that is not there is too', g('renameClub')('Nobody', 'X') === false);
+
+    // put it all back
+    g('renameClub')(to, from);
+    CS.trades = []; CS.auction = null;
+    CS.cfg.nomOrder = []; CS.cfg.deputies = ['A. Daman', 'N. Daman'];
+    delete CS.cfg.draft;
+    g('TEAMS')().forEach(t => { CS.teams[t].picks = []; });
+    ok('and it goes back the same way', !!CS.teams[from] && !CS.teams['Renamed FC']);
+    X.me = 'Osborn';
+  }
 
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));

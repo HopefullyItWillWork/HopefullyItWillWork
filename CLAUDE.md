@@ -333,6 +333,56 @@ commissioner has not said otherwise.
 the auction and the draft set `p.b` themselves, so everything else leaves it
 alone.
 
+**Quick sign is the same signing, not a second one.** `v-draft` is in
+`SEASON_TABS` and is hidden in the offseason, the mirror of `OFFSEASON_TABS`.
+There is no salary or term to type: an in-season signing is one year at the
+minimum and the calendar decides the rights, so the form shows fixed terms and
+calls `signFA()`. The free inputs it used to carry invited a deal the rulebook
+does not allow.
+
+**My Team's free agent table is not in a `.scroller`.** Its Sign button is the
+last cell, and `.scroller table{min-width:760px}` inside `.twocol` put that cell
+60-220px past the right edge at every screen size — the button rendered, bound
+its handler and could not be reached. It runs full width under `.rosterwrap` with
+the impact card below. This is the third time that combination has hidden an
+action column; the first two were My Roster's Cut and the Builder's Drop.
+
+### Bird rights are earned, not written down
+Three seasons with one club. It does not matter how he arrived — a free agent
+pickup, the rookie draft and the auction all start the clock — and the rights
+**travel with him in a trade**. Any other way of changing clubs starts it again.
+That is what `p.acq` records, and it is why the year acquired sits on every
+roster entry.
+
+So tenure is the answer and the spreadsheet's rights column is not:
+
+| | |
+|---|---|
+| `leagueYear()` | the first year of `S.cfg.season` — `'2026–27'` is 2026 |
+| `tenureOf(p)` | seasons with his current club, or **null** when `acq` is missing |
+| `birdRight(p)` | `''`, `'Early'` or `'Yes'` — **the predicate every caller must use** |
+| `birdKind(b)` | still reads the free-text label, and is now only a helper |
+
+`birdRight()` returns `'Yes'` at `birdYears()` seasons or more, whatever the
+label says. Below that a label of `Yes` buys **nothing** — `rightsOf()` reads
+`birdRight()`, so a phantom Bird no longer widens `bidCeiling()`. `p.b` is still
+read for **Early Bird**, which is a mid-season signing before the deadline and
+has nothing to do with three years.
+
+The one exception is an entry with **no acquisition year at all** — twelve in the
+seed. Tenure cannot be computed, so the label is all there is and it is honoured,
+which errs towards leaving a club the rights it believes it has.
+
+**The seed disagrees, loudly: 63 players marked `Yes` have served under three
+seasons.** They are not rewritten. `birdMismatch()` lists every row where the
+column and the earned answer differ and `drawAdmin()` banners it, the same choice
+the roster-size banner makes — the fix is the year acquired on the edit dialog,
+not the code guessing. Trades preserve `acq` because `applyTrade()` moves the
+whole entry; `signPlayer()` stamps `leagueYear()` on a player arriving from
+another club, and the league year is used everywhere rather than
+`new Date().getFullYear()`, so a January signing belongs to the season it was
+made in.
+
 ### Awarding is the commissioner's, not the room's
 The GM who nominated a player used to be able to close his own lot, which let him
 end the bidding the moment he was in front. **Only `hasComm()` sees the Award
@@ -784,7 +834,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 592 assertions against the real functions
+node tests/test.js        the app: 640 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -949,6 +999,40 @@ appointed him. `toggleDeputy()` writes the **settings** slice and logs it.
 `normCfg()` seeds the list **only when the key is missing**, never when it is
 present and empty — otherwise revoking the last deputy would silently re-grant
 him on the next load. It runs in `applySlice('settings')` and at boot.
+
+### A GM's own settings
+`v-settings` is his club's name, the address the league mails, and his PIN —
+three things he used to have to ask the commissioner for. The tab is hidden for
+the commissioner login, which has no club; a deputy sees it for his own club, as
+`isComm()` is false for him.
+
+Changing his own PIN needs the **current** one; the commissioner's GM access list
+stays the reset path for a GM who has forgotten it. A PIN change re-keys the
+encrypted `cbox*` stores by reloading them — the server copies can no longer be
+opened, `cboxPick()` therefore keeps the local mirror, and `cboxLoad()` re-uploads
+it under the new key. Recovery, not loss.
+
+**A rename is a migration, because the club's name IS its key.** `renameClub()`
+moves, in one write: the `S.teams` key, `picks[].from` on *every* club (a pick is
+identified by its origin club), `trades[].a`/`.b` and the picks inside them, the
+live auction (`by`, `leader`, `winner`, every bid, the proxy `max` keys, a
+pending `match`), `cfg.nomOrder`, `cfg.deputies` and `cfg.draft.order`.
+`moveClubLocals()` carries this browser's `<kind>_<club>` mirrors across.
+
+**The transaction log is deliberately left alone**, and so is `HIST`. The log is
+the append-only record of what happened under the name the club had at the time;
+rewriting it to match a new name would make the ledger lie about its own history.
+
+`clubNameError()` is the check: blank, over 40 characters, `__comm__`, unchanged,
+or a name another club already has (case-insensitively).
+
+**Anything holding a club NAME must be re-checked against `S.teams`, never
+trusted** — a rename arrives in every other browser on the poll. `render()`
+re-resolves `activeTeam`, signs out a `me` whose club is gone (as the boot
+sequence has always done), and rebuilds the trade machine's `#tA`/`#tB` and the
+commissioner's `#meAs` whenever the club list changes. Those selects were keyed
+on option *count*, which a rename does not change, and `drawTradeLists()` reads
+`S.teams[select.value].r` straight off one.
 
 Honor-system PINs, stored in the `rosters` slice. Anyone who views source can read
 them. This prevents accidents and gives an audit trail; it does not stop a

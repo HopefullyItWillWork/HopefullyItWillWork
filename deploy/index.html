@@ -157,6 +157,12 @@ text-transform:uppercase;padding:3px 8px;border-radius:2px;cursor:pointer;margin
 .form{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:15px;display:grid;gap:10px;align-items:end;margin-bottom:8px}
 .form.f5{grid-template-columns:2fr 1.3fr .8fr .7fr auto}
 .form.f4{grid-template-columns:1.4fr 1.4fr 1fr auto}
+/* A terms cell that reads like a field but cannot be typed into — the in-season
+   signing has no terms to negotiate, so showing a disabled input would invite a
+   click at something that will never change. */
+.fixedterm{border:1px solid var(--line);border-radius:3px;background:var(--panel2);
+  padding:8px 10px;color:var(--steel);font-size:12.5px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
 input,select{width:100%;background:var(--well);border:1px solid var(--line);color:var(--chalk);font-family:var(--body);font-size:14px;padding:9px 10px;border-radius:2px}
 input.mono{font-family:var(--mono)}
@@ -581,6 +587,7 @@ thead th.hide,tbody td.hide{display:none}}
         <button role="tab" data-v="v-draft" aria-selected="false">Quick sign</button>
         <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
         <button role="tab" data-v="v-chat" aria-selected="false">Chat &amp; notes</button>
+        <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
         <button role="tab" data-v="v-proj" aria-selected="false" id="projTab" hidden>My projections</button>
         <button role="tab" data-v="v-trends" aria-selected="false">Team trends</button>
         <button role="tab" data-v="v-history" aria-selected="false">League history</button>
@@ -674,10 +681,13 @@ thead th.hide,tbody td.hide{display:none}}
       <span class="fcount" id="faCount"></span>
     </div>
     <div id="faChips" class="chips"></div>
-    <div class="twocol wide">
-      <div class="scroller" id="faTable"></div>
-      <div id="faImpact"><div class="empty">Pick a player to see what he would do to your categories.</div></div>
-    </div>
+    <!-- Full width under .rosterwrap, not a .scroller in a half column. The Sign
+         button is the last cell, and .scroller table{min-width:760px} inside
+         .twocol put it 60-220px past the right edge at every screen size — the
+         same fault that hid the roster's Cut button and the Builder's Drop. The
+         impact card goes below the table rather than beside it. -->
+    <div class="rosterwrap" id="faTable"></div>
+    <div id="faImpact" style="margin-top:16px"><div class="empty">Pick a player to see what he would do to your categories.</div></div>
   </section>
 
   <section class="view" id="v-auction" role="tabpanel" hidden>
@@ -713,11 +723,14 @@ thead th.hide,tbody td.hide{display:none}}
   <section class="view" id="v-draft" role="tabpanel" hidden>
     <h2>Sign a free agent</h2>
     <div class="sync"><span class="dot" id="dot"></span><span id="syncTxt">Shared board</span></div>
-    <div class="form f5">
+    <!-- An in-season signing has no terms to negotiate: one year at the league
+         minimum, and the calendar decides the rights. So there is nothing to
+         type. The salary and term used to be free inputs, which invited a deal
+         the rulebook does not allow. -->
+    <div class="form f4">
       <div><label for="fPlayer">Player</label><input id="fPlayer" list="falist" placeholder="Start typing&#8230;" autocomplete="off"><datalist id="falist"></datalist></div>
       <div><label for="fTeam">Signs with</label><select id="fTeam"></select></div>
-      <div><label for="fPrice">Salary</label><input id="fPrice" class="mono" type="number" step="0.25" min="1" placeholder="1.00"></div>
-      <div><label for="fYears">Years</label><input id="fYears" class="mono" type="number" min="1" max="4" value="1"></div>
+      <div><label>Terms</label><div class="fixedterm mono" id="fTerms">&#8212;</div></div>
       <button class="btn" id="add">Record</button>
     </div>
     <p class="note" id="draftNote"></p>
@@ -789,6 +802,49 @@ thead th.hide,tbody td.hide{display:none}}
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
       <button class="btn ghost" id="notesClear">Clear my notes</button>
     </div>
+  </section>
+
+  <section class="view" id="v-settings" role="tabpanel" hidden>
+    <h2>Settings <span class="fcount" id="setWho"></span></h2>
+    <p class="note">Your club, your address and your PIN. Everything here is yours to change; nobody
+      else's club is reachable from this page.</p>
+
+    <h2 class="sub">Club name</h2>
+    <p class="note">The name every screen calls your club, and the name league-mates offer trades to.
+      Renaming carries your roster, your picks, your open offers and your place in the auction's
+      nomination order across with it. <b>The transaction log is left as it was</b> &#8212; it is the
+      record of what happened under the name you had at the time, and rewriting history to match a
+      new name would make the ledger lie.</p>
+    <div class="form f4">
+      <div><label for="setName">Club name</label><input id="setName" maxlength="40" autocomplete="off"></div>
+      <div></div><div></div>
+      <button class="btn" id="setNameGo">Rename my club</button>
+    </div>
+
+    <h2 class="sub">Email</h2>
+    <div class="warn"><b>Addresses are stored with the rosters.</b> Like the PINs, anyone who can reach
+      the league database can read them. Use an address you are happy the league can see.</div>
+    <div class="form f4">
+      <div><label for="setEmail">Address</label><input id="setEmail" type="email" placeholder="gm@example.com" autocomplete="off"></div>
+      <div><label for="setDaily">Daily digest</label>
+        <select id="setDaily"><option value="">Off</option><option value="1">On</option></select></div>
+      <div><button class="btn ghost" id="setMailTest">Send a test</button></div>
+      <button class="btn" id="setEmailGo">Save</button>
+    </div>
+    <p class="note" id="setMailNote"></p>
+
+    <h2 class="sub">PIN</h2>
+    <p class="note">Sign-in is honour-system: anyone who views the page source can read every PIN, so
+      this stops accidents and keeps an audit trail rather than a determined league-mate. Changing it
+      re-keys your notes, projections and strategy board, which are encrypted under it &#8212; they are
+      carried over for you.</p>
+    <div class="form f4">
+      <div><label for="setPinOld">Current PIN</label><input id="setPinOld" type="password" autocomplete="current-password"></div>
+      <div><label for="setPinA">New PIN</label><input id="setPinA" type="password" autocomplete="new-password"></div>
+      <div><label for="setPinB">Repeat it</label><input id="setPinB" type="password" autocomplete="new-password"></div>
+      <button class="btn" id="setPinGo">Change my PIN</button>
+    </div>
+    <p class="note" id="setPinNote"></p>
   </section>
 
   <section class="view" id="v-trade" role="tabpanel" hidden>
@@ -946,6 +1002,7 @@ thead th.hide,tbody td.hide{display:none}}
       Change it before you share the link, or anyone can edit every roster.</div>
     <div class="warn"><b>Read this before you share the link.</b> Sign-in here is honor-system only. The page runs entirely in the browser, so anyone who views the source can read every PIN. It prevents mistakes and keeps an audit trail &#8212; it does not stop someone determined. Keep the commissioner PIN to yourself and rely on the transaction log to catch anything odd.</div>
     <div class="warn" id="rosWarn" hidden></div>
+    <div class="warn" id="birdWarn" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
@@ -1528,6 +1585,56 @@ function birdKind(b){
   if(v===''||v==='no'||v==='none'||v==='-') return '';
   return (v==='yes'||v==='bird') ? 'Yes' : 'Early';
 }
+/* ---- Bird rights are EARNED, not written down ----
+   The rulebook: three seasons with one club. It does not matter how he arrived —
+   a free agent pickup, the rookie draft or the auction all start the clock — and
+   the rights travel with him in a trade. Any other way of changing clubs starts
+   the clock again. That is exactly what p.acq records, and it is why the year
+   acquired has been carried on every roster entry all along.
+
+   So tenure is the answer and the spreadsheet's rights column is not. p.b is
+   still read, but only for what tenure cannot say: Early Bird, which is a
+   mid-season signing before the deadline and has nothing to do with three years.
+   A label of 'Yes' on a man in his second season no longer buys anything.
+
+   The one exception is a roster entry with no acquisition year at all — twelve
+   in the seed. Tenure cannot be computed, so the label is all there is and it is
+   honoured, which errs towards leaving a club the rights it believes it has.
+   drawAdmin() lists every row where the two disagree so the data gets corrected
+   rather than the code guessing. */
+const BIRDYRS=3;
+/* The league year is the first half of S.cfg.season — '2026–27' is 2026. */
+function leagueYear(){
+  const m=String(S.cfg.season||'').match(/\d{4}/);
+  return m ? +m[0] : new Date().getFullYear();
+}
+const birdYears=()=>{const v=parseInt(S.cfg.birdYears); return v>0?v:BIRDYRS;};
+/* Seasons with his current club, or null when the entry does not say. */
+function tenureOf(p){
+  const a=p&&p.acq!=null?parseInt(p.acq):NaN;
+  if(!(a>0)) return null;
+  return Math.max(0,leagueYear()-a);
+}
+/* The rights a roster entry actually carries: '' , 'Early' or 'Yes'. */
+function birdRight(p){
+  if(!p) return '';
+  const ten=tenureOf(p);
+  if(ten==null) return birdKind(p.b);        // nothing to compute from
+  if(ten>=birdYears()) return 'Yes';
+  const lab=birdKind(p.b);
+  return lab==='Yes' ? '' : lab;             // three years or it is not Bird
+}
+/* Rows where the sheet's rights column and the earned answer disagree. The
+   commissioner is shown these rather than having 63 players' rights rewritten
+   under him — the same choice drawAdmin() makes about the roster size. */
+function birdMismatch(){
+  const out=[];
+  TEAMS().forEach(t=>S.teams[t].r.forEach((p,i)=>{
+    const said=birdKind(p.b), got=birdRight(p);
+    if(said!==got) out.push({t,i,p,said,got,ten:tenureOf(p)});
+  }));
+  return out;
+}
 const committed=t=>S.teams[t].r.reduce((s,p)=>s+(p.y[1]!=null?p.y[1]:0),0)+deadSalary(t);
 const onIR=p=>!!p.ir;
 const headcount=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&!onIR(p)).length;
@@ -1765,11 +1872,14 @@ async function signPlayer(name,team,price,years,opts){
   for(const t of TEAMS()){
     const i=S.teams[t].r.findIndex(p=>p.n===name&&p.y[1]==null);
     if(i>=0){const p=S.teams[t].r.splice(i,1)[0];
-      p.y=y;p.o='';p.acq=p.acq&&t===team?p.acq:new Date().getFullYear();
+      /* Arriving as a free agent restarts the clock; staying put does not.
+         The league year, not the wall clock — a signing made in January 2027
+         belongs to the 2026-27 season. */
+      p.y=y;p.o='';p.acq=p.acq&&t===team?p.acq:leagueYear();
       if(t!==team) unlist(p);
       S.teams[team].r.push(p);moved=true;break;}
   }
-  if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:new Date().getFullYear(),cut:false});
+  if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:leagueYear(),cut:false});
   /* An in-season signing carries the rights the calendar earns him. Everything
      else leaves p.b alone, because the auction and the draft set their own. */
   if(opts.bird!=null){
@@ -1856,7 +1966,7 @@ function openPlayerEdit(name){
     ? `Not on a roster \u00b7 ${base.g} games in ${S.cfg.season||'the last season'}. Pick a club and a salary for next season to assign him.`
     : 'Not on a roster. Pick a club and a salary for next season to assign him.';
   $('edY1').value='';$('edY2').value='';$('edY3').value='';
-  $('edAcq').value=new Date().getFullYear();
+  $('edAcq').value=leagueYear();
   fillComm(null,{n:c,p:(st&&st.p)||'',y:[null,null,null,null],o:'',b:''});
   openModal('dlgEdit');
 }
@@ -1908,7 +2018,7 @@ $('doEdit').onclick=async(ev)=>{
         `${to} already carries ${headcount(to)} of ${S.cfg.roster} contracts. `
         +`Assign him anyway, over the roster limit?`)){ hold(); return; }
     const y=[gv('edY0'),y1,gv('edY2'),gv('edY3')];
-    const acq=parseInt($('edAcq').value)||new Date().getFullYear();
+    const acq=parseInt($('edAcq').value)||leagueYear();
     S.teams[to].r.push({n:c,p:pos,y,o:OPTL[$('edOpt').value]?$('edOpt').value:'',
       b:$('edBird').value,acq,cut:false});
     editing=null;
@@ -2068,7 +2178,7 @@ function tags(p){
   let h='';
   if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}</span>`;
   if(p.y[1]==null&&p.o)h+='<span class="tag t-rfa">Restricted</span>';
-  const bk=birdKind(p.b);
+  const bk=birdRight(p);
   if(bk==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(bk)h+='<span class="tag t-eb">Early Bird</span>';
   return h;
 }
@@ -2233,12 +2343,20 @@ function drawLogs(){
     $('qsPos').onchange=drawQuickPool;
     $('qsOnly').onchange=drawQuickPool;
   }
+  /* One year at the league minimum, and the calendar decides the rights — the
+     same terms as the Sign button on My Team, because it is the same signing. */
+  if($('fTerms')) $('fTerms').textContent = !seasonLive() ? '—'
+    : `${money(minSal())} × 1 yr · ${deadlinePassed()?'rental, no rights':'Early Bird'}`;
   $('draftNote').textContent = !me
     ? 'Sign in to record a signing. Everything here is shared with the whole league.'
-    : (!seasonLive()&&!hasComm())
-      ? 'The offseason signs free agents at auction. This form is the commissioner’s record of what the room did.'
-      : `Signed in as ${isComm()?'commissioner — you can sign for any club':me+' — you can only sign for your own club'}. Every move is shared with the league and logged.`;
-  $('add').disabled=!me||(!seasonLive()&&!hasComm());
+    : !seasonLive()
+      ? 'The offseason signs free agents at auction, so nothing is recorded here. This tab opens once the season is live.'
+      : `One year at ${money(minSal())}, the league minimum, and ${deadlinePassed()
+          ? 'the trade deadline has passed — a rental with no rights.'
+          : 'the trade deadline has not passed — the club earns Early Bird rights.'} `
+        +`Signed in as ${isComm()?'commissioner — you can sign for any club':me+' — you can only sign for your own club'}. `
+        +'Every move is shared with the league and logged.';
+  $('add').disabled=!me||!seasonLive();
 }
 /* ---- every contract in the league, on one screen ----
    The club pages show one roster at a time and the Move tool only lists players
@@ -2262,7 +2380,7 @@ function apRows(){
   if(tf!=='__fa__') TEAMS().forEach(t=>S.teams[t].r.forEach((p,i)=>{
     if(tf&&t!==tf) return;
     if(q&&!(p.n.toLowerCase().includes(q)||t.toLowerCase().includes(q))) return;
-    const exp=p.y[1]==null, b=birdKind(p.b);
+    const exp=p.y[1]==null, b=birdRight(p);
     if(sf==='exp'&&!exp) return;
     if(sf==='sig'&&exp) return;
     if(sf==='bird'&&b!=='Yes') return;
@@ -2373,6 +2491,32 @@ function drawAdmin(){
       +`This league is set to ${S.cfg.roster} active players and ${S.cfg.ir??1} injured-reserve slot`
       +`${(S.cfg.ir??1)===1?'':'s'}. The rules are <b>15 active</b> and <b>1 IR slot</b> \u2014 sixteen men, `
       +'and only while one of them is hurt. Set them below and save.';
+  }
+  /* Bird rights are earned by three seasons with a club, so the sheet's rights
+     column is a claim and p.acq is the evidence. Where they disagree the earned
+     answer is what the app uses — and the commissioner is told which rows, and
+     which way, rather than 63 players quietly losing an exception he thinks
+     they hold. The fix is the year acquired on the edit dialog, not the code. */
+  if($('birdWarn')){
+    const bad=birdMismatch();
+    $('birdWarn').hidden=!bad.length;
+    if(bad.length){
+      const lost=bad.filter(x=>x.said==='Yes'&&x.got!=='Yes');
+      const gain=bad.filter(x=>x.said!=='Yes'&&x.got==='Yes');
+      const line=x=>`${htmlEsc(x.p.n)} (${htmlEsc(x.t)}, ${x.ten==null?'no year on file'
+        :x.ten+` season${x.ten===1?'':'s'}`})`;
+      $('birdWarn').innerHTML=`<b>${bad.length} rights column${bad.length===1?''
+        :'s'} disagree${bad.length===1?'s':''} with the years on file.</b> `
+        +`Bird rights are three seasons with one club, counted from the year acquired, so that is `
+        +`what the app uses. The sheet is not rewritten — correct the year acquired on the `
+        +`player's Edit dialog and this clears.`
+        +(lost.length?`<br><br><b>Marked Bird, has not served ${birdYears()} seasons `
+          +`(${lost.length}):</b> ${lost.slice(0,40).map(line).join(', ')}${
+          lost.length>40?` and ${lost.length-40} more`:''}.`:'')
+        +(gain.length?`<br><br><b>Has served ${birdYears()} seasons but is not marked Bird `
+          +`(${gain.length}):</b> ${gain.slice(0,40).map(line).join(', ')}${
+          gain.length>40?` and ${gain.length-40} more`:''}.`:'');
+    }
   }
   if($('sPhase')){
     $('sPhase').value=S.cfg.phase||'offseason';
@@ -2589,19 +2733,192 @@ $('pinSave').onclick=async e=>{
   pinFor=null;
 };
 
+/* ================= A GM'S OWN SETTINGS =================
+   His club's name, the address the league mails, and his PIN. Three things that
+   belong to one GM and that he previously had to ask the commissioner for.
+
+   Renaming is the interesting one, because in this app the club's NAME IS ITS
+   KEY: S.teams is keyed by it, and picks, offers, the nomination order and the
+   deputies list all refer to a club by name. So a rename is a migration, and
+   every one of those references has to move in the same write or the club
+   arrives at the other side missing a pick or an offer.
+
+   The transaction log is the deliberate exception. It is the append-only record
+   of what happened, under whatever name the club had at the time, and rewriting
+   it to match a new name would make the ledger lie about its own history. The
+   same goes for HIST, which is the league's finished seasons.
+
+   What moves:
+     S.teams key . picks[].from on every club . trades a/b . the live auction
+     (by, leader, winner, every bid, the proxy maxes, a pending match) .
+     cfg.nomOrder . cfg.deputies . cfg.draft.order . this browser's sign-in and
+     its local mirrors of the club-private stores.
+   What does not: S.log, HIST, and SEED. */
+function clubNameError(name,from){
+  const v=String(name||'').trim();
+  if(!v) return 'Give the club a name.';
+  if(v.length>40) return 'Keep the name to 40 characters or fewer.';
+  if(v==='__comm__') return 'That name is reserved.';
+  if(v===from) return 'That is already the name.';
+  if(TEAMS().some(t=>t!==from&&t.toLowerCase()===v.toLowerCase()))
+    return 'Another club already has that name.';
+  return null;
+}
+function renameClub(from,to){
+  if(!S.teams[from]||S.teams[to]) return false;
+  const swap=t=>t===from?to:t;
+  // The roster itself, rebuilt in the same order so nothing is reshuffled.
+  const rebuilt={};
+  TEAMS().forEach(t=>{ rebuilt[swap(t)]=S.teams[t]; });
+  S.teams=rebuilt;
+  // A pick is identified by its ORIGIN club, so every record on every club that
+  // points back at the old name has to move with it.
+  TEAMS().forEach(t=>(S.teams[t].picks||[]).forEach(k=>{ k.from=swap(k.from); }));
+  (S.trades||[]).forEach(tr=>{
+    tr.a=swap(tr.a); tr.b=swap(tr.b);
+    (tr.givePk||[]).forEach(k=>k.from=swap(k.from));
+    (tr.getPk||[]).forEach(k=>k.from=swap(k.from));
+  });
+  const a=S.auction;
+  if(a){
+    a.by=swap(a.by); a.leader=swap(a.leader);
+    if(a.winner) a.winner=swap(a.winner);
+    (a.bids||[]).forEach(b=>b.t=swap(b.t));
+    if(a.max){ const m={}; Object.entries(a.max).forEach(([k,v])=>{m[swap(k)]=v;}); a.max=m; }
+    if(a.match){ a.match.club=swap(a.match.club); a.match.winner=swap(a.match.winner); }
+  }
+  S.cfg.nomOrder=(S.cfg.nomOrder||[]).map(swap);
+  S.cfg.deputies=(S.cfg.deputies||[]).map(swap);
+  if(S.cfg.draft&&Array.isArray(S.cfg.draft.order)) S.cfg.draft.order=S.cfg.draft.order.map(swap);
+  return true;
+}
+/* The three club-private stores mirror locally under `<kind>_<club>`, so a
+   rename leaves them stranded under the old name. Carry them across; the remote
+   copies are re-seeded from these by cboxLoad(), since the PIN — and so the key
+   they are encrypted under — has not changed. */
+function moveClubLocals(from,to){
+  try{
+    ['notes','proj','strat'].forEach(k=>{
+      const v=localStorage.getItem(k+'_'+from);
+      if(v!=null){ localStorage.setItem(k+'_'+to,v); localStorage.removeItem(k+'_'+from); }
+    });
+  }catch(e){}
+}
+function drawSettings(){
+  const box=$('setTab');
+  const mine = me && !isComm() && S.teams[me] ? me : null;
+  if(box) box.hidden=!mine;
+  if(!mine){
+    if($('v-settings')&&!$('v-settings').hidden) goTab(me?'v-me':'v-contracts');
+    return;
+  }
+  const d=S.teams[mine]||{};
+  if($('setWho')) $('setWho').textContent=mine;
+  if($('setName')&&document.activeElement!==$('setName')) $('setName').value=mine;
+  if($('setEmail')&&document.activeElement!==$('setEmail')) $('setEmail').value=d.email||'';
+  if($('setDaily')) $('setDaily').value=d.daily?'1':'';
+  if($('setMailNote')) $('setMailNote').textContent = d.email
+    ? `The league mails ${d.email}${d.daily?' and sends the daily digest.':'. The daily digest is off.'}`
+    : 'No address on file, so nothing is mailed to this club.';
+  if($('setPinNote')&&!$('setPinNote').dataset.said)
+    $('setPinNote').textContent = d.pin ? '' : 'This club has no PIN yet, so leave "current PIN" blank.';
+}
+function wireSettings(){
+  if(!$('setNameGo')||$('setNameGo').dataset.built) return;
+  $('setNameGo').dataset.built='1';
+  $('setNameGo').onclick=async()=>{
+    const from=me, to=$('setName').value.trim();
+    if(!from||isComm()||!S.teams[from]) return;
+    const bad=clubNameError(to,from);
+    if(bad) return alert(bad);
+    if(!confirm(`Rename ${from} to ${to}?\n\n`
+      +'Your roster, picks, open trade offers and place in the nomination order come with you. '
+      +'The transaction log keeps the old name, because it is the record of what happened at the time.')) return;
+    if(!renameClub(from,to)) return alert('Could not rename the club.');
+    moveClubLocals(from,to);
+    me=to;
+    try{ localStorage.setItem('ll_me',to); }catch(e){}
+    if(activeTeam===from) activeTeam=to;
+    await commit({kind:'edit',team:to,detail:`${from} renamed to ${to}`},
+      ['rosters','settings','trades','auction']);
+    projToast(`Renamed to ${to}`);
+  };
+  $('setEmailGo').onclick=async()=>{
+    const t=me; if(!t||isComm()||!S.teams[t]) return;
+    const v=$('setEmail').value.trim(), on=$('setDaily').value==='1';
+    if(v&&!okEmail(v)) return alert('That does not look like an email address.');
+    S.teams[t].email=v;
+    S.teams[t].daily=v?on:false;      // no address means nothing to mail
+    await commit({kind:'edit',team:t,
+      detail:`Email ${v?'set':'cleared'}${v&&on?', daily digest on':v?', daily digest off':''}`},['rosters']);
+    projToast(v?'Address saved':'Address cleared');
+  };
+  $('setMailTest').onclick=async()=>{
+    const t=me; if(!t||isComm()) return;
+    if(!(S.teams[t]||{}).email) return alert('Save an address first, then send a test.');
+    $('setMailNote').textContent='Sending\u2026';
+    const r=await notify({kind:'test',to:t});
+    $('setMailNote').textContent = r.ok ? 'Sent \u2014 check your inbox.'
+      : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
+      : `Could not send: ${r.reason||'unknown error'}`;
+  };
+  /* A GM changing his own PIN has to know the old one — the commissioner's list
+     is the reset path for somebody who has forgotten it. */
+  $('setPinGo').onclick=async()=>{
+    const t=me; if(!t||isComm()||!S.teams[t]) return;
+    const cur=S.teams[t].pin||'', old=$('setPinOld').value.trim(),
+          a=$('setPinA').value.trim(), b=$('setPinB').value.trim();
+    const say=m=>{ $('setPinNote').dataset.said='1'; $('setPinNote').textContent=m; };
+    if(cur&&old!==cur) return say('That is not your current PIN. The commissioner can reset it for you.');
+    if(a.length<3) return say('Use at least 3 characters.');
+    if(a!==b) return say('The two new entries do not match.');
+    S.teams[t].pin=a;
+    $('setPinOld').value=''; $('setPinA').value=''; $('setPinB').value='';
+    await commit({kind:'edit',team:t,detail:'PIN changed by the GM'},['rosters']);
+    /* The club-private stores are encrypted under a key derived from the PIN, so
+       the copies on the server can no longer be opened. cboxLoad() falls back to
+       the local mirror and re-uploads it under the new key — recovery, not loss. */
+    if(typeof loadNotes==='function') await loadNotes();
+    if(typeof loadProj==='function') await loadProj();
+    if(typeof loadStrat==='function') await loadStrat();
+    say('PIN changed, and your notes, projections and board were re-keyed.');
+  };
+}
 function render(){
   if(typeof netChip==='function') netChip();
   if(typeof markMore==='function') markMore();
   if(typeof markPhaseTabs==='function') markPhaseTabs();
   $('seasonL').textContent=S.cfg.season;
-  if(!activeTeam)activeTeam=me&&me!=='__comm__'?me:TEAMS()[0];
+  /* A club can be renamed in another tab and arrive here on the poll, so
+     anything holding a club NAME has to be re-checked against S.teams rather
+     than trusted — committed() and headcount() read S.teams[t].r straight off
+     it. A sign-in naming a club that is gone is signed out, which is what the
+     boot sequence has always done with one; the GM signs back in under the new
+     name. His own rename never reaches this, because that handler moves him
+     across before it redraws. */
+  if(me&&me!=='__comm__'&&!S.teams[me]) me=null;
+  if(!activeTeam||!S.teams[activeTeam])
+    activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();
+  wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
-  if(!$('tA').options.length){
-    const opts=TEAMS().map(t=>`<option>${t}</option>`).join('');
-    $('tA').innerHTML=opts;$('tB').innerHTML=opts;
-    $('tA').value=(me&&me!=='__comm__')?me:TEAMS()[0];
-    $('tB').value=TEAMS().find(t=>t!==$('tA').value);
+  /* The trade machine's two club selects were built once and never again, so a
+     club that was added or renamed left them naming somebody who is not in
+     S.teams — and drawTradeLists() reads S.teams[value].r straight off it. They
+     are rebuilt whenever the league's club list changes, keeping each side's
+     current pick where that club still exists. */
+  {
+    const list=TEAMS(), sig=list.join('\u0001');
+    if($('tA').dataset.sig!==sig){
+      const keepA=$('tA').value, keepB=$('tB').value;
+      const opts=list.map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+      $('tA').innerHTML=opts;$('tB').innerHTML=opts;
+      $('tA').dataset.sig=sig;
+      $('tA').value = list.includes(keepA) ? keepA
+        : ((me&&me!=='__comm__'&&list.includes(me)) ? me : list[0]);
+      $('tB').value = (list.includes(keepB)&&keepB!==$('tA').value) ? keepB
+        : list.find(t=>t!==$('tA').value);
+    }
   }
   drawDraft();drawLineup();drawChat();drawBlock();drawTradeLists();drawTrade();drawOffers();
   drawRater();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
@@ -2709,7 +3026,7 @@ function drawFAList(){
       :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
-      ${canSignFA(me2)?`<td><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></td>`:''}</tr>`;}).join('')}
+      ${canSignFA(me2)?`<td class="acts"><span><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></span></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
   sortable('faTbl','fa','rtg',true);
   $('faTable').querySelectorAll('[data-fasign]').forEach(b=>b.onclick=e=>{
@@ -2737,10 +3054,14 @@ function drawMe(){
   if(!me) return;
   $('meAsWrap').hidden=!isComm();
   if(isComm()){
-    if($('meAs').options.length!==TEAMS().length){
+    /* Keyed on the club LIST, not its length: a rename leaves the count the
+       same and used to strand this select on a club S.teams no longer has. */
+    const list=TEAMS(), sig=list.join('\u0001');
+    if($('meAs').dataset.sig!==sig){
       const keep=$('meAs').value;
-      $('meAs').innerHTML=TEAMS().map(t=>`<option>${t}</option>`).join('');
-      if(keep) $('meAs').value=keep;
+      $('meAs').innerHTML=list.map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+      $('meAs').dataset.sig=sig;
+      $('meAs').value = list.includes(keep) ? keep : list[0];
     }
     /* Rebound every render so it never goes stale. It has to redraw the lineup
        too: that block reads meTeam(), and drawMe() does not own it, so switching
@@ -3920,14 +4241,20 @@ $('pjSearch').oninput=drawProjTab; $('pjFilter').onchange=drawProjTab;
    anyone standing on one somewhere real — a hidden tab whose panel is still open
    is worse than either state. */
 const OFFSEASON_TABS=['v-auction','v-fa','v-rookie'];
+/* Quick sign is the mirror image: an in-season signing is one year at the
+   minimum, and in the offseason a club adds players at auction or in the rookie
+   draft, so there is nothing for the form to record. */
+const SEASON_TABS=['v-draft'];
 function markPhaseTabs(){
   const live=seasonLive();
+  const hidden=live?OFFSEASON_TABS:SEASON_TABS;
   [...document.querySelectorAll('#tabs button'),...document.querySelectorAll('#moreMenu button')]
-    .forEach(b=>{ if(OFFSEASON_TABS.includes(b.dataset.v)) b.hidden=live; });
-  if(live){
-    const open=OFFSEASON_TABS.find(v=>{const el=$(v); return el&&!el.hidden;});
-    if(open) goTab(me?'v-me':'v-contracts');
-  }
+    .forEach(b=>{
+      if(OFFSEASON_TABS.includes(b.dataset.v)) b.hidden=live;
+      else if(SEASON_TABS.includes(b.dataset.v)) b.hidden=!live;
+    });
+  const open=hidden.find(v=>{const el=$(v); return el&&!el.hidden;});
+  if(open) goTab(me?'v-me':'v-contracts');
 }
 function goTab(id){
   // Tab buttons live in two places: the strip (#tabs) and the overflow menu,
@@ -4234,7 +4561,7 @@ function rightsOf(team,name){
   const n=canon(name);
   for(const t of TEAMS()){
     const p=S.teams[t].r.find(x=>canon(x.n)===n && x.y[1]==null);
-    if(p) return {club:t, bird:birdKind(p.b), opt:p.o, rfa:!!p.o};
+    if(p) return {club:t, bird:birdRight(p), opt:p.o, rfa:!!p.o, acq:p.acq??null, ten:tenureOf(p)};
   }
   return {club:null,bird:'',opt:'',rfa:false};
 }
@@ -5142,7 +5469,7 @@ async function makePick(from,name){
     /* Three years at the slot salary, with a rookie option on the last — the
        rulebook's terms, and the same shape every other contract has. */
     S.teams[t].r.push({n:rk.n,p:rk.p||'',y:[null,sal,sal,sal],o:'RO',b:'',
-      acq:new Date().getFullYear(),cut:false,rookie:true});
+      acq:leagueYear(),cut:false,rookie:true});
   } else {
     if(!confirm(`${t} passes on pick no. ${row.slot}? The pick is used up and cannot be made later.`)) return;
   }
@@ -6030,21 +6357,19 @@ $('dlgSign').addEventListener('keydown',e=>{
   $('doSign').click();
 });
 
+/* Quick sign is the same in-season signing My Team's free agent list makes, so
+   it goes through the same function rather than a second set of terms. The
+   auction is how a club adds players in the offseason, and the tab is hidden
+   then; the check stays because a hidden panel is not a permission. */
 $('add').onclick=async()=>{
-  const n=$('fPlayer').value.trim(),pr=parseFloat($('fPrice').value),
-        y=parseInt($('fYears').value)||1,t=$('fTeam').value;
+  const n=$('fPlayer').value.trim(), t=$('fTeam').value;
   if(!n)return $('fPlayer').focus();
-  if(!(pr>=1))return $('fPrice').focus();
-  /* The auction is how a club adds players in the offseason. The commissioner
-     still records what the league did; a GM signing here would be going round
-     the room. */
-  if(!seasonLive()&&!hasComm())
-    return alert('Free agents are signed at auction in the offseason. The commissioner records auction results.');
-  await signPlayer(n,t,Math.round(pr*4)/4,y);
-  $('fPlayer').value='';$('fPrice').value='';$('fYears').value=1;$('fPlayer').focus();
+  if(!seasonLive())
+    return alert('Free agents are signed at auction in the offseason. This opens once the season is live.');
+  await signFA(t,n);
+  $('fPlayer').value='';$('fPlayer').focus();
 };
-$('fPrice').onkeydown=e=>{if(e.key==='Enter')$('add').click();};
-$('fPlayer').onkeydown=e=>{if(e.key==='Enter')$('fPrice').focus();};
+$('fPlayer').onkeydown=e=>{if(e.key==='Enter')$('add').click();};
 $('saveCfg').onclick=async()=>{
   const dl=($('sDeadline').value||'').trim();
   if(dl&&!/^\d{4}-\d{2}-\d{2}$/.test(dl))
