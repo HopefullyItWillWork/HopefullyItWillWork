@@ -844,17 +844,89 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and toSlices does not carry it', !('chat' in g('toSlices')(g('S'))),
      Object.keys(g('toSlices')(g('S'))).join(','));
 
-  console.log('\n== notes stay in the browser ==');
+  console.log('\n== notes, projections and the board all follow the GM ==');
   X.me = 'Osborn';
-  ok('the key is per club', g('notesKey')() === 'll_notes_Osborn', g('notesKey')());
-  g('saveNotes')('chasing a centre');
-  ok('it round-trips', g('loadNotes')() === 'chasing a centre');
-  ok('and lives in localStorage, not the state',
-     ctx.localStorage.getItem('ll_notes_Osborn') === 'chasing a centre');
+  ok('each is its own club-private key',
+     g('cboxRemoteKey')('notes') === 'notes-Osborn'
+     && g('cboxRemoteKey')('proj') === 'proj-Osborn'
+     && g('cboxRemoteKey')('strat') === 'strat-Osborn',
+     g('cboxRemoteKey')('notes'));
+  ok('a club name is slugged so the key is URL-safe',
+     g('cboxRemoteKey')('proj').indexOf(' ') === -1);
+  X.me = 'N. Fink';
+  ok('punctuation and spaces included', g('cboxRemoteKey')('notes') === 'notes-N-Fink',
+     g('cboxRemoteKey')('notes'));
+  X.me = '__comm__';
+  ok('the commissioner has no club, so nothing to sync to',
+     g('cboxRemoteKey')('notes') === null);
+  X.me = 'Osborn';
+  ok('the local mirror is per club', g('cboxLocalKey')('notes') === 'notes_Osborn');
+  ok('and the board keeps the key it always used', g('cboxLocalKey')('strat') === 'strat_Osborn');
+  ok('none of these are league slices',
+     !g('SLICES').includes('notes') && !g('SLICES').includes('proj') && !g('SLICES').includes('strat'));
+
+  console.log('\n== last write wins, remote on a tie ==');
+  const pick = g('cboxPick');
+  ok('the newer stamp wins', pick({at: 5, d: 'old'}, {at: 9, d: 'new'}).d === 'new');
+  ok('even when it is the local one', pick({at: 9, d: 'new'}, {at: 5, d: 'old'}).d === 'new');
+  ok('a tie goes to the server, so a fresh device picks the work up',
+     pick({at: 5, d: 'local'}, {at: 5, d: 'remote'}).from === 'remote');
+  ok('nothing local means take the server copy', pick(null, {at: 0, d: 'remote'}).d === 'remote');
+  ok('nothing on the server means keep, and seed from, the local copy',
+     pick({at: 3, d: 'local'}, null).from === 'local');
+  ok('neither is not a crash', pick(null, null).from === 'none' && pick(null, null).d === null);
+
+  console.log('\n== the local mirror still reads what older builds wrote ==');
+  ctx.localStorage.setItem('notes_Osborn', JSON.stringify({at: 7, d: 'new shape'}));
+  ok('the {at,d} shape', JSON.stringify(g('cboxReadLocal')('notes')) === JSON.stringify({at: 7, d: 'new shape'}));
+  ctx.localStorage.setItem('strat_Osborn', JSON.stringify({at: 4, rows: [{n: 'X'}]}));
+  const oldStrat = g('cboxReadLocal')('strat');
+  ok('the board’s old {at,rows} shape', oldStrat.at === 4 && oldStrat.d[0].n === 'X',
+     JSON.stringify(oldStrat));
+  ctx.localStorage.setItem('proj_Osborn', JSON.stringify({'Some Guy': {PTS: 20}}));
+  const bare = g('cboxReadLocal')('proj');
+  ok('and a bare value from before any of this synced, stamped 0',
+     bare.at === 0 && bare.d['Some Guy'].PTS === 20, JSON.stringify(bare));
+  ok('nothing stored reads as nothing', g('cboxReadLocal')('nosuchkind') === null);
+
+  console.log('\n== notes round-trip through the store ==');
+  ctx.localStorage.removeItem('notes_Osborn');
+  ctx.localStorage.removeItem('ll_notes_Osborn');
+  await g('saveNotes')('chasing a centre');
+  ok('held in memory', X.NOTES === 'chasing a centre');
+  ok('and mirrored locally', JSON.parse(ctx.localStorage.getItem('notes_Osborn')).d === 'chasing a centre');
+  X.NOTES = '';
+  await g('loadNotes')();
+  ok('it comes back', X.NOTES === 'chasing a centre');
   X.me = 'Coulter';
-  ok('another club sees its own, not yours', g('loadNotes')() === '');
+  ctx.localStorage.removeItem('notes_Coulter');
+  await g('loadNotes')();
+  ok('another club sees its own, not yours', X.NOTES === '');
   X.me = 'Osborn';
-  g('saveNotes')('');
+
+  console.log('\n== the notes written before syncing existed are not lost ==');
+  ctx.localStorage.removeItem('notes_Osborn');
+  ctx.localStorage.setItem('ll_notes_Osborn', 'written on the old build');
+  X.NOTES = '';
+  await g('loadNotes')();
+  ok('the legacy key is read once', X.NOTES === 'written on the old build');
+  ok('and rewritten into the store',
+     JSON.parse(ctx.localStorage.getItem('notes_Osborn')).d === 'written on the old build');
+  ctx.localStorage.removeItem('ll_notes_Osborn');
+  await g('saveNotes')('');
+
+  console.log('\n== projections go the same way ==');
+  X.PROJ = {'Kevin Durant': {PTS: 30}};
+  await g('saveProj')();
+  ok('mirrored under the club', JSON.parse(ctx.localStorage.getItem('proj_Osborn')).d['Kevin Durant'].PTS === 30);
+  X.PROJ = {};
+  await g('loadProj')();
+  ok('and read back', X.PROJ['Kevin Durant'].PTS === 30, JSON.stringify(X.PROJ));
+  ok('a junk payload normalises to empty, not a crash',
+     JSON.stringify(g('normProj')('nonsense')) === '{}' && JSON.stringify(g('normProj')(null)) === '{}');
+  X.PROJ = {};
+  await g('saveProj')();
+  ctx.__toasts.length = 0;
 
   console.log('\n== an expiring contract is a free agent, everywhere it is asked ==');
   X.me = 'Osborn';

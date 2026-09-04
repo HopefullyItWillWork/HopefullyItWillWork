@@ -53,7 +53,8 @@ const EPILOGUE = ';globalThis.__X={' + [
   'pickId','pickRec','pickHolder','effHolder','pickMade','onClock',
   'hasStats','canEditContract','CSVCOLS','csvCell','aliasesFor','csvFileName',
   'CHAT','CHATREV','CHATMAX','CHATSHOW','CHATLOADED','chatId','chatOn','SLICES',
-  'notesKey','loadNotes','saveNotes',
+  'notesKey','NOTES','normProj','normNotes','syncWord',
+  'cboxRemoteKey','cboxLocalKey','cboxPick','cboxReadLocal','CBOXAT','CBOXREV',
   'isFreeAgent','ownerLabel','LAB','raterClub'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
 
