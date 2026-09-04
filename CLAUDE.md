@@ -690,6 +690,61 @@ rather than rates. Two things are easy to get backwards:
 A player with no games on file counts as zero and is reported in a footnote, not
 silently dropped.
 
+### A club cannot buy back what it paid to release
+Two rules sit on a release and they are **not the same rule**:
+
+1. **Above the minimum.** A club that releases a man for more than `S.cfg.minSal`
+   cannot sign him back **for the rest of that season and the following
+   offseason**. That window is one release cycle, so it is the same test either
+   side of the phase switch — a **hard bar in both phases**. Cutting a $13.75
+   contract and buying it back at $1.00 is a renegotiation, not a release.
+   Without the in-season half a club could cut a $4.00 man in February and
+   re-sign him at $1.00 the same afternoon: the dead money makes that cost more
+   for the year, but it still clears his books for next season.
+2. **A multi-year deal**, the rulebook's own rule below: hard in the first
+   offseason after the release, minimum-only during the season that follows.
+
+A **minimum** release bars nothing: a GM parking an injured minimum player must
+not be locked out of his own club, and there is no salary to renegotiate.
+
+Neither rule restricts any **other** club. A released player is a free agent to
+the other eight and always was, which is exactly what makes the barred list worth
+showing — those players are still available, just not to you. `drawBarred()`
+therefore renders in **both** phases.
+
+| | |
+|---|---|
+| `cutRecords(team,name)` | every release of him by that club, matched through `canon()` |
+| `cutCurrent(c)` | is this release in the current cycle? |
+| `cutAboveMin(c)` | released for more than today's minimum |
+| `paidCut(team,name)` | his dearest release in this cycle, or null |
+| `cutRestriction(team,name)` | `null`, `{hard,why}` or `{minOnly,maxYears,why}` |
+| `unsignableFor(team)` | one row per barred player, dearest first |
+
+`cutRestriction()` carries a **`why`**, and every refusal prints it —
+`signPlayer()`, `signBlock()`, `placeBid()`, `nominate()` and `restrictionNote()`
+all say the same sentence. Nomination is blocked too: a nomination opens with the
+nominator's own bid, so a club that cannot sign him cannot put him up.
+
+**The old rule was inert.** `cutRecord()` required `x.blocked`, and **no seed cut
+record carries `blocked`, `live` or `at` at all** — so it matched nothing and the
+whole restriction did nothing against the only cut list this league has. It also
+compared raw strings, and the cut list spells one man "Wendall Carter Jr" where
+the box scores say "Wendell".
+
+**A release belongs to a cycle**, or a cut from three years ago would follow a
+club for ever. `normRosters()` stamps any unstamped release with the season it is
+first read in — in memory, persisted by the next rosters write — so seed cuts
+lapse properly when the season rolls forward. Multiple releases of the same man
+resolve to the **dearest**: cutting again at the minimum must not clear the bar.
+
+The seed bars seven players across three clubs — D. Fink (Brook Lopez $5.75, Kon
+Knueppel $4.50, Dereck Lively II $3.25), N. Fink (Myles Turner $13.75, Derik
+Queen $3.75, Jalen Green $1.25) and N. Daman (Payton Pritchard $1.25).
+
+`drawBarred()` is the panel on the auction tab; the club page's release
+history tags each barred row; the strategy board tags them too.
+
 **Cuts** depend on season phase, and this is the part that is easy to get wrong:
 - **In season**: salary stays on the cap until the season ends, then clears. It
   never carries into the next year.
@@ -834,7 +889,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 640 assertions against the real functions
+node tests/test.js        the app: 700 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock

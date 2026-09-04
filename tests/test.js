@@ -2119,6 +2119,292 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     X.me = 'Osborn';
   }
 
+
+  /* ============ A CLUB CANNOT BUY BACK WHAT IT PAID TO RELEASE ============ */
+  console.log('\n== the seed cut list is read at all ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'offseason'; CS.cfg.minSal = 1.00; CS.cfg.roster = 15;
+    /* No seed cut record carries `blocked`, `live` or `at` — the old cutRecord()
+       required `blocked` and so matched nothing at all, which made the whole
+       restriction inert against the only cut list this league has. */
+    const anyBlocked = g('TEAMS')().some(t =>
+      (CS.teams[t].cuts || []).some(c => c.blocked));
+    ok('no seed release is marked as a multi-year block', anyBlocked === false);
+    ok('...so the rule has to come off the salary, not that flag',
+       g('unsignableFor')('D. Fink').length > 0);
+  }
+
+  console.log('\n== released above the minimum, and out of reach ==');
+  {
+    const CS = g('S'), min = g('minSal')();
+    const bars = {};
+    g('TEAMS')().forEach(t => { const u = g('unsignableFor')(t); if (u.length) bars[t] = u; });
+
+    ok('three clubs are carrying a bar', Object.keys(bars).length === 3,
+       Object.keys(bars).join());
+    ok('D. Fink cannot buy back the three he paid for',
+       (bars['D. Fink'] || []).map(c => c.n).join() === 'Brook Lopez,Kon Knueppel,Dereck Lively II',
+       (bars['D. Fink'] || []).map(c => c.n).join());
+    ok('N. Fink cannot buy back his three',
+       (bars['N. Fink'] || []).map(c => c.n).join() === 'Myles Turner,Derik Queen,Jalen Green',
+       (bars['N. Fink'] || []).map(c => c.n).join());
+    ok('N. Daman cannot buy back Payton Pritchard',
+       (bars['N. Daman'] || []).map(c => c.n).join() === 'Payton Pritchard');
+    ok('the list is dearest first', (bars['N. Fink'] || [])[0].s === 13.75);
+    ok('every barred release is above the minimum',
+       Object.values(bars).every(l => l.every(c => c.s > min)));
+
+    console.log('\n-- and a minimum release is not a bar --');
+    ok('a $1.00 release leaves him signable',
+       g('cutRestriction')('N. Fink', 'Tari Eason') === null);
+    ok('...and he is not on the list',
+       !(bars['N. Fink'] || []).some(c => c.n === 'Tari Eason'));
+
+    console.log('-- the bar is the releasing club\'s alone --');
+    ok('N. Fink cannot sign Myles Turner back',
+       (g('cutRestriction')('N. Fink', 'Myles Turner') || {}).hard === true);
+    ok('...and the reason says the price and the minimum',
+       /13\.75/.test(g('cutRestriction')('N. Fink', 'Myles Turner').why)
+       && /minimum/.test(g('cutRestriction')('N. Fink', 'Myles Turner').why),
+       g('cutRestriction')('N. Fink', 'Myles Turner').why);
+    g('TEAMS')().filter(t => t !== 'N. Fink').forEach(t => {
+      if (g('cutRestriction')(t, 'Myles Turner') !== null) fails++;
+    });
+    ok('every other club may sign him freely',
+       g('TEAMS')().filter(t => t !== 'N. Fink')
+         .every(t => g('cutRestriction')(t, 'Myles Turner') === null));
+
+    console.log('-- the cut list spells names its own way --');
+    /* D. Fink's cut list carries "Wendall Carter Jr"; the box scores say
+       "Wendell". A raw string compare would have let him straight back. */
+    ok('a cut is matched through canon()',
+       g('cutRecords')('D. Fink', 'Wendell Carter Jr').length > 0,
+       String(g('cutRecords')('D. Fink', 'Wendell Carter Jr').length));
+    ok('...and a club that never released him has no record',
+       g('cutRecords')('Osborn', 'Wendell Carter Jr').length === 0);
+    /* Two releases of the same man, one dear and one at the minimum: the dearer
+       one governs, or cutting again at $1.00 would clear the bar. */
+    ok('D. Fink released Brook Lopez twice',
+       g('cutRecords')('D. Fink', 'Brook Lopez').length === 2);
+    ok('...and the dearer release governs',
+       g('paidCut')('D. Fink', 'Brook Lopez').s === 5.75,
+       String(g('paidCut')('D. Fink', 'Brook Lopez').s));
+    ok('...so he is listed once, at that price',
+       (bars['D. Fink'] || []).filter(c => c.n === 'Brook Lopez').length === 1
+       && (bars['D. Fink'] || []).find(c => c.n === 'Brook Lopez').s === 5.75);
+  }
+
+  console.log('\n== the bar is enforced where a GM acts ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'offseason'; CS.cfg.roster = 15;
+    const club = 'N. Fink', guy = 'Myles Turner';
+    ok('he cannot be signed', g('signBlock')(club, guy, 3) !== null);
+    ok('...and bidCeiling is zero for that club',
+       g('bidCeiling')(club, guy) === 0, String(g('bidCeiling')(club, guy)));
+    const rival = g('TEAMS')().find(t => t !== club
+      && CS.cfg.cap - g('committed')(t) > 5 && g('headcount')(t) < CS.cfg.roster);
+    ok('...but not for a rival', g('bidCeiling')(rival, guy) > 1, String(g('bidCeiling')(rival, guy)));
+
+    console.log('-- he cannot nominate him --');
+    ctx.__alerts.length = 0;
+    CS.auction = null; CS.cfg.nomOrder = [];
+    X.me = club;
+    await g('nominate')(guy, club, 1);
+    ok('the nomination is refused', !g('A')(), JSON.stringify(g('A')()));
+    ok('...and he is told why', /released|minimum/i.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    console.log('-- nor bid on him --');
+    CS.auction = {player:guy, by:rival, bid:2, leader:rival,
+      bids:[{t:rival, amt:2, ts:Date.now()}], max:{}, status:'open', ts:Date.now()};
+    await g('placeBid')(club, 3, false);
+    ok('the bid does not land', g('A')().bid === 2 && g('A')().leader === rival);
+    ok('...and the reason names the release', /released/i.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    console.log('-- nor can the commissioner award him to that club --');
+    g('A')().leader = club; g('A')().bid = 2;
+    X.me = '__comm__';
+    await g('closeAuction')();
+    ok('the award is refused', g('A')().status === 'open');
+    ok('...and nothing was signed', !CS.teams[club].r.some(p => p.n === guy));
+    ok('...with the reason given', /released/i.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    console.log('-- and signPlayer refuses outright --');
+    X.me = club;
+    await g('signPlayer')(guy, club, 1, 1);
+    ok('he is not on the roster', !CS.teams[club].r.some(p => p.n === guy));
+    ok('...and the GM is told', /released/i.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    console.log('-- restrictionNote leads with it --');
+    const note = g('restrictionNote')(club, guy);
+    ok('the note says it first', /released/i.test(note[0] || ''), JSON.stringify(note));
+
+    CS.auction = null;
+    X.me = 'Osborn';
+  }
+
+  console.log('\n== the bar belongs to a release cycle, and to the offseason ==');
+  {
+    const CS = g('S');
+    const club = 'N. Fink', guy = 'Myles Turner';
+    ok('an unstamped release reads as this cycle',
+       g('cutCurrent')({n:guy, s:5}) === true);
+    /* ...and is stamped the first time it is read, so the bar it carries lapses
+       with the season instead of following the club for ever. */
+    ok('the seed cuts were stamped on load',
+       g('TEAMS')().every(t => (CS.teams[t].cuts || []).every(c => !!c.at)),
+       JSON.stringify((CS.teams['N. Fink'].cuts || [])[0]));
+    ok('...with the season they were first seen in',
+       (CS.teams['N. Fink'].cuts || []).every(c => c.at === CS.cfg.season));
+    ok('...and one stamped with this season does too',
+       g('cutCurrent')({n:guy, s:5, at:CS.cfg.season}) === true);
+    ok('...but an older one does not',
+       g('cutCurrent')({n:guy, s:5, at:'2019–20'}) === false);
+
+    /* Rolling the season forward lapses the bar, which is what "the previous
+       season or the offseason" means — it does not follow a club for ever. */
+    const was = CS.cfg.season;
+    CS.cfg.season = '2027–28';
+    ok('a new season clears the bar', g('cutRestriction')(club, guy) === null);
+    ok('...and empties the list', g('unsignableFor')(club).length === 0);
+    CS.cfg.season = was;
+    ok('and it comes back when the season does',
+       (g('cutRestriction')(club, guy) || {}).hard === true);
+
+    /* The bar runs the rest of the season AND the following offseason, so it is
+       the same answer on either side of the phase switch. Without the in-season
+       half a club could cut a $4.00 man in February and re-sign him at $1.00 the
+       same afternoon, clearing his books for next season. */
+    CS.cfg.phase = 'season';
+    ok('in season the above-minimum release bars him too',
+       (g('cutRestriction')(club, guy) || {}).hard === true,
+       JSON.stringify(g('cutRestriction')(club, guy)));
+    ok('...and the list is the same either side of the phase',
+       g('unsignableFor')(club).length > 0);
+    ok('...and the reason names the window',
+       /rest of this season/.test(g('cutRestriction')(club, guy).why)
+       && /following offseason/.test(g('cutRestriction')(club, guy).why),
+       g('cutRestriction')(club, guy).why);
+    CS.cfg.phase = 'offseason';
+
+    /* The rulebook's own rule still stands on top of it: a multi-year deal is
+       minimum-only during the following season. */
+    const t2 = 'Osborn';
+    CS.teams[t2].cuts.push({n:'Cut Rule Guy', p:'G', s:1.00, blocked:true, live:false, at:CS.cfg.season});
+    ok('a multi-year release is hard in the offseason',
+       (g('cutRestriction')(t2, 'Cut Rule Guy') || {}).hard === true);
+    CS.cfg.phase = 'season';
+    const inS = g('cutRestriction')(t2, 'Cut Rule Guy');
+    ok('...and minimum-only in season', !!inS && inS.minOnly === true && inS.maxYears === 1);
+    ok('...so his ceiling is the minimum',
+       g('bidCeiling')(t2, 'Cut Rule Guy') === g('minSal')(),
+       String(g('bidCeiling')(t2, 'Cut Rule Guy')));
+    CS.cfg.phase = 'offseason';
+    CS.teams[t2].cuts = CS.teams[t2].cuts.filter(c => c.n !== 'Cut Rule Guy');
+  }
+
+  console.log('\n== the mid-season cut-and-re-sign loophole is shut ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'season'; CS.cfg.roster = 15; CS.cfg.minSal = 1.00; CS.cfg.deadline = '';
+    const club = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster
+                                      && CS.cfg.cap - g('committed')(t) > 10);
+    /* One year, so the rulebook's multi-year rule cannot be what catches him —
+       this is the above-minimum bar doing the work, and it used to do none. */
+    const dear = {n:'Loophole Guy', p:'G', y:[4.00, 4.00, null, null], o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(dear);
+    X.me = club;
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(dear));
+    ok('the release is recorded at $4.00 and is not a multi-year block',
+       g('cutRecords')(club, 'Loophole Guy')[0].s === 4.00
+       && g('cutRecords')(club, 'Loophole Guy')[0].blocked === false);
+    ok('he is barred in season', (g('cutRestriction')(club, 'Loophole Guy') || {}).hard === true);
+    ok('...his ceiling is zero', g('bidCeiling')(club, 'Loophole Guy') === 0);
+    ok('...and even the minimum is refused',
+       g('signBlock')(club, 'Loophole Guy', 1.00) !== null,
+       String(g('signBlock')(club, 'Loophole Guy', 1.00)));
+
+    ctx.__alerts.length = 0;
+    await g('signFA')(club, 'Loophole Guy');
+    ok('signing him back the same day does not happen',
+       !CS.teams[club].r.some(p => p.n === 'Loophole Guy'),
+       JSON.stringify(CS.teams[club].r.filter(p => p.n === 'Loophole Guy')));
+    ok('...and the GM is told why', /released/i.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    /* And it holds across the phase switch, which is the point of the rule: the
+       rest of the season AND the offseason that follows. */
+    CS.cfg.phase = 'offseason';
+    ok('still barred once the offseason opens',
+       (g('cutRestriction')(club, 'Loophole Guy') || {}).hard === true);
+    CS.cfg.phase = 'season';
+
+    /* A minimum man is not a renegotiation, so he can come straight back — a GM
+       parking an injured minimum player must not be locked out of his own club. */
+    const cheap = {n:'Minimum Guy', p:'G', y:[1.00, 1.00, null, null], o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(cheap);
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
+    ok('a minimum release bars nothing in season',
+       g('cutRestriction')(club, 'Minimum Guy') === null);
+    await g('signFA')(club, 'Minimum Guy');
+    ok('...and he can be signed straight back',
+       CS.teams[club].r.some(p => p.n === 'Minimum Guy' && p.y[1] === 1.00),
+       JSON.stringify(ctx.__alerts));
+
+    CS.teams[club].r = CS.teams[club].r.filter(p => p.n !== 'Minimum Guy');
+    CS.teams[club].cuts = CS.teams[club].cuts.filter(
+      c => c.n !== 'Loophole Guy' && c.n !== 'Minimum Guy');
+    CS.cfg.phase = 'offseason';
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+  }
+
+  console.log('\n== a cut made now bars the club from the auction ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'offseason'; CS.cfg.roster = 15;
+    const club = g('TEAMS')().find(t => t !== 'N. Fink' && t !== 'D. Fink' && t !== 'N. Daman');
+    const dear = {n:'Fresh Cut Guy', p:'G', y:[4.00, 4.00, null, null], o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(dear);
+    X.me = club;
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(dear));
+    ok('the release is recorded at his salary',
+       (g('cutRecords')(club, 'Fresh Cut Guy')[0] || {}).s === 4.00,
+       JSON.stringify(g('cutRecords')(club, 'Fresh Cut Guy')));
+    ok('...stamped with this season',
+       g('cutRecords')(club, 'Fresh Cut Guy')[0].at === CS.cfg.season);
+    ok('so the club cannot bid on him',
+       (g('cutRestriction')(club, 'Fresh Cut Guy') || {}).hard === true);
+    ok('...and he shows on its barred list',
+       g('unsignableFor')(club).some(c => c.n === 'Fresh Cut Guy'));
+    const rival2 = g('TEAMS')().find(t => t !== club);
+    ok('...while a rival is free to take him',
+       g('cutRestriction')(rival2, 'Fresh Cut Guy') === null);
+
+    /* A minimum release is not a renegotiation, so it bars nothing. */
+    const cheap = {n:'Cheap Cut Guy', p:'G', y:[1.00, 1.00, null, null], o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(cheap);
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
+    ok('a minimum release bars nothing',
+       g('cutRestriction')(club, 'Cheap Cut Guy') === null,
+       JSON.stringify(g('cutRestriction')(club, 'Cheap Cut Guy')));
+
+    CS.teams[club].cuts = CS.teams[club].cuts.filter(
+      c => c.n !== 'Fresh Cut Guy' && c.n !== 'Cheap Cut Guy');
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

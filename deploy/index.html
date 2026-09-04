@@ -696,6 +696,9 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="filters" id="nomWho"></div>
     <div id="nomBox"></div>
 
+    <h2 class="sub" id="barredHd" hidden>Released and out of reach <span class="fcount" id="barredWho"></span></h2>
+    <div id="barredBox"></div>
+
     <div id="stratWrap" hidden>
       <h2 class="sub">Auction strategy</h2>
       <div class="privnote">&#9679; private to you</div>
@@ -1453,9 +1456,24 @@ function normCfg(c){
   if(!Array.isArray(c.deputies)) c.deputies=DEPUTY_SEED.slice();
   return c;
 }
+/* A release written before it carried a season stamp — the whole seed — is
+   stamped with the season it is first read in. Without that its cycle would be
+   read as "whatever season it is now" for ever, and the bar it carries would
+   follow the club into every future auction instead of lapsing with the season.
+   Stamping in memory is enough: the next write of the rosters slice persists it,
+   and any cut, signing or trade does that. `settings` is applied before
+   `rosters` in SLICES, so S.cfg.season is already in place. */
+function normRosters(teams){
+  if(!teams||typeof teams!=='object') return teams;
+  const yr=(S.cfg&&S.cfg.season)||'';
+  Object.keys(teams).forEach(t=>{
+    (teams[t]&&teams[t].cuts||[]).forEach(c=>{ if(c&&!c.at) c.at=yr; });
+  });
+  return teams;
+}
 function applySlice(k,val){
   if(k==='settings'){ S.cfg=normCfg(val); rebuildPlayerFixes(); }
-  else if(k==='rosters') S.teams=val;
+  else if(k==='rosters') S.teams=normRosters(val);
   else if(k==='auction') S.auction=val;
   else if(k==='trades') S.trades=val;
   else if(k==='log') S.log=val;
@@ -1856,10 +1874,9 @@ async function signPlayer(name,team,price,years,opts){
      answering) and checked the contract with signBlock(). Nothing else sets it. */
   if(!opts.force&&!canEdit(team)) return alert('You can only sign players to your own club.');
   const cr=cutRestriction(team,name);
-  if(cr&&cr.hard)
-    return alert(`${team} released ${name}. Under league rules he cannot be re-signed during this offseason.`);
+  if(cr&&cr.hard) return alert(cr.why);
   if(cr&&cr.minOnly){
-    if(price>1.001) return alert(`${name} was released by ${team}. During the season he may only be re-signed to a minimum contract of ${money(1)}.`);
+    if(price>minSal()+0.001) return alert(cr.why);
     if(years>1) return alert(`${name} was released by ${team}. A multi-year deal is not permitted until the next offseason.`);
   }
   const cap=S.cfg.cap, tax=S.cfg.tax, cur=committed(team);
@@ -2223,12 +2240,15 @@ function drawDetail(){
       <td>${money(s)}</td><td class="hide"></td><td class="hide"></td></tr></tfoot></table>
     ${cuts.length?`<h2 class="sub">Release history &#8212; ${cuts.length} players</h2>
     <p class="note">A released player's salary counts against the cap only for the rest of that season, then clears.
-    None of this is charged to the current payroll &#8212; it is a record of past moves.</p>
+    None of this is charged to the current payroll &#8212; it is a record of past moves.
+    A release <b>above the ${money(minSal())} minimum</b> also bars this club from signing him back for
+    the rest of the season and the following offseason; every other club may sign him freely.</p>
     <table id="cutTbl"><thead><tr><th class="l" data-k="n">Player</th>
       <th data-k="s">Salary when released</th></tr></thead><tbody>
     ${cuts.slice().sort((x,y)=>{const K=SORTS.cut||{col:'s',desc:true};
         return cmp(K.col==='n'?x.n:(x.s??null), K.col==='n'?y.n:(y.s??null), K.desc);})
-      .map(c=>`<tr class="iscut"><td class="pname" data-player="${c.n}">${c.n}</td>
+      .map(c=>`<tr class="iscut"><td class="pname" data-player="${htmlEsc(c.n)}">${htmlEsc(c.n)}${
+        cutCurrent(c)&&cutAboveMin(c)?'<span class="tag t-blk">cannot sign back</span>':''}</td>
       <td>${c.s==null?'&#8212;':money(c.s)}</td></tr>`).join('')}
     </tbody></table>`:''}`;
   sortable('cxTbl','cx','sal',true); redraw.cx=drawDetail;
@@ -3190,6 +3210,34 @@ function drawBidPanel(){
 }
 
 
+/* The players a club paid to release and therefore cannot buy back. Worth its
+   own panel rather than a surprise the first time a GM bids: he has to know
+   before the auction which of his own cuts are out of reach, and every other
+   club may sign them freely, which is exactly what makes them worth listing. */
+function drawBarred(){
+  const hd=$('barredHd'), box=$('barredBox');
+  if(!hd||!box) return;
+  const t = (me&&!isComm()) ? me : (isComm()? meTeam() : null);
+  const list = t ? unsignableFor(t) : [];
+  const on = !!t && list.length>0;
+  hd.hidden=!on;
+  if(!on){ box.innerHTML=''; return; }
+  $('barredWho').textContent = `${list.length} player${list.length===1?'':'s'} \u00b7 ${htmlEsc(t)}`;
+  box.innerHTML=`<p class="note">${htmlEsc(t)} released these players for more than the
+    ${money(minSal())} minimum, so it cannot sign them back <b>for the rest of this season or the
+    following offseason</b> &#8212; cutting a contract and buying it back cheaper is a
+    renegotiation, not a release. <b>Every other club may sign them normally</b>, so they are still
+    worth watching. The bar lifts when the season rolls forward.</p>
+    <div class="rosterwrap"><table id="barredTbl"><thead><tr>
+      <th class="l">Player</th><th class="l hide">Pos</th><th>Released at</th>
+      <th class="hide2">Rating</th><th class="l">Now</th></tr></thead><tbody>${
+    list.map(c=>`<tr class="iscut"><td class="l pname" data-player="${htmlEsc(c.n)}">${htmlEsc(c.n)}</td>
+      <td class="pos l hide">${htmlEsc(c.p||'\u2014')}</td>
+      <td class="mono bad">${money(c.s)}</td>
+      <td class="hide2 rating">${(()=>{const r=rtg(c.n); return r==null?'\u2014':(r>0?'+':'')+r;})()}</td>
+      <td class="l" style="font-size:11.5px">${htmlEsc(ownerLabel(c.n))}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
 function drawAuctRoster(){
   const hd=$('myRosterHd');
   if(!me||isComm()){
@@ -3611,6 +3659,7 @@ function drawAuction(){
       : '';
   if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1);
   drawAuctRoster();
+  drawBarred();
   drawStrategy();
   $('budgets').innerHTML=TEAMS().map(t=>{
     const sp=S.cfg.roster-headcount(t), space=S.cfg.cap-committed(t);
@@ -3884,7 +3933,9 @@ function drawStrategy(force){
       <td class="l rankcell"><span class="rk">${i+1}</span>
         <button class="act" data-mv="up" data-i="${i}" title="Move up"${i===0?' disabled':''}>&#9650;</button>
         <button class="act" data-mv="dn" data-i="${i}" title="Move down"${i===STRAT.length-1?' disabled':''}>&#9660;</button></td>
-      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}${stratHold(x.n)}</td>
+      <td class="name">${htmlEsc(x.n)}${live?`<span class="tag t-bird">on the block · ${money(a.bid)}</span>`:''}${
+        stratHold(x.n)}${(()=>{const c=me&&!isComm()&&cutRestriction(me,x.n);
+        return c&&c.hard?'<span class="tag t-blk">you cannot sign him</span>':'';})()}</td>
       <td class="pos">${r&&r.p?r.p:'&#8212;'}</td>
       <td>${g!=null?(g>0?'+':'')+g:'&#8212;'}</td>
       <td class="l"><select class="spri p-${x.pri}" data-f="pri" data-i="${i}"
@@ -4534,17 +4585,86 @@ function impactCard(team,name,priceNote){
 /* ============ AUCTION: rights, ceilings, proxy bidding ============ */
 /* League rule: a player released off a deal of two years or more may not be
    re-signed by that club during the first offseason after the release. */
-function cutRecord(team,name){
-  return ((S.teams[team]&&S.teams[team].cuts)||[]).find(x=>x.n===name&&x.blocked);
+/* ---- a club cannot buy back the player it paid to release ----
+   Two rules sit on a release and they are not the same rule:
+
+   1. **Above the minimum.** A club that releases a man for more than the league
+      minimum cannot sign him back **for the rest of that season and the
+      following offseason** — which is the whole of one release cycle, and so is
+      the same test in both phases. Cutting a $13.75 contract and buying him back
+      at $1.00 is not a release, it is a renegotiation, and the rulebook does not
+      allow one. Without the in-season half a club could cut a $4.00 man in
+      February and re-sign him at $1.00 the same afternoon; the dead money makes
+      that cost more for the year, but it still clears his books for next season.
+      The figure is the salary he was on when he was let go, not what he might
+      fetch now.
+   2. **A multi-year deal**, which the rulebook already blocked: no re-signing
+      during the first offseason after the release, and a one-year minimum
+      during the season that follows.
+
+   The first is hard in **both** phases for the length of the cycle; the second
+   is hard in the offseason and minimum-only in season. Neither restricts any
+   OTHER club — a released player is a free agent to the other eight, and always
+   was.
+
+   Two things about the data. Every comparison goes through canon(): the cut list
+   carries "Wendall Carter Jr" where the box scores say "Wendell", and a raw
+   string compare would let him straight back. And a release is matched to its
+   CYCLE — a bar lapses when the commissioner rolls the season forward, or a cut
+   from three years ago would follow a club for ever. Records written before that
+   stamp existed, which is the whole seed, read as the current cycle: the seed is
+   this year's release list, and reading it as ancient history would silently
+   drop every bar in it. */
+function cutRecords(team,name){
+  const n=canon(name);
+  return ((S.teams[team]&&S.teams[team].cuts)||[]).filter(x=>canon(x.n)===n);
+}
+const cutSeason=c=>c.at||S.cfg.season;
+const cutCurrent=c=>cutSeason(c)===S.cfg.season;
+/* Released above the league minimum. Compared against today's minimum, because
+   a release does not record the minimum in force when it was made. */
+const cutAboveMin=c=>(c.s||0)>minSal()+0.001;
+/* The dearest release of this player by this club in this cycle, or null. */
+function paidCut(team,name){
+  return cutRecords(team,name).filter(c=>cutCurrent(c)&&cutAboveMin(c))
+    .sort((a,b)=>(b.s||0)-(a.s||0))[0]||null;
 }
 /* Returns null if the club may sign him freely, otherwise the restriction:
-     {hard:true}                  cannot sign him at all (first offseason after release)
+     {hard:true}                  cannot sign him at all
      {minOnly:true, maxYears:1}   in season, minimum contract only               */
 function cutRestriction(team,name){
-  const c=cutRecord(team,name);
-  if(!c) return null;
-  if(!seasonLive()) return {hard:true};        // the first offseason after the release
-  return {minOnly:true,maxYears:1};            // during the season, a minimum deal is allowed
+  const recs=cutRecords(team,name).filter(cutCurrent);
+  if(!recs.length) return null;
+  const paid=recs.filter(cutAboveMin).sort((a,b)=>(b.s||0)-(a.s||0))[0];
+  const multi=recs.find(c=>c.blocked);
+  /* The above-minimum bar runs the rest of the season and the following
+     offseason, so it is the same answer either side of the phase switch. */
+  if(paid) return {hard:true, paid,
+    why:`${team} released ${name} at ${money(paid.s)}, above the ${money(minSal())} minimum. `
+      +'It cannot sign him back for the rest of this season or the following offseason. '
+      +'Every other club may sign him.'};
+  if(!seasonLive()){
+    if(multi) return {hard:true,
+      why:`${team} released ${name} from a deal of two years or more. He cannot be re-signed `
+        +'during the first offseason after the release.'};
+    return null;
+  }
+  if(multi) return {minOnly:true,maxYears:1,
+    why:`${team} released ${name} from a multi-year deal. During the season he may be re-signed `
+      +`only to a one-year minimum contract of ${money(minSal())}.`};
+  return null;
+}
+/* Everyone this club released above the minimum and therefore cannot buy back.
+   One row per player, dearest release first, matched through canon() so the two
+   spellings of a name are one man. */
+function unsignableFor(team){
+  const by=new Map();
+  ((S.teams[team]&&S.teams[team].cuts)||[]).forEach(c=>{
+    if(!cutCurrent(c)||!cutAboveMin(c)) return;
+    const k=canon(c.n), had=by.get(k);
+    if(!had||(c.s||0)>(had.s||0)) by.set(k,{n:c.n,key:k,s:c.s,p:c.p||''});
+  });
+  return [...by.values()].sort((a,b)=>(b.s||0)-(a.s||0));
 }
 function blockedFor(team,name){
   const r=cutRestriction(team,name);
@@ -4568,7 +4688,7 @@ function rightsOf(team,name){
 function bidCeiling(team,name){
   const cr0=cutRestriction(team,name);
   if(cr0&&cr0.hard) return 0;
-  if(cr0&&cr0.minOnly) return 1.00;
+  if(cr0&&cr0.minOnly) return minSal();
   const sp=S.cfg.roster-headcount(team);
   if(sp<=0) return 0;
   const res=Math.max(0,sp-1)*1.00;
@@ -4590,9 +4710,9 @@ function bidCeiling(team,name){
 function signBlock(team,name,price){
   if(!team||!S.teams[team]) return 'No club to award to.';
   const cr=cutRestriction(team,name);
-  if(cr&&cr.hard) return `${team} released ${name}. He cannot be re-signed during this offseason.`;
-  if(cr&&cr.minOnly&&price>1.001)
-    return `${team} released ${name}. He may only be re-signed at the minimum of ${money(1)}.`;
+  if(cr&&cr.hard) return cr.why||`${team} released ${name} and cannot sign him back.`;
+  if(cr&&cr.minOnly&&price>minSal()+0.001)
+    return cr.why||`${team} released ${name}. He may only be re-signed at the minimum.`;
   if(headcount(team)>=S.cfg.roster)
     return `${team} already carries ${S.cfg.roster} players and has no room.`;
   const after=committed(team)+price;
@@ -4606,6 +4726,10 @@ function signBlock(team,name,price){
 }
 function restrictionNote(team,name){
   const R=rightsOf(team,name), out=[];
+  /* First, because it is the one that ends the conversation: a club that paid to
+     release him cannot buy him back, whatever its cap space says. */
+  const cr=cutRestriction(team,name);
+  if(cr&&cr.why) out.push(cr.why);
   if(R.rfa) out.push(R.club===team
     ? `You hold matching rights &#8212; you may match the winning bid.`
     : `Restricted. ${R.club} sits out the bidding, then decides whether to match.`);
@@ -4642,8 +4766,13 @@ function resolveProxies(){
 async function placeBid(team,amt,isMax){
   const a=A(); if(!a||a.status!=='open') return alert('Nothing is on the block.');
   amt=Math.round(amt*4)/4;
+  /* A club barred from signing him is barred from bidding on him — a bid it
+     could not honour is not a bid, it is a way of running the price up. */
+  const cr=cutRestriction(team,a.player);
+  if(cr&&cr.hard) return alert(cr.why);
   const ceil=bidCeiling(team,a.player);
-  if(amt>ceil+0.001) return alert(`${team} may bid at most ${money(ceil)} on ${a.player} under the cap rules.`);
+  if(amt>ceil+0.001) return alert((cr&&cr.why?cr.why+'\n\n':'')
+    +`${team} may bid at most ${money(ceil)} on ${a.player} under the cap rules.`);
   if(isMax){
     a.max=a.max||{}; a.max[team]=amt;
     if(amt>a.bid||!a.leader) resolveProxies();
@@ -4727,6 +4856,10 @@ async function nominate(name,team,open){
     return alert(c ? `It is ${c.team}'s nomination.` : 'Every club is full — there is nobody left to nominate for.');
   }
   if(nomFull(team)) return alert(`${team} already carries ${S.cfg.roster} players and cannot bid.`);
+  /* A nomination opens with the nominator's own bid, so a club that cannot sign
+     him cannot put him up either — it would hold a bid it could not honour. */
+  const nb=signBlock(team,name,Math.round((open||1)*4)/4);
+  if(nb) return alert(`${team} cannot nominate ${name}.\n\n${nb}`);
   S.auction={player:name,by:team,bid:Math.round((open||1)*4)/4,leader:team,
     bids:[{t:team,amt:Math.round((open||1)*4)/4,ts:now()}],max:{},status:'open',ts:now()};
   await commit({kind:'sign',team,detail:`Nominated ${name} at ${money(open||1)}`},['auction']);
@@ -6443,6 +6576,7 @@ function netChip(){
   S=await Store.get()||fresh();
   if(!S.cfg||!S.teams){S=fresh();}
   normCfg(S.cfg);
+  normRosters(S.teams);
   Object.keys(SEED.teams).forEach(t=>{if(!S.teams[t])S.teams[t]={...JSON.parse(JSON.stringify(SEED.teams[t])),pin:''};});
   try{ me=localStorage.getItem('ll_me');
        useProj=localStorage.getItem('ll_proj')==='1';
