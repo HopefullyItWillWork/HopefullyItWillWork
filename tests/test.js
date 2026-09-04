@@ -1680,6 +1680,272 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     X.me = 'Osborn';
   }
 
+
+  /* ===================== COMMISSIONER ACCESS ===================== */
+  console.log('\n== a deputy is a GM who also holds the commissioner tools ==');
+  {
+    const CS = g('S'), DEP = g('DEPUTY_SEED');
+    ok('the seed names both Damans',
+       DEP.includes('A. Daman') && DEP.includes('N. Daman'), JSON.stringify(DEP));
+    CS.cfg.deputies = ['A. Daman', 'N. Daman'];
+
+    X.me = '__comm__';
+    ok('the commissioner login has the tools', g('hasComm')() === true);
+    ok('...and is not a deputy', g('isDeputy')() === false);
+    ok('...and is the only one who may grant them', g('canGrantComm')() === true);
+
+    X.me = 'A. Daman';
+    ok('a deputy holds the tools', g('hasComm')() === true);
+    ok('...and is flagged as one', g('isDeputy')() === true);
+    /* The whole split: he keeps his own club. isComm() must stay false for him,
+       or the club switcher and the per-club stores lose track of who he is. */
+    ok('...but is still a GM with his own club', g('isComm')() === false);
+    ok('...so his private stores stay his own',
+       g('cboxRemoteKey')('notes') === 'notes-' + g('clubSlug')('A. Daman'),
+       String(g('cboxRemoteKey')('notes')));
+    ok('...and he may edit a contract', g('canEditContract')() === true);
+    ok('...but may not hand the tools to anybody else', g('canGrantComm')() === false);
+
+    X.me = 'Osborn';
+    ok('an ordinary GM holds none of it',
+       g('hasComm')() === false && g('isDeputy')() === false && g('canEditContract')() === false);
+
+    ctx.__alerts.length = 0;
+    await g('toggleDeputy')('Osborn');
+    ok('and cannot promote himself', g('deputies')().includes('Osborn') === false);
+    ok('...he is told why', (ctx.__alerts[0] || '').includes('commissioner'),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    X.me = '__comm__';
+    await g('toggleDeputy')('Osborn');
+    ok('the commissioner can grant it', g('deputies')().includes('Osborn') === true);
+    await g('toggleDeputy')('Osborn');
+    ok('...and take it back', g('deputies')().includes('Osborn') === false);
+    ok('both are logged',
+       CS.log.filter(e => /Commissioner access (granted to|revoked from) Osborn/.test(e.detail || '')).length === 2);
+
+    ok('a club that has left the league is not a deputy',
+       g('deputies')(['nobody']).includes('nobody') === false);
+    CS.cfg.deputies = ['A. Daman', 'Ghost Club'];
+    ok('...and a stale name is filtered out',
+       g('deputies')().join() === 'A. Daman', g('deputies')().join());
+
+    console.log('\n== the deputies list migrates without re-granting ==');
+    const seeded = g('normCfg')({});
+    ok('a settings blob written before this gets the seed',
+       seeded.deputies.join() === g('DEPUTY_SEED').join(), JSON.stringify(seeded.deputies));
+    const emptied = g('normCfg')({deputies: []});
+    ok('but an empty list is a real answer and is left alone',
+       emptied.deputies.length === 0, JSON.stringify(emptied.deputies));
+    const kept = g('normCfg')({deputies: ['Coulter']});
+    ok('...as is one somebody set', kept.deputies.join() === 'Coulter');
+
+    CS.cfg.deputies = ['A. Daman', 'N. Daman'];
+  }
+
+  /* ===================== AWARDING AT AUCTION ===================== */
+  console.log('\n== signBlock says why a contract will not fit ==');
+  {
+    const CS = g('S'), club = 'Osborn';
+    CS.cfg.roster = 15;
+    const room = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster
+                                     && CS.cfg.cap - g('committed')(t) > 6);
+    ok('a club with room and money is not blocked',
+       g('signBlock')(room, 'Test Award Guy', 1.00) === null,
+       String(g('signBlock')(room, 'Test Award Guy', 1.00)));
+    ok('a club without a name is', /No club/.test(g('signBlock')('', 'x', 1) || ''));
+    const wasR = CS.cfg.roster;
+    CS.cfg.roster = g('headcount')(club);
+    ok('a full club is blocked by the roster limit',
+       /carries \d+ players/.test(g('signBlock')(club, 'Test Award Guy', 1.00) || ''),
+       String(g('signBlock')(club, 'Test Award Guy', 1.00)));
+    CS.cfg.roster = wasR;
+    const huge = g('signBlock')(room, 'Test Award Guy', CS.cfg.tax + 50);
+    ok('and a bid past the hard cap says so', /hard cap/.test(huge || ''), String(huge));
+  }
+
+  console.log('\n== only a commissioner may award ==');
+  {
+    const CS = g('S');
+    CS.cfg.roster = 15;
+    // Deliberately not a deputy: the point of this block is that a plain GM,
+    // even the one who nominated the player, cannot end his own lot.
+    const buyer = g('TEAMS')().find(t => !g('deputies')().includes(t)
+                                      && g('headcount')(t) < CS.cfg.roster
+                                      && g('bidCeiling')(t, 'Award Test A') >= 2);
+    const guy = 'Award Test A';
+    const openLot = () => { CS.auction = {player:guy, by:buyer, bid:2.00, leader:buyer,
+      bids:[{t:buyer, amt:2.00, ts:Date.now()}], max:{}, status:'open', ts:Date.now()}; };
+
+    openLot();
+    X.me = buyer;                       // the GM who nominated him
+    ctx.__alerts.length = 0;
+    await g('closeAuction')();
+    ok('the nominating GM cannot award his own lot', g('A')().status === 'open');
+    ok('...and is told it is the commissioner’s', (ctx.__alerts[0] || '').includes('commissioner'),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    X.me = 'A. Daman';                  // a deputy
+    await g('closeAuction')();
+    ok('a deputy can award', g('A')().status === 'closed', JSON.stringify(g('A')()));
+    ok('...and the player lands on the winning club',
+       CS.teams[buyer].r.some(p => p.n === guy && p.y[1] === 2.00));
+    ok('...at the winning price for one year',
+       CS.teams[buyer].r.find(p => p.n === guy).y[2] == null);
+    ok('...and it is logged',
+       CS.log.some(e => (e.detail || '').startsWith('Won ' + guy)));
+    CS.teams[buyer].r = CS.teams[buyer].r.filter(p => p.n !== guy);
+    CS.auction = null;
+    ok('no alert on a clean award', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+  }
+
+  console.log('\n== an award that will not fit is refused, not half-applied ==');
+  {
+    const CS = g('S');
+    const poor = g('TEAMS')()[0];
+    CS.auction = {player:'Award Test B', by:poor, bid:CS.cfg.tax + 25, leader:poor,
+      bids:[{t:poor, amt:CS.cfg.tax + 25, ts:Date.now()}], max:{}, status:'open', ts:Date.now()};
+    X.me = '__comm__';
+    ctx.__alerts.length = 0;
+    await g('closeAuction')();
+    ok('the lot stays open', g('A')().status === 'open');
+    ok('nothing was signed', !CS.teams[poor].r.some(p => p.n === 'Award Test B'));
+    ok('and the reason is given', /hard cap|ceiling|nothing left/.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+    CS.auction = null;
+  }
+
+  console.log('\n== a restricted player is put to the club that may match ==');
+  {
+    const CS = g('S');
+    CS.cfg.roster = 15;
+    const holder = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster - 1
+                                       && CS.cfg.cap - g('committed')(t) > 8);
+    const bidder = g('TEAMS')().find(t => t !== holder && g('headcount')(t) < CS.cfg.roster
+                                       && CS.cfg.cap - g('committed')(t) > 8);
+    const rfa = 'Award Test RFA';
+    // An expiring contract with an option played out is exactly a restricted FA.
+    CS.teams[holder].r.push({n:rfa, p:'G', y:[2.00, null, null, null], o:'RO', b:'', acq:2024, cut:false});
+    ok('he reads as restricted', g('rightsOf')(null, rfa).rfa === true);
+
+    const putUp = () => { CS.auction = {player:rfa, by:bidder, bid:3.00, leader:bidder,
+      bids:[{t:bidder, amt:3.00, ts:Date.now()}], max:{}, status:'open', ts:Date.now()}; };
+    putUp();
+    X.me = '__comm__';
+    await g('closeAuction')();
+    ok('awarding parks the lot in a match', g('A')().status === 'match', g('A')().status);
+    ok('nobody has signed him yet',
+       !CS.teams[bidder].r.some(p => p.n === rfa && p.y[1] != null));
+    const offer = g('matchOffer')();
+    ok('the offer names the rights holder, the winner and the price',
+       offer.club === holder && offer.winner === bidder && offer.price === 3.00,
+       JSON.stringify(offer));
+
+    console.log('\n-- who may answer it --');
+    X.me = bidder;
+    ok('the winning bidder may not answer for him', g('canAnswerMatch')() === false);
+    ctx.__alerts.length = 0;
+    await g('answerMatch')(true);
+    ok('...and his attempt is refused', g('A')().status === 'match');
+    ok('...with the holder named', (ctx.__alerts[0] || '').includes(holder),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+    X.me = holder;
+    ok('the rights holder may', g('canAnswerMatch')() === true);
+    X.me = '__comm__';
+    ok('and so may the commissioner, for a GM who has gone quiet',
+       g('canAnswerMatch')() === true);
+
+    console.log('\n-- bidding is shut while he decides --');
+    ctx.__alerts.length = 0;
+    await g('placeBid')(bidder, 4.00, false);
+    ok('no bid lands on a lot awaiting a match', g('A')().bid === 3.00, String(g('A')().bid));
+    ok('...and the bidder is told nothing is on the block',
+       (ctx.__alerts[0] || '').includes('block'), JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    console.log('\n-- matching keeps him --');
+    X.me = holder;
+    await g('answerMatch')(true);
+    ok('the lot closes', g('A')().status === 'closed');
+    ok('the rights holder keeps him at the winning price',
+       CS.teams[holder].r.some(p => p.n === rfa && p.y[1] === 3.00),
+       JSON.stringify(CS.teams[holder].r.filter(p => p.n === rfa)));
+    ok('the winner does not get him', !CS.teams[bidder].r.some(p => p.n === rfa));
+    ok('and the log says it was matched',
+       CS.log.some(e => /matched by/.test(e.detail || '')));
+    CS.teams[holder].r = CS.teams[holder].r.filter(p => p.n !== rfa);
+    CS.auction = null;
+
+    console.log('\n-- declining sends him to the winner --');
+    CS.teams[holder].r.push({n:rfa, p:'G', y:[2.00, null, null, null], o:'RO', b:'', acq:2024, cut:false});
+    putUp();
+    X.me = '__comm__';
+    await g('closeAuction')();
+    ok('the offer is open again', g('A')().status === 'match');
+    X.me = holder;
+    await g('answerMatch')(false);
+    ok('the lot closes', g('A')().status === 'closed');
+    ok('the winning bidder signs him',
+       CS.teams[bidder].r.some(p => p.n === rfa && p.y[1] === 3.00));
+    ok('...and he is off the old club', !CS.teams[holder].r.some(p => p.n === rfa));
+    ok('the log says the match was declined',
+       CS.log.some(e => /declined to match/.test(e.detail || '')));
+    CS.teams[bidder].r = CS.teams[bidder].r.filter(p => p.n !== rfa);
+    CS.auction = null;
+    ok('nothing alerted through the match flow', ctx.__alerts.length === 0,
+       JSON.stringify(ctx.__alerts));
+  }
+
+  console.log('\n== a rights holder who cannot fit the deal is never asked ==');
+  {
+    const CS = g('S');
+    CS.cfg.roster = 15;
+    const holder = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster - 1);
+    const bidder = g('TEAMS')().find(t => t !== holder && g('headcount')(t) < CS.cfg.roster
+                                       && CS.cfg.cap - g('committed')(t) > 8);
+    const rfa2 = 'Award Test RFA2';
+    CS.teams[holder].r.push({n:rfa2, p:'G', y:[2.00, null, null, null], o:'RO', b:'', acq:2024, cut:false});
+    // Fill the holder's roster so no contract of any size fits — with real
+    // contracts, not by moving the limit, which would strand the bidder too.
+    const filler = [];
+    while (g('headcount')(holder) < CS.cfg.roster) {
+      const f = {n:'Award Filler ' + filler.length, p:'G', y:[0.25, 0.25, null, null],
+                 o:'', b:'', acq:2024, cut:false};
+      filler.push(f); CS.teams[holder].r.push(f);
+    }
+    ok('he has no room', g('signBlock')(holder, rfa2, 3.00) !== null);
+    CS.auction = {player:rfa2, by:bidder, bid:3.00, leader:bidder,
+      bids:[{t:bidder, amt:3.00, ts:Date.now()}], max:{}, status:'open', ts:Date.now()};
+    X.me = '__comm__';
+    await g('closeAuction')();
+    ok('the lot goes straight to the winner', g('A')().status === 'closed', g('A')().status);
+    ok('...who signs him', CS.teams[bidder].r.some(p => p.n === rfa2 && p.y[1] === 3.00));
+    ok('...and the log says why', CS.log.some(e => /could not match/.test(e.detail || '')));
+    CS.teams[bidder].r = CS.teams[bidder].r.filter(p => p.n !== rfa2);
+    CS.teams[holder].r = CS.teams[holder].r.filter(p => p.n !== rfa2 && !filler.includes(p));
+    CS.auction = null;
+    ctx.__alerts.length = 0;
+  }
+
+  console.log('\n== a resolved lot beats a stale one on merge ==');
+  {
+    const mine = {player:'X', status:'open', bids:[{t:'a',amt:1}]};
+    const theirs = {player:'X', status:'match', bids:[{t:'a',amt:1}]};
+    ok('match beats open whichever side holds it',
+       g('mergeSlice')('auction', theirs, mine).status === 'match'
+       && g('mergeSlice')('auction', mine, theirs).status === 'match');
+    ok('closed beats match',
+       g('mergeSlice')('auction', {...theirs, status:'closed'}, theirs).status === 'closed');
+  }
+
+  X.me = 'Osborn';
+  g('S').auction = null;
+  g('S').cfg.roster = 15;
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
