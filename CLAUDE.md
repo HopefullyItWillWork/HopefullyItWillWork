@@ -207,12 +207,27 @@ on a contract.
 what would change without writing — and the confirmation says it: how many deals
 owe nothing in the new season and become expiring, how many players reach
 `birdYears()` completed seasons, how many release bars lapse, how much dead money
-comes off. The only write besides the season itself is clearing `c.live` on
-released salary, which is charged only for the rest of the season it was made in.
+comes off.
+
+**The roll writes `S.cfg.season` and nothing else**, so `unrollSeason()` steps it
+straight back and restores everything exactly. Getting there needed dead money to
+stop being a stored flag: `c.live` is now only the *fact* that a release was made
+mid-season, written once at the cut and never mutated, and `stillCharged(c)`
+derives whether it is on the cap — an in-season release, in the season the league
+is on, while that season is live. Clearing that flag was the one destructive
+thing the roll did.
 
 Everything else follows from the same data being read against a different year.
 Bird vests because `leagueYear()` finally moves; contracts expire because the new
 season is absent from the map. Nothing is migrated.
+
+**"Reset to the original spreadsheet" is not an undo for the roll.** It restores
+the rosters and deliberately keeps the commissioner's settings — cap, tax, PINs,
+deputies. The league year is one of those settings, and `SEED`'s contracts are
+keyed to the season it was written in, so handing them back a year later left
+every one of them reading as expired. The reset therefore restores the year with
+them and says so in the confirmation. To undo an advance, step the year back;
+the reset also wipes every transaction.
 
 ### The roster limit is on ACTIVE players
 **15 active, 1 injured-reserve slot.** That is the rulebook's "sixteen men, and
@@ -959,7 +974,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 757 assertions against the real functions
+node tests/test.js        the app: 772 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock

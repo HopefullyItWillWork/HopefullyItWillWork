@@ -1076,6 +1076,11 @@ thead th.hide,tbody td.hide{display:none}}
       <div></div>
       <button class="btn" id="rollGo">Advance the league year</button>
     </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn ghost" id="rollBack">Step the year back</button>
+      <span class="fcount" style="align-self:center">advancing writes the league year and nothing else,
+        so stepping back undoes it exactly</span>
+    </div>
     <p class="note" id="rollNote"></p>
 
     <h2 class="sub">Auction nomination order</h2>
@@ -2685,7 +2690,7 @@ function drawAdmin(){
       const was=S.cfg.phase, now=$('sPhase').value;
       const ir=Math.max(0,parseInt($('sIR').value)||0);
       let pending=0;
-      TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{ if(c.live) pending++; }));
+      TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{ if(stillCharged(c)) pending++; }));
       const lines=[];
       if(now!==was) lines.push(now==='season'
         ? 'Set the season LIVE.\n\n\u2022 The injured reserve and nightly lineups open.'
@@ -2700,7 +2705,9 @@ function drawAdmin(){
       S.cfg.phase=now;
       if(was==='season'&&now==='offseason'){
         let cleared=0;
-        TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{if(c.live){c.live=false;cleared++;}}));
+        /* Nothing to clear — a release stops being charged the moment the
+           season is no longer live, because stillCharged() reads the phase. */
+        TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{if(c.live&&cutSeason(c)===S.cfg.season)cleared++;}));
         /* There is no injured reserve in the offseason, so everybody on it comes
            back — and a club carrying a sixteenth man is now one over. It is told,
            not fixed: which player goes is the GM's call, not the commissioner's. */
@@ -2730,6 +2737,8 @@ function drawAdmin(){
       +`${v.bird.length===1?'':'s'}, and lapse ${v.bars} release bar${v.bars===1?'':'s'}.`
       +(seasonLive()?' The season is still marked live \u2014 close it first.':'');
     $('rollGo').onclick=rollSeason;
+    $('rollBack').onclick=unrollSeason;
+    $('rollBack').textContent='Step back to '+seasonPrev(v.cur);
   }
   if($('deputyRows')){
     const dep=deputies(), grant=canGrantComm();
@@ -4833,9 +4842,18 @@ function blockedFor(team,name){
   const r=cutRestriction(team,name);
   return !!(r&&r.hard);
 }
-/* Salary of a player released in season stays on the cap until the season ends. */
+/* Salary of a player released in season stays on the cap until the season ends.
+   `c.live` is the FACT that he was released mid-season, written once at the cut
+   and never mutated again. Whether it is still being charged is DERIVED: his
+   release has to be in the season the league is on, and that season has to still
+   be live. Deriving it is what makes advancing the league year reversible —
+   clearing the flag was the one destructive thing the roll used to do, and a
+   roll that writes nothing but the year can be stepped straight back. */
+function stillCharged(c){
+  return !!(c&&c.live) && cutSeason(c)===curSeason() && seasonLive();
+}
 function deadSalary(t){
-  return ((S.teams[t]&&S.teams[t].cuts)||[]).reduce((a,c)=>a+(c.live?(c.s||0):0),0);
+  return ((S.teams[t]&&S.teams[t].cuts)||[]).reduce((a,c)=>a+(stillCharged(c)?(c.s||0):0),0);
 }
 /* Matched through canon(): roster names come from the league spreadsheet and the
    name passed in comes from RATER, so "Jakob Poetl" and "Jakob Poeltl" are the
@@ -5029,9 +5047,28 @@ function rollPreview(){
       if(a>0 && birdRight(p)!=='Yes' && (seasonStart(next)-a)>=birdYears()) out.bird.push({t,n:p.n});
     });
     (S.teams[t].cuts||[]).forEach(c=>{ if(cutCurrent(c)&&cutAboveMin(c)) out.bars++; });
-    out.dead+=(S.teams[t].cuts||[]).filter(c=>c.live).length;
+    out.dead+=(S.teams[t].cuts||[]).filter(stillCharged).length;
   });
   return out;
+}
+/* Stepping the year BACK. The roll is non-destructive by construction — it
+   writes S.cfg.season and nothing else — so this genuinely restores what was
+   there, contracts, dead money and release bars alike. It exists because
+   "Reset to the original spreadsheet" does NOT undo a roll: that restores the
+   rosters and deliberately keeps the rest of the commissioner's settings, and
+   the league year lives among them, so a reset after a roll would hand back the
+   spreadsheet's contracts read against the wrong year. */
+async function unrollSeason(){
+  if(!hasComm()) return alert('Only the commissioner can change the league year.');
+  const cur=curSeason(), back=seasonPrev(cur);
+  if(!back) return;
+  if(!confirm(`Step the league back from ${cur} to ${back}?\n\n`
+    +'Contracts, released salary and release bars all return to what they were \u2014 advancing the '
+    +'year rewrites nothing, so stepping back restores it exactly. Use this to undo an advance made '
+    +'by mistake.')) return;
+  S.cfg.season=back;
+  await commit({kind:'edit',detail:`League year stepped back from ${cur} to ${back}`},['settings']);
+  alert(`The league is back on ${back}.`);
 }
 async function rollSeason(){
   if(!hasComm()) return alert('Only the commissioner can advance the league year.');
@@ -5048,14 +5085,11 @@ async function rollSeason(){
     +'those players again.');
   if(v.dead) lines.push(`\u2022 ${v.dead} released salar${v.dead===1?'y':'ies'} still charged to a cap `
     +'come off the books.');
-  lines.push('\nNo contract is rewritten. This is reversible by setting the year back.');
+  lines.push('\nNo contract is rewritten, and nothing else is either \u2014 this writes the league '
+    +'year and only that, so "Step the year back" undoes it exactly.');
   if(!confirm(lines.join('\n'))) return;
-  /* Salary from a release stays charged for the rest of the season it was made
-     in; a new league year is the end of that. */
-  TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{ if(c.live) c.live=false; }));
   S.cfg.season=v.next;
-  await commit({kind:'edit',detail:`League year advanced from ${v.cur} to ${v.next}`},
-    ['settings','rosters']);
+  await commit({kind:'edit',detail:`League year advanced from ${v.cur} to ${v.next}`},['settings']);
   alert(`The league is now on ${v.next}.`
     +(v.expiring.length?`\n\n${v.expiring.length} contract${v.expiring.length===1?'':'s'} expired.`:'')
     +(v.bird.length?`\n${v.bird.length} player${v.bird.length===1?'':'s'} reached ${birdYears()} `
@@ -6738,10 +6772,24 @@ $('exportBtn').onclick=()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='league-ledger.json';a.click();
 };
 $('resetBtn').onclick=async()=>{
-  if(!confirm('Wipe every roster change and transaction, restoring the original spreadsheet? This cannot be undone.'))return;
+  /* The reset keeps the commissioner's settings — cap, tax, PINs, deputies — and
+     restores only the rosters. But the LEAGUE YEAR is a setting too, and the
+     spreadsheet's contracts are keyed to the season it was written in: hand them
+     back while the league sits a year later and every one of them reads as
+     expiring. So the year comes back with them, and the question says so. */
+  const f=fresh(), was=curSeason(), to=seasonKey(f.cfg.season);
+  const moved = to && to!==was;
+  if(!confirm('Wipe every roster change and transaction, restoring the original spreadsheet?'
+    +(moved?`\n\nThe league year also returns to ${to}, from ${was}. The spreadsheet's contracts are `
+      +'written against that season, so restoring them without it would leave every one of them '
+      +'reading as expired.':'')
+    +'\n\nThis cannot be undone.'))return;
   const pins={};TEAMS().forEach(t=>pins[t]=S.teams[t].pin);
-  const c=S.cfg;S=fresh();S.cfg=c;TEAMS().forEach(t=>S.teams[t].pin=pins[t]||'');
-  await commit({kind:'edit',detail:'League reset to the original spreadsheet'});
+  const c=S.cfg;S=f;S.cfg=c;
+  if(to) S.cfg.season=to;
+  TEAMS().forEach(t=>S.teams[t].pin=pins[t]||'');
+  await commit({kind:'edit',
+    detail:'League reset to the original spreadsheet'+(moved?`, league year back to ${to}`:'')});
 };
 $('tabs').onclick=e=>{
   const b=e.target.closest('button');
