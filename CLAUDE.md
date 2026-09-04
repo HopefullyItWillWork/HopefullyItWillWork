@@ -259,9 +259,30 @@ numbers are what a GM is comparing. `luLine()` reads `S.daily[day][player]` when
 the feed writes one and falls back to the per-game line until then; a live number
 renders amber so the two can never be confused.
 
-**The bench is where a GM starts somebody**, so each bench row carries a select
-of the open slots that man is actually eligible for. No open slot fits him and it
-says so rather than offering a control that cannot work.
+**Lineup, bench and injured reserve are one stacked table**, not three boxes in
+two columns. They share the `.lurow` grid, so the nine stat columns line up all
+the way down and a GM reads who is in, who is out and who cannot play as one
+thing. Each section gets its own header row and its own chip — the slot letter,
+`BN`, or `IR`.
+
+Every row carries the moves that make sense from where it is:
+
+- a **slot** row: the eligible-player select, plus **IR** for the man in it
+- a **bench** row: a select of the open slots he actually fits, plus **IR**
+- an **IR** row: **Activate**, which is `toggleIR()` and therefore opens the
+  release swap when the club is full
+
+No open slot fits a bench man and it says so rather than offering a control that
+cannot work. **Start all** fills every open slot from the bench, scarcest first;
+**Bench all** is its opposite.
+
+**Moving a man to the IR clears his slot in the same write.** Leaving it filled
+would start a player who cannot play. A locked man cannot go to the IR either —
+his game has started and the injured reserve is not a way around that.
+
+`drawMe()`'s club switch redraws the lineup as well as the roster. The lineup
+block reads `meTeam()` but `render()` owns it, not `drawMe()`, so the
+commissioner switching clubs used to leave the previous club's lineup on screen.
 
 **The in-season header drops three cells** — average historical place, categories
 at a winning level, and the mid-level exception. They are offseason
@@ -667,7 +688,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 467 assertions against the real functions
+node tests/test.js        the app: 493 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock

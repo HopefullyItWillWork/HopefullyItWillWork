@@ -1174,14 +1174,20 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   await g('autoLineup')('N. Fink');
   g('render')();
   ok('the lineup block is visible', document.getElementById('luWrap').hidden === false);
-  ok('a header and fifteen rows are drawn',
-     (document.getElementById('luSlots').innerHTML.match(/class="lurow/g) || []).length === 16
-     && /luhdr/.test(document.getElementById('luSlots').innerHTML));
+  const luAll = document.getElementById('luSlots').innerHTML;
+  ok('lineup, bench and IR are one stacked table',
+     (luAll.match(/class="lurow luhdr/g) || []).length === 3, 'headers');
+  ok('with fifteen slot rows in it',
+     (luAll.match(/class="lurow(?! luhdr)/g) || []).length
+       >= 15 + g('benchOf')('N. Fink').length,
+     (luAll.match(/class="lurow(?! luhdr)/g) || []).length);
+  ok('and the bench and IR rows carry their own chips',
+     /luslot k-B/.test(luAll) && /luslot k-I/.test(luAll));
   ok('every scoring category has a column',
      g('LUCATS').length === 9
      && g('LUCATS').every(([, l]) => document.getElementById('luSlots').innerHTML.includes('>' + l + '<')),
      g('LUCATS').map(c => c[1]).join(','));
-  ok('the bench is listed', document.getElementById('luBench').innerHTML.length > 0);
+  ok('the bench is listed in the same table', /luslot k-B/.test(luAll));
   const first = g('startedOn')('N. Fink')[0];
   ok('a starter is tagged on the roster table',
      new RegExp(first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]{0,300}Starting')
@@ -1299,7 +1305,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   const benched = g('benchOf')('N. Fink');
   ok('everybody is on the bench with the lineup cleared',
      benched.length === g('S').teams['N. Fink'].r.filter(p => p.y[1] != null && !g('onIR')(p)).length);
-  const bHtml = document.getElementById('luBench').innerHTML;
+  const bHtml = document.getElementById('luSlots').innerHTML;
   ok('each bench man carries a Start control', /data-start=/.test(bHtml));
   ok('and it lists a slot he actually fits', /<option value="C"|<option value="G1"|<option value="U1"/.test(bHtml));
   const guy = benched.find(p => g('posSet')(p.n).has('C')) || benched[0];
@@ -1309,7 +1315,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and he leaves the bench', !g('benchOf')('N. Fink').some(p => p.n === guy.n));
   g('render')();
   ok('a man with no open eligible slot is told so, not offered a dead control',
-     /no open spot/.test(document.getElementById('luBench').innerHTML)
+     /no open spot/.test(document.getElementById('luSlots').innerHTML)
      || g('benchOf')('N. Fink').every(p => g('SLOTIDS').some(id =>
           !g('lineupOf')('N. Fink').s[id] && g('slotOk')(id, p.n))));
 
@@ -1364,10 +1370,14 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.sched = {};
   await g('clearLineup')('N. Fink');
   g('render')();
-  const bl = document.getElementById('luBench').innerHTML;
+  const bl = document.getElementById('luSlots').innerHTML;
   ok('no stray backslash-u anywhere', !/\\u00[0-9a-f]{2}/i.test(bl), (bl.match(/\\u..../) || [])[0]);
-  ok('every category is on the bench line too',
-     g('LUCATS').every(([, l]) => bl.includes(l + ' ')), g('LUCATS').map(c => c[1]).join(','));
+  // The bench shares the lineup's grid, so its numbers are cells, not a caption.
+  const benchRow = bl.split('luslot k-B')[1] || '';
+  ok('a bench row carries all nine stat cells',
+     (benchRow.split('class="luv').length - 1) >= 9, benchRow.split('class="luv').length - 1);
+  ok('and every category label is a column header',
+     g('LUCATS').every(([, l]) => bl.includes('>' + l + '<')), g('LUCATS').map(c => c[1]).join(','));
 
   console.log('\n== tip-offs arrive on their own ==');
   ok('the schedule holder starts empty', typeof X.SCHED === 'object');
@@ -1420,6 +1430,121 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('the commissioner sees the feed count', /0 from the NBA/.test(document.getElementById('tipCount').textContent),
      document.getElementById('tipCount').textContent);
   X.SCHED = {night: '', tips: {}, ok: false, reason: ''};
+  g('S').cfg.phase = 'offseason';
+  X.me = 'Osborn';
+
+  {
+  console.log('\n== the lineup screen moves people to the IR, and back ==');
+  X.me = 'N. Fink';
+  g('S').cfg.phase = 'season';
+  g('S').cfg.ir = 1;
+  g('S').cfg.sched = {};
+  X.SCHED = {day: g('dayKey')(), tips: {}, ok: true, reason: ''};
+  g('S').teams['N. Fink'].r.forEach(p => { delete p.ir; });
+  await g('clearLineup')('N. Fink');
+  await g('autoLineup')('N. Fink');
+  g('render')();
+  const luHtml = () => document.getElementById('luSlots').innerHTML;
+  ok('a started player offers an IR button', /data-toir=/.test(luHtml()));
+  const inLineup = g('startedOn')('N. Fink')[0];
+  const wasSlot = g('SLOTIDS').find(id => g('lineupOf')('N. Fink').s[id] === inLineup);
+  const li = g('S').teams['N. Fink'].r.findIndex(p => p.n === inLineup);
+  await g('toggleIR')('N. Fink', li);
+  ok('moving a starter to the IR puts him there', g('irOf')('N. Fink').some(p => p.n === inLineup));
+  ok('and empties the spot he was in rather than starting a man who cannot play',
+     g('lineupOf')('N. Fink').s[wasSlot] === '', g('lineupOf')('N. Fink').s[wasSlot]);
+  ok('the log says which spot opened',
+     /spot opened/.test(g('S').log[0].detail || ''), g('S').log[0].detail);
+  ok('he is not on the bench either', !g('benchOf')('N. Fink').some(p => p.n === inLineup));
+
+  g('render')();
+  ok('the IR row offers Activate', /data-fromir=/.test(luHtml()));
+  ok('and no second IR button is offered, the slot being full', !/data-toir=/.test(luHtml()));
+  await g('toggleIR')('N. Fink', li);
+  ok('activating him brings him back to the bench',
+     g('benchOf')('N. Fink').some(p => p.n === inLineup) && g('irOf')('N. Fink').length === 0);
+
+  console.log('\n== a benched player can go to the IR too ==');
+  await g('clearLineup')('N. Fink');
+  g('render')();
+  const benchPart = luHtml().split('luslot k-B')[1] || '';
+  ok('a bench row offers it', benchPart.includes('data-toir='), benchPart.slice(0, 300));
+  const onBench = g('benchOf')('N. Fink')[0].n;
+  const benchIdx = g('S').teams['N. Fink'].r.findIndex(p => p.n === onBench);
+  await g('toggleIR')('N. Fink', benchIdx);
+  ok('and he lands on the IR', g('irOf')('N. Fink').some(p => p.n === onBench));
+  await g('toggleIR')('N. Fink', benchIdx);
+
+  console.log('\n== a locked man cannot be hidden on the IR ==');
+  const lockMe = g('benchOf')('N. Fink').find(p => g('NBATM')[g('canon')(p.n)]);
+  const tri = g('TRICODE')[g('NBATM')[g('canon')(lockMe.n)]] || g('NBATM')[g('canon')(lockMe.n)];
+  X.SCHED = {day: g('dayKey')(), tips: {[tri]: '00:00'}, ok: true, reason: ''};
+  ok('he is locked', g('isLocked')(lockMe.n) === true);
+  ctx.__alerts.length = 0;
+  const si = g('S').teams['N. Fink'].r.findIndex(p => p.n === lockMe.n);
+  await g('toggleIR')('N. Fink', si);
+  ok('so the injured reserve refuses him',
+     !g('irOf')('N. Fink').some(p => p.n === lockMe.n) && /locked/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  X.SCHED = {day: g('dayKey')(), tips: {}, ok: true, reason: ''};
+
+  console.log('\n== Start all fills the lineup from the bench ==');
+  await g('clearLineup')('N. Fink');
+  ok('nobody is starting', g('startedOn')('N. Fink').length === 0);
+  const benchPool = g('benchOf')('N. Fink').length;
+  await g('autoLineup')('N. Fink');
+  ok('everyone the slots can take is started',
+     g('startedOn')('N. Fink').length === Math.min(15, benchPool),
+     g('startedOn')('N. Fink').length + ' of ' + benchPool);
+  ok('and every one of them is legal where he stands',
+     g('SLOTIDS').every(id => !g('lineupOf')('N. Fink').s[id]
+       || g('slotOk')(id, g('lineupOf')('N. Fink').s[id])));
+  g('render')();
+  ok('the button is labelled for what it does', /Start all/.test(document.getElementById('luHead').innerHTML));
+  ok('and its opposite is Bench all', /Bench all/.test(document.getElementById('luHead').innerHTML));
+  ok('the header counts the IR against its limit',
+     /of 1 on the IR/.test(document.getElementById('luHead').innerHTML),
+     document.getElementById('luHead').innerHTML.slice(0, 400));
+  g('S').cfg.phase = 'offseason';
+  X.me = 'Osborn';
+
+  }
+
+  console.log('\n== the commissioner’s club switch redraws the lineup ==');
+  X.me = '__comm__';
+  g('S').cfg.phase = 'season';
+  g('S').cfg.sched = {};
+  X.SCHED = {day: g('dayKey')(), tips: {}, ok: true, reason: ''};
+  g('render')();
+  const asSel = document.getElementById('meAs');
+  asSel.value = 'N. Fink';
+  g('drawMe')(); g('drawLineup')();
+  await g('clearLineup')('N. Fink');
+  await g('autoLineup')('N. Fink');
+  asSel.value = 'Coulter';
+  g('drawMe')(); g('drawLineup')();
+  await g('clearLineup')('Coulter');
+  ok('the two clubs have different lineups',
+     JSON.stringify(g('startedOn')('N. Fink')) !== JSON.stringify(g('startedOn')('Coulter')),
+     g('startedOn')('N. Fink').length + ' vs ' + g('startedOn')('Coulter').length);
+  asSel.value = 'N. Fink';
+  asSel.onchange();
+  const finkHtml = document.getElementById('luSlots').innerHTML;
+  // Names go through htmlEsc, so "Kel'el Ware" is in the markup as Kel&#39;el Ware.
+  const esc = n => g('htmlEsc')(n);
+  const missing = g('startedOn')('N. Fink').filter(n => !finkHtml.includes(esc(n)));
+  ok('switching to N. Fink shows his starters', missing.length === 0, missing.join(','));
+  asSel.value = 'Coulter';
+  asSel.onchange();
+  const coulterHtml = document.getElementById('luSlots').innerHTML;
+  const leaked = g('startedOn')('N. Fink').filter(n => coulterHtml.includes(esc(n)));
+  ok('and switching away stops showing them', leaked.length === 0, leaked.join(','));
+  ok('the header follows the club too',
+     document.getElementById('luHead').innerHTML.length > 0);
+  ok('and the empty club reads as empty',
+     /15 spots open/.test(document.getElementById('luHead').innerHTML),
+     document.getElementById('luHead').innerHTML.slice(0, 300));
   g('S').cfg.phase = 'offseason';
   X.me = 'Osborn';
 

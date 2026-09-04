@@ -246,14 +246,19 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 /* The numbers are the point of the row, so they are the biggest thing in it. */
 .luv{font-family:var(--mono);font-size:14px;text-align:right;color:var(--chalk)}
 .luv.live{color:var(--amber)}
-.lulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden}
-.lubench{background:var(--panel);padding:7px 11px;font-size:13.5px;display:flex;
-  align-items:center;gap:7px;flex-wrap:wrap}
-.lubench .pname{cursor:pointer}
-.lubench.onir{background:var(--panel2)}
-.lubstat{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim)}
-.lustart{margin-left:auto;font-size:11.5px;padding:2px 5px}
+.luslot.k-B{border-style:dashed}
+.luslot.k-I{border-color:var(--wnln);color:var(--tax)}
+.lurow.bench{background:var(--panel2)}
+.lurow.onir{background:var(--panel2)}
+.lurow.onir .luname{text-decoration:line-through;text-decoration-color:var(--steel);opacity:.75}
+.lurow.onir .luv{opacity:.55}
+/* Name, tag and control on one line inside the pick column, so a bench row and a
+   lineup row are the same height and the stat columns stay aligned. */
+.lurowctl{display:flex;align-items:center;gap:6px;min-width:0}
+.lurowctl .luname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lurowctl .pname{cursor:pointer}
+.lustart{font-size:11.5px;padding:2px 5px;margin-left:auto}
+.lurowctl .act{margin-left:0;flex:none}
 /* A player on the injured reserve is dimmed and struck through wherever he is
    listed, so a roster with two of them reads at a glance. */
 tbody tr.isir td{opacity:.55}
@@ -586,14 +591,9 @@ thead th.hide,tbody td.hide{display:none}}
       <h2>Tonight's lineup</h2>
       <div id="luHead"></div>
       <div class="luslots" id="luSlots"></div>
-      <div class="twocol" style="margin-top:16px">
-        <div><h2 class="sub">Bench</h2>
-          <p class="note">Anybody may sit here. A benched player's stats do not count for the night.</p>
-          <div class="lulist" id="luBench"></div></div>
-        <div><h2 class="sub">Injured reserve</h2>
-          <p class="note">Off the lineup entirely. Move a player on or off from the roster table below.</p>
-          <div class="lulist" id="luIR"></div></div>
-      </div>
+      <p class="note">Anybody may sit on the bench; a benched player's stats do not count for the night.
+        The injured reserve is off the lineup entirely and sits outside the roster limit &#8212; activating
+        a man from it when the club is full asks you which player to release.</p>
     </div>
 
     <h2>My roster <button class="btn ghost" id="expMine" style="margin-left:auto">Export CSV</button></h2>
@@ -1440,8 +1440,21 @@ async function toggleIR(team,idx){
   if(!p.ir){
     if(irCount(team)>=(S.cfg.ir??1))
       return alert(`${team} already has ${S.cfg.ir??1} player${(S.cfg.ir??1)===1?'':'s'} on the injured reserve.`);
+    /* A man whose game has started is settled for the night, in the lineup or
+       out of it. The injured reserve is not a way around that. */
+    if(seasonLive()&&isLocked(p.n))
+      return alert(`${p.n} is locked for tonight \u2014 ${lockOf(p.n).why}.`);
     p.ir=true;
-    return commit({kind:'edit',team,detail:`${p.n} moved to injured reserve`},['rosters']);
+    /* Nobody on the injured reserve is in a lineup, so leaving his slot filled
+       would start a player who cannot play. Clear it as part of the same move. */
+    let was='';
+    if(seasonLive()){
+      const lu=lineupOf(team);
+      SLOTIDS.forEach(id=>{ if(canon(lu.s[id])===canon(p.n)){ was=slotLabel(id); lu.s[id]=''; } });
+      if(was) S.teams[team].lu={d:dayKey(),s:lu.s};
+    }
+    return commit({kind:'edit',team,
+      detail:`${p.n} moved to injured reserve${was?` \u2014 ${was} spot opened`:''}`},['rosters']);
   }
   /* Coming off the IR. If the active roster is already full this is a swap, not
      a move, and the GM picks who leaves. */
@@ -2475,7 +2488,10 @@ function drawMe(){
       $('meAs').innerHTML=TEAMS().map(t=>`<option>${t}</option>`).join('');
       if(keep) $('meAs').value=keep;
     }
-    $('meAs').onchange=()=>{ drawMe(); };   // rebind every render so it never goes stale
+    /* Rebound every render so it never goes stale. It has to redraw the lineup
+       too: that block reads meTeam(), and drawMe() does not own it, so switching
+       clubs used to leave the previous club's lineup on screen. */
+    $('meAs').onchange=()=>{ drawMe(); drawLineup(); };
   }
   const T=meTeam();
   const s=committed(T), n=headcount(T), {cap,tax,roster}=S.cfg;
@@ -5078,21 +5094,30 @@ function drawLineup(){
   const bench=benchOf(T), ir=irOf(T);
   const open=SLOTIDS.filter(id=>!lu.s[id]).length;
   const lockedN=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id])).length;
+  const irMax=S.cfg.ir??1;
   $('luHead').innerHTML=`<div class="dhead"><h3>Tonight &#183; ${htmlEsc(dayKey())}</h3>
     <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
     <span class="pill">${bench.length} on the bench</span>
-    ${ir.length?`<span class="pill">${ir.length} on the IR</span>`:''}
+    <span class="pill">${ir.length} of ${irMax} on the IR</span>
     ${lockedN?`<span class="pill">${lockedN} locked</span>`:''}
-    ${can?`<button class="btn ghost" id="luAuto" style="margin-left:auto">Auto-fill</button>
-      <button class="btn ghost" id="luClear">Clear</button>`:''}</div>
+    ${can?`<button class="btn ghost" id="luAuto" style="margin-left:auto">Start all</button>
+      <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
     <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night.
       <b>That accrual is not built yet</b> &#8212; it needs the nightly stats feed, so the numbers below
       are each man's per-game line, not tonight's box score, and nothing here moves the standings today.
       The slots, the eligibility and the lock are real.</p>`;
-  const hdr=`<div class="lurow luhdr"><span></span><span>Player</span>
+
+  /* Lineup, bench and injured reserve are one table down the page rather than
+     three boxes in two columns. They hold the same nine columns and a GM reads
+     them together — who is in, who is out, and who cannot play — so splitting
+     them across a grid made the numbers stop lining up for no gain. */
+  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span>
     ${LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}</div>`;
-  /* A locked man is text, not a control: there is nothing the GM may do with him
-     tonight, and a disabled select invites a click anyway. */
+  const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
+    nm?luCell(k,luVal(L&&L.r,k)):''}</span>`).join('');
+  const irBtn=nm=>can&&!isLocked(nm)&&ir.length<irMax
+    ? `<button class="act" data-toir="${htmlEsc(nm)}" title="Move to the injured reserve">IR</button>` : '';
+
   const opts=(id)=>{
     const cur=lu.s[id];
     const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
@@ -5102,53 +5127,72 @@ function drawLineup(){
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
         htmlEsc(p.n)}</option>`).join('');
   };
-  $('luSlots').innerHTML=hdr+SLOTIDS.map(id=>{
+  const slotRows=SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
     const L=nm?luLine(nm):null;
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
         ? `<span class="luname">${htmlEsc(nm)}</span><span class="lutip lk">${htmlEsc(lk.why)}</span>`
-        : can ? `<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>`
+        : can ? `<span class="lurowctl"><select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
                 +(nm&&lk.why?`<span class="lutip">${htmlEsc(lk.why)}</span>`:'')
               : `<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
-      ${LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
-        nm?luCell(k,luVal(L.r,k)):''}</span>`).join('')}</div>`;
+      ${stats(nm,L)}</div>`;
   }).join('');
+
+  /* The bench carries the control that starts somebody: every open slot he is
+     actually eligible for, and nothing else. */
+  const openFor=name=>SLOTIDS.filter(id=>!lu.s[id]&&slotOk(id,name));
+  const benchRows=bench.slice().sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99)).map(p=>{
+    const lk=lockOf(p.n), where=openFor(p.n), L=luLine(p.n);
+    return `<div class="lurow bench${lk.locked?' locked':''}">
+      <span class="luslot k-B">BN</span>
+      <span class="lupick"><span class="lurowctl">
+        <span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
+        ${can&&!lk.locked ? (where.length
+          ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
+               <option value="">Start&#8230;</option>
+               ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
+          : '<span class="lutip">no open spot</span>') : ''}
+        ${irBtn(p.n)}</span>
+        ${lk.why?`<span class="lutip${lk.locked?' lk':''}">${htmlEsc(lk.why)}</span>`:''}</span>
+      ${stats(p.n,L)}</div>`;
+  }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
+      <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
+      ${LUCATS.map(()=>'<span class="luv"></span>').join('')}</div>`;
+
+  const irRows=ir.map(p=>{
+    const L=luLine(p.n);
+    return `<div class="lurow onir">
+      <span class="luslot k-I">IR</span>
+      <span class="lupick"><span class="lurowctl">
+        <span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
+        ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span>
+      ${stats(p.n,L)}</div>`;
+  }).join('')||`<div class="lurow empty"><span class="luslot k-I">IR</span>
+      <span class="lupick"><span class="lutip">Nobody on the injured reserve.</span></span>
+      ${LUCATS.map(()=>'<span class="luv"></span>').join('')}</div>`;
+
+  $('luSlots').innerHTML=hdr('Slot')+slotRows
+    +hdr('Bench')+benchRows
+    +hdr('IR')+irRows;
+
   if(can){
     $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>
       setSlot(T,sel.dataset.slot,sel.value));
+    $('luSlots').querySelectorAll('[data-start]').forEach(sel=>sel.onchange=()=>{
+      if(sel.value) setSlot(T,sel.value,sel.dataset.start); });
+    $('luSlots').querySelectorAll('[data-toir]').forEach(b=>b.onclick=()=>{
+      const i=S.teams[T].r.findIndex(x=>canon(x.n)===canon(b.dataset.toir));
+      if(i>=0) toggleIR(T,i); });
+    $('luSlots').querySelectorAll('[data-fromir]').forEach(b=>b.onclick=()=>{
+      const i=S.teams[T].r.findIndex(x=>canon(x.n)===canon(b.dataset.fromir));
+      if(i>=0) toggleIR(T,i); });
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
   }
-  /* The bench is where a GM starts somebody, so it carries the control that does
-     it: every open slot the man is actually eligible for, and nothing else. */
-  const openFor=name=>SLOTIDS.filter(id=>!lu.s[id]&&slotOk(id,name));
-  const card=(p,cls)=>{
-    const lk=lockOf(p.n), where=openFor(p.n);
-    const r=pstat(p.n);
-    return `<div class="lubench ${cls||''}">
-      <span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
-      <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
-      ${lk.locked?`<span class="tag t-cut">locked &#183; ${htmlEsc(lk.why)}</span>`
-        :lk.why?`<span class="lutip">${htmlEsc(lk.why)}</span>`:''}
-      <span class="lubstat">${r&&r.g?LUCATS.map(([k,l])=>
-        `${l} ${luCell(k,luVal(r,k))}`).join('\u2003'):''}</span>
-      ${can&&cls!=='onir'&&!lk.locked ? (where.length
-        ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
-             <option value="">Start&#8230;</option>
-             ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
-        : '<span class="lutip">no open spot</span>') : ''}</div>`;
-  };
-  $('luBench').innerHTML = bench.length
-    ? bench.sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99)).map(p=>card(p)).join('')
-    : '<div class="empty">Nobody on the bench.</div>';
-  $('luIR').innerHTML = ir.length
-    ? ir.map(p=>card(p,'onir')).join('')
-    : '<div class="empty">Nobody on the injured reserve.</div>';
-  if(can) $('luBench').querySelectorAll('[data-start]').forEach(sel=>sel.onchange=()=>{
-    if(sel.value) setSlot(T,sel.value,sel.dataset.start);
-  });
 }
 
 /* ================= LEAGUE CHAT =================
