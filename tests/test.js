@@ -154,11 +154,24 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      g('S').log.some(e=>/moved Victor Wembanyama to Brice/.test(e.detail||'')),
      JSON.stringify(g('S').log.slice(0,2)));
 
-  console.log('\n== a GM gets the old dialog, not the commissioner one ==');
+  console.log('\n== a signed contract is the commissioner\u2019s to change ==');
   X.me = 'Brice';
   const bi = g('S').teams['Brice'].r.findIndex(p=>p.n==='Victor Wembanyama');
+  X.editing = null; ctx.__alerts.length = 0;
   g('openEdit')('Brice', bi);
-  ok('commissioner fields hidden for a GM', document.getElementById('edComm').hidden===true);
+  ok('a GM is turned away from his own player', X.editing===null);
+  ok('and told why', /commissioner/.test(ctx.__alerts[0]||''), JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  ok('canEditContract is commissioner-only', g('canEditContract')()===false);
+  g('drawMe')();
+  const mr = document.getElementById('meRoster').innerHTML;
+  ok('so My Team offers him no Edit button', !/data-mre=/.test(mr));
+  ok('but still Cut', /data-mrc=/.test(mr));
+  ok('and still Block', /data-mrb=/.test(mr));
+  X.me = '__comm__';
+  ok('the commissioner still may', g('canEditContract')()===true);
+  g('drawMe')();
+  ok('and gets the Edit button back', /data-mre=/.test(document.getElementById('meRoster').innerHTML));
   X.me = 'Coulter';
   g('drawAllPlayers')();
   ok('and drawAllPlayers is a no-op for a GM', true);
@@ -691,6 +704,36 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('the rookie is back in the class', g('undraftedRookies')().some(r => r.n === rook));
   X.selPA.clear(); X.selPB.clear(); X.selA.clear(); X.selB.clear();
   X.me = 'Osborn';
+
+  console.log('\n== My Team and the Free agent classes tab read one pool ==');
+  X.me = 'Osborn';
+  const cn = g('canon');
+  const poolA = new Set(g('faPool')().map(p => cn(p.n)));
+  const poolB = new Set(g('freeAgents')().map(p => cn(p.n)));
+  const onlyA = [...poolA].filter(x => !poolB.has(x));
+  const onlyB = [...poolB].filter(x => !poolA.has(x));
+  ok('the two pools hold the same players', onlyA.length === 0 && onlyB.length === 0,
+     'only faPool: ' + onlyA.slice(0, 5) + ' | only freeAgents: ' + onlyB.slice(0, 5));
+  ok('and the strategy board reads the same one',
+     g('stratPool')().length === g('faPool')().length);
+  ok('the signed Poeltl deal wins on both sides',
+     !poolA.has('Jakob Poeltl') && !poolB.has('Jakob Poeltl'));
+  ok('an expiring player is a free agent on both', poolA.has('Kevin Durant') && poolB.has('Kevin Durant'));
+
+  console.log('\n== an undrafted rookie reaches My Team, not just the FA tab ==');
+  const rk1 = g('ROOKIES')[0].n;
+  ok('he is in the pool My Team draws from', poolA.has(cn(rk1)));
+  document.getElementById('faSearch').value = rk1;
+  document.getElementById('faPos').value = '';
+  g('drawFAList')();
+  const faHtml = document.getElementById('faTable').innerHTML;
+  ok('searching for him finds him', faHtml.includes(rk1), faHtml.slice(0, 300));
+  ok('and a player with no box score renders as unrated, not a crash',
+     /no 2025-26 stats/.test(faHtml));
+  document.getElementById('faSearch').value = '';
+  g('drawFAList')();
+  ok('statVal is null-safe on a statless row', g('statVal')({g:null,s:null,tot:null},'PTS')===null);
+  ok('hasStats says so', g('hasStats')({g:null,s:null})===false && g('hasStats')({g:70,s:{PTS:20}})===true);
 
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
