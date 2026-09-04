@@ -327,6 +327,19 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
    which is why My Team scrolled sideways by a full screen. The scroller must be
    allowed to shrink; its own overflow-x is what should scroll. */
 .twocol>*,.tradebox>*,.side>*{min-width:0}
+/* My roster is the one table that must never need a sideways scroll to reach its
+   own buttons — cut, block and IR are the point of the screen. It sat in a
+   half-width column under .scroller, whose 760px min-width guaranteed the action
+   column fell off the right edge. It runs full width now, sizes to the page, and
+   its buttons wrap instead of pushing the row wider. */
+.rosterwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);
+  border-radius:3px;background:var(--panel)}
+.rosterwrap table{min-width:0}
+.rosterwrap thead th{padding:9px;background:var(--panel2);position:sticky;top:0;z-index:2}
+.rosterwrap tbody td{padding:7px 9px;font-size:12.5px}
+.rosterwrap td.acts{text-align:right}
+.rosterwrap td.acts>span{display:inline-flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.rosterwrap td.acts .act{margin-left:0}
 .scroller{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
   border:1px solid var(--line);border-radius:3px;max-width:100%}
 .scroller table{min-width:760px}
@@ -506,16 +519,11 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
-    <div class="twocol">
-      <div>
-        <h2>On the block</h2>
-        <div id="bidPanel"></div>
-      </div>
-      <div>
-        <h2>My roster <button class="btn ghost" id="expMine" style="margin-left:auto">Export CSV</button></h2>
-        <div class="scroller" id="meRoster"></div>
-      </div>
-    </div>
+    <h2>My roster <button class="btn ghost" id="expMine" style="margin-left:auto">Export CSV</button></h2>
+    <div class="rosterwrap" id="meRoster"></div>
+
+    <h2 class="sub">On the block</h2>
+    <div id="bidPanel"></div>
 
     <h2 class="sub">What-if roster</h2>
     <p class="note">A sandbox on top of your club. Load your roster, then add and drop anyone in the pool to see what it
@@ -883,7 +891,15 @@ thead th.hide,tbody td.hide{display:none}}
         <option value="fix">Corrected by the commissioner</option>
       </select>
       <span class="fcount" id="apCount"></span>
+      <button class="btn ghost" id="apCsv">Export these rows</button>
+      <button class="btn ghost" id="apCsvAll">Export the whole league</button>
     </div>
+    <p class="note">The CSV carries the roster entry's own fields, not what the table draws:
+      salaries as plain numbers, the raw option and rights text, the year acquired, the IR and
+      block flags, and every spreadsheet spelling mapped onto a player. The <code>key</code>
+      column is the canonical name and is what identifies a player &#8212; leave it alone if you
+      mean to read the file back in later. "These rows" honours the filters above; the other
+      button ignores them.</p>
     <div class="scroller" id="apTable"></div>
 
     <h2 class="sub">Danger zone</h2>
@@ -1226,6 +1242,12 @@ function fresh(){
 const TEAMS=()=>Object.keys(S.teams).sort();
 const isComm=()=>me==='__comm__';
 const canEdit=t=>isComm()||me===t;
+/* A GM runs his own club — he signs free agents, lists players, uses the IR and
+   releases anybody he likes. What he cannot do is rewrite a deal that is already
+   on the books: a contract's terms are settled when it is signed, and correcting
+   one is the commissioner's job. Cut carries the waiver rules; this path does
+   not, which is exactly why it is not a GM's to reach for. */
+const canEditContract=()=>isComm();
 
 /* ---------- computed ---------- */
 const yrsLeft=p=>p.y.filter((v,i)=>i>0&&v!=null).length;
@@ -1295,8 +1317,16 @@ function blockList(){
 const deadMoney=t=>(S.teams[t].cuts||[]).reduce((s,c)=>s+(c.s||0),0);
 function freeAgents(){
   const out=[], seen=new Set();
+  /* The league sheet carries Poeltl twice — expiring on N. Fink as "Jakob Poetl"
+     and signed on Christman as "Jakob Poeltl". canon() folds them into one
+     player and the signed deal wins, which is what faPool() and the strategy
+     board have always done. Without this check he was a free agent here and
+     nowhere else, and the two screens disagreed by exactly one man. */
+  const signed=new Set();
+  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut&&p.y[1]!=null) signed.add(canon(p.n)); }));
   TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{
-    if(p.y[1]==null){ out.push({...p,from:t,restricted:!!p.o}); seen.add(canon(p.n)); }
+    const c=canon(p.n);
+    if(p.y[1]==null&&!signed.has(c)&&!seen.has(c)){ out.push({...p,from:t,restricted:!!p.o}); seen.add(c); }
   }));
   // Everyone in the player pool who has never been on a league roster is also
   // a free agent — they belong on the open market, not nowhere.
@@ -1399,7 +1429,9 @@ async function cutPlayer(team,idx){
 }
 let editing=null;
 function openEdit(team,idx){
-  if(!canEdit(team)) return alert('You can only edit your own club.');
+  if(!canEditContract())
+    return alert('A signed contract is the commissioner\u2019s to change. You can release this player, '
+      +'list him on the block, or sign a free agent \u2014 ask the commissioner to correct the terms.');
   const p=S.teams[team].r[idx];editing={team,idx};
   $('edTitle').textContent=p.n;$('edSub').textContent=`${team} \u00b7 leave a season blank to end the contract there.`;
   $('edY1').value=p.y[1]??'';$('edY2').value=p.y[2]??'';$('edY3').value=p.y[3]??'';$('edAcq').value=p.acq??'';
@@ -1514,6 +1546,7 @@ $('doEdit').onclick=async(ev)=>{
   }
 
   const {team,idx}=editing,p=S.teams[team].r[idx];
+  if(!canEditContract()){ editing=null; hold(); return; }
   const g=id=>{const v=$(id).value.trim();return v===''?null:Math.round(parseFloat(v)*4)/4;};
   const before=p.y[1];
   p.y=[p.y[0],g('edY1'),g('edY2'),g('edY3')];
@@ -1674,7 +1707,9 @@ function drawDetail(){
     .sort((a,b)=>cmp(cxv(a,CS0.col),cxv(b,CS0.col),CS0.desc))
     .map(({p,i})=>{
       const exp=p.y[1]==null;
-      return `<tr><td>${p.n}${tags(p)}${mine?`<button class="act edit" data-e="${i}">Edit</button><button class="act" data-c="${i}">Cut</button>`:''}</td>
+      return `<tr><td>${p.n}${tags(p)}${
+        canEditContract()?`<button class="act edit" data-e="${i}">Edit</button>`:''}${
+        mine?`<button class="act" data-c="${i}">Cut</button>`:''}</td>
       <td class="pos hide">${p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2 ${exp?'exp':''}">${exp?'expiring':yrsLeft(p)+' yr'+(yrsLeft(p)===1?'':'s')}</td>
       <td class="${exp?'exp':''}">${exp?'&#8212;':money(p.y[1])}</td>
@@ -1684,7 +1719,8 @@ function drawDetail(){
     <span class="pill">${n} of ${roster} under contract</span>
     <span class="pill ${cap-s>=0?'good':'bad'}">${cap-s>=0?money(cap-s)+' cap space':money(s-cap)+' over the cap'}</span>
     <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
-    ${mine?'<span class="pill good">You can edit this club</span>':''}</div>
+    ${mine?`<span class="pill good">${isComm()?'You can edit this club'
+      :'Your club \u2014 you can sign, cut and list'}</span>`:''}</div>
     <dl class="capgrid">
       <div class="capcell"><dt>Salary cap</dt><dd>${money(cap)}</dd></div>
       <div class="capcell"><dt>Salary spent</dt><dd class="amb">${money(s)}</dd></div>
@@ -1874,6 +1910,16 @@ function drawAllPlayers(){
     b.onclick=()=>openEdit(b.dataset.apc,+b.dataset.api));
   $('apTable').querySelectorAll('[data-apf]').forEach(b=>
     b.onclick=()=>openPlayerEdit(b.dataset.apf));
+  if($('apCsv')) $('apCsv').onclick=()=>downloadCSV(csvFileName(),leagueCSV(apRows()));
+  if($('apCsvAll')) $('apCsvAll').onclick=()=>{
+    /* Reads the unfiltered league rather than the table: an export meant as a
+       backup must not quietly inherit a filter somebody left set. */
+    const q=$('apQ').value, t=$('apT').value, f=$('apS').value;
+    $('apQ').value=''; $('apT').value=''; $('apS').value='';
+    const csv=leagueCSV(apRows());
+    $('apQ').value=q; $('apT').value=t; $('apS').value=f;
+    downloadCSV(csvFileName(),csv);
+  };
   sortable('apTbl','ap','n',false); redraw.ap=drawAllPlayers;
 }
 function drawAdmin(){
@@ -2003,14 +2049,34 @@ function render(){
 let faFilters=[], faSel=null;
 const FALABEL={g:'Games',PTS:'Points',TRB:'Rebounds',AST:'Assists',P3:'Threes',STL:'Steals',
   BLK:'Blocks',TOV:'Turnovers',FGP:'FG%',FTP:'FT%',rtg:'Rating'};
+/* The free agent class: everyone not under contract for next season. This is the
+   same population the Free agent classes tab lists through freeAgents(), and it
+   has to be — My Team read a narrower pool until now, and the two screens
+   disagreed in three ways. It matched raw names, so the two spellings of Poeltl
+   read as two players; it never saw an undrafted rookie, because rookies are not
+   in RATER; and a released player could linger.
+
+   Rows are shaped like a RATER row so every caller reads them the same way. A
+   player with no box score on file — a rookie, today — carries g, s and tot as
+   null, and the tables show him as unrated rather than crashing on p.s. */
 function faPool(){
-  const taken=new Set();
-  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{if(p.y[1]!=null)taken.add(p.n);}));
-  return RATER.filter(p=>!taken.has(p.n));
+  const signed=new Set();
+  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut&&p.y[1]!=null) signed.add(canon(p.n)); }));
+  const out=RATER.filter(p=>!signed.has(canon(p.n)));
+  const seen=new Set(out.map(p=>canon(p.n)));
+  undraftedRookies().forEach(r=>{
+    const c=canon(r.n);
+    if(signed.has(c)||seen.has(c)) return;
+    seen.add(c);
+    out.push({n:r.n,p:r.p,t:'FA',g:null,s:null,tot:null,rookie:true});
+  });
+  return out;
 }
+const hasStats=p=>!!(p&&p.s&&p.g);
 function statVal(p,k){
   if(k==='g')return p.g;
   if(k==='rtg')return p.tot;
+  if(!p.s)return null;
   if(k==='FGP')return p.s.FGA?p.s.FG/p.s.FGA:null;
   if(k==='FTP')return p.s.FTA?p.s.FT/p.s.FTA:null;
   return p.s[k];
@@ -2041,12 +2107,15 @@ function drawFAList(){
     }
     return true;});
   const RG=ratings();
-  rows=rows.map(p=>{const v=pstat(p.n)||p; return {...v,rtg:RG[canon(p.n)],ceil:bidCeiling(me2,p.n)};});
+  rows=rows.map(p=>{const v=pstat(p.n)||p;
+    return {...v,n:p.n,p:v.p||p.p,rtg:RG[canon(p.n)],ceil:bidCeiling(me2,p.n)};});
   const S0=SORTS.fa||{col:'rtg',desc:true};
   const val=(p,c)=>c==='n'?p.n:c==='rtg'?p.rtg:c==='ceil'?p.ceil:c==='g'?p.g:p.s[c];
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   $('faCount').textContent=`${rows.length} available`;
-  $('faSearchList').innerHTML=faPool().slice(0,400).map(p=>`<option value="${p.n}">`).join('');
+  // No slice: a rookie has no rating and sorts last, so a cap would hide the
+  // whole class from the one control a GM uses to find a name.
+  $('faSearchList').innerHTML=faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('');
   const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
   $('faTable').innerHTML=`<table class="fatab" id="faTbl"><thead><tr>
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}
@@ -2058,9 +2127,11 @@ function drawFAList(){
       <td>${p.n}${R.rfa?`<span class="tag t-rfa">${R.club===me2?'Your RFA':'RFA'}</span>`:''}
         ${R.club===me2&&R.bird==='Yes'?'<span class="tag t-bird">Bird</span>':''}
         ${R.club===me2&&R.bird&&R.bird!=='Yes'?'<span class="tag t-eb">E.Bird</span>':''}</td>
-      <td class="pos hide">${p.p||'&#8212;'}</td><td>${p.g}</td>
+      <td class="pos hide">${p.p||'&#8212;'}</td>
+      ${hasStats(p)?`<td>${p.g}</td>
       <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
-      <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
+      <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>`
+      :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td></tr>`;}).join('')}
     </tbody></table>`;
@@ -2148,10 +2219,11 @@ function drawMe(){
       return `<tr><td class="pname" data-player="${p.n}">${p.n}${tags(p)}${
         p.blk?'<span class="tag t-blk">On the block</span>':''}</td><td>${money(p.y[1])}</td>
       <td class="hide2">${rtg(p.n)!=null?(rtg(p.n)>0?'+':'')+rtg(p.n):'&#8212;'}</td>
-      ${canAct?`<td><button class="act edit" data-mre="${i}">Edit</button>
+      ${canAct?`<td class="acts"><span>${
+        canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}
         <button class="act edit${p.blk?' on':''}" data-mrb="${i}">${p.blk?'Unlist':'Block'}</button>
         ${seasonLive()?`<button class="act edit" data-mri="${i}">${p.ir?'Activate':'IR'}</button>`:''}
-        <button class="act" data-mrc="${i}">Cut</button></td>`:''}</tr>`;}).join('')}
+        <button class="act" data-mrc="${i}">Cut</button></span></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
   if($('meEmail')) $('meEmail').onclick=()=>openEmail(T);
   $('meRoster').querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,+b.dataset.mre));
@@ -2553,7 +2625,7 @@ function drawAuction(){
   const can=me&&!isComm()&&(!a||a.status!=='open');
   $('nomBox').innerHTML=can?`<div class="form f4" style="margin-top:14px">
       <div><label for="nomP">Nominate a player</label><input id="nomP" list="falist2" placeholder="Player name" autocomplete="off">
-        <datalist id="falist2">${faPool().slice(0,300).map(p=>`<option value="${p.n}">`).join('')}</datalist></div>
+        <datalist id="falist2">${faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
       <div><label for="nomO">Opening bid</label><input id="nomO" class="mono" type="number" step="0.25" min="1" value="1.00"></div>
       <div></div><button class="btn" id="nomGo">Put on the block</button></div>`
     : (me?'':'<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>');
@@ -2591,11 +2663,7 @@ function stratOwner(name){
   const n=canon(name);
   return TEAMS().find(t=>S.teams[t].r.some(p=>!p.cut&&canon(p.n)===n))||null;
 }
-function stratPool(){
-  const signed=new Set();
-  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut&&p.y[1]!=null) signed.add(canon(p.n)); }));
-  return RATER.filter(p=>!signed.has(canon(p.n)));
-}
+function stratPool(){ return faPool(); }
 /* Which club holds an expiring player, and what it holds him with. */
 function stratHold(name){
   const R=rightsOf(null,name);
@@ -3174,10 +3242,47 @@ function tableToCSV(el){
 }
 function downloadCSV(name,csv){
   if(!csv) return alert('Nothing to export yet.');
-  const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  /* The byte order mark is what makes Excel read the file as UTF-8. Without it
+     Jokic, Sengun and Vucevic open as mojibake, which is exactly the kind of
+     name damage canon() exists to undo. */
+  const b=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(b); a.download=name; a.click();
 }
+/* The commissioner's player export is deliberately not tableToCSV(): that
+   scrapes the rendered table, so it carries "$39.25" where a number belongs, an
+   em dash where a blank does, and none of the fields the table does not show.
+   This writes the roster entry's own values — one row per contract, plus one per
+   unsigned free agent — so a spreadsheet holds the same league the app does.
+
+   `key` is the canon name and is the column that identifies a player. The
+   spelling in `player` is the club sheet's, and six of those differ from the box
+   scores; keep `key` intact if the file is ever read back in. */
+const CSVCOLS=['key','player','club','pos','salary_now','salary_next','salary_plus1',
+  'salary_plus2','years_left','option','rights','acquired','ir','on_block','rating',
+  'alias','status'];
+const csvCell=v=>{
+  if(v==null) return '';
+  const t=String(v);
+  return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+};
+/* Every spreadsheet spelling the commissioner has mapped onto this player. */
+const aliasesFor=c=>Object.keys(ALIAS).filter(k=>ALIAS[k]===c).join('; ');
+function leagueCSV(rows){
+  const num=v=>v==null?'':Number(v).toFixed(2);
+  const out=[CSVCOLS.join(',')];
+  (rows||[]).forEach(r=>{
+    const p=r.p, c=canon(p.n);
+    out.push([c,p.n,r.t||'',p.p||'',
+      num(p.y[0]),num(p.y[1]),num(p.y[2]),num(p.y[3]),
+      r.fa?'':r.yrs, p.o||'', p.b||'', p.acq==null?'':p.acq,
+      p.ir?'yes':'', p.blk?'yes':'', r.rtg==null?'':r.rtg,
+      aliasesFor(c), r.fa?'free agent':'contract'].map(csvCell).join(','));
+  });
+  return out.join('\n');
+}
+const csvFileName=()=>'league-players-'
+  +String(S.cfg.season||'').replace(/[^0-9A-Za-z]+/g,'-').replace(/^-|-$/g,'')+'.csv';
 function exportBtn(id,file,srcId){
   const b=document.getElementById(id);
   if(b) b.onclick=()=>downloadCSV(file,tableToCSV(document.getElementById(srcId)));

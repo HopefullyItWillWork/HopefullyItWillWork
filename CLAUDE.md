@@ -99,10 +99,26 @@ no network — the save toast says "synced" or "this device only". Changing a PI
 makes the stored copy undecryptable; the client falls back to its local copy and
 re-uploads rather than losing the board.
 
-### The strategy board's pool is the free agent class
-`stratPool()` and `faPool()` agree: a player counts as taken only when `y[1]` is
-set, so the ~44 players in the last year of a deal are available even though they
-sit on a roster today. Victor Wembanyama is Coulter's restricted free agent and
+### One free agent pool, read by every screen
+`faPool()` is the single definition of the free agent class, and `stratPool()`
+and `freeAgents()` both agree with it: a player counts as taken only when `y[1]`
+is set, so the ~44 players in the last year of a deal are available even though
+they sit on a roster today.
+
+They did not always agree, and the three ways they diverged are worth knowing.
+My Team read `faPool()`, which filtered `RATER` by **raw name** — so the two
+spellings of Poeltl read as two players — and never saw an undrafted rookie,
+because rookies are not in `RATER`. `freeAgents()`, which the Free agent classes
+tab reads, pushed every expiring roster entry without asking whether the same
+canon player was signed somewhere else, so Poeltl was a free agent there and
+nowhere else. The two screens listed different people.
+
+`faPool()` now returns `RATER` filtered through `canon()`, plus
+`undraftedRookies()`, in RATER row shape. **A player with no box score carries
+`g`, `s` and `tot` as null** — that is what `hasStats()` is for, and any table
+reading `p.s.PTS` directly will throw on a rookie. `statVal()` is null-safe.
+Rookies sort last everywhere, having no rating, so the free agent datalists are
+deliberately uncapped: a `slice(0,300)` hid the entire class. Victor Wembanyama is Coulter's restricted free agent and
 belongs on a rival's board with a note that Coulter gets to match.
 
 `stratPool()` used to exclude anyone on any roster at all, which hid every
@@ -223,6 +239,23 @@ commissioner alias beats the built-in `NAMEFIX`.
 Stats are deliberately not editable here. They come from the season's box scores;
 a GM's own numbers belong in projections, which never leave his browser.
 
+**Exporting the table is `leagueCSV()`, not `tableToCSV()`.** The generic helper
+scrapes rendered HTML, so it carries `$39.25` where a number belongs, an em dash
+where a blank does, and none of the fields the table does not draw. `leagueCSV()`
+writes the roster entry's own values — one row per contract, plus one per
+unsigned free agent — with salaries as plain numbers and the raw `o` and `b` text
+rather than what `birdKind()` makes of them. `key` is the canon name and is the
+column that identifies a player; `player` is the club sheet's spelling, and six
+of those differ from the box scores. Two buttons: one honours the filters, one
+deliberately clears and restores them, because an export meant as a backup must
+not silently inherit a filter somebody left set. `downloadCSV()` prepends a BOM
+so Excel reads Jokic and Sengun as UTF-8.
+
+Reading a CSV back in is **not built**, and it is the harder half: identity
+(a typo makes a new player rather than editing one), a preview before any write,
+a rule that a missing row never means "cut him", and a re-read before applying,
+since the `rosters` merge replaces a club wholesale.
+
 Free agents in this table are the *strict* reading — nobody on any roster —
 unlike the strategy board. A man in the last year of a deal is already listed
 under his club, and listing him twice would give the commissioner two rows for
@@ -239,6 +272,21 @@ cut or a signing, so two GMs listing players at the same moment cannot collide.
 A GM lists his own from the roster table on My Team; `toggleBlock()` enforces
 that, and refuses a player `tradeable()` rejects — an expiring player with no
 rights is an unrestricted free agent nobody can offer.
+
+**Editing a signed contract is the commissioner's job, not a GM's.**
+`canEditContract()` is `isComm()`, and `openEdit()` refuses anyone else — so does
+the save handler, belt and braces. A GM still runs his own club: he signs free
+agents, lists players on the block, uses the IR and releases anybody he likes.
+What he cannot do is rewrite terms already on the books. Cut carries the waiver
+rules; the edit dialog does not, which is exactly why it is not a GM's to reach
+for. The Edit button is hidden for a GM on both My Team and the club page; Cut
+stays.
+
+**My roster is not in a `.scroller`.** `.scroller table` sets `min-width:760px`,
+and the roster used to sit in a half-width `.twocol` column, so the action
+column — cut, block, IR — was always off the right edge. It runs full width now
+under `.rosterwrap`, which sizes to the page and wraps its buttons instead of
+widening the row. Do not put it back in a `.scroller`.
 
 **A listing does not travel with the player.** Bird rights do; a listing belongs
 to the club that made it. Every point where a roster entry crosses clubs calls
@@ -414,7 +462,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 241 assertions against the real functions
+node tests/test.js        the app: 273 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -580,6 +628,8 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 ## Not yet built
 
 - The real rookie class. `ROOKIES` is placeholder data until the feed lands.
+- CSV import. Export is built; see the commissioner's player table above for what
+  reading a file back in would have to get right.
 - Nightly stats feed. The rolling-15-day chart is built and waiting on a
   `daily/<date>` key per day. Use a real API, not scraping — Basketball-Reference
   prohibits it and 570 page fetches will not finish inside the function timeout.

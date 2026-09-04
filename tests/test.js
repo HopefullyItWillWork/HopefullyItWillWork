@@ -154,11 +154,24 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      g('S').log.some(e=>/moved Victor Wembanyama to Brice/.test(e.detail||'')),
      JSON.stringify(g('S').log.slice(0,2)));
 
-  console.log('\n== a GM gets the old dialog, not the commissioner one ==');
+  console.log('\n== a signed contract is the commissioner\u2019s to change ==');
   X.me = 'Brice';
   const bi = g('S').teams['Brice'].r.findIndex(p=>p.n==='Victor Wembanyama');
+  X.editing = null; ctx.__alerts.length = 0;
   g('openEdit')('Brice', bi);
-  ok('commissioner fields hidden for a GM', document.getElementById('edComm').hidden===true);
+  ok('a GM is turned away from his own player', X.editing===null);
+  ok('and told why', /commissioner/.test(ctx.__alerts[0]||''), JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  ok('canEditContract is commissioner-only', g('canEditContract')()===false);
+  g('drawMe')();
+  const mr = document.getElementById('meRoster').innerHTML;
+  ok('so My Team offers him no Edit button', !/data-mre=/.test(mr));
+  ok('but still Cut', /data-mrc=/.test(mr));
+  ok('and still Block', /data-mrb=/.test(mr));
+  X.me = '__comm__';
+  ok('the commissioner still may', g('canEditContract')()===true);
+  g('drawMe')();
+  ok('and gets the Edit button back', /data-mre=/.test(document.getElementById('meRoster').innerHTML));
   X.me = 'Coulter';
   g('drawAllPlayers')();
   ok('and drawAllPlayers is a no-op for a GM', true);
@@ -691,6 +704,84 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('the rookie is back in the class', g('undraftedRookies')().some(r => r.n === rook));
   X.selPA.clear(); X.selPB.clear(); X.selA.clear(); X.selB.clear();
   X.me = 'Osborn';
+
+  console.log('\n== My Team and the Free agent classes tab read one pool ==');
+  X.me = 'Osborn';
+  const cn = g('canon');
+  const poolA = new Set(g('faPool')().map(p => cn(p.n)));
+  const poolB = new Set(g('freeAgents')().map(p => cn(p.n)));
+  const onlyA = [...poolA].filter(x => !poolB.has(x));
+  const onlyB = [...poolB].filter(x => !poolA.has(x));
+  ok('the two pools hold the same players', onlyA.length === 0 && onlyB.length === 0,
+     'only faPool: ' + onlyA.slice(0, 5) + ' | only freeAgents: ' + onlyB.slice(0, 5));
+  ok('and the strategy board reads the same one',
+     g('stratPool')().length === g('faPool')().length);
+  ok('the signed Poeltl deal wins on both sides',
+     !poolA.has('Jakob Poeltl') && !poolB.has('Jakob Poeltl'));
+  ok('an expiring player is a free agent on both', poolA.has('Kevin Durant') && poolB.has('Kevin Durant'));
+
+  console.log('\n== an undrafted rookie reaches My Team, not just the FA tab ==');
+  const rk1 = g('ROOKIES')[0].n;
+  ok('he is in the pool My Team draws from', poolA.has(cn(rk1)));
+  document.getElementById('faSearch').value = rk1;
+  document.getElementById('faPos').value = '';
+  g('drawFAList')();
+  const faHtml = document.getElementById('faTable').innerHTML;
+  ok('searching for him finds him', faHtml.includes(rk1), faHtml.slice(0, 300));
+  ok('and a player with no box score renders as unrated, not a crash',
+     /no 2025-26 stats/.test(faHtml));
+  document.getElementById('faSearch').value = '';
+  g('drawFAList')();
+  ok('statVal is null-safe on a statless row', g('statVal')({g:null,s:null,tot:null},'PTS')===null);
+  ok('hasStats says so', g('hasStats')({g:null,s:null})===false && g('hasStats')({g:70,s:{PTS:20}})===true);
+
+  console.log('\n== the commissioner exports the league as data, not as a screenshot ==');
+  X.me = '__comm__';
+  document.getElementById('apQ').value = '';
+  document.getElementById('apT').value = '';
+  document.getElementById('apS').value = '';
+  g('drawAllPlayers')();
+  const csv = g('leagueCSV')(g('apRows')());
+  const lines = csv.split('\n');
+  ok('header is the column list', lines[0] === g('CSVCOLS').join(','), lines[0]);
+  ok('a row per contract and per free agent', lines.length - 1 === g('apRows')().length,
+     (lines.length - 1) + ' vs ' + g('apRows')().length);
+  const cell = (line, col) => {
+    const out = [], re = /("(?:[^"]|"")*"|[^,]*)(,|$)/g; let m, guard = 0;
+    while ((m = re.exec(line)) && guard++ < 40) {
+      out.push(m[1].startsWith('"') ? m[1].slice(1, -1).replace(/""/g, '"') : m[1]);
+      if (m[2] === '') break;
+    }
+    return out[g('CSVCOLS').indexOf(col)];
+  };
+  const holm = lines.find(l => l.includes('Chet Holmgren'));
+  ok('salaries are plain numbers, not money()', cell(holm, 'salary_next') === '36.75',
+     cell(holm, 'salary_next'));
+  ok('the club is a column', cell(holm, 'club') === 'N. Fink', cell(holm, 'club'));
+  ok('so is the year acquired', cell(holm, 'acquired') === '2025', cell(holm, 'acquired'));
+  ok('years left is the real count', cell(holm, 'years_left') === '3', cell(holm, 'years_left'));
+  ok('status says contract', cell(holm, 'status') === 'contract', cell(holm, 'status'));
+  ok('raw rights text survives, not birdKind()', cell(holm, 'rights') === 'Yes', cell(holm, 'rights'));
+  const poetl = lines.find(l => l.startsWith('Jakob Poeltl,Jakob Poetl,'));
+  ok('key is the canon name, player is the sheet spelling', !!poetl, poetl);
+  const faLine = lines.find(l => l.endsWith(',free agent'));
+  ok('a free agent has no club and no salary',
+     cell(faLine, 'club') === '' && cell(faLine, 'salary_next') === '', faLine);
+
+  console.log('\n== the export is quoted, and honours the filters when asked to ==');
+  ok('a comma is quoted', g('csvCell')('F, C') === '"F, C"', g('csvCell')('F, C'));
+  ok('a quote is doubled', g('csvCell')('He said "hi"') === '"He said ""hi"""');
+  ok('null is empty, not the word null', g('csvCell')(null) === '');
+  ok('the file is named for the season', /^league-players-2026-27\.csv$/.test(g('csvFileName')()),
+     g('csvFileName')());
+  document.getElementById('apT').value = 'Coulter';
+  const one = g('leagueCSV')(g('apRows')()).split('\n');
+  ok('"these rows" honours the club filter',
+     one.length - 1 === g('S').teams['Coulter'].r.length
+       && one.slice(1).every(l => cell(l, 'club') === 'Coulter'),
+     (one.length - 1) + ' vs ' + g('S').teams['Coulter'].r.length);
+  ok('and the unfiltered export is bigger', lines.length > one.length);
+  document.getElementById('apT').value = '';
 
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
