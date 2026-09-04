@@ -159,6 +159,61 @@ percentages as projected.
 2025-26 line, which is just what `pstat()` does with any missing key. Players in
 the source who are not in `RATER` were dropped — there is no row to show them in.
 
+### A contract is money against a named season
+`p.y` used to be a four-slot array where `y[1]` meant "the season being built or
+played" and `y[0]` the one before it. **The window WAS the model**, and nothing
+ever moved — so contracts never progressed, tenure was measured against a league
+year that never advanced, and a release stamped with the current season could
+never lapse, because the season it compared against was frozen.
+
+A contract is now a **map from season to money owed**:
+
+    p.y = {'2026-27': 5.00, '2027-28': 5.25}
+
+A season with nothing owed is simply absent. That makes advancing the league the
+cheapest operation in the app rather than the most dangerous: it is
+`S.cfg.season = the next one` and **no contract is rewritten**. There is no
+destructive shift to get wrong, running it twice cannot age a roster twice, it is
+reversible by setting the year back, and a season already played keeps its
+numbers instead of falling off the end.
+
+| | |
+|---|---|
+| `seasonKey(v)` | anything → `'2026-27'`; the seed's en dash, a hyphen, a bare year or a number |
+| `seasonAt(k,n)` / `seasonNext` / `seasonPrev` | walk the calendar |
+| `curSeason()` | the season the league is on |
+| `normContract(y,cur)` | array **or** map → map; shape-driven and idempotent |
+| `salIn(p,key)` / `salNow` / `salPrev` / `salOff(p,n)` | what he is owed, when |
+| `contracted(p)` | owed something in the current season — **the "is he signed" predicate** |
+| `yrsLeft(p)` | seasons still owed, counting this one |
+| `termFrom(price,years)` | a run of seasons from now — what a signing writes |
+
+**Never index `p.y` positionally again.** `salNow(p)` replaced 72 uses of `y[1]`
+and `contracted(p)` most of them. The four-slot array is still *read* —
+`normContract()` converts it — because the live blob is full of them until each
+club is next written, and `tests/test.js` deliberately keeps a case proving it.
+
+**In the offseason `curSeason()` is already the season being BUILT.** The 2026
+offseason carries `'2026-27'`, which is why an auction signing writes that season
+and not the one just played. So the cycle is: play 2026-27 → close to the
+offseason → **advance the year** → auction and draft for 2027-28 → open it.
+
+`normCfg()` canonicalises `S.cfg.season`, or the header would change punctuation
+the first time the league rolled and a hand-typed season would not match the keys
+on a contract.
+
+### Advancing the league year
+`rollSeason()` on the Commissioner tab. `rollPreview()` is **pure** — it computes
+what would change without writing — and the confirmation says it: how many deals
+owe nothing in the new season and become expiring, how many players reach
+`birdYears()` completed seasons, how many release bars lapse, how much dead money
+comes off. The only write besides the season itself is clearing `c.live` on
+released salary, which is charged only for the rest of the season it was made in.
+
+Everything else follows from the same data being read against a different year.
+Bird vests because `leagueYear()` finally moves; contracts expire because the new
+season is absent from the map. Nothing is migrated.
+
 ### The roster limit is on ACTIVE players
 **15 active, 1 injured-reserve slot.** That is the rulebook's "sixteen men, and
 only while one of them is hurt", and it works because `headcount()` has always
@@ -362,6 +417,10 @@ So tenure is the answer and the spreadsheet's rights column is not:
 | `tenureOf(p)` | seasons with his current club, or **null** when `acq` is missing |
 | `birdRight(p)` | `''`, `'Early'` or `'Yes'` — **the predicate every caller must use** |
 | `birdKind(b)` | still reads the free-text label, and is now only a helper |
+
+Tenure is **completed** seasons, `leagueYear() - acq`, which is why a 2024
+signing has two in the 2026-27 league year and three once it rolls to 2027-28 —
+advancing the year is what vests Bird, and `rollPreview()` counts who.
 
 `birdRight()` returns `'Yes'` at `birdYears()` seasons or more, whatever the
 label says. Below that a label of `Yes` buys **nothing** — `rightsOf()` reads
@@ -615,7 +674,10 @@ a GM's own numbers belong in projections, which never leave his browser.
 scrapes rendered HTML, so it carries `$39.25` where a number belongs, an em dash
 where a blank does, and none of the fields the table does not draw. `leagueCSV()`
 writes the roster entry's own values — one row per contract, plus one per
-unsigned free agent — with salaries as plain numbers and the raw `o` and `b` text
+unsigned free agent. **The salary columns are named for the seasons they hold**
+(`salary_2026-27`), not their position, because position stopped meaning anything
+when contracts became season-keyed; `csvSeasonCols()` is evaluated per export so
+the headings move with the league. Salaries are plain numbers and the raw `o` and `b` text
 rather than what `birdKind()` makes of them. `key` is the canon name and is the
 column that identifies a player; `player` is the club sheet's spelling, and six
 of those differ from the box scores. Two buttons: one honours the filters, one
@@ -732,15 +794,23 @@ whole restriction did nothing against the only cut list this league has. It also
 compared raw strings, and the cut list spells one man "Wendall Carter Jr" where
 the box scores say "Wendell".
 
-**A release belongs to a cycle**, or a cut from three years ago would follow a
-club for ever. `normRosters()` stamps any unstamped release with the season it is
-first read in — in memory, persisted by the next rosters write — so seed cuts
-lapse properly when the season rolls forward. Multiple releases of the same man
-resolve to the **dearest**: cutting again at the minimum must not clear the bar.
+**The window is the rest of the season he was cut in, plus the offseason after
+it** — then it lapses. Because `curSeason()` during an offseason is already the
+season being built, "the offseason after 2025-26" is `season='2026-27'` with the
+phase still offseason. So Payton Pritchard, released during 2025-26, is out of
+N. Daman's reach at the 2026 auction and **free to them the moment 2026-27 goes
+live**. That is the whole reason the league year has to be able to move.
+
+`normRosters()` stamps a release that has none with the season just **played**,
+not the one being built, and writes `cv` so a stamp from the version that got
+this wrong can be told from a real one and corrected. `releaseRecord()` stamps
+`cv` at birth. Multiple releases of the same man resolve to the **dearest**:
+cutting again at the minimum must not clear the bar.
 
 The seed bars seven players across three clubs — D. Fink (Brook Lopez $5.75, Kon
 Knueppel $4.50, Dereck Lively II $3.25), N. Fink (Myles Turner $13.75, Derik
-Queen $3.75, Jalen Green $1.25) and N. Daman (Payton Pritchard $1.25).
+Queen $3.75, Jalen Green $1.25) and N. Daman (Payton Pritchard $1.25) — all
+released during 2025-26, so all seven lapse when 2026-27 opens.
 
 `drawBarred()` is the panel on the auction tab; the club page's release
 history tags each barred row; the strategy board tags them too.
@@ -889,7 +959,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 700 assertions against the real functions
+node tests/test.js        the app: 757 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
