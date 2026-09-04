@@ -589,6 +589,109 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('empty', document.getElementById('tradeCats').innerHTML==='');
   await g('toggleBlock')('Osborn', oi);
 
+  console.log('\n== the rookie class is there and flagged as placeholder ==');
+  ok('ROOKIES loaded', g('ROOKIES').length >= 20, g('ROOKIES').length);
+  ok('and it says so', X.ROOKIES_PLACEHOLDER === true);
+
+  console.log('\n== the commissioner sets the order and the scale ==');
+  X.me = '__comm__';
+  const T9 = g('TEAMS')();
+  const scale = g('rookieScale')(T9.length);
+  ok('first pick is 3.57% of the cap, rounded up to a quarter',
+     scale[0] === Math.ceil(g('S').cfg.cap * 0.0357 * 4) / 4, scale[0]);
+  ok('each later pick is a quarter less', scale[1] === scale[0] - 0.25, scale.join(','));
+  ok('and it never drops under a minimum', scale.every(v => v >= 1));
+  await g('saveDraftSetup')({year: 2027, future: 3, order: T9.slice(), sal: scale, open: true, closed: false});
+  const board = g('draftBoard')();
+  ok('nine slots, in the order given', board.length === T9.length && board[0].from === T9[0]);
+  ok('slot 1 is on the clock', X.onClock().slot === 1);
+  ok('a club with no record still holds its own pick', X.pickHolder(2027, T9[0]) === T9[0]);
+
+  console.log('\n== making a pick writes a three-year rookie deal ==');
+  const rook = g('undraftedRookies')()[0].n;
+  const preCount = g('S').teams[T9[0]].r.length;
+  await g('makePick')(T9[0], rook);
+  const signed = g('S').teams[T9[0]].r.find(p => p.n === rook);
+  ok('he is on the roster', !!signed && g('S').teams[T9[0]].r.length === preCount + 1);
+  ok('three years at the slot salary',
+     signed && signed.y[1] === scale[0] && signed.y[2] === scale[0] && signed.y[3] === scale[0],
+     signed && JSON.stringify(signed.y));
+  ok('with a rookie option on the last', signed && signed.o === 'RO', signed && signed.o);
+  ok('he is out of the pool', !g('undraftedRookies')().some(r => r.n === rook));
+  ok('and the clock has moved on', X.onClock().slot === 2);
+  ok('a used pick is no longer tradeable', !g('clubPicks')(T9[0]).some(k => k.y === 2027));
+
+  console.log('\n== an undrafted rookie is an ordinary free agent ==');
+  const stillOut = g('undraftedRookies')()[0].n;
+  const faNow = g('freeAgents')();
+  ok('he is in the free agent pool', faNow.some(p => p.n === stillOut));
+  ok('the drafted one is not', !faNow.some(p => p.n === rook));
+
+  console.log('\n== picks trade, and carry no salary or roster spot ==');
+  X.selA.clear(); X.selB.clear(); X.selPA.clear(); X.selPB.clear();
+  document.getElementById('tA').value = T9[1];
+  document.getElementById('tB').value = T9[2];
+  X.selPA.add(X.pickId(2029, T9[1]));
+  const pv = g('validateTrade')();
+  ok('a picks-only offer is a real offer', pv.ok, JSON.stringify(pv.fails));
+  ok('it moves no salary', pv.outA === 0 && pv.outB === 0);
+  g('drawTradeLists')();
+  const lA = document.getElementById('listA').innerHTML;
+  ok('picks are listed in the builder', /Rookie draft picks/.test(lA));
+  ok('and a selected future pick offers a protection', lA.includes('data-prot="2029:'+T9[1]+'"'));
+  ok('an unselected pick does not', !lA.includes('data-prot="2030:'+T9[1]+'"'));
+  ok('and a current-year pick never does', !/data-prot="2027:/.test(lA));
+  g('render')();
+  ok('the board renders while the draft is open',
+     /on the clock/.test(document.getElementById('draftBoard').innerHTML
+       + document.getElementById('draftStatus').innerHTML));
+  await g('applyTrade')({a: T9[1], b: T9[2], give: [], get: [],
+    givePk: [{y: 2029, from: T9[1], prot: 0, roll: false}], getPk: []});
+  ok('the pick changed hands', X.pickHolder(2029, T9[1]) === T9[2], X.pickHolder(2029, T9[1]));
+  ok('and shows up in the new club’s picks',
+     g('clubPicks')(T9[2]).some(k => k.y === 2029 && k.from === T9[1]));
+  ctx.__alerts.length = 0;
+
+  console.log('\n== protection is read off the order, never applied ==');
+  await g('applyTrade')({a: T9[3], b: T9[4], give: [], get: [],
+    givePk: [{y: 2027, from: T9[3], prot: 5, roll: true}], getPk: []});
+  ctx.__alerts.length = 0;
+  const slot = g('pickSlot')(2027, T9[3]);
+  ok('the pick sits inside the protection', slot > 0 && slot <= 5, slot);
+  ok('so it stays with the club it came from', X.effHolder(2027, T9[3]) === T9[3]);
+  ok('even though the record says otherwise', X.pickHolder(2027, T9[3]) === T9[4]);
+  ok('protection is spelled out', /top 5 protected/.test(g('protText')(2027, T9[3])));
+  ok('and the board hands the pick back', g('draftBoard')()[slot - 1].holder === T9[3]);
+
+  console.log('\n== a rolling protection moves to the next draft when it triggers ==');
+  await g('closeDraft')();
+  ok('the 2028 pick is owed to the club that traded for it',
+     X.pickHolder(2028, T9[3]) === T9[4], X.pickHolder(2028, T9[3]));
+  ok('carrying the same protection', X.pickRec(2028, T9[3]).prot === 5);
+  ok('and the 2027 record is marked so it cannot roll twice',
+     X.pickRec(2027, T9[3]).rolled === true);
+  await g('closeDraft')();
+  ok('closing again changes nothing', X.pickHolder(2029, T9[3]) === T9[3],
+     X.pickHolder(2029, T9[3]));
+  ok('the draft reads as closed', g('draftCfg')().closed === true && g('draftCfg')().open === false);
+
+  console.log('\n== an offer is rechecked against picks that moved ==');
+  const stale = g('recheckTrade')({a: T9[1], b: T9[5], give: [], get: [],
+    givePk: [{y: 2029, from: T9[1]}], getPk: []});
+  ok('a pick the club no longer holds is caught', stale.length === 1 && /no longer holds/.test(stale[0]),
+     JSON.stringify(stale));
+  const used = g('recheckTrade')({a: T9[0], b: T9[5], give: [], get: [],
+    givePk: [{y: 2027, from: T9[0]}], getPk: []});
+  ok('so is a pick that has already been used', used.some(f => /already been used/.test(f)),
+     JSON.stringify(used));
+
+  console.log('\n== the commissioner can undo a selection ==');
+  await g('undoPick')(2027, T9[0]);
+  ok('the contract is gone', !g('S').teams[T9[0]].r.some(p => p.n === rook));
+  ok('the rookie is back in the class', g('undraftedRookies')().some(r => r.n === rook));
+  X.selPA.clear(); X.selPB.clear(); X.selA.clear(); X.selB.clear();
+  X.me = 'Osborn';
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
