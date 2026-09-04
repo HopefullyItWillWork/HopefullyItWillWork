@@ -992,6 +992,66 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and gone from faPool too', !g('faPool')().some(p => p.n === 'Kevin Durant'));
   X.me = 'Osborn';
 
+  console.log('\n== the 2026-27 aggregate is there for every GM ==');
+  X.me = 'Osborn';
+  const AGG = g('AGG');
+  ok('it loaded', Object.keys(AGG).length > 300, Object.keys(AGG).length);
+  ok('keyed by the canon name, so canon() resolves into it',
+     !!AGG[g('canon')('Nikola Jokić')], Object.keys(AGG).slice(0, 3).join('|'));
+  const K = ['g','PTS','TRB','AST','STL','BLK','TOV','P3','FG','FGA','FT','FTA'];
+  const bad = Object.entries(AGG).filter(([, r]) => K.some(k => typeof r[k] !== 'number'));
+  ok('every row carries all twelve keys as numbers', bad.length === 0,
+     bad.slice(0, 2).map(b => b[0]).join('|'));
+  ok('attempts are always at least the makes',
+     Object.values(AGG).every(r => r.FGA >= r.FG && r.FTA >= r.FT));
+  ok('every key is a real RATER player',
+     Object.keys(AGG).every(n => !!g('RIDX')[n]));
+
+  console.log('\n== three sources, and projFor picks one ==');
+  await g('setProjMode')('act');
+  ok('actuals means no override at all', g('projFor')('Nikola Jokic') === null);
+  ok('and the label says so', g('projSrcLabel')() === '2025–26 actuals', g('projSrcLabel')());
+  await g('setProjMode')('agg');
+  ok('the aggregate is in front', g('projFor')('Nikola Jokic') === AGG['Nikola Jokic']);
+  ok('usingAgg, not usingMine', g('usingAgg')() === true && g('usingMine')() === false);
+  X.PROJ = {'Nikola Jokic': {PTS: 99}};
+  ok('a GM’s own edit does not leak into the aggregate',
+     g('projFor')('Nikola Jokic').PTS !== 99);
+  await g('setProjMode')('mine');
+  ok('and switching back puts his edit in front', g('projFor')('Nikola Jokic').PTS === 99);
+  X.PROJ = {};
+
+  console.log('\n== pstat reads the aggregate, and falls back where it is silent ==');
+  await g('setProjMode')('agg');
+  X.RTGCACHE = null;
+  const jok = g('pstat')('Nikola Jokic');
+  ok('the projected line comes through', jok.s.PTS === AGG['Nikola Jokic'].PTS,
+     jok.s.PTS + ' vs ' + AGG['Nikola Jokic'].PTS);
+  ok('games too', jok.g === AGG['Nikola Jokic'].g);
+  const uncovered = g('RATER').find(p => !AGG[p.n]);
+  ok('a player the aggregate does not cover shows his 2025-26 line',
+     g('pstat')(uncovered.n).s.PTS === uncovered.s.PTS, uncovered.n);
+  ok('percentages stay computable, because attempts are supplied',
+     jok.s.FGA > 0 && jok.s.FTA > 0 && jok.s.FG / jok.s.FGA > 0.3);
+
+  console.log('\n== the rating rescales on the aggregate ==');
+  const aggR = g('rtg')('Nikola Jokic');
+  await g('setProjMode')('act');
+  const actR = g('rtg')('Nikola Jokic');
+  ok('both are real numbers', typeof aggR === 'number' && typeof actR === 'number',
+     aggR + ' / ' + actR);
+  ok('and the aggregate is not just the 2025-26 rating', aggR !== actR, aggR + ' vs ' + actR);
+
+  console.log('\n== the old boolean call still means something sensible ==');
+  await g('setProjMode')(false);
+  ok('false is actuals', X.useProj === false);
+  await g('setProjMode')(true);
+  ok('true is my projections', g('usingMine')() === true);
+  await g('setProjMode')('nonsense');
+  ok('anything else falls back to actuals, never a silent wrong source',
+     X.useProj === false, X.PROJSRC);
+  await g('setProjMode')('act');
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
