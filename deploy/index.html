@@ -679,11 +679,14 @@ thead th.hide,tbody td.hide{display:none}}
     <p class="note">Enter posts, shift+Enter starts a new line. 600 characters.</p>
     <div class="chatlog" id="chatLog"></div>
 
-    <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span></h2>
+    <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span>
+      <span class="fcount" id="notesWho"></span></h2>
     <p class="note">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
-      which trade you are working on. It is stored in this browser only, exactly like your
-      projections, and is never sent to the league database. That also means it does not follow you
-      to another device.</p>
+      which trade you are working on. Nobody else can read it: it is stored under your club,
+      encrypted with a key derived from your PIN, so it follows you between devices while a
+      league-mate who fetches it gets ciphertext. That is the same honour-system bar as the rest of
+      the app &#8212; it stops someone reading your notes, not someone who digs your PIN out of the
+      league data first.</p>
     <textarea id="notesBox" rows="10" placeholder="Nobody else can read this."></textarea>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
       <button class="btn ghost" id="notesClear">Clear my notes</button>
@@ -1725,7 +1728,8 @@ function drawWho(){
     try{ $('inPin').focus(); }catch(e){}};
   if($('signCTA'))$('signCTA').onclick=openSignIn;
   if($('signBtn'))$('signBtn').onclick=openSignIn;
-  if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}PROJ={};STRAT=[];render();};
+  if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}
+    PROJ={};STRAT=[];NOTES='';render();};
 }
 function drawLedger(){
   const {cap,tax}=S.cfg, max=Math.max(tax*1.06,...TEAMS().map(committed));
@@ -2730,7 +2734,6 @@ function drawAuction(){
    placeBid(), never becomes an automatic bid, and never leaves this board. */
 let STRAT=[];
 const PRI={high:'High',med:'Medium',low:'Low'};
-function stratKey(){ return 'strat_'+(me||'anon'); }
 /* The board is the free agent CLASS, the same reading as faPool(): everyone not
    under contract for next season. That deliberately includes the ~45 players
    sitting on a roster today whose deal expires — Wembanyama is Coulter's
@@ -2771,112 +2774,171 @@ function normStrat(v){
    it still works after a reload. This is the same bar as the rest of the app:
    it stops a league-mate reading your board, not one determined to dig the PIN
    out of the rosters slice first. */
-const STRAT_V=1;
-let STRATREV=0, stratStamp=0;
-function stratRemoteKey(){
-  return (me&&!isComm()) ? 'strat-'+me.replace(/[^A-Za-z0-9]+/g,'-') : null;  /* already clean() safe */
-}
-function stratSecret(){
+/* ---- club-private stores that follow the GM between devices ----
+   Three things belong to one GM and nobody else: his notes, his projections and
+   his auction strategy board. All three live in the league database now, so they
+   follow him from phone to desktop instead of being stranded in whichever
+   browser he happened to type them in.
+
+   /api/state has no auth, so all three go up ENCRYPTED. AES-GCM under a key
+   derived by PBKDF2 from the club's PIN — which the client already holds in the
+   rosters slice, so no new secret is stored anywhere and it survives a reload.
+   A league-mate who fetches ?key=proj-Osborn gets ciphertext.
+
+   Be honest about what that buys: it stops someone reading your work, not
+   someone who digs the PIN out of the rosters slice first. Same honour-system
+   bar as the rest of the app. Changing a PIN makes the stored copy
+   undecryptable; the client keeps its local copy and re-uploads rather than
+   losing anything.
+
+   Each store is one key, `<kind>-<club>`, outside the five league slices, so
+   none of this rides the payload the auction polls every four seconds.
+   localStorage keeps a mirror under `<kind>_<club>`, so all three still work
+   with no network and the toast says "synced" or "this device only".
+
+   Last write wins by the `at` stamp inside the payload; on a tie the remote
+   wins, so a fresh device with nothing local picks the work up.
+
+   The commissioner has no club and therefore no PIN to derive a key from, so
+   his own notes and projections stay on the device. Nothing to sync them to. */
+const CBOX_V=1;
+const CBOXREV={}, CBOXAT={};
+const clubSlug=t=>String(t||'').replace(/[^A-Za-z0-9]+/g,'-');
+const cboxRemoteKey=kind=>(me&&!isComm()) ? kind+'-'+clubSlug(me) : null;
+const cboxLocalKey=kind=>kind+'_'+(me||'anon');
+function cboxSecret(){
   const pin=(S&&S.teams&&S.teams[me]&&S.teams[me].pin)||'';
   return 'league-ledger/1/'+(me||'')+'/'+pin;
 }
 const canCrypt=()=>!!(window.crypto&&crypto.subtle&&window.TextEncoder);
 const b64=b=>btoa(String.fromCharCode.apply(null,new Uint8Array(b)));
 const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
-async function stratCipherKey(salt){
-  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(stratSecret()),
+async function cboxCipherKey(salt){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(cboxSecret()),
     'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:120000,hash:'SHA-256'},
     base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
-async function stratSeal(payload){
+async function cboxSeal(payload){
   const salt=crypto.getRandomValues(new Uint8Array(16));
   const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await stratCipherKey(salt),
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await cboxCipherKey(salt),
     new TextEncoder().encode(JSON.stringify(payload)));
-  return {v:STRAT_V,salt:b64(salt),iv:b64(iv),ct:b64(ct)};
+  return {v:CBOX_V,salt:b64(salt),iv:b64(iv),ct:b64(ct)};
 }
-async function stratOpen(box){
-  if(!box||box.v!==STRAT_V||!box.ct||!box.salt||!box.iv) return null;
+async function cboxOpen(box){
+  if(!box||box.v!==CBOX_V||!box.ct||!box.salt||!box.iv) return null;
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(box.iv)},
-    await stratCipherKey(unb64(box.salt)),unb64(box.ct));
+    await cboxCipherKey(unb64(box.salt)),unb64(box.ct));
   return JSON.parse(new TextDecoder().decode(pt));
 }
-/* localStorage holds the same {at,rows} shape, and still reads the bare array
-   written before syncing existed. */
-function stratReadLocal(){
+/* The mirror is {at,d}. Two older shapes still read: the strategy board's
+   {at,rows}, and a bare value from before any of this synced — projections were
+   written that way for months. Both come back stamped 0, which loses to anything
+   on the server and wins over nothing, which is what you want. */
+function cboxReadLocal(kind){
   try{
-    const raw=localStorage.getItem(stratKey());
-    if(!raw) return null;
+    const raw=localStorage.getItem(cboxLocalKey(kind));
+    if(raw==null) return null;
     const v=JSON.parse(raw);
-    return Array.isArray(v) ? {at:0,rows:v} : (v&&Array.isArray(v.rows) ? v : null);
+    if(v&&typeof v==='object'&&!Array.isArray(v)){
+      if('d' in v) return {at:v.at||0,d:v.d};
+      if('rows' in v&&'at' in v) return {at:v.at||0,d:v.rows};
+    }
+    return {at:0,d:v};
   }catch(e){ return null; }
 }
-async function stratFetch(){
-  const key=stratRemoteKey();
+function cboxWriteLocal(kind,at,d){
+  try{ localStorage.setItem(cboxLocalKey(kind),JSON.stringify({at,d})); return true; }
+  catch(e){ return false; }
+}
+async function cboxFetch(kind){
+  const key=cboxRemoteKey(kind);
   if(!key||!canCrypt()||!await probeAPI()) return null;
   try{
     const r=await fetch(`${API}?key=${encodeURIComponent(key)}`,{cache:'no-store'});
     if(!r.ok) return null;
     const j=await r.json();
-    STRATREV=j.rev||0;
+    CBOXREV[kind]=j.rev||0;
     if(!j.data) return null;
-    return await stratOpen(j.data);      /* a changed PIN throws here; caller keeps the local copy */
+    const out=await cboxOpen(j.data);   /* a changed PIN throws here; the caller keeps its local copy */
+    return out&&typeof out==='object'&&'d' in out ? out : null;
   }catch(e){ return null; }
 }
-async function stratPush(){
-  const key=stratRemoteKey();
+async function cboxPush(kind,at,d){
+  const key=cboxRemoteKey(kind);
   if(!key||!canCrypt()||!await probeAPI()) return false;
   try{
-    const body=JSON.stringify({data:await stratSeal({at:stratStamp,rows:STRAT})});
-    const put=()=>fetch(`${API}?key=${encodeURIComponent(key)}&rev=${STRATREV}`,
+    const body=JSON.stringify({data:await cboxSeal({at,d})});
+    const put=()=>fetch(`${API}?key=${encodeURIComponent(key)}&rev=${CBOXREV[kind]||0}`,
       {method:'PUT',headers:{'content-type':'application/json'},body});
     let r=await put();
-    if(r.status===409){                  /* the other device wrote; take its revision and win */
+    if(r.status===409){                 /* the other device wrote; take its revision and win */
       const j=await r.json().catch(()=>({}));
-      STRATREV=j.rev||STRATREV+1;
+      CBOXREV[kind]=j.rev||(CBOXREV[kind]||0)+1;
       r=await put();
     }
     if(!r.ok) return false;
     const j=await r.json().catch(()=>({}));
-    STRATREV=j.rev||STRATREV+1;
+    CBOXREV[kind]=j.rev||(CBOXREV[kind]||0)+1;
     return true;
   }catch(e){ return false; }
 }
-async function loadStrat(){
-  STRAT=[]; stratStamp=0; STRATREV=0;
-  const local=stratReadLocal();
-  if(local){ STRAT=normStrat(local.rows); stratStamp=local.at||0; }
-  const remote=await stratFetch();
-  /* Whichever device wrote last is the one the GM means. On a tie the remote
-     wins, so a fresh device with nothing local still picks the board up. */
-  if(remote&&Array.isArray(remote.rows)&&(remote.at||0)>=stratStamp){
-    STRAT=normStrat(remote.rows); stratStamp=remote.at||0;
-    try{ localStorage.setItem(stratKey(),JSON.stringify({at:stratStamp,rows:STRAT})); }catch(e){}
-  } else if(local&&remote===null){
-    stratPush();                         /* seed the server from this device */
+/* Which copy the GM meant. Pure on purpose: the whole cross-device rule is one
+   comparison, and it is testable with no network and no crypto engine. */
+function cboxPick(local,remote){
+  const l=(local&&local.at)||0, r=(remote&&remote.at)||0;
+  if(remote&&(!local||r>=l)) return {from:'remote',at:r,d:remote.d};
+  if(local) return {from:'local',at:l,d:local.d};
+  return {from:'none',at:0,d:null};
+}
+async function cboxLoad(kind){
+  CBOXREV[kind]=0; CBOXAT[kind]=0;
+  const local=cboxReadLocal(kind);
+  const remote=await cboxFetch(kind);
+  const pick=cboxPick(local,remote);
+  CBOXAT[kind]=pick.at;
+  if(pick.from==='remote') cboxWriteLocal(kind,pick.at,pick.d);
+  else if(pick.from==='local'&&remote===null) cboxPush(kind,pick.at,pick.d);   /* seed the server */
+  return pick.d;
+}
+async function cboxSave(kind,d){
+  const at=Date.now();
+  CBOXAT[kind]=at;
+  const ok=cboxWriteLocal(kind,at,d);
+  const synced=await cboxPush(kind,at,d);
+  return {ok,synced};
+}
+/* Coming back to a tab is when work written on the other device should appear,
+   and the one moment a fetch is worth the round trip. */
+async function cboxRefresh(kind){
+  const remote=await cboxFetch(kind);
+  if(remote&&(remote.at||0)>(CBOXAT[kind]||0)){
+    CBOXAT[kind]=remote.at||0;
+    cboxWriteLocal(kind,CBOXAT[kind],remote.d);
+    return remote;
   }
+  return null;
+}
+const syncWord=r=>r.synced?'synced':(r.ok?'this device only':'not saved');
+
+/* ---- the strategy board on top of that ---- */
+async function loadStrat(){
+  STRAT=normStrat(await cboxLoad('strat'));
 }
 async function saveStrat(quiet){
-  stratStamp=Date.now();
-  let ok=false;
-  try{ localStorage.setItem(stratKey(),JSON.stringify({at:stratStamp,rows:STRAT})); ok=true; }catch(e){}
-  const synced=await stratPush();
-  if(!quiet) projToast(!ok ? 'Could not save your strategy'
-    : `Strategy saved · ${STRAT.length} player${STRAT.length===1?'':'s'}${synced?' · synced':' · this device only'}`);
-  return ok;
+  const r=await cboxSave('strat',STRAT);
+  if(!quiet) projToast(!r.ok ? 'Could not save your strategy'
+    : `Strategy saved · ${STRAT.length} player${STRAT.length===1?'':'s'} · ${syncWord(r)}`);
+  return r.ok;
 }
-/* Coming back to the tab is when a board written on the other device should
-   appear, and it is the one moment a fetch is worth the round trip. */
 async function refreshStrat(){
   if(!me||isComm()) return;
   const before=JSON.stringify(STRAT);
-  const remote=await stratFetch();
-  if(remote&&Array.isArray(remote.rows)&&(remote.at||0)>stratStamp){
-    STRAT=normStrat(remote.rows); stratStamp=remote.at||0;
-    try{ localStorage.setItem(stratKey(),JSON.stringify({at:stratStamp,rows:STRAT})); }catch(e){}
-    if(JSON.stringify(STRAT)!==before){ drawStrategy(true); projToast('Strategy updated from your other device'); }
-  }
+  const remote=await cboxRefresh('strat');
+  if(!remote) return;
+  STRAT=normStrat(remote.d);
+  if(JSON.stringify(STRAT)!==before){ drawStrategy(true); projToast('Strategy updated from your other device'); }
 }
 /* typing in a comment or a max should not hit storage on every keystroke */
 let stratTimer=null;
@@ -3048,25 +3110,36 @@ function canon(n){
 }
 const SKEYS=["FG","FGA","FT","FTA","P3","TRB","AST","STL","BLK","TOV","PTS"];
 let PROJ={}, useProj=false, RTGCACHE=null;
-function projKey(){ return 'proj_'+(me||'anon'); }
+/* Projections used to be local-only on purpose — a GM's numbers are his
+   competitive edge, and the old note here said not to sync them. The league
+   asked for the opposite: work typed on a phone that a laptop cannot see is
+   work done twice. So they ride the same encrypted club-private store as the
+   strategy board, under `proj-<club>`, and carry exactly the honour-system
+   protection described there. A rival sees ciphertext; a rival who first digs
+   the PIN out of the rosters slice does not. */
+const projKey=()=>cboxLocalKey('proj');
+function normProj(v){ return (v&&typeof v==='object'&&!Array.isArray(v)) ? v : {}; }
 async function loadProj(){
-  PROJ={};
-  try{ const l=localStorage.getItem(projKey()); if(l) PROJ=JSON.parse(l); }catch(e){}
-  try{
-    const r=window.storage?await window.storage.get(projKey(),false):null;
-    if(r&&r.value){const remote=JSON.parse(r.value); if(Object.keys(remote).length) PROJ=remote;}
-  }catch(e){}
+  PROJ=normProj(await cboxLoad('proj'));
   RTGCACHE=null;
 }
 async function saveProj(){
   RTGCACHE=null;
-  const v=JSON.stringify(PROJ);
-  let ok=false;
-  try{ if(window.storage){await window.storage.set(projKey(),v,false);ok=true;} }catch(e){}
-  try{ localStorage.setItem(projKey(),v); ok=true; }catch(e){}   /* always keep a local copy too */
-  projToast(ok?`Saved \u00b7 ${Object.keys(PROJ).length} player${Object.keys(PROJ).length===1?'':'s'}`
-              :'Could not save your projections');
-  return ok;
+  const n=Object.keys(PROJ).length;
+  const r=await cboxSave('proj',PROJ);
+  projToast(r.ok?`Saved \u00b7 ${n} player${n===1?'':'s'} \u00b7 ${syncWord(r)}`
+                :'Could not save your projections');
+  return r.ok;
+}
+/* Opening the tab is when projections written on the other device should turn
+   up, the same moment refreshStrat() fetches the board. */
+async function refreshProj(){
+  if(!me||isComm()) return;
+  const before=JSON.stringify(PROJ);
+  const remote=await cboxRefresh('proj');
+  if(!remote) return;
+  PROJ=normProj(remote.d); RTGCACHE=null;
+  if(JSON.stringify(PROJ)!==before){ render(); projToast('Projections updated from your other device'); }
 }
 function projToast(msg){
   let t=$('projToast');
@@ -3212,7 +3285,11 @@ function goTab(id){
   if(id==='v-auction'&&typeof refreshStrat==='function') refreshStrat();
   // Chat is fetched on its own, not through ?key=all, so opening the tab is what
   // asks for it. Nothing is polled while nobody is looking.
-  if(id==='v-chat'&&typeof loadChat==='function') loadChat(true).then(()=>drawChat());
+  if(id==='v-chat'&&typeof loadChat==='function'){
+    loadChat(true).then(()=>drawChat());
+    if(typeof refreshNotes==='function') refreshNotes();
+  }
+  if(id==='v-proj'&&typeof refreshProj==='function') refreshProj();
   window.scrollTo&&window.scrollTo(0,0);
   if(typeof markMore==='function') markMore();
   return true;
@@ -4492,13 +4569,43 @@ async function removeChat(id){
   }
   projToast('Could not delete that post');
 }
-/* The notepad is localStorage under the club, exactly like projections and for
-   exactly the same reason: what a GM is planning is his own business, and there
-   is no version of this app where his notes should ride to the server next to
-   the PINs. It follows no device. */
-const notesKey=()=>'ll_notes_'+(me||'anon');
-function loadNotes(){ try{ return localStorage.getItem(notesKey())||''; }catch(e){ return ''; } }
-function saveNotes(v){ try{ localStorage.setItem(notesKey(),v); }catch(e){} }
+/* The notepad rides the same encrypted club-private store as the board and the
+   projections, so notes typed on a phone are there on the laptop. It is not
+   posted to the league — nobody else can read it — but it does leave the device,
+   which is the whole point, and the screen says exactly that.
+
+   `ll_notes_<club>` was the local-only key before this; it is read once so
+   nothing typed under the old scheme is lost. */
+const notesKey=()=>cboxLocalKey('notes');
+let NOTES='';
+const normNotes=v=>typeof v==='string'?v:'';
+function notesLegacy(){
+  try{ return localStorage.getItem('ll_notes_'+(me||'anon'))||''; }catch(e){ return ''; }
+}
+async function loadNotes(){
+  NOTES=normNotes(await cboxLoad('notes'));
+  if(!NOTES){
+    const old=notesLegacy();
+    if(old){ NOTES=old; await cboxSave('notes',NOTES); }
+  }
+  return NOTES;
+}
+async function saveNotes(v){
+  NOTES=normNotes(v);
+  const r=await cboxSave('notes',NOTES);
+  if($('notesSaved')) $('notesSaved').textContent=r.ok?syncWord(r):'not saved';
+  return r.ok;
+}
+async function refreshNotes(){
+  if(!me||isComm()) return;
+  const remote=await cboxRefresh('notes');
+  if(!remote) return;
+  const v=normNotes(remote.d);
+  if(v===NOTES) return;
+  NOTES=v;
+  const nb=$('notesBox');
+  if(nb&&document.activeElement!==nb){ nb.value=NOTES; projToast('Notes updated from your other device'); }
+}
 let notesTimer=null;
 function chatLine(m){
   const mine = isComm() || m.by===me;
@@ -4525,8 +4632,12 @@ function drawChat(){
     ? `Posting as ${isComm()?'Commissioner':me}` : 'Signed out — you can read, not post';
   if($('chatLocal')) $('chatLocal').hidden = HAS_API!==false;
   const nb=$('notesBox');
-  if(nb && document.activeElement!==nb) nb.value=loadNotes();
-  if(nb) nb.disabled=false;
+  if(nb && document.activeElement!==nb) nb.value=NOTES;
+  if(nb) nb.disabled=!me;
+  if($('notesWho')) $('notesWho').textContent = me && !isComm()
+    ? 'Synced to your club, encrypted \u2014 nobody else can read it'
+    : (me ? 'The commissioner has no club PIN to encrypt with \u2014 this device only'
+          : 'Sign in to keep notes');
 }
 function wireChat(){
   if($('chatGo')) $('chatGo').onclick=async()=>{
@@ -4542,13 +4653,12 @@ function wireChat(){
   if($('notesBox')) $('notesBox').oninput=()=>{
     clearTimeout(notesTimer);
     const v=$('notesBox').value;
-    notesTimer=setTimeout(()=>{ saveNotes(v); if($('notesSaved')) $('notesSaved').textContent='saved on this device'; },400);
-    if($('notesSaved')) $('notesSaved').textContent='typing…';
+    notesTimer=setTimeout(()=>saveNotes(v),600);
+    if($('notesSaved')) $('notesSaved').textContent='typing\u2026';
   };
-  if($('notesClear')) $('notesClear').onclick=()=>{
-    if(!confirm('Clear your notes? They are only on this device, so this cannot be undone.')) return;
-    $('notesBox').value=''; saveNotes('');
-    if($('notesSaved')) $('notesSaved').textContent='cleared';
+  if($('notesClear')) $('notesClear').onclick=async()=>{
+    if(!confirm('Clear your notes? This clears them on every device you use.')) return;
+    $('notesBox').value=''; await saveNotes('');
   };
 }
 
@@ -4732,7 +4842,7 @@ $('doSign').onclick=e=>{
     $('signErr').textContent='';
     closeModal('dlgSign');
     try{localStorage.setItem('ll_me',me);}catch(_){}
-    Promise.all([loadProj(),loadStrat()])
+    Promise.all([loadProj(),loadStrat(),loadNotes()])
       .then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
       .catch(()=>{ render(); goTab('v-me'); });
   }catch(err){
@@ -4834,6 +4944,7 @@ function netChip(){
   await loadProj();
   rebuildPlayerFixes();
   await loadStrat();
+  await loadNotes();
   wireChat();
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();

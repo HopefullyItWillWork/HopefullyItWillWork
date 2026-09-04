@@ -50,9 +50,10 @@ rather than something the merge logic has to be clever about.
 | `trades`   | offers                             | merged by offer id |
 | `log`      | every action                       | **append-only** |
 
-Three kinds of key sit outside the five slices. `mailcount` and `digest` are
-written only by the mail functions and never read by the client. `strat-<club>`
-holds an encrypted strategy board. `chat` holds the league chat.
+Several keys sit outside the five slices. `mailcount` and `digest` are written
+only by the mail functions and never read by the client. `chat` holds the league
+chat. `notes-<club>`, `proj-<club>` and `strat-<club>` hold one GM's own work,
+encrypted — see "A GM's own work follows him between devices" below.
 
 `KEYS` in `state.mjs` only gates `?key=all` — every other verb takes any cleaned
 key, which is what makes those extras possible with no server change.
@@ -73,34 +74,51 @@ sensible default from the entry kind. Pass `['auction']` explicitly for bidding.
 Every 4 seconds while an auction is open, 12 otherwise, paused when the tab is
 hidden. Only slices whose revision changed are applied.
 
-### Per-GM projections are NOT in shared storage
-They live in each GM's own `localStorage` under `proj_<club>` and are never sent
-to the server. This is a privacy decision, not an oversight — a GM's projections
-are their competitive edge. Do not "helpfully" sync them to Blobs.
+### A GM's own work follows him between devices
+Three things belong to one GM and nobody else: his **notes**, his
+**projections** and his **auction strategy board**. All three live in the league
+database, so they follow him from phone to laptop.
 
-Consequence: projections do not follow a GM across devices. That trade-off was
-made knowingly. An export/import button would be the right fix if it comes up.
+Projections used to be local-only, and this file used to say not to sync them.
+That was reversed deliberately: work typed on a phone that the laptop cannot see
+is work done twice. Do not reverse it back without asking.
 
-### The auction strategy board IS synced, encrypted
-A GM's strategy board (ranked auction targets, priority, a planning max bid)
-follows them between devices, so unlike projections it does leave the browser.
-It is stored under its own key, `strat-<club>`, outside the five league slices.
+All three go through one store, `cbox*` — "club box":
 
-It goes up **encrypted**, because `/api/state` has no auth and a list of max bids
-is worth more to a rival than projections are. AES-GCM, key derived by PBKDF2
-from the club's PIN — which the client already holds in the rosters slice, so no
-new secret is stored and it survives a reload. A league-mate who fetches
-`?key=strat-<club>` gets ciphertext.
+| | |
+|---|---|
+| `cboxLoad(kind)` | local mirror + server copy, newest wins; seeds the server if it is empty |
+| `cboxSave(kind,d)` | stamps, mirrors locally, pushes; returns `{ok,synced}` |
+| `cboxRefresh(kind)` | fetch only if the server copy is newer — called when a tab opens |
+| `cboxPick(local,remote)` | **pure**, and the whole cross-device rule: newer `at` wins, remote on a tie |
 
-This is the same honour-system bar as the rest of the app: it stops someone
-reading your board, not someone who digs the PIN out of `rosters` first. Do not
-present it as real confidentiality.
+Kinds are `notes`, `proj` and `strat`. Each is its own key, `<kind>-<club>`,
+outside the five league slices, so none of it rides the payload the auction polls
+every four seconds. localStorage mirrors under `<kind>_<club>`, so all three work
+with no network and the toast says "synced" or "this device only".
 
-Last write wins, by a timestamp inside the payload. A 409 is retried once against
-the server's revision. localStorage keeps a copy, so the board still works with
-no network — the save toast says "synced" or "this device only". Changing a PIN
-makes the stored copy undecryptable; the client falls back to its local copy and
-re-uploads rather than losing the board.
+**It goes up encrypted**, because `/api/state` has no auth: AES-GCM under a key
+derived by PBKDF2 from the club's PIN, which the client already holds in the
+rosters slice, so no new secret is stored and it survives a reload. A league-mate
+who fetches `?key=proj-Osborn` gets ciphertext.
+
+Do not present this as real confidentiality. It stops someone reading your work;
+it does not stop someone who digs the PIN out of `rosters` first. Same
+honour-system bar as everything else here.
+
+Changing a PIN makes the stored copy undecryptable. `cboxFetch()` returns null,
+`cboxPick()` therefore keeps the local copy, and `cboxLoad()` re-uploads it under
+the new key — recovery, not data loss.
+
+The **commissioner has no club and so no PIN** to derive a key from.
+`cboxRemoteKey()` returns null for him, and his own notes and projections stay on
+the device. There is nothing to sync them to.
+
+`cboxReadLocal()` reads three shapes: the current `{at,d}`, the board's old
+`{at,rows}`, and a bare value from before any of this synced — projections were
+written that way for months. The older two come back stamped 0, which loses to
+anything on the server and beats nothing at all. Notes have one extra fallback,
+the local-only `ll_notes_<club>` key, read once and rewritten into the store.
 
 ### An expiring contract is a free agent
 He is sitting on a roster this minute, but nobody has committed a dollar to him
@@ -492,7 +510,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 315 assertions against the real functions
+node tests/test.js        the app: 337 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -608,11 +626,9 @@ it is what fetches it. Do not fold it into the slice poll.
 Every post is escaped through `htmlEsc()` on the way to the screen. It is the one
 place in the app where a league-mate types text that everyone else renders.
 
-**My notes** is the opposite: a `localStorage` scratchpad under
-`ll_notes_<club>`, on exactly the same reasoning as projections. What a GM is
-planning is his own business and has no business sitting next to the PINs in a
-store with no auth. It does not follow him to another device, and the screen says
-so.
+**My notes** is the opposite of the chat: nobody else can read it. It rides the
+encrypted club-private store described above, so it follows the GM between
+devices while a league-mate who fetches the key gets ciphertext.
 
 ## Auth
 
