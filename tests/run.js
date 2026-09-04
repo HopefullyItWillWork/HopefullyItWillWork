@@ -51,7 +51,10 @@ const EPILOGUE = ';globalThis.__X={' + [
   'ALIAS','POSFIX','HAS_API','NOTIFY','emailing','fixing','selA','selB','PCATS','contracted','tradeable','catGood','catCell','editing',
   'ROOKIES','ROOKIES_PLACEHOLDER','PROTMAX','selPA','selPB','PICKPROT',
   'pickId','pickRec','pickHolder','effHolder','pickMade','onClock',
-  'hasStats','canEditContract','CSVCOLS','csvCell','aliasesFor','csvFileName'
+  'hasStats','canEditContract','CSVCOLS','csvCell','aliasesFor','csvFileName',
+  'CHAT','CHATREV','CHATMAX','CHATSHOW','CHATLOADED','chatId','chatOn','SLICES',
+  'notesKey','loadNotes','saveNotes',
+  'isFreeAgent','ownerLabel','LAB','raterClub'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
 
 try { vm.runInContext(src + EPILOGUE, ctx, {filename:'index.html'}); }

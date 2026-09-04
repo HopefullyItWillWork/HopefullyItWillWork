@@ -783,6 +783,143 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and the unfiltered export is bigger', lines.length > one.length);
   document.getElementById('apT').value = '';
 
+  console.log('\n== the free agent tab pops the card out, like the Players tab ==');
+  X.me = 'Osborn';
+  g('drawFA')();
+  const faTab = document.getElementById('fagrid').innerHTML;
+  ok('rows carry data-player, so the delegated handler opens the modal',
+     /<tr data-player="/.test(faTab));
+  ok('the pinned panel at the bottom is gone', !/faTabDetail/.test(faTab));
+  ok('the shared modal still fills from the same card builder',
+     typeof ctx.openPlayerCard === 'function');
+  g('openPlayerCard')('Kevin Durant');
+  ok('and opening one shows that player', document.getElementById('dlgPlayerBody').innerHTML.includes('Kevin Durant'));
+  ok('in the dialog, not the page', document.getElementById('dlgPlayer').open === true);
+  g('closeModal')('dlgPlayer');
+
+  console.log('\n== league chat ==');
+  X.CHAT = []; X.CHATREV = 0;
+  X.me = 'Osborn';
+  ctx.__toasts.length = 0;
+  await g('postChat')('scoreboard');
+  ok('the post lands', X.CHAT.length === 1 && X.CHAT[0].text === 'scoreboard', JSON.stringify(X.CHAT));
+  ok('stamped with the club', X.CHAT[0].by === 'Osborn');
+  ok('and with a time', !!X.CHAT[0].ts);
+  const n0 = X.CHAT.length;
+  await g('postChat')('   ');
+  ok('whitespace is not a post', X.CHAT.length === n0);
+  ctx.__alerts.length = 0;
+  await g('postChat')('x'.repeat(g('CHATMAX') + 1));
+  ok('an overlong post is refused', X.CHAT.length === n0 && /characters/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+
+  console.log('\n== chat is drawn, escaped, and newest first ==');
+  await g('postChat')('<img src=x onerror=alert(1)>');
+  g('drawChat')();
+  const log = document.getElementById('chatLog').innerHTML;
+  ok('the markup is escaped, not run', log.includes('&lt;img') && !log.includes('<img'));
+  ok('newest is first', log.indexOf('&lt;img') < log.indexOf('scoreboard'));
+  ok('the club is shown', log.includes('Osborn'));
+
+  console.log('\n== you delete your own posts, the commissioner deletes any ==');
+  const mine = X.CHAT[0], id = g('chatId')(mine);
+  X.CHAT = [{ts: '2026-01-01T00:00:00.000Z', by: 'Coulter', text: 'not yours'}, ...X.CHAT];
+  const theirs = g('chatId')(X.CHAT[0]);
+  ctx.__alerts.length = 0;
+  await g('removeChat')(theirs);
+  ok('a GM cannot delete another club’s post',
+     X.CHAT.some(m => g('chatId')(m) === theirs) && /your own/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  await g('removeChat')(id);
+  ok('but can delete his own', !X.CHAT.some(m => g('chatId')(m) === id));
+  X.me = '__comm__';
+  await g('removeChat')(theirs);
+  ok('the commissioner can delete anybody’s', !X.CHAT.some(m => g('chatId')(m) === theirs));
+  ok('nothing alerted on the allowed paths', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+
+  console.log('\n== chat never touches the five league slices ==');
+  ok('it is not one of them', !g('SLICES').includes('chat'), g('SLICES').join(','));
+  ok('and toSlices does not carry it', !('chat' in g('toSlices')(g('S'))),
+     Object.keys(g('toSlices')(g('S'))).join(','));
+
+  console.log('\n== notes stay in the browser ==');
+  X.me = 'Osborn';
+  ok('the key is per club', g('notesKey')() === 'll_notes_Osborn', g('notesKey')());
+  g('saveNotes')('chasing a centre');
+  ok('it round-trips', g('loadNotes')() === 'chasing a centre');
+  ok('and lives in localStorage, not the state',
+     ctx.localStorage.getItem('ll_notes_Osborn') === 'chasing a centre');
+  X.me = 'Coulter';
+  ok('another club sees its own, not yours', g('loadNotes')() === '');
+  X.me = 'Osborn';
+  g('saveNotes')('');
+
+  console.log('\n== an expiring contract is a free agent, everywhere it is asked ==');
+  X.me = 'Osborn';
+  // Kevin Durant is Coulter's, playing out the last year of his deal.
+  ok('he counts as a free agent', g('isFreeAgent')('Kevin Durant')===true);
+  ok('nobody has signed him for next season', g('signedClub')('Kevin Durant')===null);
+  ok('but he is on Coulter today', g('liveClub')('Kevin Durant')==='Coulter',
+     g('liveClub')('Kevin Durant'));
+  ok('and the label says both', g('ownerOf')('Kevin Durant')==='Coulter (expiring)',
+     g('ownerOf')('Kevin Durant'));
+  ok('a signed man is not a free agent', g('isFreeAgent')('Chet Holmgren')===false);
+  ok('his club is his club', g('ownerOf')('Chet Holmgren')==='N. Fink', g('ownerOf')('Chet Holmgren'));
+
+  console.log('\n== the what-if pool offers him under "free agents" ==');
+  X.LAB = [];
+  document.getElementById('labSearch2').value = '';
+  document.getElementById('labPos').value = '';
+  document.getElementById('labOwn').value = 'fa';
+  g('drawLabPool')();
+  const fapool = document.getElementById('labPool').innerHTML;
+  ok('an expiring player is in the free agent view', fapool.includes('Kevin Durant'));
+  ok('shown with the club he is expiring off', /Kevin Durant[\s\S]{0,200}Coulter \(expiring\)/.test(fapool));
+  ok('a signed player is not', !fapool.includes('Chet Holmgren'));
+  document.getElementById('labOwn').value = 'own';
+  g('drawLabPool')();
+  const owned = document.getElementById('labPool').innerHTML;
+  ok('and "signed for next season" is the exact complement',
+     owned.includes('Chet Holmgren') && !owned.includes('Kevin Durant'));
+  document.getElementById('labOwn').value = '';
+
+  console.log('\n== the club column is live state, not the RATER snapshot ==');
+  document.getElementById('rSearch').value = 'Kevin Durant';
+  document.getElementById('rTeam').value = '';
+  document.getElementById('rPos').value = '';
+  g('drawRater')();
+  ok('the rater shows where he is now',
+     /Coulter \(expiring\)/.test(document.getElementById('raterBody').innerHTML),
+     document.getElementById('raterBody').innerHTML.slice(0, 300));
+  document.getElementById('rSearch').value = '';
+  document.getElementById('rTeam').value = 'FA';
+  g('drawRater')();
+  const raterFA = document.getElementById('raterBody').innerHTML;
+  ok('"free agents" on the rater includes him too', raterFA.includes('Kevin Durant'));
+  ok('and excludes a signed man', !raterFA.includes('Chet Holmgren'));
+  document.getElementById('rTeam').value = 'Coulter';
+  g('drawRater')();
+  ok('a club filter still finds his expiring players',
+     document.getElementById('raterBody').innerHTML.includes('Kevin Durant'));
+  document.getElementById('rTeam').value = '';
+  g('drawRater')();
+
+  console.log('\n== signing him takes him out of every one of those ==');
+  X.me = 'Brice';
+  await g('signPlayer')('Kevin Durant', 'Brice', 4.00, 1);
+  ok('now signed', g('signedClub')('Kevin Durant')==='Brice', g('signedClub')('Kevin Durant'));
+  ok('so not a free agent', g('isFreeAgent')('Kevin Durant')===false);
+  ok('and the label is plain', g('ownerOf')('Kevin Durant')==='Brice');
+  document.getElementById('labOwn').value = 'fa';
+  g('drawLabPool')();
+  ok('gone from the what-if free agents',
+     !document.getElementById('labPool').innerHTML.includes('Kevin Durant'));
+  document.getElementById('labOwn').value = '';
+  ok('and gone from faPool too', !g('faPool')().some(p => p.n === 'Kevin Durant'));
+  X.me = 'Osborn';
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

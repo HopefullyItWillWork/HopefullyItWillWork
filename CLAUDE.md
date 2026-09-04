@@ -50,9 +50,12 @@ rather than something the merge logic has to be clever about.
 | `trades`   | offers                             | merged by offer id |
 | `log`      | every action                       | **append-only** |
 
-Two keys sit outside the five slices, written only by the mail functions:
-`mailcount` (a daily send counter) and `digest` (the last digest sent, so a
-re-invocation cannot mail the league twice). Neither is read by the client.
+Three kinds of key sit outside the five slices. `mailcount` and `digest` are
+written only by the mail functions and never read by the client. `strat-<club>`
+holds an encrypted strategy board. `chat` holds the league chat.
+
+`KEYS` in `state.mjs` only gates `?key=all` — every other verb takes any cleaned
+key, which is what makes those extras possible with no server change.
 
 `GET /api/state?key=all` returns every slice in one round trip.
 `PUT /api/state?key=X&rev=N` rejects a stale revision with 409 so the client can
@@ -98,6 +101,33 @@ the server's revision. localStorage keeps a copy, so the board still works with
 no network — the save toast says "synced" or "this device only". Changing a PIN
 makes the stored copy undecryptable; the client falls back to its local copy and
 re-uploads rather than losing the board.
+
+### An expiring contract is a free agent
+He is sitting on a roster this minute, but nobody has committed a dollar to him
+for next season, and that is the only test the auction, the strategy board and
+`faPool()` have ever used. Three functions say it in one place:
+
+- `signedClub(name)` — the club with salary on him for next season, or null.
+- `liveClub(name)` — whichever club carries him on its sheet today, expiring or
+  not.
+- `isFreeAgent(name)` — no `signedClub`. This is the predicate every "is he
+  available" question must use.
+
+`ownerOf()` renders the two together: `Osborn`, `Coulter (expiring)`, or
+`Free agent`. `ownerLabel()` is the same in the lower case the player cards use.
+
+The what-if roster's "free agents only" filter used to mean *unrostered*, which
+hid every expiring player from the one screen built for planning around them.
+
+**None of this reads `RATER`'s `t` field.** That is the club stamped on a player
+when the 2025-26 numbers were transcribed; it does not follow a trade, a signing,
+a cut or the draft. A screen showing `p.t` is showing last season, and the
+Players tab, the projections table and all three player cards were doing exactly
+that.
+
+The commissioner's player table is the deliberate exception, and for a different
+reason — see below: an expiring man is already listed under his club there, and
+a second row would let the commissioner edit two of him.
 
 ### One free agent pool, read by every screen
 `faPool()` is the single definition of the free agent class, and `stratPool()`
@@ -462,7 +492,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 273 assertions against the real functions
+node tests/test.js        the app: 315 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -551,6 +581,39 @@ leaves a marked slot saying so. When the feed lands, the stats half drops into
 Netlify runtime and no `@netlify/blobs` installed. Put new pure logic there
 rather than in `league.mjs`.
 
+## Chat and notes
+
+Two things share the Chat & notes tab, and the split is the point.
+
+**League chat** is public to anyone who can reach the app. It rides its own blob
+key, `chat`, deliberately outside the five slices: it is written constantly and
+read by nobody who cares about contracts, so putting it in `rosters` or
+`settings` would race every roster write and grow the payload the auction polls
+every four seconds. Its own key costs nothing and cannot collide.
+
+Posting goes through the **same append endpoint the transaction log uses** —
+`POST /api/state?key=chat&append=1` prepends server-side with no revision check,
+so two GMs posting at the same instant both survive. The server keeps the last
+5000 entries; at a few hundred bytes each that is about a megabyte at the very
+worst, and the client draws only the newest `CHATSHOW`. Posts cap at
+`CHATMAX` characters.
+
+Deleting is the one operation that needs a revision, because it rewrites the list
+rather than adding to it: a 409 re-reads and retries once. A GM may delete his
+own posts, the commissioner anybody's.
+
+Chat is **not** in `?key=all` and is not polled unless the tab is open — opening
+it is what fetches it. Do not fold it into the slice poll.
+
+Every post is escaped through `htmlEsc()` on the way to the screen. It is the one
+place in the app where a league-mate types text that everyone else renders.
+
+**My notes** is the opposite: a `localStorage` scratchpad under
+`ll_notes_<club>`, on exactly the same reasoning as projections. What a GM is
+planning is his own business and has no business sitting next to the PINs in a
+store with no auth. It does not follow him to another device, and the screen says
+so.
+
 ## Auth
 
 Honor-system PINs, stored in the `rosters` slice. Anyone who views source can read
@@ -572,7 +635,10 @@ the key fell back to `proj_anon`.
   sort last regardless of direction.
 - Player names in tables carry `class="pname" data-player="<name>"`. A delegated
   handler opens the shared card, so projections can be edited from anywhere a
-  player appears.
+  player appears. A whole row may carry `data-player` instead, which is what the
+  Free agent classes tab does — its rows used to render a card into a panel
+  pinned under the entire grid, so reading the stats you had just asked for meant
+  scrolling past four sorted tables. Prefer the modal.
 - Two themes via `[data-theme]` on the root. Every colour is a token. There is a
   global `[hidden]{display:none!important}` because author CSS otherwise wins.
 - Sentence case for headings and buttons, not tracked-out caps. Monospace for
