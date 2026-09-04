@@ -2745,6 +2745,99 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('the modal itself is still there', !!ctx.document.getElementById('dlgPlayerBody'));
   }
 
+
+  console.log('\n== a GM records who he is, once ==');
+  {
+    const CS = g('S');
+    const club = 'Osborn';
+    delete CS.teams[club].gm;
+    X.me = club;
+
+    ok('nothing on file to begin with',
+       g('gmOf')(club) === null && g('gmName')(club) === '');
+    ok('...so the club is known only by its name', g('clubWho')(club) === club);
+
+    console.log('-- what it will not accept --');
+    const err = g('gmNameError');
+    ok('both names are required',
+       /both a first and a last/.test(err('Nathan', '') || '')
+       && /both a first and a last/.test(err('', 'Daman') || ''));
+    ok('whitespace is not a name', /both a first and a last/.test(err('  ', ' ') || ''));
+    ok('digits alone are not a name', /does not look like a name/.test(err('123', '456') || ''));
+    ok('an over-long name is refused',
+       /40 characters/.test(err('x'.repeat(41), 'Daman') || ''));
+    ok('a real name passes', err('Nathan', 'Daman') === null);
+    ok('...and so does an accented one', err('Zoë', 'Şengün') === null,
+       String(err('Zoë', 'Şengün')));
+
+    console.log('-- recording it --');
+    ctx.__alerts.length = 0;
+    await g('saveGmName')(club, '  nathan ', ' daman  ');
+    const rec = g('gmOf')(club);
+    ok('it is on file', !!rec, JSON.stringify(rec));
+    ok('...trimmed and collapsed, exactly as typed otherwise',
+       rec.first === 'nathan' && rec.last === 'daman', JSON.stringify(rec));
+    ok('...stamped with when', typeof rec.at === 'string' && rec.at.length > 8, JSON.stringify(rec.at));
+    ok('gmName joins the two', g('gmName')(club) === 'nathan daman');
+    ok('clubWho carries both', g('clubWho')(club) === 'Osborn (nathan daman)');
+    ok('and it is logged', CS.log.some(e => /recorded as GM of Osborn/.test(e.detail || '')));
+
+    console.log('-- and then it is fixed --');
+    ctx.__alerts.length = 0;
+    await g('saveGmName')(club, 'Someone', 'Else');
+    ok('a second attempt by the GM changes nothing',
+       g('gmName')(club) === 'nathan daman', g('gmName')(club));
+    ok('...and he is told why',
+       /set once|already recorded/i.test(ctx.__alerts.join(' ')), JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    /* Fixed means fixed TO THE GM. An identity nobody can repair is worse than
+       one its owner cannot casually rewrite, so the commissioner is the
+       correction path — the same way he is for a forgotten PIN. */
+    X.me = '__comm__';
+    await g('saveGmName')(club, 'Nathan', 'Daman');
+    ok('the commissioner can correct a typo', g('gmName')(club) === 'Nathan Daman');
+    ok('...and the correction is logged',
+       CS.log.some(e => /corrected to Nathan Daman/.test(e.detail || '')));
+    ok('...but the original timestamp is kept', g('gmOf')(club).at === rec.at);
+
+    console.log('-- another GM cannot set it for you --');
+    /* Deliberately not a deputy: a deputy holds commissioner access and so may
+       correct anybody, which is the rule above, not a hole in this one. */
+    const other = g('TEAMS')().find(t => t !== club && !g('deputies')().includes(t));
+    delete CS.teams[other].gm;
+    X.me = other;
+    ctx.__alerts.length = 0;
+    await g('saveGmName')(club, 'Not', 'Me');
+    ok('a rival cannot name your club', g('gmName')(club) === 'Nathan Daman');
+    ok('...and is refused out loud',
+       /your own name/i.test(ctx.__alerts.join(' ')), JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+    X.me = club;
+  }
+
+  console.log('\n== the name survives a rename, which is the whole point ==');
+  {
+    const CS = g('S');
+    const from = 'Osborn', to = 'Osborn Athletic';
+    ok('the club is on file under its current name', g('gmName')(from) === 'Nathan Daman');
+
+    ok('the rename runs', g('renameClub')(from, to) === true);
+    ok('the club answers to the new name', !!CS.teams[to] && !CS.teams[from]);
+    ok('...and the GM came with it', g('gmName')(to) === 'Nathan Daman',
+       g('gmName')(to));
+    ok('...so the league still knows who ran it',
+       g('clubWho')(to) === 'Osborn Athletic (Nathan Daman)');
+    ok('a club with nothing on file still renames cleanly',
+       g('gmName')('Coulter') === '' && g('clubWho')('Coulter') === 'Coulter');
+
+    g('renameClub')(to, from);
+    ok('and back again', g('gmName')(from) === 'Nathan Daman');
+    delete CS.teams[from].gm;
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

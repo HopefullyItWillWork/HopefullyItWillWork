@@ -988,7 +988,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 784 assertions against the real functions
+node tests/test.js        the app: 812 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1153,6 +1153,39 @@ appointed him. `toggleDeputy()` writes the **settings** slice and logs it.
 `normCfg()` seeds the list **only when the key is missing**, never when it is
 present and empty — otherwise revoking the last deputy would silently re-grant
 him on the next load. It runs in `applySlice('settings')` and at boot.
+
+### Who runs a club, as opposed to what it is called
+A club name is a label, and labels change — clubs get renamed, sold and handed
+on. **`S.teams[t].gm = {first,last,at}`** is the person behind it, written once
+and then fixed. That is the whole point: a name its holder can edit is not an
+identity.
+
+It rides the **rosters** slice, so it merges per club like a cut or a signing,
+and `renameClub()` carries it across for free — the rename moves the whole club
+object, which is exactly the case this record exists for.
+
+| | |
+|---|---|
+| `gmOf(team)` | the record, or null |
+| `gmName(team)` | `'Nathan Daman'`, or `''` |
+| `clubWho(team)` | `'Osborn (Nathan Daman)'`, or just the club |
+| `gmNameError(f,l)` | why this pair cannot be recorded, or null |
+| `saveGmName(team,f,l)` | the one writer; confirms, because it is permanent |
+
+**Fixed means fixed *to the GM*.** `saveGmName()` refuses a second write unless
+`hasComm()`, so the commissioner can still correct a typo — an identity nobody
+can repair is worse than one its owner cannot casually rewrite, and he is
+already the reset path for a forgotten PIN. A correction keeps the original
+`at`; only the names change, and both writes are logged.
+
+Once it is on file the Settings form is **replaced by the record** rather than
+left editable-looking and then refused on save. The club page carries a
+`.gmpill` and the commissioner's GM access list shows it under the club name,
+which is where you go to ask who a club actually is.
+
+`nameClean()` collapses whitespace and trims; beyond "both names present, under
+40 characters, contains a letter" the app does not second-guess what somebody is
+called.
 
 ### A GM's own settings
 `v-settings` is his club's name, the address the league mails, and his PIN —

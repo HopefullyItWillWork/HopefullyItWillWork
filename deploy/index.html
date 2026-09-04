@@ -161,6 +161,10 @@ text-transform:uppercase;padding:3px 8px;border-radius:2px;cursor:pointer;margin
    signing has no terms to negotiate, so showing a disabled input would invite a
    click at something that will never change. */
 .seaslab{font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:400}
+/* The GM behind the club. Set apart from the numeric pills beside it, because it
+   is the one that is a person rather than a measurement. */
+.pill.gmpill{font-family:var(--disp);letter-spacing:0;text-transform:none;
+  background:var(--panel2);border-color:var(--tbi-b);color:var(--chalk)}
 .fixedterm{border:1px solid var(--line);border-radius:3px;background:var(--panel2);
   padding:8px 10px;color:var(--steel);font-size:12.5px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
@@ -812,6 +816,27 @@ thead th.hide,tbody td.hide{display:none}}
     <h2>Settings <span class="fcount" id="setWho"></span></h2>
     <p class="note">Your club, your address and your PIN. Everything here is yours to change; nobody
       else's club is reachable from this page.</p>
+
+    <h2 class="sub">Who you are</h2>
+    <p class="note">Your real first and last name. A club name can change &#8212; and clubs do get renamed,
+      sold and handed on &#8212; so this is the league's record of <b>who actually ran this club</b>, and it
+      stays with the club whatever it later calls itself.</p>
+    <div class="warn" id="gmWarn"><b>You can only set this once.</b> Type it carefully: once saved it is
+      fixed, because a name you can edit is not an identity. If you get it wrong, the commissioner can
+      correct it for you.</div>
+    <div class="form f4" id="gmForm">
+      <div><label for="setFirst">First name</label><input id="setFirst" maxlength="40" autocomplete="given-name"></div>
+      <div><label for="setLast">Last name</label><input id="setLast" maxlength="40" autocomplete="family-name"></div>
+      <div></div>
+      <button class="btn" id="setGmGo">Save my name</button>
+    </div>
+    <div class="form f4" id="gmLocked" hidden>
+      <div><label>First name</label><div class="fixedterm mono" id="gmFirstL">&#8212;</div></div>
+      <div><label>Last name</label><div class="fixedterm mono" id="gmLastL">&#8212;</div></div>
+      <div><label>Recorded</label><div class="fixedterm mono" id="gmAtL">&#8212;</div></div>
+      <div></div>
+    </div>
+    <p class="note" id="gmNote"></p>
 
     <h2 class="sub">Club name</h2>
     <p class="note">The name every screen calls your club, and the name league-mates offer trades to.
@@ -2360,6 +2385,7 @@ function drawDetail(){
       <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':money(salOff(p,1))}</td>
       <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':money(salOff(p,2))}</td></tr>`;}).join('');
   $('detail').innerHTML=`<div class="dhead"><h3>${t}</h3>
+    ${gmName(t)?`<span class="pill gmpill" title="The GM on file for this club. It does not change when the club is renamed.">${htmlEsc(gmName(t))}</span>`:''}
     <span class="pill">${n} of ${roster} under contract</span>
     <span class="pill ${cap-s>=0?'good':'bad'}">${cap-s>=0?money(cap-s)+' cap space':money(s-cap)+' over the cap'}</span>
     <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
@@ -2830,7 +2856,9 @@ function drawAdmin(){
   $('gmList').innerHTML=TEAMS().map(t=>{
     const d=S.teams[t];
     return `<div class="ent" style="grid-template-columns:150px 1fr auto">
-    <div style="font-family:var(--disp);font-size:16px">${htmlEsc(t)}</div>
+    <div style="font-family:var(--disp);font-size:16px">${htmlEsc(t)}${
+      gmName(t)?`<div class="t" style="font-size:11px">${htmlEsc(gmName(t))}</div>`
+               :'<div class="t" style="font-size:11px;opacity:.7">no GM name on file</div>'}</div>
     <div class="t">${d.pin?'PIN set':'no PIN \u2014 open to claim'}
       \u00b7 ${d.email?htmlEsc(d.email):'no email'}${d.email&&d.daily?' \u00b7 daily digest on':''}</div>
     <div><button class="btn ghost" data-em="${htmlEsc(t)}">Email</button>
@@ -2979,6 +3007,63 @@ function moveClubLocals(from,to){
     });
   }catch(e){}
 }
+/* ================= WHO RUNS THIS CLUB =================
+   A club name is a label and labels change — clubs get renamed, sold and handed
+   on. `S.teams[t].gm` is the person behind it, written once and then fixed,
+   which is the whole point: a name the holder can edit is not an identity.
+
+   It rides the **rosters** slice, so it merges per club exactly like a cut or a
+   signing, and renameClub() carries it across for free — the rename moves the
+   whole club object, which is precisely the case this record exists for.
+
+   Fixed means fixed TO THE GM. The commissioner can still correct a typo, the
+   same way he is the reset path for a forgotten PIN: an identity nobody can
+   repair is worse than one its owner cannot casually rewrite. */
+function gmOf(team){
+  const g=S.teams[team]&&S.teams[team].gm;
+  return (g&&(g.first||g.last)) ? g : null;
+}
+/* "Nathan Daman", or '' when the club has not said who runs it. */
+function gmName(team){
+  const g=gmOf(team);
+  return g ? [g.first,g.last].filter(Boolean).join(' ') : '';
+}
+/* The club, and the person, when we know the person. */
+function clubWho(team){
+  const n=gmName(team);
+  return n ? `${team} (${n})` : team;
+}
+const nameClean=v=>String(v==null?'':v).replace(/\s+/g,' ').trim();
+/* Why this pair of names cannot be recorded, or null. */
+function gmNameError(first,last){
+  const f=nameClean(first), l=nameClean(last);
+  if(!f||!l) return 'Give both a first and a last name.';
+  if(f.length>40||l.length>40) return 'Keep each name to 40 characters or fewer.';
+  if(!/[A-Za-z\u00C0-\u024F]/.test(f)||!/[A-Za-z\u00C0-\u024F]/.test(l))
+    return 'That does not look like a name.';
+  return null;
+}
+async function saveGmName(team,first,last){
+  if(!team||!S.teams[team]) return;
+  if(!canEdit(team)) return alert('You can only set your own name.');
+  if(gmOf(team)&&!hasComm())
+    return alert(`${team} is already recorded as ${gmName(team)}.\n\n`
+      +'A GM\u2019s name is set once and then fixed \u2014 it is how the league knows who ran a club '
+      +'even after the club is renamed. Ask the commissioner if it needs correcting.');
+  const bad=gmNameError(first,last);
+  if(bad) return alert(bad);
+  const f=nameClean(first), l=nameClean(last);
+  const was=gmOf(team);
+  if(!confirm(was
+    ? `Correct ${team} from ${gmName(team)} to ${f} ${l}?`
+    : `Record ${f} ${l} as the GM of ${team}?\n\n`
+      +'Check the spelling. This is set once and then fixed \u2014 only the commissioner can '
+      +'change it afterwards.')) return;
+  S.teams[team].gm={first:f,last:l,at:was&&was.at?was.at:now()};
+  await commit({kind:'edit',team,
+    detail:was ? `GM name corrected to ${f} ${l}` : `${f} ${l} recorded as GM of ${team}`},['rosters']);
+  projToast(was?'Name corrected':'Name recorded');
+}
 function drawSettings(){
   const box=$('setTab');
   const mine = me && !isComm() && S.teams[me] ? me : null;
@@ -2997,10 +3082,28 @@ function drawSettings(){
     : 'No address on file, so nothing is mailed to this club.';
   if($('setPinNote')&&!$('setPinNote').dataset.said)
     $('setPinNote').textContent = d.pin ? '' : 'This club has no PIN yet, so leave "current PIN" blank.';
+  /* Once it is on file the form is replaced by the record, rather than left
+     editable-looking and then refused on save. */
+  const g=gmOf(mine);
+  if($('gmForm')) $('gmForm').hidden=!!g;
+  if($('gmLocked')) $('gmLocked').hidden=!g;
+  if($('gmWarn')) $('gmWarn').hidden=!!g;
+  if(g){
+    if($('gmFirstL')) $('gmFirstL').textContent=g.first||'\u2014';
+    if($('gmLastL')) $('gmLastL').textContent=g.last||'\u2014';
+    if($('gmAtL')) $('gmAtL').textContent=g.at?fmt(g.at):'\u2014';
+    if($('gmNote')) $('gmNote').textContent=
+      `${gmName(mine)} is on file as the GM of ${mine}. This does not change when the club is renamed. `
+      +'If it is wrong, the commissioner can correct it.';
+  }else if($('gmNote')){
+    $('gmNote').textContent='Nothing on file yet, so the league only knows this club by its name.';
+  }
 }
 function wireSettings(){
   if(!$('setNameGo')||$('setNameGo').dataset.built) return;
   $('setNameGo').dataset.built='1';
+  if($('setGmGo')) $('setGmGo').onclick=()=>
+    saveGmName(me,$('setFirst').value,$('setLast').value);
   $('setNameGo').onclick=async()=>{
     const from=me, to=$('setName').value.trim();
     if(!from||isComm()||!S.teams[from]) return;

@@ -60,6 +60,7 @@ const EPILOGUE = ';globalThis.__X={' + [
   'NBATM','SLOTS','SLOTIDS','slotKind','slotLabel','isLocked','leagueTZ','irOf','posText','onIR','irCount','fresh','signedClub','swapping','LUCATS','hhmm','SLOTIDS','SCHED','TRICODE','tipFor',
   'minSal','deadlinePassed','canSignFA','nomOrder','nomFull','canNominate','OFFSEASON_TABS',
   'nomCount',
+  'gmOf','gmName','clubWho','gmNameError','saveGmName','nameClean','drawSettings',
   'tradeSideOf','drawTrade','validateTrade','drawTradeLists','openPlayerCard','meTeam',
   'stillCharged','deadSalary','unrollSeason','fresh','committed','cutRecords',
   'normCfg','tenureOf','cutAboveMin','faPool','signedClub','TEAMS','headcount',
