@@ -59,7 +59,9 @@ const EPILOGUE = ';globalThis.__X={' + [
   'AGG','PROJSRC','projFor','usingMine','usingAgg','projSrcLabel','RTGCACHE',
   'NBATM','SLOTS','SLOTIDS','slotKind','slotLabel','isLocked','leagueTZ','irOf','posText','onIR','irCount','fresh','signedClub','swapping','LUCATS','hhmm','SLOTIDS','SCHED','TRICODE','tipFor',
   'minSal','deadlinePassed','canSignFA','nomOrder','nomFull','canNominate','OFFSEASON_TABS',
-  'nomCount'
+  'nomCount',
+  'clubSlug','DEPUTY_SEED','deputies','isDeputy','hasComm','canGrantComm','normCfg',
+  'signBlock','matchOffer','canAnswerMatch','awardTo','answerMatch','closeAuction','toggleDeputy'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
 
 try { vm.runInContext(src + EPILOGUE, ctx, {filename:'index.html'}); }

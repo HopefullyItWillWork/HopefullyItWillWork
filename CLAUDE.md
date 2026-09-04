@@ -333,6 +333,43 @@ commissioner has not said otherwise.
 the auction and the draft set `p.b` themselves, so everything else leaves it
 alone.
 
+### Awarding is the commissioner's, not the room's
+The GM who nominated a player used to be able to close his own lot, which let him
+end the bidding the moment he was in front. **Only `hasComm()` sees the Award
+button**, and `closeAuction()` refuses anyone else. Everybody else gets a line
+saying the commissioner awards him when the bidding is done.
+
+An award goes one of two ways: the winning club signs him, or he is
+**restricted** and the club holding matching rights is asked first.
+
+That question is put to *that GM in the app* — not answered on his behalf by a
+`confirm()` in front of the commissioner, which is what it used to be. He is the
+one with the decision and the commissioner is not sitting next to him. So the lot
+parks in a third status, **`match`**, until he answers:
+
+    open  ->  match  ->  closed
+
+`placeBid()` only accepts `open`, so nobody can slip a bid in while the rights
+holder is thinking, and `mergeSlice('auction')` ranks the three so a further-along
+copy beats a stale one outright rather than being decided on bid count.
+`matchOffer()` is the pending offer; `canAnswerMatch()` is the rights holder **or**
+`hasComm()` — a GM who has gone quiet cannot hold the room up for ever.
+`answerMatch(true|false)` resolves it.
+
+**Nothing is written unless the contract fits.** `signBlock(team,name,price)`
+returns the one-sentence reason a club may not put that deal on its books, or
+null. It is asked before every award *and before the match is even offered* — a
+club that could not honour the contract is never asked to match; the lot goes
+straight to the winner and the log says why. It enforces the same rules
+`signPlayer()` does (waiver restriction, roster limit, hard cap, `bidCeiling()`);
+keep the two in step.
+
+`awardTo()` is the single write, and it passes `{force:true}` to `signPlayer()` —
+the only caller that does. That skips `canEdit()`, because the actor has already
+been established (a commissioner or deputy awarding, or the rights holder
+declining and so sending the player to somebody else's club) and the contract has
+already been checked.
+
 ### The auction nominates on a snake
 `S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
 backwards, round three forwards again, so the club at each end nominates twice in
@@ -747,7 +784,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 530 assertions against the real functions
+node tests/test.js        the app: 592 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -884,6 +921,34 @@ encrypted club-private store described above, so it follows the GM between
 devices while a league-mate who fetches the key gets ciphertext.
 
 ## Auth
+
+### Commissioner access is not the commissioner login
+Two people run this league and one of them also has a club, so the tools cannot
+hang off the commissioner login alone. A club named in **`S.cfg.deputies`** signs
+in as itself — its own roster, its own encrypted notes, its own turn on the
+auction's nomination snake — and *additionally* carries the Commissioner tab and
+every power on it. `DEPUTY_SEED` is `A. Daman` and `N. Daman`.
+
+The app asks two different questions and they are not the same question:
+
+| | |
+|---|---|
+| `isComm()` | am I the commissioner login, with no club of my own? |
+| `hasComm()` | may I use the commissioner's tools? |
+
+Everything meaning **"acting as a GM"** must keep asking `isComm()`: the club
+switcher on My Team, nominating, `cboxRemoteKey()`, who a log line is attributed
+to. Everything meaning **"may I do this"** asks `hasComm()`. Do not widen
+`isComm()` itself — that would give a deputy the commissioner's clubless identity
+and strand him from his own team.
+
+`canGrantComm()` is `isComm()`: only the commissioner login hands access out or
+takes it back, so a deputy can neither promote himself nor demote the man who
+appointed him. `toggleDeputy()` writes the **settings** slice and logs it.
+
+`normCfg()` seeds the list **only when the key is missing**, never when it is
+present and empty — otherwise revoking the last deputy would silently re-grant
+him on the next load. It runs in `applySlice('settings')` and at boot.
 
 Honor-system PINs, stored in the `rosters` slice. Anyone who views source can read
 them. This prevents accidents and gives an audit trail; it does not stop a
