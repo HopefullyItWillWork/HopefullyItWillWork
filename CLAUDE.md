@@ -120,6 +120,44 @@ written that way for months. The older two come back stamped 0, which loses to
 anything on the server and beats nothing at all. Notes have one extra fallback,
 the local-only `ll_notes_<club>` key, read once and rewritten into the store.
 
+### Three projection sources, one switch
+The header toggle picks what every stats table in the app is showing. `useProj`
+means "not raw 2025-26"; `PROJSRC` says which projection is in front of it:
+
+| | |
+|---|---|
+| `act` | 2025-26 actuals — the record |
+| `agg` | the 2026-27 aggregate, the same table for every GM |
+| `mine` | that GM's own edits, over the 2025-26 baseline |
+
+`projFor(name)` is the single place that decision is made, and `pstat()` is its
+only important caller — everything else inherits. `usingMine()` and `usingAgg()`
+exist so the amber "edited" marks stay on a GM's own numbers: on the aggregate
+the numbers move but nothing is his, so nothing is marked.
+
+`setProjMode()` normalises its argument, including the old `true`/`false` call
+shape, because an unrecognised value silently meaning "some projection" is
+exactly the bug worth not having. Anything unknown is `act`.
+
+**`AGG` is a static table, not a feed.** It is the commissioner's own aggregate,
+transcribed from a spreadsheet he assembled: LineupExperts' preseason set for the
+per-game line, plus Hashtag Basketball's free top-30 for shooting percentages.
+The app scrapes nothing. Replace the whole constant when a newer set arrives —
+nothing reads anything but its twelve keys.
+
+**Attempts in `AGG` are derived, and that matters.** The source publishes makes
+(FGM, FTM) and no attempts, but the league scores FG% and FT% weighted by
+attempts, so `FGA`/`FTA` had to come from somewhere: Hashtag's projected
+percentage where it has one (30 players), otherwise the player's own 2025-26 rate
+(305), and the pooled rate of everyone else (.474 / .787) for the two with no
+2025-26 attempts on file. So a player's shooting *volume* is projected; his
+*efficiency* is last season's unless Hashtag says otherwise. Do not present the
+percentages as projected.
+
+337 of the 390 players in `RATER` are covered; the rest fall back to their
+2025-26 line, which is just what `pstat()` does with any missing key. Players in
+the source who are not in `RATER` were dropped — there is no row to show them in.
+
 ### An expiring contract is a free agent
 He is sitting on a roster this minute, but nobody has committed a dollar to him
 for next season, and that is the only test the auction, the strategy board and
@@ -510,7 +548,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 337 assertions against the real functions
+node tests/test.js        the app: 357 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -713,8 +751,12 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 - CSV import. Export is built; see the commissioner's player table above for what
   reading a file back in would have to get right.
 - Nightly stats feed. The rolling-15-day chart is built and waiting on a
-  `daily/<date>` key per day. Use a real API, not scraping — Basketball-Reference
-  prohibits it and 570 page fetches will not finish inside the function timeout.
+  `daily/<date>` key per day. **Use the NBA's own stats endpoints**
+  (`stats.nba.com`, e.g. `leaguegamelog` / `boxscoretraditionalv2`) — free, no
+  key, one request a night for the whole league rather than a page per player.
+  They want a browser-ish `Referer` and `User-Agent` or they hang, which is fine
+  from a Netlify function. Do not scrape Basketball-Reference: it prohibits it,
+  and 570 page fetches will not finish inside the function timeout.
 - Auto-populate and optimize lineups. Both need the daily feed first.
 - Multi-year weighted projections and historical comps.
 - Deriving rosters from the transaction log rather than storing them directly.
