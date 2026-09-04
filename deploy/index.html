@@ -220,6 +220,22 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   border-bottom:1px solid var(--line2);background:var(--panel2);font-size:11.5px;color:var(--dim)}
 .pkprot select{font-size:11.5px;padding:3px 5px}
 .pkprot label{display:flex;align-items:center;gap:5px;margin:0;font-size:11.5px;text-transform:none;letter-spacing:0}
+/* Chat. The log is a plain column, newest first, so nothing has to scroll to the
+   bottom to be read and a new post lands where the eye already is. */
+.chatbox{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-bottom:4px}
+.chatbox textarea,#notesBox{width:100%;background:var(--panel);color:var(--chalk);
+  border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--body);
+  font-size:14px;line-height:1.5;resize:vertical}
+.chatbox textarea:focus,#notesBox:focus{outline:none;border-color:var(--steel)}
+.chatlog{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:3px;overflow:hidden;margin-top:12px}
+.msg{background:var(--panel);padding:9px 12px}
+.msg.own{background:var(--panel2)}
+.msg .mh{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+.msg .mh b{font-family:var(--disp);font-size:13px;letter-spacing:.04em}
+.msg .mh .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)}
+.msg .mh .act{margin-left:auto}
+.msg .mb{font-size:14px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
 .sidefoot{margin-top:11px;display:grid;gap:5px;font-family:var(--mono);font-size:11.5px;color:var(--steel)}
 .sidefoot div{display:flex;justify-content:space-between;gap:10px}
 .sidefoot b{color:var(--chalk);font-weight:500}
@@ -490,6 +506,7 @@ thead th.hide,tbody td.hide{display:none}}
         <button role="tab" data-v="v-lab" aria-selected="false" hidden>Builder</button>
         <button role="tab" data-v="v-draft" aria-selected="false">Quick sign</button>
         <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
+        <button role="tab" data-v="v-chat" aria-selected="false">Chat &amp; notes</button>
         <button role="tab" data-v="v-proj" aria-selected="false" id="projTab" hidden>My projections</button>
         <button role="tab" data-v="v-trends" aria-selected="false">Team trends</button>
         <button role="tab" data-v="v-history" aria-selected="false">League history</button>
@@ -637,6 +654,38 @@ thead th.hide,tbody td.hide{display:none}}
     <div id="draftPick"></div>
     <h2 class="sub">Still available <span class="fcount" id="rkCount"></span></h2>
     <div id="rookiePool"></div>
+  </section>
+
+  <section class="view" id="v-chat" role="tabpanel" hidden>
+    <h2>League chat</h2>
+    <p class="note">Anyone signed in can post, and every club sees it. This is the same
+      honour-system bar as the rest of the app &#8212; posts are stored in the league database with
+      no authentication in front of them, so write nothing here you would mind the whole league,
+      or anyone with the link, reading. You can delete your own posts; the commissioner can delete
+      any.</p>
+    <div class="warn" id="chatLocal" hidden><b>No league database reachable.</b>
+      Anything you post here stays in this browser and nobody else will see it.</div>
+    <div class="filters">
+      <span class="fcount" id="chatWho"></span>
+      <span class="fcount" id="chatCount"></span>
+      <button class="btn ghost" id="chatRefresh">Refresh</button>
+    </div>
+    <div class="chatbox">
+      <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
+      <button class="btn" id="chatGo">Post</button>
+    </div>
+    <p class="note">Enter posts, shift+Enter starts a new line. 600 characters.</p>
+    <div class="chatlog" id="chatLog"></div>
+
+    <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span></h2>
+    <p class="note">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
+      which trade you are working on. It is stored in this browser only, exactly like your
+      projections, and is never sent to the league database. That also means it does not follow you
+      to another device.</p>
+    <textarea id="notesBox" rows="10" placeholder="Nobody else can read this."></textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button class="btn ghost" id="notesClear">Clear my notes</button>
+    </div>
   </section>
 
   <section class="view" id="v-trade" role="tabpanel" hidden>
@@ -1194,6 +1243,9 @@ function startPolling(){
         if(j[k]&&j[k].rev!==REV[k]){ REV[k]=j[k].rev; applySlice(k,j[k].data); changed=true; }
       });
       if(changed){ render(); setSync('ok','Updated'); }
+      // Chat lives outside ?key=all, and only matters while somebody is reading
+      // it — no point polling a room nobody has open.
+      if(chatOn() && await loadChat()) drawChat();
     }catch(e){}
   }, (A()&&A().status==='open') ? 4000 : 12000);
 }
@@ -1773,19 +1825,19 @@ function drawFA(){
         <th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
         <th class="hide2" data-k="TOV">TO</th><th data-k="rtg">Rating</th></tr></thead>
       <tbody>${list.map(p=>{const v=pstat(p.n); const r=RG[canon(p.n)];
-        return `<tr data-fap="${p.n}" style="cursor:pointer"><td>${p.n}</td>
+        return `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td>${p.n}</td>
         <td class="l hide">${p.from}</td><td class="hide2">${p.y[0]?money(p.y[0]):'&#8212;'}</td>
         ${v&&v.g?`<td>${v.g}</td><td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
           <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>`
          :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
         <td class="rating">${r==null?'&#8212;':(r>0?'+':'')+r}</td></tr>`;}).join('')}
       </tbody></table></div></div>`;
-  }).join('') + '<div id="faTabDetail" style="grid-column:1/-1"></div>';
+  }).join('');
   groups.forEach((g,gi)=>{ sortable('fag'+gi+'Tbl','fag'+gi,'rtg',true); redraw['fag'+gi]=drawFA; });
-  document.querySelectorAll('[data-fap]').forEach(tr=>tr.onclick=()=>{
-    const box=$('faTabDetail');
-    box.innerHTML=`<div style="margin-top:6px">${playerCard(tr.dataset.fap)}</div>`;
-    wirePlayerCard(box); box.scrollIntoView({behavior:'smooth',block:'nearest'});});
+  /* The row carries data-player, so the delegated handler opens the shared modal
+     card — the same thing clicking a name does on the Players tab. It used to
+     render into a panel pinned under the whole grid, which on this tab meant
+     scrolling past four sorted tables to read the stats you just asked for. */
   $('falist').innerHTML=fa.map(p=>`<option value="${p.n}">${p.from}${p.y[0]?' &#183; last '+money(p.y[0]):''}</option>`).join('');
 }
 function entry(e,i){
@@ -2034,7 +2086,7 @@ function render(){
     $('tA').value=(me&&me!=='__comm__')?me:TEAMS()[0];
     $('tB').value=TEAMS().find(t=>t!==$('tA').value);
   }
-  drawDraft();drawBlock();drawTradeLists();drawTrade();drawOffers();
+  drawDraft();drawChat();drawBlock();drawTradeLists();drawTrade();drawOffers();
   drawRater();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
   exportBtn('expRater','player-rater.csv','raterTbl');
   exportBtn('expLabPool','player-pool.csv','labPoolTbl');
@@ -3131,6 +3183,9 @@ function goTab(id){
   if(!found) return false;
   document.querySelectorAll('.view').forEach(v=>v.hidden = v.id!==id);
   if(id==='v-auction'&&typeof refreshStrat==='function') refreshStrat();
+  // Chat is fetched on its own, not through ?key=all, so opening the tab is what
+  // asks for it. Nothing is polled while nobody is looking.
+  if(id==='v-chat'&&typeof loadChat==='function') loadChat(true).then(()=>drawChat());
   window.scrollTo&&window.scrollTo(0,0);
   if(typeof markMore==='function') markMore();
   return true;
@@ -4330,6 +4385,146 @@ function drawDraftAdmin(){
   $('dsClose').disabled=!d.open;
 }
 
+
+/* ================= LEAGUE CHAT =================
+   A room for the league to talk, and a private notepad that never leaves the
+   browser. Two very different things sharing a tab, which is the point: what you
+   post is public to everyone with the link, what you type in the notepad is
+   yours alone. The screen says so.
+
+   Chat is its own blob key, deliberately outside the five league slices. It is
+   written constantly and read by nobody who cares about contracts, so putting it
+   in `rosters` or `settings` would mean every wisecrack raced a roster write and
+   grew the payload the auction has to poll. Its own key costs nothing and cannot
+   collide with anything.
+
+   It is written through the same append endpoint the transaction log uses:
+   POST /api/state?key=chat&append=1 prepends server-side with no revision check,
+   so two GMs posting at the same instant both survive. The server keeps the last
+   5000 entries; at a few hundred bytes each that is about a megabyte at the
+   absolute worst, and the client only ever draws the newest CHATSHOW.
+
+   Deleting is the one operation that needs a revision, because it rewrites the
+   list rather than adding to it — a 409 re-reads and retries once. */
+const CHATMAX=600, CHATSHOW=200;
+let CHAT=[], CHATREV=0, CHATLOADED=false, CHATBUSY=false;
+const chatId=m=>String(m.ts)+'|'+String(m.by);
+const chatOn=()=>$('v-chat')&&!$('v-chat').hidden;
+async function loadChat(force){
+  if(!await probeAPI()){ CHATLOADED=true; return false; }
+  if(CHATBUSY&&!force) return false;
+  try{
+    const r=await fetch(API+'?key=chat',{cache:'no-store'});
+    if(!r.ok) return false;
+    const j=await r.json();
+    const rev=j.rev||0;
+    const changed = rev!==CHATREV || !CHATLOADED;
+    CHATREV=rev; CHAT=Array.isArray(j.data)?j.data:[]; CHATLOADED=true;
+    return changed;
+  }catch(e){ return false; }
+}
+async function postChat(text){
+  const body=String(text||'').trim();
+  if(!body) return;
+  if(!me) return alert('Sign in to post.');
+  if(body.length>CHATMAX) return alert(`Keep it under ${CHATMAX} characters — that one is ${body.length}.`);
+  const m={ts:now(),by:isComm()?'Commissioner':me,text:body};
+  CHATBUSY=true;
+  let ok=false;
+  if(await probeAPI()){
+    try{
+      const r=await fetch(`${API}?key=chat&append=1`,{method:'POST',
+        headers:{'content-type':'application/json'},body:JSON.stringify({data:[m]})});
+      if(r.ok){ const j=await r.json(); CHATREV=j.rev; ok=true; }
+    }catch(e){}
+  }
+  CHATBUSY=false;
+  /* The message goes on screen either way. A failed send says so rather than
+     swallowing what somebody just typed. */
+  CHAT=[m,...CHAT];
+  drawChat();
+  projToast(ok?'Posted':'Not sent — the league did not get that one');
+  if(ok) await loadChat(true), drawChat();
+}
+async function removeChat(id){
+  const m=CHAT.find(x=>chatId(x)===id);
+  if(!m) return;
+  const mine = isComm() || m.by===me;
+  if(!mine) return alert('You can only delete your own posts.');
+  if(!confirm('Delete this post for everybody?')) return;
+  const next=CHAT.filter(x=>chatId(x)!==id);
+  if(!await probeAPI()){ CHAT=next; return drawChat(); }
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      const r=await fetch(`${API}?key=chat&rev=${CHATREV}`,{method:'PUT',
+        headers:{'content-type':'application/json'},body:JSON.stringify({data:next})});
+      if(r.ok){ const j=await r.json(); CHATREV=j.rev; CHAT=next; return drawChat(); }
+      if(r.status===409){ await loadChat(true); continue; }
+    }catch(e){}
+    break;
+  }
+  projToast('Could not delete that post');
+}
+/* The notepad is localStorage under the club, exactly like projections and for
+   exactly the same reason: what a GM is planning is his own business, and there
+   is no version of this app where his notes should ride to the server next to
+   the PINs. It follows no device. */
+const notesKey=()=>'ll_notes_'+(me||'anon');
+function loadNotes(){ try{ return localStorage.getItem(notesKey())||''; }catch(e){ return ''; } }
+function saveNotes(v){ try{ localStorage.setItem(notesKey(),v); }catch(e){} }
+let notesTimer=null;
+function chatLine(m){
+  const mine = isComm() || m.by===me;
+  return `<div class="msg${m.by===me?' own':''}">
+    <div class="mh"><b>${htmlEsc(m.by)}</b><span class="t">${fmt(m.ts)}</span>
+      ${mine?`<button class="act" data-delmsg="${htmlEsc(chatId(m))}">Delete</button>`:''}</div>
+    <div class="mb">${htmlEsc(m.text)}</div></div>`;
+}
+function drawChat(){
+  const box=$('chatLog'); if(!box) return;
+  const shown=CHAT.slice(0,CHATSHOW);
+  box.innerHTML = shown.length ? shown.map(chatLine).join('')
+    : `<div class="empty">${CHATLOADED?'Nobody has said anything yet.':'Loading…'}</div>`;
+  box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>removeChat(b.dataset.delmsg));
+  if($('chatCount')) $('chatCount').textContent = CHAT.length
+    ? `${CHAT.length} post${CHAT.length===1?'':'s'}${CHAT.length>CHATSHOW?`, newest ${CHATSHOW} shown`:''}` : '';
+  const send=$('chatGo'), inp=$('chatIn');
+  if(send) send.disabled=!me;
+  if(inp){
+    inp.disabled=!me;
+    inp.placeholder = me ? 'Say something' : 'Sign in to post';
+  }
+  if($('chatWho')) $('chatWho').textContent = me
+    ? `Posting as ${isComm()?'Commissioner':me}` : 'Signed out — you can read, not post';
+  if($('chatLocal')) $('chatLocal').hidden = HAS_API!==false;
+  const nb=$('notesBox');
+  if(nb && document.activeElement!==nb) nb.value=loadNotes();
+  if(nb) nb.disabled=false;
+}
+function wireChat(){
+  if($('chatGo')) $('chatGo').onclick=async()=>{
+    const v=$('chatIn').value;
+    $('chatIn').value='';
+    await postChat(v);
+  };
+  if($('chatIn')) $('chatIn').onkeydown=e=>{
+    // Enter sends, shift+Enter is a new line — what every chat box does.
+    if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey){ e.preventDefault(); $('chatGo').onclick(); }
+  };
+  if($('chatRefresh')) $('chatRefresh').onclick=async()=>{ await loadChat(true); drawChat(); };
+  if($('notesBox')) $('notesBox').oninput=()=>{
+    clearTimeout(notesTimer);
+    const v=$('notesBox').value;
+    notesTimer=setTimeout(()=>{ saveNotes(v); if($('notesSaved')) $('notesSaved').textContent='saved on this device'; },400);
+    if($('notesSaved')) $('notesSaved').textContent='typing…';
+  };
+  if($('notesClear')) $('notesClear').onclick=()=>{
+    if(!confirm('Clear your notes? They are only on this device, so this cannot be undone.')) return;
+    $('notesBox').value=''; saveNotes('');
+    if($('notesSaved')) $('notesSaved').textContent='cleared';
+  };
+}
+
 /* ================= PLAYER RATER (descriptive, 2025-26) ================= */
 const RCATS=["FG","FT","P3","REB","AST","STL","BLK","TO","PTS"];
 function zColor(v){
@@ -4602,6 +4797,7 @@ function netChip(){
   await loadProj();
   rebuildPlayerFixes();
   await loadStrat();
+  wireChat();
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();

@@ -10,7 +10,12 @@ import { getStore } from "@netlify/blobs";
    GET  /api/state?key=auction          -> { rev, data }
    PUT  /api/state?key=auction&rev=N    -> { ok, rev }   409 if stale
    POST /api/state?key=log&append=1     -> { ok, rev }   appends, never clobbers
-   GET  /api/state?key=all              -> every key in one round trip   */
+   GET  /api/state?key=all              -> every key in one round trip
+
+   KEYS only gates ?key=all. Every other verb takes any cleaned key, which is how
+   the strategy boards (strat-<club>), the league chat (chat) and the mail
+   counters live here without being league state: they are read one at a time by
+   the screens that want them, and never ride the payload the auction polls. */
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const KEYS = ["settings", "rosters", "auction", "trades", "log"];

@@ -783,6 +783,79 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and the unfiltered export is bigger', lines.length > one.length);
   document.getElementById('apT').value = '';
 
+  console.log('\n== the free agent tab pops the card out, like the Players tab ==');
+  X.me = 'Osborn';
+  g('drawFA')();
+  const faTab = document.getElementById('fagrid').innerHTML;
+  ok('rows carry data-player, so the delegated handler opens the modal',
+     /<tr data-player="/.test(faTab));
+  ok('the pinned panel at the bottom is gone', !/faTabDetail/.test(faTab));
+  ok('the shared modal still fills from the same card builder',
+     typeof ctx.openPlayerCard === 'function');
+  g('openPlayerCard')('Kevin Durant');
+  ok('and opening one shows that player', document.getElementById('dlgPlayerBody').innerHTML.includes('Kevin Durant'));
+  ok('in the dialog, not the page', document.getElementById('dlgPlayer').open === true);
+  g('closeModal')('dlgPlayer');
+
+  console.log('\n== league chat ==');
+  X.CHAT = []; X.CHATREV = 0;
+  X.me = 'Osborn';
+  ctx.__toasts.length = 0;
+  await g('postChat')('scoreboard');
+  ok('the post lands', X.CHAT.length === 1 && X.CHAT[0].text === 'scoreboard', JSON.stringify(X.CHAT));
+  ok('stamped with the club', X.CHAT[0].by === 'Osborn');
+  ok('and with a time', !!X.CHAT[0].ts);
+  const n0 = X.CHAT.length;
+  await g('postChat')('   ');
+  ok('whitespace is not a post', X.CHAT.length === n0);
+  ctx.__alerts.length = 0;
+  await g('postChat')('x'.repeat(g('CHATMAX') + 1));
+  ok('an overlong post is refused', X.CHAT.length === n0 && /characters/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+
+  console.log('\n== chat is drawn, escaped, and newest first ==');
+  await g('postChat')('<img src=x onerror=alert(1)>');
+  g('drawChat')();
+  const log = document.getElementById('chatLog').innerHTML;
+  ok('the markup is escaped, not run', log.includes('&lt;img') && !log.includes('<img'));
+  ok('newest is first', log.indexOf('&lt;img') < log.indexOf('scoreboard'));
+  ok('the club is shown', log.includes('Osborn'));
+
+  console.log('\n== you delete your own posts, the commissioner deletes any ==');
+  const mine = X.CHAT[0], id = g('chatId')(mine);
+  X.CHAT = [{ts: '2026-01-01T00:00:00.000Z', by: 'Coulter', text: 'not yours'}, ...X.CHAT];
+  const theirs = g('chatId')(X.CHAT[0]);
+  ctx.__alerts.length = 0;
+  await g('removeChat')(theirs);
+  ok('a GM cannot delete another club’s post',
+     X.CHAT.some(m => g('chatId')(m) === theirs) && /your own/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  await g('removeChat')(id);
+  ok('but can delete his own', !X.CHAT.some(m => g('chatId')(m) === id));
+  X.me = '__comm__';
+  await g('removeChat')(theirs);
+  ok('the commissioner can delete anybody’s', !X.CHAT.some(m => g('chatId')(m) === theirs));
+  ok('nothing alerted on the allowed paths', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+
+  console.log('\n== chat never touches the five league slices ==');
+  ok('it is not one of them', !g('SLICES').includes('chat'), g('SLICES').join(','));
+  ok('and toSlices does not carry it', !('chat' in g('toSlices')(g('S'))),
+     Object.keys(g('toSlices')(g('S'))).join(','));
+
+  console.log('\n== notes stay in the browser ==');
+  X.me = 'Osborn';
+  ok('the key is per club', g('notesKey')() === 'll_notes_Osborn', g('notesKey')());
+  g('saveNotes')('chasing a centre');
+  ok('it round-trips', g('loadNotes')() === 'chasing a centre');
+  ok('and lives in localStorage, not the state',
+     ctx.localStorage.getItem('ll_notes_Osborn') === 'chasing a centre');
+  X.me = 'Coulter';
+  ok('another club sees its own, not yours', g('loadNotes')() === '');
+  X.me = 'Osborn';
+  g('saveNotes')('');
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
