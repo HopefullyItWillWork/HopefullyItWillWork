@@ -239,6 +239,23 @@ commissioner alias beats the built-in `NAMEFIX`.
 Stats are deliberately not editable here. They come from the season's box scores;
 a GM's own numbers belong in projections, which never leave his browser.
 
+**Exporting the table is `leagueCSV()`, not `tableToCSV()`.** The generic helper
+scrapes rendered HTML, so it carries `$39.25` where a number belongs, an em dash
+where a blank does, and none of the fields the table does not draw. `leagueCSV()`
+writes the roster entry's own values — one row per contract, plus one per
+unsigned free agent — with salaries as plain numbers and the raw `o` and `b` text
+rather than what `birdKind()` makes of them. `key` is the canon name and is the
+column that identifies a player; `player` is the club sheet's spelling, and six
+of those differ from the box scores. Two buttons: one honours the filters, one
+deliberately clears and restores them, because an export meant as a backup must
+not silently inherit a filter somebody left set. `downloadCSV()` prepends a BOM
+so Excel reads Jokic and Sengun as UTF-8.
+
+Reading a CSV back in is **not built**, and it is the harder half: identity
+(a typo makes a new player rather than editing one), a preview before any write,
+a rule that a missing row never means "cut him", and a re-read before applying,
+since the `rosters` merge replaces a club wholesale.
+
 Free agents in this table are the *strict* reading — nobody on any roster —
 unlike the strategy board. A man in the last year of a deal is already listed
 under his club, and listing him twice would give the commissioner two rows for
@@ -445,7 +462,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 257 assertions against the real functions
+node tests/test.js        the app: 273 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -611,6 +628,8 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 ## Not yet built
 
 - The real rookie class. `ROOKIES` is placeholder data until the feed lands.
+- CSV import. Export is built; see the commissioner's player table above for what
+  reading a file back in would have to get right.
 - Nightly stats feed. The rolling-15-day chart is built and waiting on a
   `daily/<date>` key per day. Use a real API, not scraping — Basketball-Reference
   prohibits it and 570 page fetches will not finish inside the function timeout.

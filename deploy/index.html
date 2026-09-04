@@ -891,7 +891,15 @@ thead th.hide,tbody td.hide{display:none}}
         <option value="fix">Corrected by the commissioner</option>
       </select>
       <span class="fcount" id="apCount"></span>
+      <button class="btn ghost" id="apCsv">Export these rows</button>
+      <button class="btn ghost" id="apCsvAll">Export the whole league</button>
     </div>
+    <p class="note">The CSV carries the roster entry's own fields, not what the table draws:
+      salaries as plain numbers, the raw option and rights text, the year acquired, the IR and
+      block flags, and every spreadsheet spelling mapped onto a player. The <code>key</code>
+      column is the canonical name and is what identifies a player &#8212; leave it alone if you
+      mean to read the file back in later. "These rows" honours the filters above; the other
+      button ignores them.</p>
     <div class="scroller" id="apTable"></div>
 
     <h2 class="sub">Danger zone</h2>
@@ -1902,6 +1910,16 @@ function drawAllPlayers(){
     b.onclick=()=>openEdit(b.dataset.apc,+b.dataset.api));
   $('apTable').querySelectorAll('[data-apf]').forEach(b=>
     b.onclick=()=>openPlayerEdit(b.dataset.apf));
+  if($('apCsv')) $('apCsv').onclick=()=>downloadCSV(csvFileName(),leagueCSV(apRows()));
+  if($('apCsvAll')) $('apCsvAll').onclick=()=>{
+    /* Reads the unfiltered league rather than the table: an export meant as a
+       backup must not quietly inherit a filter somebody left set. */
+    const q=$('apQ').value, t=$('apT').value, f=$('apS').value;
+    $('apQ').value=''; $('apT').value=''; $('apS').value='';
+    const csv=leagueCSV(apRows());
+    $('apQ').value=q; $('apT').value=t; $('apS').value=f;
+    downloadCSV(csvFileName(),csv);
+  };
   sortable('apTbl','ap','n',false); redraw.ap=drawAllPlayers;
 }
 function drawAdmin(){
@@ -3224,10 +3242,47 @@ function tableToCSV(el){
 }
 function downloadCSV(name,csv){
   if(!csv) return alert('Nothing to export yet.');
-  const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  /* The byte order mark is what makes Excel read the file as UTF-8. Without it
+     Jokic, Sengun and Vucevic open as mojibake, which is exactly the kind of
+     name damage canon() exists to undo. */
+  const b=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(b); a.download=name; a.click();
 }
+/* The commissioner's player export is deliberately not tableToCSV(): that
+   scrapes the rendered table, so it carries "$39.25" where a number belongs, an
+   em dash where a blank does, and none of the fields the table does not show.
+   This writes the roster entry's own values — one row per contract, plus one per
+   unsigned free agent — so a spreadsheet holds the same league the app does.
+
+   `key` is the canon name and is the column that identifies a player. The
+   spelling in `player` is the club sheet's, and six of those differ from the box
+   scores; keep `key` intact if the file is ever read back in. */
+const CSVCOLS=['key','player','club','pos','salary_now','salary_next','salary_plus1',
+  'salary_plus2','years_left','option','rights','acquired','ir','on_block','rating',
+  'alias','status'];
+const csvCell=v=>{
+  if(v==null) return '';
+  const t=String(v);
+  return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+};
+/* Every spreadsheet spelling the commissioner has mapped onto this player. */
+const aliasesFor=c=>Object.keys(ALIAS).filter(k=>ALIAS[k]===c).join('; ');
+function leagueCSV(rows){
+  const num=v=>v==null?'':Number(v).toFixed(2);
+  const out=[CSVCOLS.join(',')];
+  (rows||[]).forEach(r=>{
+    const p=r.p, c=canon(p.n);
+    out.push([c,p.n,r.t||'',p.p||'',
+      num(p.y[0]),num(p.y[1]),num(p.y[2]),num(p.y[3]),
+      r.fa?'':r.yrs, p.o||'', p.b||'', p.acq==null?'':p.acq,
+      p.ir?'yes':'', p.blk?'yes':'', r.rtg==null?'':r.rtg,
+      aliasesFor(c), r.fa?'free agent':'contract'].map(csvCell).join(','));
+  });
+  return out.join('\n');
+}
+const csvFileName=()=>'league-players-'
+  +String(S.cfg.season||'').replace(/[^0-9A-Za-z]+/g,'-').replace(/^-|-$/g,'')+'.csv';
 function exportBtn(id,file,srcId){
   const b=document.getElementById(id);
   if(b) b.onclick=()=>downloadCSV(file,tableToCSV(document.getElementById(srcId)));

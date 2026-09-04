@@ -735,6 +735,54 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('statVal is null-safe on a statless row', g('statVal')({g:null,s:null,tot:null},'PTS')===null);
   ok('hasStats says so', g('hasStats')({g:null,s:null})===false && g('hasStats')({g:70,s:{PTS:20}})===true);
 
+  console.log('\n== the commissioner exports the league as data, not as a screenshot ==');
+  X.me = '__comm__';
+  document.getElementById('apQ').value = '';
+  document.getElementById('apT').value = '';
+  document.getElementById('apS').value = '';
+  g('drawAllPlayers')();
+  const csv = g('leagueCSV')(g('apRows')());
+  const lines = csv.split('\n');
+  ok('header is the column list', lines[0] === g('CSVCOLS').join(','), lines[0]);
+  ok('a row per contract and per free agent', lines.length - 1 === g('apRows')().length,
+     (lines.length - 1) + ' vs ' + g('apRows')().length);
+  const cell = (line, col) => {
+    const out = [], re = /("(?:[^"]|"")*"|[^,]*)(,|$)/g; let m, guard = 0;
+    while ((m = re.exec(line)) && guard++ < 40) {
+      out.push(m[1].startsWith('"') ? m[1].slice(1, -1).replace(/""/g, '"') : m[1]);
+      if (m[2] === '') break;
+    }
+    return out[g('CSVCOLS').indexOf(col)];
+  };
+  const holm = lines.find(l => l.includes('Chet Holmgren'));
+  ok('salaries are plain numbers, not money()', cell(holm, 'salary_next') === '36.75',
+     cell(holm, 'salary_next'));
+  ok('the club is a column', cell(holm, 'club') === 'N. Fink', cell(holm, 'club'));
+  ok('so is the year acquired', cell(holm, 'acquired') === '2025', cell(holm, 'acquired'));
+  ok('years left is the real count', cell(holm, 'years_left') === '3', cell(holm, 'years_left'));
+  ok('status says contract', cell(holm, 'status') === 'contract', cell(holm, 'status'));
+  ok('raw rights text survives, not birdKind()', cell(holm, 'rights') === 'Yes', cell(holm, 'rights'));
+  const poetl = lines.find(l => l.startsWith('Jakob Poeltl,Jakob Poetl,'));
+  ok('key is the canon name, player is the sheet spelling', !!poetl, poetl);
+  const faLine = lines.find(l => l.endsWith(',free agent'));
+  ok('a free agent has no club and no salary',
+     cell(faLine, 'club') === '' && cell(faLine, 'salary_next') === '', faLine);
+
+  console.log('\n== the export is quoted, and honours the filters when asked to ==');
+  ok('a comma is quoted', g('csvCell')('F, C') === '"F, C"', g('csvCell')('F, C'));
+  ok('a quote is doubled', g('csvCell')('He said "hi"') === '"He said ""hi"""');
+  ok('null is empty, not the word null', g('csvCell')(null) === '');
+  ok('the file is named for the season', /^league-players-2026-27\.csv$/.test(g('csvFileName')()),
+     g('csvFileName')());
+  document.getElementById('apT').value = 'Coulter';
+  const one = g('leagueCSV')(g('apRows')()).split('\n');
+  ok('"these rows" honours the club filter',
+     one.length - 1 === g('S').teams['Coulter'].r.length
+       && one.slice(1).every(l => cell(l, 'club') === 'Coulter'),
+     (one.length - 1) + ' vs ' + g('S').teams['Coulter'].r.length);
+  ok('and the unfiltered export is bigger', lines.length > one.length);
+  document.getElementById('apT').value = '';
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
