@@ -952,18 +952,20 @@ thead th.hide,tbody td.hide{display:none}}
       <div></div><button class="btn" id="savePhase">Save</button>
     </div>
 
-    <h2 class="sub">Tonight's tip-offs</h2>
-    <p class="note">A player is frozen for the night the moment <em>his own</em> game tips off &#8212; a
-      five o'clock game locks that man at five and leaves his team-mate on a half-seven game free for
-      another two and a half hours. So the lock is per NBA club, not a league-wide curfew.
-      One club per line, <code>DEN 19:00</code>, on a 24-hour clock in league time. A club with no line
-      is not playing, and nothing of his locks. This is the stopgap: the nightly stats feed will write
-      exactly this and the box goes away.</p>
+    <h2 class="sub">Tip-off times</h2>
+    <p class="note">A player is frozen the moment <em>his own</em> game tips off &#8212; a five o'clock
+      game locks that man at five and leaves his team-mate on a half-seven game free for another two
+      and a half hours. <b>These arrive on their own</b> from the NBA's published schedule, once a day,
+      and nothing below needs saving for the lock to work. The box is only an override: put a club here
+      to correct a time the feed has wrong, or to run a night when the feed is down. One club per line,
+      <code>DEN 19:00</code>, on a 24-hour clock in league time. Anything you enter beats the feed for
+      that club and nothing else.</p>
+    <div class="warn" id="tipFeed" hidden></div>
     <div class="form f4">
       <div><label for="tipDay">Night</label><input id="tipDay" class="mono" placeholder="2026-11-04" autocomplete="off"></div>
       <div><label>&nbsp;</label><div class="t" id="tipCount" style="padding-top:9px"></div></div>
-      <div></div>
-      <button class="btn" id="tipSave">Save tip-offs</button>
+      <button class="btn ghost" id="tipReload">Refresh from the NBA</button>
+      <button class="btn" id="tipSave">Save overrides</button>
     </div>
     <textarea id="tipBox" rows="6" placeholder="DEN 19:00&#10;LAL 22:30" style="width:100%;background:var(--panel);color:var(--chalk);border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--mono);font-size:13px;line-height:1.6"></textarea>
 
@@ -1342,6 +1344,8 @@ function startPolling(){
       // Chat lives outside ?key=all, and only matters while somebody is reading
       // it — no point polling a room nobody has open.
       if(chatOn() && await loadChat()) drawChat();
+      // The schedule is a once-a-day fetch: only when the league date rolls over.
+      if(seasonLive() && SCHED.day!==dayKey()){ await loadSchedule(); render(); }
     }catch(e){}
   }, (A()&&A().status==='open') ? 4000 : 12000);
 }
@@ -2206,6 +2210,9 @@ function drawAdmin(){
     drawTips();
     $('tipDay').oninput=drawTips;
     $('tipSave').onclick=saveTips;
+    $('tipReload').onclick=async()=>{ await loadSchedule(true); drawTips();
+      projToast(SCHED.ok?`${Object.keys(SCHED.tips).length} clubs playing tonight`
+                        :'Could not reach the schedule'); };
   }
   if($('demoBtn')){ $('demoBtn').onclick=startDemo; $('demoClr').onclick=clearDemo;
     $('demoBtn').textContent = (S.auction&&S.auction.status==='open')
@@ -2271,12 +2278,18 @@ function drawAdmin(){
    dropped: a silently ignored line is a club that never locks. */
 function drawTips(){
   const day=($('tipDay').value||'').trim()||dayKey();
-  const sched=(S.cfg.sched||{})[day]||{};
-  const keys=Object.keys(sched).sort();
-  $('tipBox').value=keys.map(k=>`${k} ${sched[k]}`).join('\n');
-  $('tipCount').textContent=keys.length
-    ? `${keys.length} club${keys.length===1?'':'s'} playing`
-    : 'no games on file for that night';
+  const over=(S.cfg.sched||{})[day]||{};
+  const keys=Object.keys(over).sort();
+  $('tipBox').value=keys.map(k=>`${k} ${over[k]}`).join('\n');
+  const feed=SCHED.day===day?Object.keys(SCHED.tips).length:0;
+  $('tipCount').textContent=`${feed} from the NBA`
+    +(keys.length?` \u00b7 ${keys.length} overridden`:'');
+  if($('tipFeed')){
+    const bad=SCHED.day===day&&!SCHED.ok;
+    $('tipFeed').hidden=!bad;
+    if(bad) $('tipFeed').innerHTML='<b>Tip-off times could not be fetched.</b> '
+      +htmlEsc(SCHED.reason||'')+'. Nothing locks tonight unless you enter times below.';
+  }
 }
 async function saveTips(){
   const day=($('tipDay').value||'').trim();
@@ -2295,7 +2308,8 @@ async function saveTips(){
   if(odd.length&&!confirm(`No player on any roster plays for: ${odd.join(', ')}.\n\nSave anyway?`)) return;
   S.cfg.sched={...(S.cfg.sched||{}),[day]:out};
   const n=Object.keys(out).length;
-  await commit({kind:'edit',detail:`Tip-offs for ${day} — ${n} club${n===1?'':'s'}`},['settings']);
+  await commit({kind:'edit',
+    detail:`Tip-off override for ${day} — ${n} club${n===1?'':'s'}`},['settings']);
   drawTips();
 }
 let pinFor=null;
@@ -4905,9 +4919,40 @@ function minutesNow(){
   }catch(e){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
 }
 /* Locked, and why — the why is what the screen tells the GM. */
-/* A tip-off is stored as 'HH:MM' in league time, which is how a human reads a
-   schedule and what the feed will write. A full timestamp is accepted too, so
-   anything already stored keeps working. */
+/* The NBA's own schedule, fetched by /api/schedule and held for the day. Nobody
+   has to type anything in: the lock knows when each game starts because the
+   league publishes it. The commissioner's box is an override for when a time is
+   wrong or the feed is down, not the way tip-offs normally arrive. */
+let SCHED={day:'',tips:{},ok:false,reason:''};
+async function loadSchedule(force){
+  const day=dayKey();
+  if(!force&&SCHED.day===day&&SCHED.ok) return SCHED;
+  if(!await probeAPI()){ SCHED={day,tips:{},ok:false,reason:'no league database'}; return SCHED; }
+  try{
+    const r=await fetch(`/api/schedule?day=${encodeURIComponent(day)}`,{cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    const j=await r.json();
+    SCHED={day,tips:(j&&j.tips)||{},ok:!(j&&j.reason),reason:(j&&j.reason)||''};
+  }catch(e){ SCHED={day,tips:{},ok:false,reason:'schedule unavailable'}; }
+  return SCHED;
+}
+/* The workbook writes six clubs shorter than the NBA's own tricodes. Fold them
+   together rather than editing 336 rows of NBATM, and look a code up both ways
+   so either source answers. */
+const TRICODE={GS:'GSW',NO:'NOP',NY:'NYK',SA:'SAS',UTAH:'UTA',WSH:'WAS'};
+function tipFor(team,day){
+  const over=(S.cfg.sched||{})[day]||{};          // the commissioner's correction wins
+  const feed=(SCHED.day===day?SCHED.tips:{})||{};
+  const alt=TRICODE[team];
+  for(const src of [over,feed]){
+    if(src[team]!=null) return src[team];
+    if(alt&&src[alt]!=null) return src[alt];
+  }
+  return null;
+}
+/* A tip-off is 'HH:MM' in league time, which is how a human reads a schedule and
+   what the feed returns. A full timestamp is accepted too, so anything already
+   stored keeps working. */
 function tipMinutes(v){
   const m=/^\s*(\d{1,2}):(\d{2})\s*$/.exec(String(v||''));
   if(m){ const h=+m[1], mi=+m[2]; return (h<24&&mi<60)?h*60+mi:null; }
@@ -4923,9 +4968,9 @@ const hhmm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart
 function tipOf(name,at){
   const tm=NBATM[canon(name)];
   if(!tm) return null;
-  const sched=(S.cfg.sched||{})[dayKey(at)];
-  if(!sched||sched[tm]==null) return null;
-  const m=tipMinutes(sched[tm]);
+  const v=tipFor(tm,dayKey(at));
+  if(v==null) return null;
+  const m=tipMinutes(v);
   return m==null?null:{team:tm,at:m};
 }
 function lockOf(name,at){
@@ -4938,11 +4983,14 @@ function lockOf(name,at){
 const isLocked=name=>lockOf(name).locked;
 /* Why a club cannot be edited at all, or '' when it can. */
 function lineupNote(){
-  const sched=(S.cfg.sched||{})[dayKey()];
-  const n=sched?Object.keys(sched).length:0;
-  return n
-    ? `${n} game${n===1?'':'s'} on tonight — each player locks when his own club tips off.`
-    : 'No tip-offs on file for tonight, so nothing is locked. The commissioner enters them on his tab.';
+  const day=dayKey();
+  const clubs=new Set([...Object.keys((S.cfg.sched||{})[day]||{}),
+                       ...Object.keys(SCHED.day===day?SCHED.tips:{})]);
+  if(clubs.size) return `${clubs.size} club${clubs.size===1?'':'s'} playing tonight — `
+    +'each player locks when his own game tips off.';
+  return SCHED.ok
+    ? 'No NBA games tonight, so nothing locks.'
+    : `Tip-off times unavailable${SCHED.reason?' ('+SCHED.reason+')':''}, so nothing is locked.`;
 }
 /* ---- moves ---- */
 async function setSlot(team,id,name){
@@ -5084,8 +5132,8 @@ function drawLineup(){
       <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
       ${lk.locked?`<span class="tag t-cut">locked &#183; ${htmlEsc(lk.why)}</span>`
         :lk.why?`<span class="lutip">${htmlEsc(lk.why)}</span>`:''}
-      <span class="lubstat">${r&&r.g?LUCATS.slice(0,4).map(([k,l])=>
-        `${l} ${luCell(k,luVal(r,k))}`).join(' \\u00b7 '):''}</span>
+      <span class="lubstat">${r&&r.g?LUCATS.map(([k,l])=>
+        `${l} ${luCell(k,luVal(r,k))}`).join('\u2003'):''}</span>
       ${can&&cls!=='onir'&&!lk.locked ? (where.length
         ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
              <option value="">Start&#8230;</option>
@@ -5562,6 +5610,7 @@ function netChip(){
   await loadStrat();
   await loadNotes();
   wireChat();
+  if(seasonLive()) loadSchedule().then(()=>render());
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();

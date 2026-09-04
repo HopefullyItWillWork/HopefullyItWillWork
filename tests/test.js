@@ -1146,7 +1146,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
   ok('but the screen tells him the time', /23:59/.test(g('lockOf')(other).why),
      g('lockOf')(other).why);
-  ok('the note counts tonight’s games', /2 games on tonight/.test(g('lineupNote')()),
+  ok('the note counts tonight’s clubs', /2 clubs playing tonight/.test(g('lineupNote')()),
      g('lineupNote')());
 
   console.log('\n== a locked man cannot be moved, and the rest can ==');
@@ -1342,12 +1342,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('a club code is upper-cased', !('lal' in g('S').cfg.sched[day]));
   ok('the unparseable line is dropped, not stored',
      Object.keys(g('S').cfg.sched[day]).length === 2, JSON.stringify(g('S').cfg.sched[day]));
-  ok('and it is logged', g('S').log.some(e => /Tip-offs for/.test(e.detail || '')));
+  ok('and it is logged', g('S').log.some(e => /Tip-off override for/.test(e.detail || '')));
   g('drawTips')();
   ok('reading it back gives the same lines',
      document.getElementById('tipBox').value === 'DEN 19:00\nLAL 22:30',
      JSON.stringify(document.getElementById('tipBox').value));
-  ok('and the count is shown', /2 clubs playing/.test(document.getElementById('tipCount').textContent),
+  ok('and the count separates the feed from the overrides',
+     /0 from the NBA \u00b7 2 overridden/.test(document.getElementById('tipCount').textContent),
      document.getElementById('tipCount').textContent);
   ctx.__alerts.length = 0;
   document.getElementById('tipDay').value = 'not-a-date';
@@ -1355,6 +1356,71 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('a bad night is refused', /YYYY-MM-DD/.test(ctx.__alerts[0] || ''), JSON.stringify(ctx.__alerts));
   ctx.__alerts.length = 0;
   g('S').cfg.sched = {};
+  X.me = 'Osborn';
+
+  console.log('\n== the bench stat line is text, not escape codes ==');
+  X.me = 'N. Fink';
+  g('S').cfg.phase = 'season';
+  g('S').cfg.sched = {};
+  await g('clearLineup')('N. Fink');
+  g('render')();
+  const bl = document.getElementById('luBench').innerHTML;
+  ok('no stray backslash-u anywhere', !/\\u00[0-9a-f]{2}/i.test(bl), (bl.match(/\\u..../) || [])[0]);
+  ok('every category is on the bench line too',
+     g('LUCATS').every(([, l]) => bl.includes(l + ' ')), g('LUCATS').map(c => c[1]).join(','));
+
+  console.log('\n== tip-offs arrive on their own ==');
+  ok('the schedule holder starts empty', typeof X.SCHED === 'object');
+  ok('the workbook’s short codes fold onto NBA tricodes',
+     g('TRICODE').SA === 'SAS' && g('TRICODE').GS === 'GSW' && g('TRICODE').NY === 'NYK'
+     && g('TRICODE').NO === 'NOP' && g('TRICODE').UTAH === 'UTA' && g('TRICODE').WSH === 'WAS');
+  const night = g('dayKey')();
+  // Pretend the feed answered. It uses NBA tricodes; NBATM uses the short ones.
+  const someone = g('startedOn')('N. Fink')[0]
+    || g('S').teams['N. Fink'].r.find(p => p.y[1] != null && g('NBATM')[g('canon')(p.n)]).n;
+  const short = g('NBATM')[g('canon')(someone)];
+  const tri = g('TRICODE')[short] || short;
+  X.SCHED = {day: night, tips: {[tri]: '00:00'}, ok: true, reason: ''};
+  ok('a feed tip-off locks him with no commissioner input at all',
+     g('isLocked')(someone) === true, short + '/' + tri);
+  ok('and names the club he plays for', g('lockOf')(someone).why.includes(short),
+     g('lockOf')(someone).why);
+  ok('the note reads off the feed', /1 club playing tonight/.test(g('lineupNote')()),
+     g('lineupNote')());
+
+  console.log('\n== a commissioner override beats the feed, for that club only ==');
+  g('S').cfg.sched = {[night]: {[short]: '23:59'}};
+  ok('his own time wins', g('isLocked')(someone) === false,
+     JSON.stringify(g('lockOf')(someone)));
+  ok('and the row shows the overridden time', /23:59/.test(g('lockOf')(someone).why),
+     g('lockOf')(someone).why);
+  const another = g('S').teams['N. Fink'].r.find(p => p.y[1] != null
+    && g('NBATM')[g('canon')(p.n)] && g('NBATM')[g('canon')(p.n)] !== short);
+  if (another) {
+    const s2 = g('NBATM')[g('canon')(another.n)];
+    X.SCHED = {day: night, tips: {[tri]: '00:00', [g('TRICODE')[s2] || s2]: '00:00'}, ok: true, reason: ''};
+    ok('a club with no override still follows the feed', g('isLocked')(another.n) === true,
+       s2 + ' ' + JSON.stringify(g('lockOf')(another.n)));
+  } else {
+    ok('a club with no override still follows the feed', true, 'no second club on this roster');
+  }
+  g('S').cfg.sched = {};
+
+  console.log('\n== a missing schedule locks nothing, and says why ==');
+  X.SCHED = {day: night, tips: {}, ok: false, reason: 'schedule unavailable'};
+  ok('nothing locks', g('isLocked')(someone) === false);
+  ok('and the reason is on screen', /unavailable/.test(g('lineupNote')()), g('lineupNote')());
+  X.SCHED = {day: night, tips: {}, ok: true, reason: ''};
+  ok('an empty night reads as no games, not as a failure',
+     /No NBA games tonight/.test(g('lineupNote')()), g('lineupNote')());
+  X.me = '__comm__';
+  g('render')();
+  document.getElementById('tipDay').value = night;
+  g('drawTips')();
+  ok('the commissioner sees the feed count', /0 from the NBA/.test(document.getElementById('tipCount').textContent),
+     document.getElementById('tipCount').textContent);
+  X.SCHED = {night: '', tips: {}, ok: false, reason: ''};
+  g('S').cfg.phase = 'offseason';
   X.me = 'Osborn';
 
   console.log('\n== no stray alerts ==');
