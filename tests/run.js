@@ -60,7 +60,7 @@ const EPILOGUE = ';globalThis.__X={' + [
   'NBATM','SLOTS','SLOTIDS','slotKind','slotLabel','isLocked','leagueTZ','irOf','posText','onIR','irCount','fresh','signedClub','swapping','LUCATS','hhmm','SLOTIDS','SCHED','TRICODE','tipFor',
   'minSal','deadlinePassed','canSignFA','nomOrder','nomFull','canNominate','OFFSEASON_TABS',
   'nomCount',
-  'normRosters','releaseRecord','restrictionNote','signBlock','bidCeiling','placeBid','nominate','A','minSal',
+  'signFA','normRosters','releaseRecord','restrictionNote','signBlock','bidCeiling','placeBid','nominate','A','minSal',
   'cutRecords','cutSeason','cutCurrent','cutAboveMin','paidCut','cutRestriction','unsignableFor','drawBarred','rtg','ownerLabel',
   'render','clubNameError','moveClubLocals','drawSettings','clubPicks','takePick','draftCfg','committed','headcount',
   'BIRDYRS','leagueYear','birdYears','tenureOf','birdRight','birdMismatch','SEASON_TABS','renameClub',

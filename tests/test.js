@@ -2280,14 +2280,20 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('and it comes back when the season does',
        (g('cutRestriction')(club, guy) || {}).hard === true);
 
-    /* The rule is about the auction, so it is an offseason rule. In season a
-       club signs from the free agent list at the minimum, and an above-minimum
-       release says nothing about that. */
+    /* The bar runs the rest of the season AND the following offseason, so it is
+       the same answer on either side of the phase switch. Without the in-season
+       half a club could cut a $4.00 man in February and re-sign him at $1.00 the
+       same afternoon, clearing his books for next season. */
     CS.cfg.phase = 'season';
-    ok('in season the above-minimum release does not bar him',
-       g('cutRestriction')(club, guy) === null);
-    ok('...and the panel is an offseason panel',
-       g('unsignableFor')(club).length > 0);   // the list itself is phase-free
+    ok('in season the above-minimum release bars him too',
+       (g('cutRestriction')(club, guy) || {}).hard === true,
+       JSON.stringify(g('cutRestriction')(club, guy)));
+    ok('...and the list is the same either side of the phase',
+       g('unsignableFor')(club).length > 0);
+    ok('...and the reason names the window',
+       /rest of this season/.test(g('cutRestriction')(club, guy).why)
+       && /following offseason/.test(g('cutRestriction')(club, guy).why),
+       g('cutRestriction')(club, guy).why);
     CS.cfg.phase = 'offseason';
 
     /* The rulebook's own rule still stands on top of it: a multi-year deal is
@@ -2304,6 +2310,63 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        String(g('bidCeiling')(t2, 'Cut Rule Guy')));
     CS.cfg.phase = 'offseason';
     CS.teams[t2].cuts = CS.teams[t2].cuts.filter(c => c.n !== 'Cut Rule Guy');
+  }
+
+  console.log('\n== the mid-season cut-and-re-sign loophole is shut ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'season'; CS.cfg.roster = 15; CS.cfg.minSal = 1.00; CS.cfg.deadline = '';
+    const club = g('TEAMS')().find(t => g('headcount')(t) < CS.cfg.roster
+                                      && CS.cfg.cap - g('committed')(t) > 10);
+    /* One year, so the rulebook's multi-year rule cannot be what catches him —
+       this is the above-minimum bar doing the work, and it used to do none. */
+    const dear = {n:'Loophole Guy', p:'G', y:[4.00, 4.00, null, null], o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(dear);
+    X.me = club;
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(dear));
+    ok('the release is recorded at $4.00 and is not a multi-year block',
+       g('cutRecords')(club, 'Loophole Guy')[0].s === 4.00
+       && g('cutRecords')(club, 'Loophole Guy')[0].blocked === false);
+    ok('he is barred in season', (g('cutRestriction')(club, 'Loophole Guy') || {}).hard === true);
+    ok('...his ceiling is zero', g('bidCeiling')(club, 'Loophole Guy') === 0);
+    ok('...and even the minimum is refused',
+       g('signBlock')(club, 'Loophole Guy', 1.00) !== null,
+       String(g('signBlock')(club, 'Loophole Guy', 1.00)));
+
+    ctx.__alerts.length = 0;
+    await g('signFA')(club, 'Loophole Guy');
+    ok('signing him back the same day does not happen',
+       !CS.teams[club].r.some(p => p.n === 'Loophole Guy'),
+       JSON.stringify(CS.teams[club].r.filter(p => p.n === 'Loophole Guy')));
+    ok('...and the GM is told why', /released/i.test(ctx.__alerts.join(' ')),
+       JSON.stringify(ctx.__alerts));
+    ctx.__alerts.length = 0;
+
+    /* And it holds across the phase switch, which is the point of the rule: the
+       rest of the season AND the offseason that follows. */
+    CS.cfg.phase = 'offseason';
+    ok('still barred once the offseason opens',
+       (g('cutRestriction')(club, 'Loophole Guy') || {}).hard === true);
+    CS.cfg.phase = 'season';
+
+    /* A minimum man is not a renegotiation, so he can come straight back — a GM
+       parking an injured minimum player must not be locked out of his own club. */
+    const cheap = {n:'Minimum Guy', p:'G', y:[1.00, 1.00, null, null], o:'', b:'', acq:2025, cut:false};
+    CS.teams[club].r.push(cheap);
+    g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
+    ok('a minimum release bars nothing in season',
+       g('cutRestriction')(club, 'Minimum Guy') === null);
+    await g('signFA')(club, 'Minimum Guy');
+    ok('...and he can be signed straight back',
+       CS.teams[club].r.some(p => p.n === 'Minimum Guy' && p.y[1] === 1.00),
+       JSON.stringify(ctx.__alerts));
+
+    CS.teams[club].r = CS.teams[club].r.filter(p => p.n !== 'Minimum Guy');
+    CS.teams[club].cuts = CS.teams[club].cuts.filter(
+      c => c.n !== 'Loophole Guy' && c.n !== 'Minimum Guy');
+    CS.cfg.phase = 'offseason';
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
   }
 
   console.log('\n== a cut made now bars the club from the auction ==');

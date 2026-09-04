@@ -2241,8 +2241,8 @@ function drawDetail(){
     ${cuts.length?`<h2 class="sub">Release history &#8212; ${cuts.length} players</h2>
     <p class="note">A released player's salary counts against the cap only for the rest of that season, then clears.
     None of this is charged to the current payroll &#8212; it is a record of past moves.
-    A release <b>above the ${money(minSal())} minimum</b> also bars this club from signing him back at the
-    auction; every other club may sign him freely.</p>
+    A release <b>above the ${money(minSal())} minimum</b> also bars this club from signing him back for
+    the rest of the season and the following offseason; every other club may sign him freely.</p>
     <table id="cutTbl"><thead><tr><th class="l" data-k="n">Player</th>
       <th data-k="s">Salary when released</th></tr></thead><tbody>
     ${cuts.slice().sort((x,y)=>{const K=SORTS.cut||{col:'s',desc:true};
@@ -3219,15 +3219,15 @@ function drawBarred(){
   if(!hd||!box) return;
   const t = (me&&!isComm()) ? me : (isComm()? meTeam() : null);
   const list = t ? unsignableFor(t) : [];
-  const on = !!t && !seasonLive() && list.length>0;
+  const on = !!t && list.length>0;
   hd.hidden=!on;
   if(!on){ box.innerHTML=''; return; }
   $('barredWho').textContent = `${list.length} player${list.length===1?'':'s'} \u00b7 ${htmlEsc(t)}`;
   box.innerHTML=`<p class="note">${htmlEsc(t)} released these players for more than the
-    ${money(minSal())} minimum, so it cannot sign them back at this auction &#8212; cutting a
-    contract and buying it back cheaper is a renegotiation, not a release. <b>Every other club may
-    sign them normally</b>, so they are still worth watching. The bar lifts when the commissioner
-    rolls the season forward.</p>
+    ${money(minSal())} minimum, so it cannot sign them back <b>for the rest of this season or the
+    following offseason</b> &#8212; cutting a contract and buying it back cheaper is a
+    renegotiation, not a release. <b>Every other club may sign them normally</b>, so they are still
+    worth watching. The bar lifts when the season rolls forward.</p>
     <div class="rosterwrap"><table id="barredTbl"><thead><tr>
       <th class="l">Player</th><th class="l hide">Pos</th><th>Released at</th>
       <th class="hide2">Rating</th><th class="l">Now</th></tr></thead><tbody>${
@@ -4588,20 +4588,24 @@ function impactCard(team,name,priceNote){
 /* ---- a club cannot buy back the player it paid to release ----
    Two rules sit on a release and they are not the same rule:
 
-   1. **Above the minimum.** A club that released a man for more than the league
-      minimum — during the season just gone or the offseason since — cannot sign
-      him at the auction. Cutting a $13.75 contract and buying him back at $1.00
-      is not a release, it is a renegotiation, and the rulebook does not allow
-      one. This is the salary he was on when he was let go, not what he might
+   1. **Above the minimum.** A club that releases a man for more than the league
+      minimum cannot sign him back **for the rest of that season and the
+      following offseason** — which is the whole of one release cycle, and so is
+      the same test in both phases. Cutting a $13.75 contract and buying him back
+      at $1.00 is not a release, it is a renegotiation, and the rulebook does not
+      allow one. Without the in-season half a club could cut a $4.00 man in
+      February and re-sign him at $1.00 the same afternoon; the dead money makes
+      that cost more for the year, but it still clears his books for next season.
+      The figure is the salary he was on when he was let go, not what he might
       fetch now.
    2. **A multi-year deal**, which the rulebook already blocked: no re-signing
       during the first offseason after the release, and a one-year minimum
       during the season that follows.
 
-   The first is a hard bar in the offseason and says nothing about the season;
-   the second is hard in the offseason and minimum-only in season. Neither
-   restricts any OTHER club — a released player is a free agent to the other
-   eight, and always was.
+   The first is hard in **both** phases for the length of the cycle; the second
+   is hard in the offseason and minimum-only in season. Neither restricts any
+   OTHER club — a released player is a free agent to the other eight, and always
+   was.
 
    Two things about the data. Every comparison goes through canon(): the cut list
    carries "Wendall Carter Jr" where the box scores say "Wendell", and a raw
@@ -4633,10 +4637,13 @@ function cutRestriction(team,name){
   if(!recs.length) return null;
   const paid=recs.filter(cutAboveMin).sort((a,b)=>(b.s||0)-(a.s||0))[0];
   const multi=recs.find(c=>c.blocked);
+  /* The above-minimum bar runs the rest of the season and the following
+     offseason, so it is the same answer either side of the phase switch. */
+  if(paid) return {hard:true, paid,
+    why:`${team} released ${name} at ${money(paid.s)}, above the ${money(minSal())} minimum. `
+      +'It cannot sign him back for the rest of this season or the following offseason. '
+      +'Every other club may sign him.'};
   if(!seasonLive()){
-    if(paid) return {hard:true, paid,
-      why:`${team} released ${name} at ${money(paid.s)}, above the ${money(minSal())} minimum. `
-        +'A club cannot sign back a player it released for more than the minimum.'};
     if(multi) return {hard:true,
       why:`${team} released ${name} from a deal of two years or more. He cannot be re-signed `
         +'during the first offseason after the release.'};
