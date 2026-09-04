@@ -254,8 +254,20 @@ deadline without doing the arithmetic.
 **The row is a stat table, not a list of names.** One grid shared by the header
 and every row, so the nine categories line up as columns: PTS, REB, AST, 3P, STL,
 BLK, TO, then FG% and FT% last because they are rates and everything else is a
-count. The name column is deliberately narrow — it holds one dropdown, and the
-numbers are what a GM is comparing. `luLine()` reads `S.daily[day][player]` when
+count.
+
+**The table is capped at 1040px, not stretched to the page.** That cap is what
+makes the rest work: a per-game number is four characters, so the stat tracks are
+held to 60px, and the name takes the slack. Stretch the table to a 1300px screen
+and one of two things has to give — either the stat columns bloat to 90px of
+white space around "27.7", or the name track stays capped and strands the row in
+a void between the dropdown and PTS. Both were tried; the cap is the fix.
+
+`.lurowctl .luname` carries `min-width:120px` and ellipsises. Without a real
+minimum it collapses to one letter per line the moment a control beside it wants
+room — the bench row has a name, a position tag, a Start select and an IR button
+in one flex line, and "Shai Gilgeous-Alexander" set vertically one character at a
+time is what a `min-width:0` there looks like. `luLine()` reads `S.daily[day][player]` when
 the feed writes one and falls back to the per-game line until then; a live number
 renders amber so the two can never be confused.
 
