@@ -283,9 +283,56 @@ silently dropped.
 7.5% with Bird rights. Raises never compound and always round **up** to the next
 $0.25.
 
-**Rookie draft**: three years with a rookie option on the last. First pick is
-3.57% of the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign
-after the auction and do not consume auction cap space.
+**Rookie draft**: one pick per club, in reverse order of finish — the champion
+picks last. Three years with a rookie option on the last. First pick is 3.57% of
+the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the
+auction and do not consume auction cap space, but the hard cap still binds: a
+club with no room passes. Anyone undrafted is an ordinary free agent.
+
+### How the draft is stored
+Two pieces of state, in different slices on purpose:
+
+| | | |
+|---|---|---|
+| `S.cfg.draft` | year, order, salary per slot, open/closed, how many future drafts are tradeable | commissioner input, written once → **settings**, last write wins |
+| `S.teams[t].picks[]` | who holds which pick and what he did with it | written by nine GMs during the draft → **rosters**, which merges per club |
+
+That split is why two clubs picking at the same instant cannot collide, exactly
+like two GMs listing a player on the block.
+
+**A pick is identified by its draft year plus the club it originally belonged
+to, never by slot.** A slot only exists once the order is set, and picks are
+traded years before that. A club that still holds its own pick has **no record
+at all** — `pickHolder()` falls back to the origin club — so nothing has to be
+seeded and an existing league needs no migration. `takePick()` materialises a
+record the first time one is needed.
+
+The commissioner enters the order and the salaries under **Rookie draft input**
+on the Commissioner tab. `rookieScale()` fills the salary column from the
+rulebook formula. Nothing is on the clock until the draft is opened, and the
+draft cannot open until every slot has a salary.
+
+`makePick()` writes `y:[null,sal,sal,sal]` with `o:'RO'`. A club that cannot fit
+the pick passes; a pass consumes the pick. The commissioner can undo either.
+
+**Protections are read, never applied.** `protTriggered()` is a pure function of
+the order: "top N protected" means the pick stays with the club it came from if
+it lands in the first N slots, and `effHolder()` is what every screen uses.
+Re-saving the order re-reads it and nothing has to be unwound. The one place a
+protection *moves* a pick is `closeDraft()`, which rolls an obligation marked
+`roll` onto the next draft and stamps `rolled` on the record so it cannot happen
+twice.
+
+**Picks trade like any other asset.** They move $0, are not in `headcount()`, and
+so touch neither salary matching nor the hard cap — an offer of picks alone is
+still a real offer. The sending club sets the protection in the builder; it is
+carried on the offer (`givePk`/`getPk`) and written onto the record only when the
+trade executes. `recheckTrade()` rejects a pick the club no longer holds or has
+already used.
+
+**The rookie class is placeholder data** (`ROOKIES`, `ROOKIES_PLACEHOLDER`), and
+every screen that shows it says so. When the stats feed lands, replace the array
+wholesale — nothing in the draft code reads anything but `n` and `p`.
 
 ---
 
@@ -367,7 +414,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 202 assertions against the real functions
+node tests/test.js        the app: 241 assertions against the real functions
 node tests/smoke.js       renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
@@ -532,6 +579,7 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 
 ## Not yet built
 
+- The real rookie class. `ROOKIES` is placeholder data until the feed lands.
 - Nightly stats feed. The rolling-15-day chart is built and waiting on a
   `daily/<date>` key per day. Use a real API, not scraping — Basketball-Reference
   prohibits it and 570 page fetches will not finish inside the function timeout.
