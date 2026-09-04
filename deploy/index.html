@@ -1052,6 +1052,15 @@ thead th.hide,tbody td.hide{display:none}}
       <div></div>
       <button class="btn" id="ncGo">Add club</button>
     </div>
+    <p class="note"><b>Removing a club is permanent.</b> Its roster, its release history, its picks and
+      any offer it is part of go with it. The one case you are likely to need it for is a club that
+      appears twice under an old and a new name &#8212; remove the stale one.</p>
+    <div class="form f4">
+      <div><label for="rcName">Remove a club</label><select id="rcName"></select></div>
+      <div><div class="fixedterm mono" id="rcWhat">&#8212;</div></div>
+      <div></div>
+      <button class="btn danger" id="rcGo">Remove this club</button>
+    </div>
 
     <h2 class="sub">GM access</h2>
     <p class="note">Set or reset each GM's PIN, and hold the address the league emails. A club with no
@@ -1407,7 +1416,7 @@ const Store={
         const r=await fetch(API+'?key=all',{cache:'no-store'});
         const j=await r.json();
         const sl={};
-        SLICES.forEach(k=>{ REV[k]=(j[k]&&j[k].rev)||0; sl[k]=j[k]?j[k].data:null; });
+        SLICES.forEach(k=>{ REV[k]=(j[k]&&j[k].rev)||0; sl[k]=j[k]?j[k].data:null; setBase(k,sl[k]); });
         const built=fromSlices(sl);
         if(built) return built;
         return null;                       // empty store: seed it on first write
@@ -1428,11 +1437,12 @@ const Store={
         for(let attempt=0;attempt<3;attempt++){
           const r=await fetch(`${API}?key=${k}&rev=${REV[k]}`,{method:'PUT',
             headers:{'content-type':'application/json'},body:JSON.stringify({data:sl[k]})});
-          if(r.ok){ const j=await r.json(); REV[k]=j.rev; break; }
+          if(r.ok){ const j=await r.json(); REV[k]=j.rev; setBase(k,sl[k]); break; }
           if(r.status===409){
             const j=await r.json(); REV[k]=j.rev;
             sl[k]=mergeSlice(k,j.data,sl[k]);
             applySlice(k,sl[k]);
+            setBase(k,j.data);          // what the server had when it refused us
             if(attempt===2) allOk=false;
             continue;
           }
@@ -1458,6 +1468,15 @@ async function appendLog(entries){
   return true;
 }
 /* Per-slice conflict resolution. Each slice has one obvious rule. */
+/* The last state we know the SERVER had for each slice, so a merge can tell
+   "I changed this" from "I am simply out of date about it". Without that third
+   copy the rosters merge could only compare mine against theirs, and any club
+   that differed was taken as mine — which quietly overwrote another GM's signing
+   whenever my copy of his club was a few seconds stale. */
+const BASE={};
+function setBase(k,v){
+  try{ BASE[k]=v==null?null:JSON.parse(JSON.stringify(v)); }catch(e){ BASE[k]=null; }
+}
 function mergeSlice(k,theirs,mine){
   if(k==='auction'){
     if(!theirs) return mine;
@@ -1486,9 +1505,29 @@ function mergeSlice(k,theirs,mine){
     return [...byId.values()].sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
   }
   if(k==='rosters'){
+    /* Three-way, per club. Mine wins only where mine differs from the copy the
+       server last gave me — that is a change I made. A club I did not touch is
+       left as the server has it, so a league-mate's signing survives my write
+       even when my view of his club is stale. With no base copy yet (a first
+       write before any read) every club reads as changed, which is the old
+       behaviour and the safe one for a league that has never been read. */
+    const base=BASE.rosters||{};
     const out=JSON.parse(JSON.stringify(theirs||{}));
     Object.keys(mine||{}).forEach(t=>{
-      if(JSON.stringify((theirs&&theirs[t])||null)!==JSON.stringify(mine[t])) out[t]=mine[t];});
+      if(JSON.stringify(base[t]??null)!==JSON.stringify(mine[t])) out[t]=mine[t];});
+    /* The merge above starts from the server's copy and only ever ADDS or
+       overwrites a club. That is right for the case it was written for — two GMs
+       editing different clubs, where dropping the other man's club because your
+       copy is stale would lose his work — but it cannot express a REMOVAL, and a
+       rename removes a key. So the old name came back from the server copy and
+       the league showed both names, on every screen that lists clubs, for ever.
+
+       cfg.renames is the fact the merge was missing. A club is dropped only when
+       a rename says it was renamed away AND my own copy agrees it is gone, so a
+       club legitimately re-created under an old name is never swept up. */
+    Object.keys(out).forEach(t=>{
+      if(renamedAway(t) && !(mine&&mine[t])) delete out[t];
+    });
     return out;
   }
   return mine;                                        // settings: last write wins
@@ -1560,7 +1599,7 @@ function startPolling(){
       const j=await r.json();
       let changed=false;
       SLICES.forEach(k=>{
-        if(j[k]&&j[k].rev!==REV[k]){ REV[k]=j[k].rev; applySlice(k,j[k].data); changed=true; }
+        if(j[k]&&j[k].rev!==REV[k]){ REV[k]=j[k].rev; applySlice(k,j[k].data); setBase(k,j[k].data); changed=true; }
       });
       if(changed){ render(); setSync('ok','Updated'); }
       // Chat lives outside ?key=all, and only matters while somebody is reading
@@ -2754,6 +2793,24 @@ function drawAdmin(){
         detail:`Season phase set to ${now==='season'?'live':'offseason'}, ${ir} IR slots`});
     };
   }
+  if($('rcName')){
+    const list=TEAMS(), keep=$('rcName').value;
+    const sig=list.join('\u0001');
+    if($('rcName').dataset.sig!==sig){
+      $('rcName').innerHTML=list.map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+      $('rcName').dataset.sig=sig;
+      $('rcName').value=list.includes(keep)?keep:list[0];
+    }
+    const say=()=>{
+      const c=clubRemovalCost($('rcName').value);
+      $('rcWhat').textContent = c
+        ? `${c.roster} players \u00b7 ${c.cuts} releases${c.offers?` \u00b7 ${c.offers} offers`:''}`
+        : '\u2014';
+    };
+    say();
+    $('rcName').onchange=say;
+    $('rcGo').onclick=()=>doRemoveClub($('rcName').value);
+  }
   if($('rollGo')){
     const v=rollPreview();
     $('rollNow').textContent=v.cur;
@@ -2957,6 +3014,27 @@ $('pinSave').onclick=async e=>{
      cfg.nomOrder . cfg.deputies . cfg.draft.order . this browser's sign-in and
      its local mirrors of the club-private stores.
    What does not: S.log, HIST, and SEED. */
+/* Every rename this league has made, newest last, as {from,to,at}. It lives in
+   settings — last write wins, and it is a fact about the club list rather than
+   about any one roster. Capped, because it only has to outlive a stale tab. */
+const RENAMEMAX=60;
+const renameLog=()=>Array.isArray(S.cfg&&S.cfg.renames)?S.cfg.renames:[];
+/* Has this name been renamed away, and not since been used again? The walk is
+   in order so a name renamed away and later renamed BACK reads as present. */
+function renamedAway(name){
+  let gone=false;
+  renameLog().forEach(r=>{
+    if(!r) return;
+    if(r.to===name) gone=false;
+    if(r.from===name) gone=true;
+  });
+  return gone;
+}
+function noteRename(from,to){
+  const log=renameLog().slice();
+  log.push({from,to,at:now()});
+  S.cfg.renames=log.slice(-RENAMEMAX);
+}
 function clubNameError(name,from){
   const v=String(name||'').trim();
   if(!v) return 'Give the club a name.';
@@ -2993,6 +3071,9 @@ function renameClub(from,to){
   S.cfg.nomOrder=(S.cfg.nomOrder||[]).map(swap);
   S.cfg.deputies=(S.cfg.deputies||[]).map(swap);
   if(S.cfg.draft&&Array.isArray(S.cfg.draft.order)) S.cfg.draft.order=S.cfg.draft.order.map(swap);
+  /* Tell the rosters merge that this key was removed on purpose. Without it the
+     server's copy puts the old club straight back. */
+  noteRename(from,to);
   return true;
 }
 /* The three club-private stores mirror locally under `<kind>_<club>`, so a
@@ -5114,6 +5195,67 @@ const canNominate=t=>{
 /* Granting is the commissioner login's alone — see canGrantComm(). It writes the
    settings slice, which is rarely written and last-write-wins, and it is logged
    like any other commissioner action so the league can see who was given what. */
+/* ---- removing a club ----
+   The app could always add a club and never remove one, which was fine until a
+   rename could leave the league carrying the same club under two names. This is
+   the repair, and it sweeps exactly what renameClub() moves — everything that
+   refers to a club BY NAME — rather than leaving picks and offers pointing at
+   something that is no longer there.
+
+   The transaction log is left alone, as it is for a rename: it is the record of
+   what happened under the name in use at the time. */
+function clubRemovalCost(t){
+  if(!S.teams[t]) return null;
+  const roster=(S.teams[t].r||[]).length;
+  const cuts=(S.teams[t].cuts||[]).length;
+  const picks=TEAMS().reduce((n,x)=>n+((S.teams[x].picks||[]).filter(k=>k.from===t).length),0)
+    +((S.teams[t].picks||[]).length);
+  const offers=(S.trades||[]).filter(o=>o.a===t||o.b===t).length;
+  const a=A();
+  const inAuction=!!(a&&(a.by===t||a.leader===t||(a.bids||[]).some(b=>b.t===t)
+    ||(a.match&&(a.match.club===t||a.match.winner===t))));
+  return {roster,cuts,picks,offers,inAuction};
+}
+function removeClub(t){
+  if(!S.teams[t]||TEAMS().length<=1) return false;
+  delete S.teams[t];
+  /* A pick is identified by its ORIGIN club, so one belonging to a club that no
+     longer exists cannot be held, traded or made. */
+  TEAMS().forEach(x=>{
+    if(Array.isArray(S.teams[x].picks)) S.teams[x].picks=S.teams[x].picks.filter(k=>k.from!==t);
+  });
+  S.trades=(S.trades||[]).filter(o=>o.a!==t&&o.b!==t);
+  const a=A();
+  if(a&&(a.by===t||a.leader===t||(a.bids||[]).some(b=>b.t===t)
+     ||(a.match&&(a.match.club===t||a.match.winner===t)))) S.auction=null;
+  S.cfg.nomOrder=(S.cfg.nomOrder||[]).filter(x=>x!==t);
+  S.cfg.deputies=(S.cfg.deputies||[]).filter(x=>x!==t);
+  if(S.cfg.draft&&Array.isArray(S.cfg.draft.order))
+    S.cfg.draft.order=S.cfg.draft.order.filter(x=>x!==t);
+  /* Say it was removed, for the same reason a rename says so: without it the
+     per-club rosters merge puts the club straight back from the server copy. */
+  noteRename(t,null);
+  return true;
+}
+async function doRemoveClub(t){
+  if(!hasComm()) return alert('Only the commissioner can remove a club.');
+  if(!S.teams[t]) return;
+  if(TEAMS().length<=1) return alert('There has to be at least one club.');
+  const c=clubRemovalCost(t);
+  const lines=[`Remove ${t} from the league?`,'',
+    `\u2022 ${c.roster} roster entr${c.roster===1?'y':'ies'} and ${c.cuts} release record${c.cuts===1?'':'s'} are deleted.`];
+  if(c.picks)   lines.push(`\u2022 ${c.picks} draft pick${c.picks===1?'':'s'} tied to this club go with it.`);
+  if(c.offers)  lines.push(`\u2022 ${c.offers} trade offer${c.offers===1?'':'s'} involving it are dropped.`);
+  if(c.inAuction) lines.push('\u2022 The live auction lot is cancelled.');
+  lines.push('','The transaction log keeps every move it made, under the name it had at the time.',
+    'This cannot be undone.');
+  if(!confirm(lines.join('\n'))) return;
+  if(!confirm(`Last check: permanently remove ${t}?`)) return;
+  if(!removeClub(t)) return alert('Could not remove that club.');
+  await commit({kind:'edit',detail:`Club removed \u2014 ${t}`},
+    ['rosters','settings','trades','auction']);
+  alert(`${t} has been removed.`);
+}
 async function toggleDeputy(team){
   if(!canGrantComm()) return alert('Only the commissioner can change who has these tools.');
   if(!S.teams[team]) return;

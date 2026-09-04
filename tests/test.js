@@ -2838,6 +2838,121 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__alerts.length = 0;
   }
 
+
+  console.log('\n== a rename does not leave the club behind under both names ==');
+  {
+    const CS = g('S');
+    CS.cfg.renames = [];
+    const from = 'Osborn', to = 'Osborn Athletic';
+    /* The bug, exactly as it was reported: rename on one device, and every other
+       device shows the club twice on Contracts. The rosters merge starts from the
+       server's copy and only ever adds or overwrites, so it could not express the
+       one thing a rename does — remove a key — and the old name came straight
+       back from the server. */
+    const server = JSON.parse(JSON.stringify(CS.teams));
+    ok('the server has the club under its old name', !!server[from]);
+
+    g('renameClub')(from, to);
+    ok('my copy has only the new name', !CS.teams[from] && !!CS.teams[to]);
+    ok('...and the rename was recorded', g('renameLog')().some(r => r.from === from && r.to === to));
+    ok('renamedAway knows the old name is gone', g('renamedAway')(from) === true);
+    ok('...and that the new one is not', g('renamedAway')(to) === false);
+
+    const merged = g('mergeSlice')('rosters', server, CS.teams);
+    ok('the merge drops the old name', !merged[from], Object.keys(merged).join());
+    ok('...keeps the new one', !!merged[to]);
+    ok('...and the league still has nine clubs', Object.keys(merged).length === 9,
+       String(Object.keys(merged).length));
+
+    console.log('-- but it must not drop anybody else’s work --');
+    /* The merge behaves this way for a reason: two GMs editing DIFFERENT clubs at
+       once. Each club is last-write-wins on its own, so his signing and mine both
+       survive — and dropping his club because my copy is stale must stay
+       impossible, which is exactly what the removal above had to be careful of. */
+    const his = g('TEAMS')().find(t => t !== to);
+    const mineClub = to;
+    /* The base is what the server last handed me — the app anchors it on every
+       read, poll and successful write. It is the third copy that lets the merge
+       tell "I changed this" from "I am out of date about it". */
+    const base = JSON.parse(JSON.stringify(CS.teams));
+    g('setBase')('rosters', base);
+    const server2 = JSON.parse(JSON.stringify(base));
+    server2[his].r.push({n:'His Signing', p:'G', y:{'2026-27':1}, o:'', b:'', acq:2025, cut:false});
+    const stale = JSON.parse(JSON.stringify(base));       // my copy never saw his
+    stale[mineClub].r.push({n:'My Signing', p:'G', y:{'2026-27':1}, o:'', b:'', acq:2025, cut:false});
+    const m2 = g('mergeSlice')('rosters', server2, stale);
+    ok('his signing survives on his club',
+       m2[his].r.some(p => p.n === 'His Signing'));
+    ok('...and mine on mine', m2[mineClub].r.some(p => p.n === 'My Signing'));
+    ok('...and no club is lost', Object.keys(m2).length === Object.keys(server2).length,
+       Object.keys(m2).length + ' vs ' + Object.keys(server2).length);
+    /* With no base copy at all — a first write before any read — every club reads
+       as changed and mine wins, which is the old behaviour and the safe default
+       for a league the client has never read. */
+    g('setBase')('rosters', null);
+    const m2b = g('mergeSlice')('rosters', server2, stale);
+    ok('with no base copy the writer still wins outright',
+       !m2b[his].r.some(p => p.n === 'His Signing'));
+    g('setBase')('rosters', CS.teams);
+
+    console.log('-- a name renamed away and then used again is not swept up --');
+    g('renameClub')(to, from);                       // rename back
+    ok('renamedAway forgets once the name is in use again',
+       g('renamedAway')(from) === false, JSON.stringify(g('renameLog')()));
+    const m3 = g('mergeSlice')('rosters', JSON.parse(JSON.stringify(CS.teams)), CS.teams);
+    ok('...so the club survives a merge', !!m3[from]);
+    CS.cfg.renames = [];
+  }
+
+  console.log('\n== removing a club takes its references with it ==');
+  {
+    const CS = g('S');
+    CS.cfg.renames = [];
+    X.me = '__comm__';
+    const gone = 'Schwab', mate = g('TEAMS')().find(t => t !== gone);
+    const before = g('TEAMS')().length;
+
+    // give it something to be tied to
+    g('takePick')(2027, gone);
+    CS.trades = [{ts:1, by:gone, a:gone, b:mate, give:[], get:[], givePk:[], getPk:[], status:'pending'}];
+    CS.auction = {player:'X', by:gone, bid:1, leader:gone, bids:[{t:gone,amt:1,ts:1}], max:{}, status:'open', ts:1};
+    CS.cfg.nomOrder = g('TEAMS')().slice();
+    CS.cfg.deputies = [gone];
+    CS.cfg.draft = {year:2027, order:g('TEAMS')().slice(), sal:[], open:false};
+
+    const cost = g('clubRemovalCost')(gone);
+    ok('the cost is reported before anything happens',
+       cost.roster > 0 && cost.offers === 1 && cost.inAuction === true, JSON.stringify(cost));
+    ok('...and asking did not change anything', !!CS.teams[gone]);
+
+    ok('the removal runs', g('removeClub')(gone) === true);
+    ok('the club is gone', !CS.teams[gone] && g('TEAMS')().length === before - 1);
+    ok('...its picks went with it',
+       g('TEAMS')().every(t => (CS.teams[t].picks || []).every(k => k.from !== gone)));
+    ok('...its offers were dropped', (CS.trades || []).length === 0);
+    ok('...the auction lot was cancelled', g('A')() === null);
+    ok('...it left the nomination order', !CS.cfg.nomOrder.includes(gone));
+    ok('...and the deputies list', !g('deputies')().includes(gone));
+    ok('...and the draft order', !CS.cfg.draft.order.includes(gone));
+    ok('the merge will not resurrect it',
+       !g('mergeSlice')('rosters', JSON.parse(JSON.stringify(CS.teams)), CS.teams)[gone]);
+    ok('and rendering afterwards does not throw', (() => { g('render')(); return true; })());
+
+    ok('the last club cannot be removed', (() => {
+      const only = g('TEAMS')()[0];
+      const keep = CS.teams;
+      CS.teams = {[only]: keep[only]};
+      const r = g('removeClub')(only);
+      CS.teams = keep;
+      return r === false;
+    })());
+
+    CS.trades = []; CS.auction = null; CS.cfg.nomOrder = [];
+    CS.cfg.deputies = ['A. Daman', 'N. Daman']; delete CS.cfg.draft; CS.cfg.renames = [];
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
