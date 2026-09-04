@@ -889,11 +889,12 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="warn" id="pinWarn" hidden><b>The commissioner PIN is still 0000.</b>
       Change it before you share the link, or anyone can edit every roster.</div>
     <div class="warn"><b>Read this before you share the link.</b> Sign-in here is honor-system only. The page runs entirely in the browser, so anyone who views the source can read every PIN. It prevents mistakes and keeps an audit trail &#8212; it does not stop someone determined. Keep the commissioner PIN to yourself and rely on the transaction log to catch anything odd.</div>
+    <div class="warn" id="rosWarn" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
       <div><label for="sTax">Luxury tax / hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
-      <div><label for="sRoster">Roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
+      <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
     <h2 class="sub">Clubs</h2>
@@ -922,7 +923,10 @@ thead th.hide,tbody td.hide{display:none}}
     <h2 class="sub">Season phase</h2>
     <p class="note">The offseason allows auctions, cuts that clear salary immediately, and roster building.
       Once the season is live, cuts keep their salary on the books until the year ends, and the injured
-      reserve and nightly lineups open up. "Lineups lock at" is a daily time on a 24-hour clock in league
+      reserve and nightly lineups open up. <b>Roster size is the ACTIVE limit</b> &#8212; the injured
+      reserve sits outside it, so 15 active with 1 IR slot is the rulebook's sixteen men, and only while
+      one of them is hurt. Closing the season empties the injured reserve, which can leave a club one
+      over; it is told, and its GM chooses who goes. "Lineups lock at" is a daily time on a 24-hour clock in league
       time &#8212; every GM's lineup freezes then. Leave it blank and nothing locks; once the nightly stats
       feed lands each club will instead lock at its own tip-off and this becomes the fallback.</p>
     <div class="form f4">
@@ -1044,6 +1048,16 @@ thead th.hide,tbody td.hide{display:none}}
   <div class="acts" style="margin-top:14px">
     <button class="btn ghost" id="dlgPlayerClose">Close</button></div>
 </div></dialog>
+
+<dialog id="dlgSwap"><form method="dialog" class="dlg">
+  <h4 id="swTitle">Activate</h4><p id="swSub"></p>
+  <div class="fields">
+    <div><label for="swWho">Release</label><select id="swWho"></select></div>
+  </div>
+  <p class="note" id="swNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button class="btn danger" id="swGo" value="ok">Release and activate</button></div>
+</form></dialog>
 
 <dialog id="dlgPin"><form method="dialog" class="dlg">
   <h4 id="pinTitle">Set a PIN</h4><p id="pinSub"></p>
@@ -1342,7 +1356,11 @@ let S=null, me=null, activeTeam=null;
 function fresh(){
   const t={};
   Object.keys(SEED.teams).forEach(k=>{t[k]={r:JSON.parse(JSON.stringify(SEED.teams[k].r)),cuts:JSON.parse(JSON.stringify(SEED.teams[k].cuts||[])),picks:[],pin:''};});
-  return {cfg:{cap:165.00,tax:200.50,roster:16,season:'2026\u201327',commPin:'0000',gamecap:920,phase:'offseason',ir:2},teams:t,log:[]};
+  /* `roster` is the ACTIVE limit, and headcount() already excludes the injured
+     reserve — so 15 active plus 1 IR slot is the rulebook's "16 men, and only if
+     one of them is hurt". The offseason has no IR at all, which makes the same
+     number mean 15 flat. */
+  return {cfg:{cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,phase:'offseason',ir:1},teams:t,log:[]};
 }
 const TEAMS=()=>Object.keys(S.teams).sort();
 const isComm=()=>me==='__comm__';
@@ -1375,16 +1393,70 @@ const onIR=p=>!!p.ir;
 const headcount=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&!onIR(p)).length;
 const irCount=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&onIR(p)).length;
 const seasonLive=()=>S.cfg.phase==='season';
+/* The roster limit is on ACTIVE players, which is what headcount() counts. A
+   club may carry a sixteenth man only while one of them is on the injured
+   reserve; activating him is therefore the moment the club goes one over, and
+   somebody has to go. Rather than refuse — which leaves a GM guessing which of
+   two screens to visit — the swap dialog asks who. */
 async function toggleIR(team,idx){
   if(!canEdit(team)) return alert('You can only change your own club.');
   if(!seasonLive()) return alert('The injured reserve opens once the commissioner sets the season live.');
   const p=S.teams[team].r[idx];
+  if(!p) return;
   if(p.y[1]==null) return alert(`${p.n} is not under contract for this season.`);
-  if(!p.ir && irCount(team)>=(S.cfg.ir??2))
-    return alert(`${team} already has ${S.cfg.ir} players on the injured reserve.`);
-  p.ir=!p.ir;
-  await commit({kind:'edit',team,detail:`${p.n} ${p.ir?'moved to':'activated from'} injured reserve`});
+  if(!p.ir){
+    if(irCount(team)>=(S.cfg.ir??1))
+      return alert(`${team} already has ${S.cfg.ir??1} player${(S.cfg.ir??1)===1?'':'s'} on the injured reserve.`);
+    p.ir=true;
+    return commit({kind:'edit',team,detail:`${p.n} moved to injured reserve`},['rosters']);
+  }
+  /* Coming off the IR. If the active roster is already full this is a swap, not
+     a move, and the GM picks who leaves. */
+  if(headcount(team)>=S.cfg.roster) return openSwap(team,idx);
+  p.ir=false;
+  /* A player who cannot be started is not in anybody's lineup; coming back does
+     not put him in one either. */
+  await commit({kind:'edit',team,detail:`${p.n} activated from injured reserve`},['rosters']);
 }
+let swapping=null;
+function openSwap(team,idx){
+  const p=S.teams[team].r[idx];
+  swapping={team,idx};
+  $('swTitle').textContent=`Activating ${p.n}`;
+  $('swSub').textContent=`${team} already carries ${headcount(team)} active players, the limit. `
+    +`Bringing ${p.n} back means releasing somebody. Pick who, or cancel and leave him on the injured reserve.`;
+  const opts=S.teams[team].r
+    .map((x,i)=>({x,i}))
+    .filter(({x,i})=>i!==idx&&x.y[1]!=null&&!onIR(x))
+    .sort((a,b)=>(a.x.y[1]||0)-(b.x.y[1]||0));
+  $('swWho').innerHTML=opts.map(({x,i})=>
+    `<option value="${i}">${htmlEsc(x.n)} \u00b7 ${money(x.y[1])}</option>`).join('');
+  $('swNote').textContent=seasonLive()
+    ? 'The released salary stays on your cap until the season ends. A two-year-or-longer deal cannot be re-signed by this club until the next offseason.'
+    : 'The released salary comes off immediately and every remaining year is voided.';
+  openModal('dlgSwap');
+}
+$('swGo').onclick=async e=>{
+  if(!swapping) return;
+  const {team,idx}=swapping;
+  const drop=parseInt($('swWho').value);
+  const hurt=S.teams[team].r[idx], out=S.teams[team].r[drop];
+  if(!hurt||!out||drop===idx){ swapping=null; return; }
+  if(!confirm(`Release ${out.n} at ${money(out.y[1])} and activate ${hurt.n}?`)){
+    if(e&&e.preventDefault) e.preventDefault();
+    return;
+  }
+  swapping=null;
+  /* Release first, then activate: the other order puts the club over the limit
+     for the length of one statement, and anything reading it in between — a
+     merge, a poll — would see an illegal roster. */
+  releaseRecord(team,drop);
+  const again=S.teams[team].r.find(x=>x===hurt);
+  if(again) again.ir=false;
+  await commit({kind:'cut',team,
+    detail:`${out.n} released \u2014 ${money(out.y[1])} \u2014 to activate ${hurt.n} from injured reserve`},
+    ['rosters']);
+};
 /* The trade block is one boolean on the roster entry, not a separate list. It
    therefore rides the rosters slice and merges per club exactly like a cut or a
    signing — two GMs listing players at the same moment cannot collide, and a
@@ -1518,18 +1590,26 @@ async function signPlayer(name,team,price,years){
   if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:new Date().getFullYear(),cut:false});
   await commit({kind:'sign',team,detail:`${name} \u2014 ${money(price)} \u00d7 ${years} yr${years>1?'s':''}`});
 }
+/* The release itself, with no confirming and no commit, so every path that has
+   to drop somebody records it the same way — the roster splice and the cuts
+   entry that carries the waiver rules. cutPlayer() is the button; the injured
+   reserve swap below is the other caller. */
+function releaseRecord(team,idx){
+  const p=S.teams[team].r.splice(idx,1)[0];
+  const yrs=p.y.filter((v,i)=>i>0&&v!=null).length;
+  S.teams[team].cuts.push({n:p.n,p:p.p,s:p.y[1]!=null?p.y[1]:p.y[0],
+    blocked: yrs>=2,            // only a two-year-or-longer deal carries a re-sign block
+    live: seasonLive(),         // in season the salary stays on the cap until the year ends
+    at:S.cfg.season});
+  return p;
+}
 async function cutPlayer(team,idx){
   if(!canEdit(team)) return alert('You can only cut from your own club.');
   const p=S.teams[team].r[idx];
   if(!confirm(seasonLive()
     ? `Release ${p.n}? His ${money(p.y[1]!=null?p.y[1]:p.y[0])} stays on your cap until the season ends.`
     : `Release ${p.n}? His salary comes off immediately and every remaining year is voided.`)) return;
-  S.teams[team].r.splice(idx,1);
-  const yrs=p.y.filter((v,i)=>i>0&&v!=null).length;
-  S.teams[team].cuts.push({n:p.n,p:p.p,s:p.y[1]!=null?p.y[1]:p.y[0],
-    blocked: yrs>=2,            // only a two-year-or-longer deal carries a re-sign block
-    live: seasonLive(),         // in season the salary stays on the cap until the year ends
-    at:S.cfg.season});
+  releaseRecord(team,idx);
   await commit({kind:'cut',team,detail:`${p.n} released \u2014 ${money(p.y[1]!=null?p.y[1]:p.y[0])}`});
 }
 let editing=null;
@@ -2033,6 +2113,17 @@ function drawAdmin(){
   drawAllPlayers();
   drawDraftAdmin();
   if($('pinWarn')) $('pinWarn').hidden = S.cfg.commPin!=='0000';
+  /* A league saved before the active limit was written down still carries the
+     old 16-and-2. Say so rather than rewriting a commissioner's settings behind
+     his back — one is the rulebook, the other is his league. */
+  if($('rosWarn')){
+    const bad = S.cfg.roster!==15 || (S.cfg.ir??1)!==1;
+    $('rosWarn').hidden=!bad;
+    if(bad) $('rosWarn').innerHTML='<b>Roster settings do not match the rulebook.</b> '
+      +`This league is set to ${S.cfg.roster} active players and ${S.cfg.ir??1} injured-reserve slot`
+      +`${(S.cfg.ir??1)===1?'':'s'}. The rules are <b>15 active</b> and <b>1 IR slot</b> \u2014 sixteen men, `
+      +'and only while one of them is hurt. Set them below and save.';
+  }
   if($('sPhase')){
     $('sPhase').value=S.cfg.phase||'offseason';
     $('sIR').value=S.cfg.ir??2;
@@ -2067,7 +2158,20 @@ function drawAdmin(){
       if(was==='season'&&now==='offseason'){
         let cleared=0;
         TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{if(c.live){c.live=false;cleared++;}}));
-        if(cleared) alert(`Season closed. ${cleared} released salaries have come off the books.`);
+        /* There is no injured reserve in the offseason, so everybody on it comes
+           back — and a club carrying a sixteenth man is now one over. It is told,
+           not fixed: which player goes is the GM's call, not the commissioner's. */
+        let activated=0; const over=[];
+        TEAMS().forEach(t=>{
+          S.teams[t].r.forEach(p=>{ if(p.ir){ delete p.ir; activated++; } });
+          delete S.teams[t].lu;
+          if(headcount(t)>S.cfg.roster) over.push(`${t} (${headcount(t)})`);
+        });
+        const msg=[];
+        if(cleared) msg.push(`${cleared} released salaries have come off the books.`);
+        if(activated) msg.push(`${activated} player${activated===1?'':'s'} came off the injured reserve.`);
+        if(over.length) msg.push(`Over the ${S.cfg.roster}-man limit and needing a release: ${over.join(', ')}.`);
+        if(msg.length) alert('Season closed.\n\n\u2022 '+msg.join('\n\u2022 '));
       }
       S.cfg.ir=ir;
       S.cfg.lockAt=lockAt;

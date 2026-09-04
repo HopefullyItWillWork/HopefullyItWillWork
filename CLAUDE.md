@@ -158,6 +158,30 @@ percentages as projected.
 2025-26 line, which is just what `pstat()` does with any missing key. Players in
 the source who are not in `RATER` were dropped — there is no row to show them in.
 
+### The roster limit is on ACTIVE players
+**15 active, 1 injured-reserve slot.** That is the rulebook's "sixteen men, and
+only while one of them is hurt", and it works because `headcount()` has always
+excluded the IR. `S.cfg.roster` is therefore the *active* limit, not the number
+of bodies — `signPlayer()` and `validateTrade()` both already read it that way.
+
+The offseason has no injured reserve at all, so the same number means 15 flat.
+
+**Activating a man off the IR when the club is full is a swap, not a move.**
+`toggleIR()` hands off to `openSwap()`, which asks which active player goes and
+runs him through `releaseRecord()` — the release factored out of `cutPlayer()` so
+every path that drops somebody writes the same `cuts` entry and carries the same
+waiver rules. The release happens *before* the activation: the other order leaves
+the roster illegal for the length of a statement, and a merge or a poll reading
+it in between would see a club one over.
+
+**Closing the season empties the IR**, which can leave a club at 16 active. It is
+told, not fixed — which player goes is the GM's call, not the commissioner's. The
+same step drops every stored lineup, since there is no season to have one for.
+
+A league saved before any of this carries the old 16-and-2. `drawAdmin()` shows a
+banner when `roster !== 15 || ir !== 1` rather than rewriting a commissioner's
+settings behind his back.
+
 ### Nightly lineups
 Once the season is live a club does not play everyone it owns. **Fifteen slots
 start**: one C, four G, four F and six UTIL (`SLOTS` / `SLOTIDS`). Everyone else
@@ -598,7 +622,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 402 assertions against the real functions
+node tests/test.js        the app: 428 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock

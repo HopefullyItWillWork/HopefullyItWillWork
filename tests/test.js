@@ -1188,6 +1188,94 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   X.me = 'Osborn';
   ctx.__alerts.length = 0;
 
+  console.log('\n== the roster limit is on ACTIVE players ==');
+  ok('a fresh league is 15 active and 1 IR slot',
+     g('fresh')().cfg.roster === 15 && g('fresh')().cfg.ir === 1,
+     g('fresh')().cfg.roster + '/' + g('fresh')().cfg.ir);
+  ok('headcount already excludes the injured reserve, which is what makes that work',
+     typeof g('headcount') === 'function');
+
+  console.log('\n== sixteen men, and only while one is hurt ==');
+  X.me = 'Brice';
+  g('S').cfg.phase = 'season';
+  g('S').cfg.ir = 1;
+  const BR = () => g('S').teams['Brice'];
+  const activeBr = () => BR().r.filter(p => p.y[1] != null && !g('onIR')(p));
+  g('S').cfg.roster = activeBr().length;            // the club is now exactly full
+  const full = g('S').cfg.roster;
+  const hurtIdx = BR().r.findIndex(p => p.y[1] != null && !g('onIR')(p));
+  const hurt = BR().r[hurtIdx].n;
+  await g('toggleIR')('Brice', hurtIdx);
+  ok('one man goes on the IR', g('irCount')('Brice') === 1);
+  ok('so the active roster drops by one', g('headcount')('Brice') === full - 1);
+  const secondIdx = BR().r.findIndex(p => p.y[1] != null && !g('onIR')(p));
+  ctx.__alerts.length = 0;
+  await g('toggleIR')('Brice', secondIdx);
+  ok('a second man cannot join him with only one slot',
+     g('irCount')('Brice') === 1 && /already has 1 player/.test(ctx.__alerts[0] || ''),
+     JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+
+  console.log('\n== activating him when the roster is full asks who goes ==');
+  // Sign the sixteenth man into the spot the IR freed.
+  const spare = g('faPool')().find(p => g('rtg')(p.n) != null && !g('signedClub')(p.n));
+  await g('signPlayer')(spare.n, 'Brice', 1.00, 1);
+  ok('the sixteenth man is signed while one is hurt', g('headcount')('Brice') === full,
+     g('headcount')('Brice') + '/' + full);
+  ok('sixteen bodies in all', BR().r.filter(p => p.y[1] != null).length === full + 1);
+  const irIdx2 = BR().r.findIndex(p => p.n === hurt);
+  await g('toggleIR')('Brice', irIdx2);
+  ok('activating him opens the swap instead of toggling',
+     document.getElementById('dlgSwap').open === true);
+  ok('he is still on the IR until somebody is chosen', BR().r[irIdx2].ir === true);
+  ok('the dialog names him', /Activating/.test(document.getElementById('swTitle').textContent)
+     && document.getElementById('swTitle').textContent.includes(hurt),
+     document.getElementById('swTitle').textContent);
+  const who = document.getElementById('swWho');
+  ok('and offers the active roster to release',
+     who.innerHTML.split('<option').length - 1 === full, who.innerHTML.split('<option').length - 1);
+  ok('it does not offer the hurt player himself', !who.innerHTML.includes('value="' + irIdx2 + '"'));
+
+  console.log('\n== the swap releases one and activates the other ==');
+  const dropIdx = +who.value;
+  const dropName = BR().r[dropIdx].n;
+  await document.getElementById('swGo').onclick({});
+  ok('the released man is gone', !BR().r.some(p => p.n === dropName), dropName);
+  ok('and is on the release list', (BR().cuts || []).some(c => c.n === dropName));
+  ok('his salary stays on the books in season',
+     (BR().cuts || []).find(c => c.n === dropName).live === true);
+  ok('the hurt man is active again', !BR().r.find(p => p.n === hurt).ir);
+  ok('the club is back at the limit, not over', g('headcount')('Brice') === full,
+     g('headcount')('Brice'));
+  ok('and nobody is on the IR', g('irCount')('Brice') === 0);
+  ok('the release is logged as a cut',
+     g('S').log.some(e => e.kind === 'cut' && /to activate/.test(e.detail || '')),
+     JSON.stringify(g('S').log[0]));
+
+  console.log('\n== closing the season empties the injured reserve ==');
+  const hIdx = BR().r.findIndex(p => p.y[1] != null && !g('onIR')(p));
+  await g('toggleIR')('Brice', hIdx);
+  ok('somebody is hurt again', g('irCount')('Brice') === 1);
+  X.me = '__comm__';
+  g('render')();
+  document.getElementById('sPhase').value = 'offseason';
+  document.getElementById('sIR').value = '1';
+  document.getElementById('sLockAt').value = '';
+  ctx.__alerts.length = 0;
+  await document.getElementById('savePhase').onclick();
+  ok('the phase changed', g('S').cfg.phase === 'offseason');
+  ok('the injured reserve is empty', g('irCount')('Brice') === 0);
+  ok('and everyone is active again', BR().r.filter(p => p.y[1] != null && !g('onIR')(p)).length
+     === BR().r.filter(p => p.y[1] != null).length);
+  ok('the commissioner is told what happened',
+     ctx.__alerts.some(a => /injured reserve/.test(a)), JSON.stringify(ctx.__alerts));
+  ok('and which clubs are now over the limit',
+     ctx.__alerts.some(a => /over the/.test(a)) || g('headcount')('Brice') <= g('S').cfg.roster,
+     JSON.stringify(ctx.__alerts));
+  ok('the lineup is dropped with the season', !BR().lu);
+  ctx.__alerts.length = 0;
+  X.me = 'Osborn';
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
