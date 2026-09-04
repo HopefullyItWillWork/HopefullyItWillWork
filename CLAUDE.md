@@ -23,6 +23,7 @@ deploy/
     daily.mjs                   scheduled — the daily digest
     lib/league.mjs              blobs + Resend + the send ceiling
     lib/format.mjs              pure formatting and date logic (no imports)
+    schedule.mjs                GET /api/schedule — NBA tip-off times, cached daily
 netlify.toml                    git-build config: base = "deploy"
 tests/                          the DOM stub and the assertions
 ```
@@ -217,13 +218,32 @@ whose game it is.
 no line is not playing — nothing of his locks. A full timestamp is still parsed,
 so anything written before this keeps working.
 
-The nightly stats feed will write that map. Until then the commissioner types it
-into **Tonight's tip-offs**, one club per line, `DEN 19:00`. Same shape, so the
-feed drops in and the box goes away. An unparseable line is reported and dropped
-rather than silently ignored — a line nobody notices is a club that never locks.
+**Tip-off times arrive on their own.** `/api/schedule` (`schedule.mjs`) reads the
+NBA's own published schedule —
+`cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json` — condenses it to
+`day -> club -> "HH:MM"` in league time, and caches that in the `nbasched` blob.
+The source file is several megabytes and changes rarely, so it is fetched at most
+once a day and only the derived ~30KB is kept. The client fetches one day at boot
+and again when the league date rolls over. Nobody types anything in.
 
-With nothing on file `lineupNote()` says so. Do not make the screen imply a lock
-that is not there.
+Every failure returns 200 with empty `tips` and a `reason`, exactly like the mail
+functions: a missing schedule degrades to "nothing is locked", never to a broken
+lineup screen.
+
+`tipFor(team,day)` resolves a club: **the commissioner's override first, then the
+feed**, and it looks a code up both ways. The workbook writes six clubs shorter
+than the NBA's tricodes (`SA`/`SAS`, `GS`/`GSW`, `NY`/`NYK`, `NO`/`NOP`,
+`UTAH`/`UTA`, `WSH`/`WAS`) and `TRICODE` folds them together rather than editing
+336 rows of `NBATM`.
+
+The commissioner's box is therefore an **override**, not the way tip-offs arrive:
+one club per line to correct a wrong time or run a night the feed is down, and it
+beats the feed for that club and nothing else. An unparseable line is reported
+and dropped rather than silently ignored — a line nobody notices is a club that
+never locks.
+
+With nothing on file `lineupNote()` says so, and distinguishes "no games tonight"
+from "could not fetch". Do not make the screen imply a lock that is not there.
 
 A locked player is rendered as text, not a disabled control — there is nothing
 the GM may do with him, and a dead select invites a click. `clearLineup()` and
@@ -647,7 +667,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 453 assertions against the real functions
+node tests/test.js        the app: 467 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
