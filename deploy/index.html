@@ -220,31 +220,41 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   border-bottom:1px solid var(--line2);background:var(--panel2);font-size:11.5px;color:var(--dim)}
 .pkprot select{font-size:11.5px;padding:3px 5px}
 .pkprot label{display:flex;align-items:center;gap:5px;margin:0;font-size:11.5px;text-transform:none;letter-spacing:0}
-/* Tonight's lineup. The name column is deliberately narrow: it holds one
-   dropdown, while the nine stat columns are what a GM is actually comparing.
-   One shared grid on the header and every row, so the numbers line up. */
+/* Tonight's lineup. The name column takes whatever is left after nine narrow
+   stat columns, because a per-game number is four characters and a name is
+   twenty — sizing them the other way round gave "Shai Gilgeous-Alexa…" next to
+   an inch of white space around "27.7". The stat tracks are capped rather than
+   fractional so they stay compact as the page widens and the name keeps the
+   gain. One shared grid on the header and every row, so the numbers line up. */
+/* The table is capped rather than stretched. Nine four-character numbers and one
+   name do not need 1200px, and letting it span the page either strands the name
+   in a void or blows the dropdown out to half the screen. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden}
-.lurow{display:grid;grid-template-columns:46px minmax(0,164px) repeat(9,minmax(0,1fr));
-  gap:8px;align-items:center;background:var(--panel);padding:6px 11px}
+  border-radius:3px;overflow:hidden;max-width:1040px}
+.lurow{display:grid;grid-template-columns:44px minmax(180px,1fr) repeat(9,minmax(46px,60px));
+  gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 .lurow.empty{background:var(--panel2)}
 .lurow.locked{opacity:.72}
 .luhdr{background:var(--panel2);font-family:var(--mono);font-size:9px;letter-spacing:.11em;
   text-transform:uppercase;color:var(--dim);padding:5px 11px}
 .luhdr span{text-align:right}
 .luhdr span:nth-child(2){text-align:left}
-.lurow select{width:100%;min-width:0;font-size:12.5px;padding:3px 5px}
+.lurow select{min-width:0;font-size:13px;padding:3px 5px}
+/* The slot select is the row's name field and fills its track. */
+.lurow .lupick>.lurowctl>select[data-slot]{flex:1 1 auto;min-width:0}
 .luslot{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
   text-align:center;padding:3px 0;border-radius:2px;border:1px solid var(--line);color:var(--steel)}
 .luslot.k-C{border-color:var(--tbi-b);color:var(--tbi-t)}
 .luslot.k-G{border-color:var(--tto-b);color:var(--tto-t)}
 .luslot.k-F{border-color:var(--trf-b);color:var(--trf-t)}
 .lupick{min-width:0;display:flex;flex-direction:column;gap:2px}
-.luname{font-size:13.5px;overflow-wrap:anywhere}
+.luname{font-size:14px;overflow-wrap:anywhere}
 .lutip{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--dim)}
 .lutip.lk{color:var(--tax)}
-/* The numbers are the point of the row, so they are the biggest thing in it. */
-.luv{font-family:var(--mono);font-size:14px;text-align:right;color:var(--chalk)}
+/* Compact, right-aligned and monospaced: four characters wide is all a per-game
+   number ever needs, and tabular figures make a column scannable at 13px. */
+.luv{font-family:var(--mono);font-size:13px;text-align:right;color:var(--chalk);
+  font-variant-numeric:tabular-nums}
 .luv.live{color:var(--amber)}
 .luslot.k-B{border-style:dashed}
 .luslot.k-I{border-color:var(--wnln);color:var(--tax)}
@@ -255,21 +265,30 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 /* Name, tag and control on one line inside the pick column, so a bench row and a
    lineup row are the same height and the stat columns stay aligned. */
 .lurowctl{display:flex;align-items:center;gap:6px;min-width:0}
-.lurowctl .luname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The name leads and gets the room; the tag and the controls are pushed right
+   and never squeeze it. A name that will not fit wraps rather than trailing off
+   in an ellipsis — on the bench, knowing who somebody is comes first. */
+/* A real minimum, or the name collapses to one letter a line the moment a
+   control beside it wants room. It ellipsises rather than wrapping so every row
+   stays one line tall and the stat columns keep their alignment. */
+.lurowctl .luname{flex:1 1 auto;min-width:120px;font-weight:500;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lurowctl .pname{cursor:pointer}
-.lustart{font-size:11.5px;padding:2px 5px;margin-left:auto}
+.lurowctl .tag{flex:none;margin-left:0}
+.lustart{font-size:11.5px;padding:2px 5px;flex:0 0 auto;max-width:104px}
 .lurowctl .act{margin-left:0;flex:none}
 /* A player on the injured reserve is dimmed and struck through wherever he is
    listed, so a roster with two of them reads at a glance. */
 tbody tr.isir td{opacity:.55}
 tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:var(--steel)}
-@media (max-width:900px){
-  .lurow{grid-template-columns:44px minmax(0,150px) repeat(5,minmax(0,1fr))}
+@media (max-width:1000px){
+  .lurow{grid-template-columns:44px minmax(150px,1fr) repeat(5,minmax(42px,54px))}
   .lurow>.luv:nth-last-child(-n+4),.luhdr>span:nth-last-child(-n+4){display:none}
 }
-@media (max-width:620px){
-  .lurow{grid-template-columns:40px minmax(0,1fr) repeat(2,minmax(0,1fr))}
+@media (max-width:640px){
+  .lurow{grid-template-columns:40px minmax(0,1fr) repeat(2,minmax(40px,auto))}
   .lurow>.luv:nth-last-child(-n+7),.luhdr>span:nth-last-child(-n+7){display:none}
+  .lurowctl{flex-wrap:wrap}
 }
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
    bottom to be read and a new post lands where the eye already is. */
