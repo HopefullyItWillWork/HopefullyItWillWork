@@ -2683,6 +2683,68 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        (g('S').teams['N. Daman'].cuts || []).find(c => c.n === 'Payton Pritchard').at === '2025-26');
   }
 
+
+  console.log('\n== a GM may build any trade, but only propose his own ==');
+  {
+    const CS = g('S');
+    CS.cfg.phase = 'offseason';
+    const T3 = g('TEAMS')();
+    const mineClub = 'Osborn';
+    const other1 = T3.find(t => t !== mineClub), other2 = T3.find(t => t !== mineClub && t !== other1);
+    const side = (a, b) => ({a, b});
+
+    X.me = mineClub;
+    ok('a trade with his club on the near side is his',
+       g('tradeSideOf')(side(mineClub, other1)) === mineClub);
+    ok('...and on the far side too',
+       g('tradeSideOf')(side(other1, mineClub)) === mineClub);
+    /* The machine is for working out what a deal between two rivals would do as
+       much as one of his own, so building it stays open to everybody — only
+       putting it to somebody is restricted. */
+    ok('a trade between two rivals is not his',
+       g('tradeSideOf')(side(other1, other2)) === null,
+       String(g('tradeSideOf')(side(other1, other2))));
+
+    X.me = null;
+    ok('signed out, no trade is his', g('tradeSideOf')(side(mineClub, other1)) === null);
+
+    /* The commissioner has no club of his own, so he answers for whichever club
+       he is acting as — his tools exist to make the ledger match reality,
+       including recording a deal the two clubs agreed away from the app. */
+    X.me = '__comm__';
+    const acting = g('meTeam')();
+    ok('the commissioner is whichever club he is acting for',
+       g('tradeSideOf')(side(acting, other1)) === acting, String(acting));
+    ok('...and not one he is not', g('tradeSideOf')(
+       side(T3.find(t => t !== acting), T3.find(t => t !== acting && t !== T3.find(x => x !== acting)))) === null);
+
+    console.log('-- and the handler refuses, not just the button --');
+    X.me = mineClub;
+    /* A disabled button is a signpost; the rule has to be in the handler, or a
+       stale render leaves it clickable. */
+    const before = (CS.trades || []).length;
+    const src = g('drawTrade').toString() + g('validateTrade').toString();
+    ok('drawTrade disables the button off tradeSideOf', /tradeSideOf/.test(g('drawTrade').toString()));
+    ok('...and the click handler checks it too',
+       /tradeSideOf/.test(String(ctx.document.getElementById('propose').onclick)),
+       String(ctx.document.getElementById('propose').onclick).slice(0, 80));
+    ctx.__alerts.length = 0;
+    X.me = 'Osborn';
+  }
+
+  console.log('\n== the trade machine\'s Stats button opens the shared modal ==');
+  {
+    /* It used to render a card into a panel below the builder, so reading the
+       stats you had just asked for meant scrolling past both pick lists — the
+       same fault the Free agent classes tab had, and the same fix. */
+    const src = g('drawTradeLists').toString();
+    ok('it calls openPlayerCard', /openPlayerCard/.test(src));
+    ok('...and no longer writes into a panel below', !/tradeDetail/.test(src), 'tradeDetail still referenced');
+    ok('the panel it used to write into is gone from the page',
+       ctx.document.getElementById('tradeDetail') == null);
+    ok('the modal itself is still there', !!ctx.document.getElementById('dlgPlayerBody'));
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
