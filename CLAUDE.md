@@ -205,23 +205,48 @@ it reads `startedOn(club)` and adds the night's box scores; no screen has to
 change. `clubTotals()` and `fullTotals()` are untouched and still count every
 signed player, because there is nothing daily to count yet.
 
-**The lock.** Once a player's game tips off he is frozen for the night, in the
-lineup or out of it. `lockOf(name)` reads two sources in order:
+**The lock is per game, never league-wide.** A player freezes the moment *his
+own* game tips off: a five o'clock game locks that man at five and leaves his
+team-mate on a half-seven game free for another two and a half hours. So the
+lock hangs off the NBA club, and `NBATM` is what turns a player into the club
+whose game it is.
 
-1. `S.cfg.sched[day][NBA team]` — a tip-off time per team, written by the stats
-   feed when it lands. Nothing populates it today. `NBATM` maps a player to his
-   NBA club for exactly this reason: a tip-off belongs to the NBA team, not the
-   fantasy one.
-2. `S.cfg.lockAt` — a league-wide daily `HH:MM` in league time, set by the
-   commissioner alongside the season phase. The stopgap, and the reason the rule
-   is enforceable tonight rather than next season.
+    S.cfg.sched[day][NBA team] = 'HH:MM' in league time
 
-With neither set nothing locks and `lineupNote()` says so. Do not make the
-screen imply a lock that is not there.
+`tipOf()` finds a player's game, `lockOf()` compares it to the clock. A club with
+no line is not playing — nothing of his locks. A full timestamp is still parsed,
+so anything written before this keeps working.
+
+The nightly stats feed will write that map. Until then the commissioner types it
+into **Tonight's tip-offs**, one club per line, `DEN 19:00`. Same shape, so the
+feed drops in and the box goes away. An unparseable line is reported and dropped
+rather than silently ignored — a line nobody notices is a club that never locks.
+
+With nothing on file `lineupNote()` says so. Do not make the screen imply a lock
+that is not there.
 
 A locked player is rendered as text, not a disabled control — there is nothing
 the GM may do with him, and a dead select invites a click. `clearLineup()` and
-`autoLineup()` both step around locked men rather than failing.
+`autoLineup()` both step around locked men rather than failing. An unlocked
+starter whose game is still to come shows the time instead, so a GM knows his
+deadline without doing the arithmetic.
+
+**The row is a stat table, not a list of names.** One grid shared by the header
+and every row, so the nine categories line up as columns: PTS, REB, AST, 3P, STL,
+BLK, TO, then FG% and FT% last because they are rates and everything else is a
+count. The name column is deliberately narrow — it holds one dropdown, and the
+numbers are what a GM is comparing. `luLine()` reads `S.daily[day][player]` when
+the feed writes one and falls back to the per-game line until then; a live number
+renders amber so the two can never be confused.
+
+**The bench is where a GM starts somebody**, so each bench row carries a select
+of the open slots that man is actually eligible for. No open slot fits him and it
+says so rather than offering a control that cannot work.
+
+**The in-season header drops three cells** — average historical place, categories
+at a winning level, and the mid-level exception. They are offseason
+roster-building numbers; once games are being played they are noise above a
+lineup.
 
 **The IR sorts to the bottom of My Roster whatever the sort is set to**, and
 carries `tr.isir` for the dimming. A man who cannot be started is not competing
@@ -622,7 +647,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 428 assertions against the real functions
+node tests/test.js        the app: 453 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
