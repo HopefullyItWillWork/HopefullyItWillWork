@@ -1126,15 +1126,30 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      g('startedOn')('N. Fink').length <= 15 && g('startedOn')('N. Fink').length > 0,
      g('startedOn')('N. Fink').length);
 
-  console.log('\n== once his game tips off he is frozen for the night ==');
+  console.log('\n== a player locks when HIS OWN game tips off ==');
   const started = g('startedOn')('N. Fink');
   const withTeam = started.find(n => g('NBATM')[g('canon')(n)]);
   ok('at least one starter has an NBA club on file', !!withTeam, started.join(','));
   const tm = g('NBATM')[g('canon')(withTeam)];
-  g('S').cfg.sched = {[g('dayKey')()]: {[tm]: new Date(Date.now() - 3600e3).toISOString()}};
-  ok('he reads as locked', g('isLocked')(withTeam) === true);
-  ok('and the reason names his club', /tipped off/.test(g('lockOf')(withTeam).why),
-     g('lockOf')(withTeam).why);
+  const other = started.find(n => g('NBATM')[g('canon')(n)] && g('NBATM')[g('canon')(n)] !== tm);
+  ok('and another starter plays for a different club', !!other, started.join(','));
+  // 00:00 is always in the past; 23:59 is not yet, bar one minute of the day.
+  g('S').cfg.sched = {[g('dayKey')()]: {[tm]: '00:00'}};
+  ok('his club tipped off, so he is locked', g('isLocked')(withTeam) === true);
+  ok('the reason names the club and the time',
+     /tipped off at 00:00/.test(g('lockOf')(withTeam).why), g('lockOf')(withTeam).why);
+  ok('a team-mate on a LATER game is still free', g('isLocked')(other) === false,
+     g('NBATM')[g('canon')(other)] + ' ' + JSON.stringify(g('lockOf')(other)));
+  ok('and his row shows when he will lock', g('lockOf')(other).why === '',
+     g('lockOf')(other).why);
+  g('S').cfg.sched = {[g('dayKey')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
+  ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
+  ok('but the screen tells him the time', /23:59/.test(g('lockOf')(other).why),
+     g('lockOf')(other).why);
+  ok('the note counts tonight’s games', /2 games on tonight/.test(g('lineupNote')()),
+     g('lineupNote')());
+
+  console.log('\n== a locked man cannot be moved, and the rest can ==');
   const slotOfHim = SLOTIDS.find(id => g('lineupOf')('N. Fink').s[id] === withTeam);
   ctx.__alerts.length = 0;
   await g('setSlot')('N. Fink', slotOfHim, '');
@@ -1148,24 +1163,24 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and everyone unlocked went to the bench',
      g('startedOn')('N. Fink').every(n => g('isLocked')(n)),
      g('startedOn')('N. Fink').join(','));
+  ok('a tip-off is read from HH:MM', g('tipMinutes')('19:30') === 19 * 60 + 30);
+  ok('nonsense is not a tip-off', g('tipMinutes')('later') === null && g('tipMinutes')('') === null);
   g('S').cfg.sched = {};
-  ok('with the game gone from the schedule he is free again', g('isLocked')(withTeam) === false);
-
-  console.log('\n== the league-wide lock is the stopgap until the feed lands ==');
-  ok('with nothing set, nothing locks', /nothing is locked/.test(g('lineupNote')()), g('lineupNote')());
-  g('S').cfg.lockAt = '00:00';
-  ok('a lock time in the past locks everyone', g('isLocked')(withTeam) === true);
-  ok('and the note says when', /locks at 00:00/.test(g('lineupNote')()), g('lineupNote')());
-  g('S').cfg.lockAt = '';
-  ok('clearing it unlocks', g('isLocked')(withTeam) === false);
+  ok('with no game on file nothing of his locks', g('isLocked')(withTeam) === false);
+  ok('and the note says so', /nothing is locked/.test(g('lineupNote')()), g('lineupNote')());
 
   console.log('\n== the roster screen renders the lineup while the season is live ==');
   await g('clearLineup')('N. Fink');
   await g('autoLineup')('N. Fink');
   g('render')();
   ok('the lineup block is visible', document.getElementById('luWrap').hidden === false);
-  ok('fifteen rows are drawn',
-     (document.getElementById('luSlots').innerHTML.match(/class="lurow/g) || []).length === 15);
+  ok('a header and fifteen rows are drawn',
+     (document.getElementById('luSlots').innerHTML.match(/class="lurow/g) || []).length === 16
+     && /luhdr/.test(document.getElementById('luSlots').innerHTML));
+  ok('every scoring category has a column',
+     g('LUCATS').length === 9
+     && g('LUCATS').every(([, l]) => document.getElementById('luSlots').innerHTML.includes('>' + l + '<')),
+     g('LUCATS').map(c => c[1]).join(','));
   ok('the bench is listed', document.getElementById('luBench').innerHTML.length > 0);
   const first = g('startedOn')('N. Fink')[0];
   ok('a starter is tagged on the roster table',
@@ -1260,7 +1275,6 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('render')();
   document.getElementById('sPhase').value = 'offseason';
   document.getElementById('sIR').value = '1';
-  document.getElementById('sLockAt').value = '';
   ctx.__alerts.length = 0;
   await document.getElementById('savePhase').onclick();
   ok('the phase changed', g('S').cfg.phase === 'offseason');
@@ -1274,6 +1288,73 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      JSON.stringify(ctx.__alerts));
   ok('the lineup is dropped with the season', !BR().lu);
   ctx.__alerts.length = 0;
+  X.me = 'Osborn';
+
+  console.log('\n== the bench starts people ==');
+  X.me = 'N. Fink';
+  g('S').cfg.phase = 'season';
+  g('S').cfg.sched = {};
+  await g('clearLineup')('N. Fink');
+  g('render')();
+  const benched = g('benchOf')('N. Fink');
+  ok('everybody is on the bench with the lineup cleared',
+     benched.length === g('S').teams['N. Fink'].r.filter(p => p.y[1] != null && !g('onIR')(p)).length);
+  const bHtml = document.getElementById('luBench').innerHTML;
+  ok('each bench man carries a Start control', /data-start=/.test(bHtml));
+  ok('and it lists a slot he actually fits', /<option value="C"|<option value="G1"|<option value="U1"/.test(bHtml));
+  const guy = benched.find(p => g('posSet')(p.n).has('C')) || benched[0];
+  const startSlot = g('SLOTIDS').find(id => g('slotOk')(id, guy.n));
+  await g('setSlot')('N. Fink', startSlot, guy.n);
+  ok('choosing a slot starts him', g('lineupOf')('N. Fink').s[startSlot] === guy.n);
+  ok('and he leaves the bench', !g('benchOf')('N. Fink').some(p => p.n === guy.n));
+  g('render')();
+  ok('a man with no open eligible slot is told so, not offered a dead control',
+     /no open spot/.test(document.getElementById('luBench').innerHTML)
+     || g('benchOf')('N. Fink').every(p => g('SLOTIDS').some(id =>
+          !g('lineupOf')('N. Fink').s[id] && g('slotOk')(id, p.n))));
+
+  console.log('\n== the in-season header drops the offseason metrics ==');
+  g('render')();
+  const headLive = document.getElementById('meHead').innerHTML;
+  ok('no historical place', !/Avg historical place/.test(headLive));
+  ok('no winning-level count', !/Categories at a winning level/.test(headLive));
+  ok('no mid-level', !/Mid-level/.test(headLive));
+  ok('but payroll and the cap are still there',
+     /Payroll/.test(headLive) && /Room to tax/.test(headLive));
+  ok('and the game slots still show', /Game slots used/.test(headLive));
+  g('S').cfg.phase = 'offseason';
+  g('render')();
+  const headOff = document.getElementById('meHead').innerHTML;
+  ok('the offseason keeps all three',
+     /Avg historical place/.test(headOff) && /Categories at a winning level/.test(headOff)
+     && /Mid-level/.test(headOff));
+
+  console.log('\n== the commissioner enters tonight’s tip-offs ==');
+  X.me = '__comm__';
+  g('S').cfg.sched = {};
+  g('render')();
+  const day = g('dayKey')();
+  document.getElementById('tipDay').value = day;
+  document.getElementById('tipBox').value = 'DEN 19:00\nlal 22:30\n\nnonsense line';
+  await g('saveTips')();
+  ok('the good lines are saved', g('S').cfg.sched[day].DEN === '19:00'
+     && g('S').cfg.sched[day].LAL === '22:30', JSON.stringify(g('S').cfg.sched[day]));
+  ok('a club code is upper-cased', !('lal' in g('S').cfg.sched[day]));
+  ok('the unparseable line is dropped, not stored',
+     Object.keys(g('S').cfg.sched[day]).length === 2, JSON.stringify(g('S').cfg.sched[day]));
+  ok('and it is logged', g('S').log.some(e => /Tip-offs for/.test(e.detail || '')));
+  g('drawTips')();
+  ok('reading it back gives the same lines',
+     document.getElementById('tipBox').value === 'DEN 19:00\nLAL 22:30',
+     JSON.stringify(document.getElementById('tipBox').value));
+  ok('and the count is shown', /2 clubs playing/.test(document.getElementById('tipCount').textContent),
+     document.getElementById('tipCount').textContent);
+  ctx.__alerts.length = 0;
+  document.getElementById('tipDay').value = 'not-a-date';
+  await g('saveTips')();
+  ok('a bad night is refused', /YYYY-MM-DD/.test(ctx.__alerts[0] || ''), JSON.stringify(ctx.__alerts));
+  ctx.__alerts.length = 0;
+  g('S').cfg.sched = {};
   X.me = 'Osborn';
 
   console.log('\n== no stray alerts ==');

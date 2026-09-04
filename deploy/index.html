@@ -220,34 +220,52 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   border-bottom:1px solid var(--line2);background:var(--panel2);font-size:11.5px;color:var(--dim)}
 .pkprot select{font-size:11.5px;padding:3px 5px}
 .pkprot label{display:flex;align-items:center;gap:5px;margin:0;font-size:11.5px;text-transform:none;letter-spacing:0}
-/* Tonight's lineup. Fifteen slots in one column so the eye runs straight down
-   the position letters, which is the thing a GM is actually scanning for. */
+/* Tonight's lineup. The name column is deliberately narrow: it holds one
+   dropdown, while the nine stat columns are what a GM is actually comparing.
+   One shared grid on the header and every row, so the numbers line up. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
   border-radius:3px;overflow:hidden}
-.lurow{display:grid;grid-template-columns:58px minmax(0,1fr) minmax(0,1.1fr);gap:10px;
-  align-items:center;background:var(--panel);padding:7px 11px}
+.lurow{display:grid;grid-template-columns:46px minmax(0,164px) repeat(9,minmax(0,1fr));
+  gap:8px;align-items:center;background:var(--panel);padding:6px 11px}
 .lurow.empty{background:var(--panel2)}
-.lurow.locked{opacity:.75}
-.lurow select{width:100%;min-width:0;font-size:13px}
-.luslot{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+.lurow.locked{opacity:.72}
+.luhdr{background:var(--panel2);font-family:var(--mono);font-size:9px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--dim);padding:5px 11px}
+.luhdr span{text-align:right}
+.luhdr span:nth-child(2){text-align:left}
+.lurow select{width:100%;min-width:0;font-size:12.5px;padding:3px 5px}
+.luslot{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
   text-align:center;padding:3px 0;border-radius:2px;border:1px solid var(--line);color:var(--steel)}
 .luslot.k-C{border-color:var(--tbi-b);color:var(--tbi-t)}
 .luslot.k-G{border-color:var(--tto-b);color:var(--tto-t)}
 .luslot.k-F{border-color:var(--trf-b);color:var(--trf-t)}
-.luname{font-size:14px;overflow-wrap:anywhere}
-.lustat{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim);
-  text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lupick{min-width:0;display:flex;flex-direction:column;gap:2px}
+.luname{font-size:13.5px;overflow-wrap:anywhere}
+.lutip{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--dim)}
+.lutip.lk{color:var(--tax)}
+/* The numbers are the point of the row, so they are the biggest thing in it. */
+.luv{font-family:var(--mono);font-size:14px;text-align:right;color:var(--chalk)}
+.luv.live{color:var(--amber)}
 .lulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
   border-radius:3px;overflow:hidden}
 .lubench{background:var(--panel);padding:7px 11px;font-size:13.5px;display:flex;
-  align-items:center;gap:6px;flex-wrap:wrap}
+  align-items:center;gap:7px;flex-wrap:wrap}
 .lubench .pname{cursor:pointer}
 .lubench.onir{background:var(--panel2)}
+.lubstat{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim)}
+.lustart{margin-left:auto;font-size:11.5px;padding:2px 5px}
 /* A player on the injured reserve is dimmed and struck through wherever he is
    listed, so a roster with two of them reads at a glance. */
 tbody tr.isir td{opacity:.55}
 tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:var(--steel)}
-@media (max-width:640px){ .lurow{grid-template-columns:52px minmax(0,1fr)} .lustat{display:none} }
+@media (max-width:900px){
+  .lurow{grid-template-columns:44px minmax(0,150px) repeat(5,minmax(0,1fr))}
+  .lurow>.luv:nth-last-child(-n+4),.luhdr>span:nth-last-child(-n+4){display:none}
+}
+@media (max-width:620px){
+  .lurow{grid-template-columns:40px minmax(0,1fr) repeat(2,minmax(0,1fr))}
+  .lurow>.luv:nth-last-child(-n+7),.luhdr>span:nth-last-child(-n+7){display:none}
+}
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
    bottom to be read and a new post lands where the eye already is. */
 .chatbox{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-bottom:4px}
@@ -926,17 +944,28 @@ thead th.hide,tbody td.hide{display:none}}
       reserve and nightly lineups open up. <b>Roster size is the ACTIVE limit</b> &#8212; the injured
       reserve sits outside it, so 15 active with 1 IR slot is the rulebook's sixteen men, and only while
       one of them is hurt. Closing the season empties the injured reserve, which can leave a club one
-      over; it is told, and its GM chooses who goes. "Lineups lock at" is a daily time on a 24-hour clock in league
-      time &#8212; every GM's lineup freezes then. Leave it blank and nothing locks; once the nightly stats
-      feed lands each club will instead lock at its own tip-off and this becomes the fallback.</p>
+      over; it is told, and its GM chooses who goes.</p>
     <div class="form f4">
       <div><label for="sPhase">Phase</label><select id="sPhase">
         <option value="offseason">Offseason</option><option value="season">Season is live</option></select></div>
       <div><label for="sIR">IR slots per club</label><input id="sIR" class="mono" type="number" min="0" max="5"></div>
-      <div><label for="sLockAt">Lineups lock at</label>
-        <input id="sLockAt" class="mono" placeholder="19:00" maxlength="5" autocomplete="off"></div>
-      <button class="btn" id="savePhase">Save</button>
+      <div></div><button class="btn" id="savePhase">Save</button>
     </div>
+
+    <h2 class="sub">Tonight's tip-offs</h2>
+    <p class="note">A player is frozen for the night the moment <em>his own</em> game tips off &#8212; a
+      five o'clock game locks that man at five and leaves his team-mate on a half-seven game free for
+      another two and a half hours. So the lock is per NBA club, not a league-wide curfew.
+      One club per line, <code>DEN 19:00</code>, on a 24-hour clock in league time. A club with no line
+      is not playing, and nothing of his locks. This is the stopgap: the nightly stats feed will write
+      exactly this and the box goes away.</p>
+    <div class="form f4">
+      <div><label for="tipDay">Night</label><input id="tipDay" class="mono" placeholder="2026-11-04" autocomplete="off"></div>
+      <div><label>&nbsp;</label><div class="t" id="tipCount" style="padding-top:9px"></div></div>
+      <div></div>
+      <button class="btn" id="tipSave">Save tip-offs</button>
+    </div>
+    <textarea id="tipBox" rows="6" placeholder="DEN 19:00&#10;LAL 22:30" style="width:100%;background:var(--panel);color:var(--chalk);border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--mono);font-size:13px;line-height:1.6"></textarea>
 
     <h2 class="sub">Rookie draft input</h2>
     <p class="note">The order and the money are settled before anyone is on the clock, so both are
@@ -2127,7 +2156,6 @@ function drawAdmin(){
   if($('sPhase')){
     $('sPhase').value=S.cfg.phase||'offseason';
     $('sIR').value=S.cfg.ir??2;
-    $('sLockAt').value=S.cfg.lockAt||'';
     /* Changing the phase is the single most consequential switch on this page:
        it opens or closes the injured reserve and lineups, and it decides whether
        a release keeps its salary on the books. So it asks first, and the
@@ -2135,9 +2163,6 @@ function drawAdmin(){
     $('savePhase').onclick=async()=>{
       const was=S.cfg.phase, now=$('sPhase').value;
       const ir=Math.max(0,parseInt($('sIR').value)||0);
-      const lockAt=$('sLockAt').value.trim();
-      if(lockAt&&!/^([01]?\d|2[0-3]):[0-5]\d$/.test(lockAt))
-        return alert('The lock time must read as HH:MM on a 24-hour clock, or be left blank.');
       let pending=0;
       TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{ if(c.live) pending++; }));
       const lines=[];
@@ -2149,9 +2174,6 @@ function drawAdmin(){
           +'\n\u2022 A release clears immediately and voids its remaining years.'
           +(pending?`\n\u2022 ${pending} released salar${pending===1?'y':'ies'} will come off the books now.`:''));
       if(ir!==(S.cfg.ir??2)) lines.push(`Injured reserve: ${S.cfg.ir??2} \u2192 ${ir} slots per club.`);
-      if(lockAt!==(S.cfg.lockAt||'')) lines.push(lockAt
-        ? `Lineups will lock at ${lockAt} every day.`
-        : 'The daily lineup lock is removed \u2014 nothing will lock.');
       if(!lines.length) return alert('Nothing has changed.');
       if(!confirm(lines.join('\n\n')+'\n\nSave this?')) return;
       S.cfg.phase=now;
@@ -2174,10 +2196,16 @@ function drawAdmin(){
         if(msg.length) alert('Season closed.\n\n\u2022 '+msg.join('\n\u2022 '));
       }
       S.cfg.ir=ir;
-      S.cfg.lockAt=lockAt;
-      await commit({kind:'edit',detail:`Season phase set to ${now==='season'?'live':'offseason'}, ${ir} IR slots`
-        +(lockAt?`, lineups lock at ${lockAt}`:', no lineup lock')});
+      await commit({kind:'edit',
+        detail:`Season phase set to ${now==='season'?'live':'offseason'}, ${ir} IR slots`});
     };
+  }
+  if($('tipBox')&&!$('tipBox').dataset.built){
+    $('tipBox').dataset.built='1';
+    $('tipDay').value=dayKey();
+    drawTips();
+    $('tipDay').oninput=drawTips;
+    $('tipSave').onclick=saveTips;
   }
   if($('demoBtn')){ $('demoBtn').onclick=startDemo; $('demoClr').onclick=clearDemo;
     $('demoBtn').textContent = (S.auction&&S.auction.status==='open')
@@ -2237,6 +2265,38 @@ function drawAdmin(){
     TEAMS().forEach(t=>S.teams[t].pin='');
     await commit({kind:'edit',detail:'All club PINs reset'});};
   if($('commPinBtn')) $('commPinBtn').onclick=()=>openPin('__comm__');
+}
+/* The tip-off box, read and written as plain lines so a commissioner can paste a
+   night's schedule in one go. Anything unparseable is reported rather than
+   dropped: a silently ignored line is a club that never locks. */
+function drawTips(){
+  const day=($('tipDay').value||'').trim()||dayKey();
+  const sched=(S.cfg.sched||{})[day]||{};
+  const keys=Object.keys(sched).sort();
+  $('tipBox').value=keys.map(k=>`${k} ${sched[k]}`).join('\n');
+  $('tipCount').textContent=keys.length
+    ? `${keys.length} club${keys.length===1?'':'s'} playing`
+    : 'no games on file for that night';
+}
+async function saveTips(){
+  const day=($('tipDay').value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)) return alert('The night reads as YYYY-MM-DD.');
+  const out={}, bad=[];
+  ($('tipBox').value||'').split(/\n+/).forEach(line=>{
+    const t=line.trim();
+    if(!t) return;
+    const m=/^([A-Za-z]{2,4})[\s,]+(\d{1,2}:\d{2})$/.exec(t);
+    if(!m||tipMinutes(m[2])==null){ bad.push(t); return; }
+    out[m[1].toUpperCase()]=hhmm(tipMinutes(m[2]));
+  });
+  if(bad.length&&!confirm(`These lines were not understood and will be dropped:\n\n${bad.join('\n')}\n\nSave the rest?`)) return;
+  const known=new Set(Object.values(NBATM));
+  const odd=Object.keys(out).filter(k=>!known.has(k));
+  if(odd.length&&!confirm(`No player on any roster plays for: ${odd.join(', ')}.\n\nSave anyway?`)) return;
+  S.cfg.sched={...(S.cfg.sched||{}),[day]:out};
+  const n=Object.keys(out).length;
+  await commit({kind:'edit',detail:`Tip-offs for ${day} — ${n} club${n===1?'':'s'}`},['settings']);
+  drawTips();
 }
 let pinFor=null;
 function openPin(t){
@@ -2428,9 +2488,9 @@ function drawMe(){
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
       <div class="capcell"><dt>Spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
       <div class="capcell"><dt>Game slots used</dt><dd>${Math.round(F.own)} / ${S.cfg.gamecap||920}</dd></div>
-      <div class="capcell"><dt>Avg historical place</dt><dd class="${avgPlace<=3.5?'good':avgPlace>=6.5?'bad':''}">${avgPlace.toFixed(1)}</dd></div>
+      ${seasonLive()?'':`<div class="capcell"><dt>Avg historical place</dt><dd class="${avgPlace<=3.5?'good':avgPlace>=6.5?'bad':''}">${avgPlace.toFixed(1)}</dd></div>
       <div class="capcell"><dt>Categories at a winning level</dt><dd class="${beat>=4?'good':beat<=1?'bad':''}">${beat} of 9</dd></div>
-      <div class="capcell"><dt>Mid-level</dt><dd>${S.teams[T].mle===false?'spent':money(5.50)}</dd></div>
+      <div class="capcell"><dt>Mid-level</dt><dd>${S.teams[T].mle===false?'spent':money(5.50)}</dd></div>`}
       ${seasonLive()?`<div class="capcell"><dt>Injured reserve</dt><dd>${irCount(T)} / ${S.cfg.ir??2}</dd></div>`:''}
     </dl>
     ${(()=>{
@@ -4818,15 +4878,18 @@ function startedOn(t){
   return SLOTIDS.map(id=>s[id]).filter(Boolean);
 }
 /* ---- the lock ----
-   Once a player's game has tipped off he is frozen for the night, in or out.
-   Two sources, in order:
-     S.cfg.sched[day][NBA team]  a tip-off time per team, written by the stats
-                                 feed when it lands. Nothing populates it today.
-     S.cfg.lockAt                a league-wide daily lock time, "HH:MM" in
-                                 LEAGUE_TZ, set by the commissioner. The stopgap
-                                 until the feed exists, and the reason the rule
-                                 is enforceable tonight rather than next season.
-   With neither set, nothing locks and the screen says so rather than pretending. */
+   A player is frozen for the night the moment HIS game tips off, not when some
+   league-wide clock strikes. A five o'clock game locks that man at five; a
+   half-seven game leaves his team-mate free for another two and a half hours.
+   So the lock is per NBA club, and `NBATM` is what turns a player into the club
+   whose game it is.
+
+     S.cfg.sched[day][NBA team] = 'HH:MM' in league time
+
+   The nightly stats feed will write that. Until it does the commissioner enters
+   tonight's tip-offs on his own tab — the same shape, so the feed drops in
+   later without anything else moving. A club with no tip-off on file is not
+   playing, or is not known about, and either way nothing of his locks. */
 const leagueTZ=()=>S.cfg.tz||'America/New_York';
 function dayKey(at){
   try{
@@ -4841,35 +4904,45 @@ function minutesNow(){
     return (+p[0])*60+(+p[1]);
   }catch(e){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
 }
-function lockMinutes(){
-  const v=String(S.cfg.lockAt||'').trim();
-  const m=/^(\d{1,2}):(\d{2})$/.exec(v);
-  if(!m) return null;
-  const h=+m[1], mi=+m[2];
-  return (h>=0&&h<24&&mi>=0&&mi<60) ? h*60+mi : null;
-}
 /* Locked, and why — the why is what the screen tells the GM. */
-function lockOf(name,at){
-  const day=dayKey(at);
+/* A tip-off is stored as 'HH:MM' in league time, which is how a human reads a
+   schedule and what the feed will write. A full timestamp is accepted too, so
+   anything already stored keeps working. */
+function tipMinutes(v){
+  const m=/^\s*(\d{1,2}):(\d{2})\s*$/.exec(String(v||''));
+  if(m){ const h=+m[1], mi=+m[2]; return (h<24&&mi<60)?h*60+mi:null; }
+  const t=Date.parse(v);
+  if(isNaN(t)) return null;
+  try{
+    const p=new Intl.DateTimeFormat('en-GB',{timeZone:leagueTZ(),hour:'2-digit',
+      minute:'2-digit',hour12:false}).format(new Date(t)).split(':');
+    return (+p[0])*60+(+p[1]);
+  }catch(e){ const d=new Date(t); return d.getHours()*60+d.getMinutes(); }
+}
+const hhmm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+function tipOf(name,at){
   const tm=NBATM[canon(name)];
-  const sched=(S.cfg.sched||{})[day];
-  if(tm&&sched&&sched[tm]){
-    const tip=Date.parse(sched[tm]);
-    if(!isNaN(tip)) return (at?at.getTime():Date.now())>=tip
-      ? {locked:true,why:`${tm} has tipped off`} : {locked:false,why:''};
-  }
-  const lm=lockMinutes();
-  if(lm!=null&&minutesNow()>=lm)
-    return {locked:true,why:`lineups locked at ${S.cfg.lockAt}`};
-  return {locked:false,why:''};
+  if(!tm) return null;
+  const sched=(S.cfg.sched||{})[dayKey(at)];
+  if(!sched||sched[tm]==null) return null;
+  const m=tipMinutes(sched[tm]);
+  return m==null?null:{team:tm,at:m};
+}
+function lockOf(name,at){
+  const t=tipOf(name,at);
+  if(!t) return {locked:false,why:''};
+  return minutesNow()>=t.at
+    ? {locked:true,why:`${t.team} tipped off at ${hhmm(t.at)}`}
+    : {locked:false,why:`${t.team} ${hhmm(t.at)}`};
 }
 const isLocked=name=>lockOf(name).locked;
 /* Why a club cannot be edited at all, or '' when it can. */
 function lineupNote(){
-  if((S.cfg.sched||{})[dayKey()]) return 'Locks follow each club’s tip-off.';
-  const lm=lockMinutes();
-  if(lm!=null) return `Everything locks at ${S.cfg.lockAt} ${leagueTZ().split('/').pop().replace('_',' ')}.`;
-  return 'No schedule and no lock time set — nothing is locked tonight.';
+  const sched=(S.cfg.sched||{})[dayKey()];
+  const n=sched?Object.keys(sched).length:0;
+  return n
+    ? `${n} game${n===1?'':'s'} on tonight — each player locks when his own club tips off.`
+    : 'No tip-offs on file for tonight, so nothing is locked. The commissioner enters them on his tab.';
 }
 /* ---- moves ---- */
 async function setSlot(team,id,name){
@@ -4929,6 +5002,26 @@ async function autoLineup(team){
   await commit({kind:'edit',team,detail:`Lineup auto-filled — ${filled} spot${filled===1?'':'s'}`},['rosters']);
 }
 
+/* The nine scoring categories as the lineup shows them, in the order the league
+   reads a box score. Percentages last: they are rates, everything else is a
+   count, and mixing them up the row makes the numbers harder to scan. */
+const LUCATS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],
+  ['STL','STL'],['BLK','BLK'],['TOV','TO'],['FGP','FG%'],['FTP','FT%']];
+function luVal(r,k){
+  if(!r||!r.s) return null;
+  if(k==='FGP') return r.s.FGA?r.s.FG/r.s.FGA:null;
+  if(k==='FTP') return r.s.FTA?r.s.FT/r.s.FTA:null;
+  return r.s[k];
+}
+const luCell=(k,v)=>v==null?'&#8212;'
+  :(k==='FGP'||k==='FTP')?(v*100).toFixed(1):(+v).toFixed(1);
+/* Tonight's actual box score, once the stats feed writes one. Until then every
+   row shows the per-game line the rest of the app is showing, which is what a
+   GM is choosing between anyway. */
+function luLine(name){
+  const daily=(S.daily&&S.daily[dayKey()]&&S.daily[dayKey()][canon(name)])||null;
+  return {r:daily||pstat(name), live:!!daily};
+}
 function drawLineup(){
   const wrap=$('luWrap'); if(!wrap) return;
   wrap.hidden = !me || !seasonLive();
@@ -4945,10 +5038,13 @@ function drawLineup(){
     ${can?`<button class="btn ghost" id="luAuto" style="margin-left:auto">Auto-fill</button>
       <button class="btn ghost" id="luClear">Clear</button>`:''}</div>
     <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night.
-      <b>That accrual is not built yet</b> &#8212; it needs the nightly stats feed, so nothing here
-      moves the standings today. The slots, the eligibility and the lock are real.</p>`;
-  /* One row per slot. A locked man is text, not a control: there is nothing the
-     GM may do with him tonight and a disabled select invites a click anyway. */
+      <b>That accrual is not built yet</b> &#8212; it needs the nightly stats feed, so the numbers below
+      are each man's per-game line, not tonight's box score, and nothing here moves the standings today.
+      The slots, the eligibility and the lock are real.</p>`;
+  const hdr=`<div class="lurow luhdr"><span></span><span>Player</span>
+    ${LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}</div>`;
+  /* A locked man is text, not a control: there is nothing the GM may do with him
+     tonight, and a disabled select invites a click anyway. */
   const opts=(id)=>{
     const cur=lu.s[id];
     const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
@@ -4956,18 +5052,20 @@ function drawLineup(){
       .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
     return `<option value="">&#8212; empty &#8212;</option>`
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
-        htmlEsc(p.n)} &#183; ${htmlEsc(posText(p.n))}</option>`).join('');
+        htmlEsc(p.n)}</option>`).join('');
   };
-  $('luSlots').innerHTML=SLOTIDS.map(id=>{
+  $('luSlots').innerHTML=hdr+SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
-    const r=nm?pstat(nm):null;
+    const L=nm?luLine(nm):null;
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
-      ${lk.locked
-        ? `<span class="luname">${htmlEsc(nm)}<span class="tag t-cut">locked &#183; ${htmlEsc(lk.why)}</span></span>`
+      <span class="lupick">${lk.locked
+        ? `<span class="luname">${htmlEsc(nm)}</span><span class="lutip lk">${htmlEsc(lk.why)}</span>`
         : can ? `<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>`
-              : `<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}
-      <span class="lustat">${nm?(r&&r.g?statLine(nm):htmlEsc(posText(nm))):''}</span></div>`;
+                +(nm&&lk.why?`<span class="lutip">${htmlEsc(lk.why)}</span>`:'')
+              : `<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
+      ${LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
+        nm?luCell(k,luVal(L.r,k)):''}</span>`).join('')}</div>`;
   }).join('');
   if(can){
     $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>
@@ -4975,11 +5073,24 @@ function drawLineup(){
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
   }
+  /* The bench is where a GM starts somebody, so it carries the control that does
+     it: every open slot the man is actually eligible for, and nothing else. */
+  const openFor=name=>SLOTIDS.filter(id=>!lu.s[id]&&slotOk(id,name));
   const card=(p,cls)=>{
-    const lk=lockOf(p.n);
-    return `<div class="lubench ${cls||''}"><span class="pname" data-player="${htmlEsc(p.n)}">${
-      htmlEsc(p.n)}</span><span class="tag t-po">${htmlEsc(posText(p.n))}</span>${
-      lk.locked?'<span class="tag t-cut">locked</span>':''}</div>`;
+    const lk=lockOf(p.n), where=openFor(p.n);
+    const r=pstat(p.n);
+    return `<div class="lubench ${cls||''}">
+      <span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+      <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
+      ${lk.locked?`<span class="tag t-cut">locked &#183; ${htmlEsc(lk.why)}</span>`
+        :lk.why?`<span class="lutip">${htmlEsc(lk.why)}</span>`:''}
+      <span class="lubstat">${r&&r.g?LUCATS.slice(0,4).map(([k,l])=>
+        `${l} ${luCell(k,luVal(r,k))}`).join(' \\u00b7 '):''}</span>
+      ${can&&cls!=='onir'&&!lk.locked ? (where.length
+        ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
+             <option value="">Start&#8230;</option>
+             ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
+        : '<span class="lutip">no open spot</span>') : ''}</div>`;
   };
   $('luBench').innerHTML = bench.length
     ? bench.sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99)).map(p=>card(p)).join('')
@@ -4987,6 +5098,9 @@ function drawLineup(){
   $('luIR').innerHTML = ir.length
     ? ir.map(p=>card(p,'onir')).join('')
     : '<div class="empty">Nobody on the injured reserve.</div>';
+  if(can) $('luBench').querySelectorAll('[data-start]').forEach(sel=>sel.onchange=()=>{
+    if(sel.value) setSlot(T,sel.value,sel.dataset.start);
+  });
 }
 
 /* ================= LEAGUE CHAT =================
