@@ -305,6 +305,53 @@ lineup.
 carries `tr.isir` for the dimming. A man who cannot be started is not competing
 with the ones who can.
 
+**Three tabs are offseason-only** (`OFFSEASON_TABS`): the auction, the free agent
+classes that feed it, and the rookie draft that follows it. `markPhaseTabs()`
+hides them once the season is live and moves anyone standing on one somewhere
+real — a hidden tab whose panel is still open is worse than either state.
+
+### Free agency is a season activity
+In the **offseason** a club adds players by winning them at auction or drafting
+them, so a GM signing a free agent directly would be going round the room. Both
+paths refuse him: the Sign button on My Team's free agent list only appears when
+`canSignFA()` is true, and Quick sign's Record is disabled. The commissioner is
+not bound by either — his tools exist to make the ledger match reality, including
+recording what the auction did.
+
+**In season** a GM signs from the free agent list on My Team. Every such signing
+is one year at `S.cfg.minSal`, and the calendar decides the rights:
+
+- **before `S.cfg.deadline`** — Early Bird. The club finishes the year with him,
+  which is what the rulebook asks of Early Bird.
+- **after it** — nothing. A rental: one year, no rights, gone in the summer.
+
+`deadlinePassed()` compares league dates. With no deadline set nothing has passed
+it, so every in-season signing earns rights — which is the safer default when the
+commissioner has not said otherwise.
+
+`signPlayer()` takes an optional `{bird, why}`. Only the in-season path passes it;
+the auction and the draft set `p.b` themselves, so everything else leaves it
+alone.
+
+### The auction nominates on a snake
+`S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
+backwards, round three forwards again, so the club at each end nominates twice in
+a row — a snake. `nomSlot(i)` is the pure function; `nomOnClock()` is what the
+screens read.
+
+**How far through the order we are is counted from the transaction log**, not
+stored. Every nomination writes one line, so `nomCount()` reads the append-only
+record of what actually happened: there is no counter to drift, nothing to reset,
+and two GMs cannot race it.
+
+**A full club is skipped, not waited on.** It cannot sign anybody, so blocking the
+room on it would stall the auction; `nomOnClock()` walks forward to the first club
+with space and reports how many it stepped over. With every club full there is no
+clock and the auction is over.
+
+With `nomOrder` empty, nomination is the free-for-all it was before — that is the
+migration path, not a bug.
+
 ### An expiring contract is a free agent
 He is sitting on a roster this minute, but nobody has committed a dollar to him
 for next season, and that is the only test the auction, the strategy board and
@@ -700,7 +747,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 493 assertions against the real functions
+node tests/test.js        the app: 530 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -727,6 +774,20 @@ in `tests/dom.js`:
   club;
 - an attribute parser that only understands `k="v"` never sees `<option selected>`
   or a bare `hidden`, which are exactly the two things this app leans on most.
+
+**`querySelectorAll` only understands attribute selectors.** `#tabs button` finds
+nothing, so anything reached that way — `goTab()`, `markPhaseTabs()` — cannot be
+asserted in Node. Test the rule there and verify the DOM in a browser.
+
+**Chromium is available in this sandbox** at
+`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, with `playwright-core`
+installable. Load `deploy/index.html` over `file://`, drive it through the
+globals — `applySlice('settings',{...fresh().cfg,phase:'season'})`, `render()`,
+`goTab()` are all function declarations and therefore on `window` — and measure
+or screenshot. Three lineup layouts were rejected that way before one shipped,
+and the tab hiding above was confirmed there rather than guessed. `S` and `me`
+are top-level `let`s and are **not** reachable; go through `applySlice()` and
+`localStorage.ll_me`.
 
 Note that top-level `let`/`const` do not land on a vm's global object. `run.js`
 appends an epilogue exposing them as `ctx.__X`; add a name there if a test needs
@@ -904,6 +965,8 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 - The real rookie class. `ROOKIES` is placeholder data until the feed lands.
 - CSV import. Export is built; see the commissioner's player table above for what
   reading a file back in would have to get right.
+- Auto-advancing the auction. The snake says who is on the clock, but nothing
+  times a nomination out or nudges a GM who has wandered off.
 - Nightly stats feed. The rolling-15-day chart is built and waiting on a
   `daily/<date>` key per day. **Use the NBA's own stats endpoints**
   (`stats.nba.com`, e.g. `leaguegamelog` / `boxscoretraditionalv2`) — free, no
