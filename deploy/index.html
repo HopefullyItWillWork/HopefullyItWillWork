@@ -220,6 +220,34 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   border-bottom:1px solid var(--line2);background:var(--panel2);font-size:11.5px;color:var(--dim)}
 .pkprot select{font-size:11.5px;padding:3px 5px}
 .pkprot label{display:flex;align-items:center;gap:5px;margin:0;font-size:11.5px;text-transform:none;letter-spacing:0}
+/* Tonight's lineup. Fifteen slots in one column so the eye runs straight down
+   the position letters, which is the thing a GM is actually scanning for. */
+.luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:3px;overflow:hidden}
+.lurow{display:grid;grid-template-columns:58px minmax(0,1fr) minmax(0,1.1fr);gap:10px;
+  align-items:center;background:var(--panel);padding:7px 11px}
+.lurow.empty{background:var(--panel2)}
+.lurow.locked{opacity:.75}
+.lurow select{width:100%;min-width:0;font-size:13px}
+.luslot{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  text-align:center;padding:3px 0;border-radius:2px;border:1px solid var(--line);color:var(--steel)}
+.luslot.k-C{border-color:var(--tbi-b);color:var(--tbi-t)}
+.luslot.k-G{border-color:var(--tto-b);color:var(--tto-t)}
+.luslot.k-F{border-color:var(--trf-b);color:var(--trf-t)}
+.luname{font-size:14px;overflow-wrap:anywhere}
+.lustat{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim);
+  text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:3px;overflow:hidden}
+.lubench{background:var(--panel);padding:7px 11px;font-size:13.5px;display:flex;
+  align-items:center;gap:6px;flex-wrap:wrap}
+.lubench .pname{cursor:pointer}
+.lubench.onir{background:var(--panel2)}
+/* A player on the injured reserve is dimmed and struck through wherever he is
+   listed, so a roster with two of them reads at a glance. */
+tbody tr.isir td{opacity:.55}
+tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:var(--steel)}
+@media (max-width:640px){ .lurow{grid-template-columns:52px minmax(0,1fr)} .lustat{display:none} }
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
    bottom to be read and a new post lands where the eye already is. */
 .chatbox{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-bottom:4px}
@@ -536,6 +564,20 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
+    <div id="luWrap" hidden>
+      <h2>Tonight's lineup</h2>
+      <div id="luHead"></div>
+      <div class="luslots" id="luSlots"></div>
+      <div class="twocol" style="margin-top:16px">
+        <div><h2 class="sub">Bench</h2>
+          <p class="note">Anybody may sit here. A benched player's stats do not count for the night.</p>
+          <div class="lulist" id="luBench"></div></div>
+        <div><h2 class="sub">Injured reserve</h2>
+          <p class="note">Off the lineup entirely. Move a player on or off from the roster table below.</p>
+          <div class="lulist" id="luIR"></div></div>
+      </div>
+    </div>
+
     <h2>My roster <button class="btn ghost" id="expMine" style="margin-left:auto">Export CSV</button></h2>
     <div class="rosterwrap" id="meRoster"></div>
 
@@ -847,11 +889,12 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="warn" id="pinWarn" hidden><b>The commissioner PIN is still 0000.</b>
       Change it before you share the link, or anyone can edit every roster.</div>
     <div class="warn"><b>Read this before you share the link.</b> Sign-in here is honor-system only. The page runs entirely in the browser, so anyone who views the source can read every PIN. It prevents mistakes and keeps an audit trail &#8212; it does not stop someone determined. Keep the commissioner PIN to yourself and rely on the transaction log to catch anything odd.</div>
+    <div class="warn" id="rosWarn" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
       <div><label for="sTax">Luxury tax / hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
-      <div><label for="sRoster">Roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
+      <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
     <h2 class="sub">Clubs</h2>
@@ -879,13 +922,20 @@ thead th.hide,tbody td.hide{display:none}}
     <div class="log" id="gmList"></div>
     <h2 class="sub">Season phase</h2>
     <p class="note">The offseason allows auctions, cuts that clear salary immediately, and roster building.
-      Once the season is live, cuts keep their salary on the books until the year ends and the injured
-      reserve opens up.</p>
+      Once the season is live, cuts keep their salary on the books until the year ends, and the injured
+      reserve and nightly lineups open up. <b>Roster size is the ACTIVE limit</b> &#8212; the injured
+      reserve sits outside it, so 15 active with 1 IR slot is the rulebook's sixteen men, and only while
+      one of them is hurt. Closing the season empties the injured reserve, which can leave a club one
+      over; it is told, and its GM chooses who goes. "Lineups lock at" is a daily time on a 24-hour clock in league
+      time &#8212; every GM's lineup freezes then. Leave it blank and nothing locks; once the nightly stats
+      feed lands each club will instead lock at its own tip-off and this becomes the fallback.</p>
     <div class="form f4">
       <div><label for="sPhase">Phase</label><select id="sPhase">
         <option value="offseason">Offseason</option><option value="season">Season is live</option></select></div>
       <div><label for="sIR">IR slots per club</label><input id="sIR" class="mono" type="number" min="0" max="5"></div>
-      <div></div><button class="btn" id="savePhase">Save</button>
+      <div><label for="sLockAt">Lineups lock at</label>
+        <input id="sLockAt" class="mono" placeholder="19:00" maxlength="5" autocomplete="off"></div>
+      <button class="btn" id="savePhase">Save</button>
     </div>
 
     <h2 class="sub">Rookie draft input</h2>
@@ -998,6 +1048,16 @@ thead th.hide,tbody td.hide{display:none}}
   <div class="acts" style="margin-top:14px">
     <button class="btn ghost" id="dlgPlayerClose">Close</button></div>
 </div></dialog>
+
+<dialog id="dlgSwap"><form method="dialog" class="dlg">
+  <h4 id="swTitle">Activate</h4><p id="swSub"></p>
+  <div class="fields">
+    <div><label for="swWho">Release</label><select id="swWho"></select></div>
+  </div>
+  <p class="note" id="swNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button class="btn danger" id="swGo" value="ok">Release and activate</button></div>
+</form></dialog>
 
 <dialog id="dlgPin"><form method="dialog" class="dlg">
   <h4 id="pinTitle">Set a PIN</h4><p id="pinSub"></p>
@@ -1296,7 +1356,11 @@ let S=null, me=null, activeTeam=null;
 function fresh(){
   const t={};
   Object.keys(SEED.teams).forEach(k=>{t[k]={r:JSON.parse(JSON.stringify(SEED.teams[k].r)),cuts:JSON.parse(JSON.stringify(SEED.teams[k].cuts||[])),picks:[],pin:''};});
-  return {cfg:{cap:165.00,tax:200.50,roster:16,season:'2026\u201327',commPin:'0000',gamecap:920,phase:'offseason',ir:2},teams:t,log:[]};
+  /* `roster` is the ACTIVE limit, and headcount() already excludes the injured
+     reserve — so 15 active plus 1 IR slot is the rulebook's "16 men, and only if
+     one of them is hurt". The offseason has no IR at all, which makes the same
+     number mean 15 flat. */
+  return {cfg:{cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,phase:'offseason',ir:1},teams:t,log:[]};
 }
 const TEAMS=()=>Object.keys(S.teams).sort();
 const isComm=()=>me==='__comm__';
@@ -1329,16 +1393,70 @@ const onIR=p=>!!p.ir;
 const headcount=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&!onIR(p)).length;
 const irCount=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&onIR(p)).length;
 const seasonLive=()=>S.cfg.phase==='season';
+/* The roster limit is on ACTIVE players, which is what headcount() counts. A
+   club may carry a sixteenth man only while one of them is on the injured
+   reserve; activating him is therefore the moment the club goes one over, and
+   somebody has to go. Rather than refuse — which leaves a GM guessing which of
+   two screens to visit — the swap dialog asks who. */
 async function toggleIR(team,idx){
   if(!canEdit(team)) return alert('You can only change your own club.');
   if(!seasonLive()) return alert('The injured reserve opens once the commissioner sets the season live.');
   const p=S.teams[team].r[idx];
+  if(!p) return;
   if(p.y[1]==null) return alert(`${p.n} is not under contract for this season.`);
-  if(!p.ir && irCount(team)>=(S.cfg.ir??2))
-    return alert(`${team} already has ${S.cfg.ir} players on the injured reserve.`);
-  p.ir=!p.ir;
-  await commit({kind:'edit',team,detail:`${p.n} ${p.ir?'moved to':'activated from'} injured reserve`});
+  if(!p.ir){
+    if(irCount(team)>=(S.cfg.ir??1))
+      return alert(`${team} already has ${S.cfg.ir??1} player${(S.cfg.ir??1)===1?'':'s'} on the injured reserve.`);
+    p.ir=true;
+    return commit({kind:'edit',team,detail:`${p.n} moved to injured reserve`},['rosters']);
+  }
+  /* Coming off the IR. If the active roster is already full this is a swap, not
+     a move, and the GM picks who leaves. */
+  if(headcount(team)>=S.cfg.roster) return openSwap(team,idx);
+  p.ir=false;
+  /* A player who cannot be started is not in anybody's lineup; coming back does
+     not put him in one either. */
+  await commit({kind:'edit',team,detail:`${p.n} activated from injured reserve`},['rosters']);
 }
+let swapping=null;
+function openSwap(team,idx){
+  const p=S.teams[team].r[idx];
+  swapping={team,idx};
+  $('swTitle').textContent=`Activating ${p.n}`;
+  $('swSub').textContent=`${team} already carries ${headcount(team)} active players, the limit. `
+    +`Bringing ${p.n} back means releasing somebody. Pick who, or cancel and leave him on the injured reserve.`;
+  const opts=S.teams[team].r
+    .map((x,i)=>({x,i}))
+    .filter(({x,i})=>i!==idx&&x.y[1]!=null&&!onIR(x))
+    .sort((a,b)=>(a.x.y[1]||0)-(b.x.y[1]||0));
+  $('swWho').innerHTML=opts.map(({x,i})=>
+    `<option value="${i}">${htmlEsc(x.n)} \u00b7 ${money(x.y[1])}</option>`).join('');
+  $('swNote').textContent=seasonLive()
+    ? 'The released salary stays on your cap until the season ends. A two-year-or-longer deal cannot be re-signed by this club until the next offseason.'
+    : 'The released salary comes off immediately and every remaining year is voided.';
+  openModal('dlgSwap');
+}
+$('swGo').onclick=async e=>{
+  if(!swapping) return;
+  const {team,idx}=swapping;
+  const drop=parseInt($('swWho').value);
+  const hurt=S.teams[team].r[idx], out=S.teams[team].r[drop];
+  if(!hurt||!out||drop===idx){ swapping=null; return; }
+  if(!confirm(`Release ${out.n} at ${money(out.y[1])} and activate ${hurt.n}?`)){
+    if(e&&e.preventDefault) e.preventDefault();
+    return;
+  }
+  swapping=null;
+  /* Release first, then activate: the other order puts the club over the limit
+     for the length of one statement, and anything reading it in between — a
+     merge, a poll — would see an illegal roster. */
+  releaseRecord(team,drop);
+  const again=S.teams[team].r.find(x=>x===hurt);
+  if(again) again.ir=false;
+  await commit({kind:'cut',team,
+    detail:`${out.n} released \u2014 ${money(out.y[1])} \u2014 to activate ${hurt.n} from injured reserve`},
+    ['rosters']);
+};
 /* The trade block is one boolean on the roster entry, not a separate list. It
    therefore rides the rosters slice and merges per club exactly like a cut or a
    signing — two GMs listing players at the same moment cannot collide, and a
@@ -1472,18 +1590,26 @@ async function signPlayer(name,team,price,years){
   if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:new Date().getFullYear(),cut:false});
   await commit({kind:'sign',team,detail:`${name} \u2014 ${money(price)} \u00d7 ${years} yr${years>1?'s':''}`});
 }
+/* The release itself, with no confirming and no commit, so every path that has
+   to drop somebody records it the same way — the roster splice and the cuts
+   entry that carries the waiver rules. cutPlayer() is the button; the injured
+   reserve swap below is the other caller. */
+function releaseRecord(team,idx){
+  const p=S.teams[team].r.splice(idx,1)[0];
+  const yrs=p.y.filter((v,i)=>i>0&&v!=null).length;
+  S.teams[team].cuts.push({n:p.n,p:p.p,s:p.y[1]!=null?p.y[1]:p.y[0],
+    blocked: yrs>=2,            // only a two-year-or-longer deal carries a re-sign block
+    live: seasonLive(),         // in season the salary stays on the cap until the year ends
+    at:S.cfg.season});
+  return p;
+}
 async function cutPlayer(team,idx){
   if(!canEdit(team)) return alert('You can only cut from your own club.');
   const p=S.teams[team].r[idx];
   if(!confirm(seasonLive()
     ? `Release ${p.n}? His ${money(p.y[1]!=null?p.y[1]:p.y[0])} stays on your cap until the season ends.`
     : `Release ${p.n}? His salary comes off immediately and every remaining year is voided.`)) return;
-  S.teams[team].r.splice(idx,1);
-  const yrs=p.y.filter((v,i)=>i>0&&v!=null).length;
-  S.teams[team].cuts.push({n:p.n,p:p.p,s:p.y[1]!=null?p.y[1]:p.y[0],
-    blocked: yrs>=2,            // only a two-year-or-longer deal carries a re-sign block
-    live: seasonLive(),         // in season the salary stays on the cap until the year ends
-    at:S.cfg.season});
+  releaseRecord(team,idx);
   await commit({kind:'cut',team,detail:`${p.n} released \u2014 ${money(p.y[1]!=null?p.y[1]:p.y[0])}`});
 }
 let editing=null;
@@ -1987,19 +2113,70 @@ function drawAdmin(){
   drawAllPlayers();
   drawDraftAdmin();
   if($('pinWarn')) $('pinWarn').hidden = S.cfg.commPin!=='0000';
+  /* A league saved before the active limit was written down still carries the
+     old 16-and-2. Say so rather than rewriting a commissioner's settings behind
+     his back — one is the rulebook, the other is his league. */
+  if($('rosWarn')){
+    const bad = S.cfg.roster!==15 || (S.cfg.ir??1)!==1;
+    $('rosWarn').hidden=!bad;
+    if(bad) $('rosWarn').innerHTML='<b>Roster settings do not match the rulebook.</b> '
+      +`This league is set to ${S.cfg.roster} active players and ${S.cfg.ir??1} injured-reserve slot`
+      +`${(S.cfg.ir??1)===1?'':'s'}. The rules are <b>15 active</b> and <b>1 IR slot</b> \u2014 sixteen men, `
+      +'and only while one of them is hurt. Set them below and save.';
+  }
   if($('sPhase')){
     $('sPhase').value=S.cfg.phase||'offseason';
     $('sIR').value=S.cfg.ir??2;
+    $('sLockAt').value=S.cfg.lockAt||'';
+    /* Changing the phase is the single most consequential switch on this page:
+       it opens or closes the injured reserve and lineups, and it decides whether
+       a release keeps its salary on the books. So it asks first, and the
+       question says what will actually happen rather than "are you sure". */
     $('savePhase').onclick=async()=>{
-      const was=S.cfg.phase;
-      S.cfg.phase=$('sPhase').value;
-      if(was==='season'&&S.cfg.phase==='offseason'){
+      const was=S.cfg.phase, now=$('sPhase').value;
+      const ir=Math.max(0,parseInt($('sIR').value)||0);
+      const lockAt=$('sLockAt').value.trim();
+      if(lockAt&&!/^([01]?\d|2[0-3]):[0-5]\d$/.test(lockAt))
+        return alert('The lock time must read as HH:MM on a 24-hour clock, or be left blank.');
+      let pending=0;
+      TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{ if(c.live) pending++; }));
+      const lines=[];
+      if(now!==was) lines.push(now==='season'
+        ? 'Set the season LIVE.\n\n\u2022 The injured reserve and nightly lineups open.'
+          +'\n\u2022 A release now keeps its salary on the books until the season ends.'
+        : 'Close the season and return to the OFFSEASON.'
+          +'\n\u2022 Lineups and the injured reserve close.'
+          +'\n\u2022 A release clears immediately and voids its remaining years.'
+          +(pending?`\n\u2022 ${pending} released salar${pending===1?'y':'ies'} will come off the books now.`:''));
+      if(ir!==(S.cfg.ir??2)) lines.push(`Injured reserve: ${S.cfg.ir??2} \u2192 ${ir} slots per club.`);
+      if(lockAt!==(S.cfg.lockAt||'')) lines.push(lockAt
+        ? `Lineups will lock at ${lockAt} every day.`
+        : 'The daily lineup lock is removed \u2014 nothing will lock.');
+      if(!lines.length) return alert('Nothing has changed.');
+      if(!confirm(lines.join('\n\n')+'\n\nSave this?')) return;
+      S.cfg.phase=now;
+      if(was==='season'&&now==='offseason'){
         let cleared=0;
         TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{if(c.live){c.live=false;cleared++;}}));
-        if(cleared) alert(`Season closed. ${cleared} released salaries have come off the books.`);
+        /* There is no injured reserve in the offseason, so everybody on it comes
+           back — and a club carrying a sixteenth man is now one over. It is told,
+           not fixed: which player goes is the GM's call, not the commissioner's. */
+        let activated=0; const over=[];
+        TEAMS().forEach(t=>{
+          S.teams[t].r.forEach(p=>{ if(p.ir){ delete p.ir; activated++; } });
+          delete S.teams[t].lu;
+          if(headcount(t)>S.cfg.roster) over.push(`${t} (${headcount(t)})`);
+        });
+        const msg=[];
+        if(cleared) msg.push(`${cleared} released salaries have come off the books.`);
+        if(activated) msg.push(`${activated} player${activated===1?'':'s'} came off the injured reserve.`);
+        if(over.length) msg.push(`Over the ${S.cfg.roster}-man limit and needing a release: ${over.join(', ')}.`);
+        if(msg.length) alert('Season closed.\n\n\u2022 '+msg.join('\n\u2022 '));
       }
-      S.cfg.ir=Math.max(0,parseInt($('sIR').value)||0);
-      await commit({kind:'edit',detail:`Season phase set to ${S.cfg.phase==='season'?'live':'offseason'}, ${S.cfg.ir} IR slots`});
+      S.cfg.ir=ir;
+      S.cfg.lockAt=lockAt;
+      await commit({kind:'edit',detail:`Season phase set to ${now==='season'?'live':'offseason'}, ${ir} IR slots`
+        +(lockAt?`, lineups lock at ${lockAt}`:', no lineup lock')});
     };
   }
   if($('demoBtn')){ $('demoBtn').onclick=startDemo; $('demoClr').onclick=clearDemo;
@@ -2094,7 +2271,7 @@ function render(){
     $('tA').value=(me&&me!=='__comm__')?me:TEAMS()[0];
     $('tB').value=TEAMS().find(t=>t!==$('tA').value);
   }
-  drawDraft();drawChat();drawBlock();drawTradeLists();drawTrade();drawOffers();
+  drawDraft();drawLineup();drawChat();drawBlock();drawTradeLists();drawTrade();drawOffers();
   drawRater();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
   exportBtn('expRater','player-rater.csv','raterTbl');
   exportBtn('expLabPool','player-pool.csv','labPoolTbl');
@@ -2268,16 +2445,25 @@ function drawMe(){
       <b>${a.player}</b> is on the block at ${money(a.bid)}, leading bid from ${a.leader}.
       ${a.leader===T?'You are in front.':''}</div>`:''}`;
   const MS=SORTS.mine||{col:'sal',desc:true};
+  /* The injured reserve sinks to the bottom whatever the sort, because a man
+     who cannot be started is not competing with the ones who can. */
   const mrows=S.teams[T].r.filter(p=>p.y[1]!=null).slice()
-    .sort((x,y)=>cmp(MS.col==='n'?x.n:MS.col==='sal'?x.y[1]:rtg(x.n),
-                     MS.col==='n'?y.n:MS.col==='sal'?y.y[1]:rtg(y.n),MS.desc));
+    .sort((x,y)=>{
+      const ix=onIR(x)?1:0, iy=onIR(y)?1:0;
+      if(ix!==iy) return ix-iy;
+      return cmp(MS.col==='n'?x.n:MS.col==='sal'?x.y[1]:rtg(x.n),
+                 MS.col==='n'?y.n:MS.col==='sal'?y.y[1]:rtg(y.n),MS.desc);
+    });
   const canAct=canEdit(T);
   $('meRoster').innerHTML=`<table id="meRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
     <th data-k="sal">Salary</th><th class="hide2" data-k="rtg">Rating</th>${canAct?'<th></th>':''}</tr></thead>
     <tbody>${mrows.map(p=>{
       const i=S.teams[T].r.findIndex(x=>x.n===p.n);
-      return `<tr><td class="pname" data-player="${p.n}">${p.n}${tags(p)}${
-        p.blk?'<span class="tag t-blk">On the block</span>':''}</td><td>${money(p.y[1])}</td>
+      const started=seasonLive()&&startedOn(T).some(n=>canon(n)===canon(p.n));
+      return `<tr class="${onIR(p)?'isir':''}"><td class="pname" data-player="${p.n}">${p.n}${tags(p)}${
+        p.blk?'<span class="tag t-blk">On the block</span>':''}${
+        onIR(p)?'<span class="tag t-cut">Injured reserve</span>':''}${
+        started?'<span class="tag t-bird">Starting</span>':''}</td><td>${money(p.y[1])}</td>
       <td class="hide2">${rtg(p.n)!=null?(rtg(p.n)>0?'+':'')+rtg(p.n):'&#8212;'}</td>
       ${canAct?`<td class="acts"><span>${
         canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}
@@ -3134,6 +3320,11 @@ function canon(n){
    in. Replace the whole table when a newer set arrives — nothing reads anything
    but these twelve keys. */
 const AGG={"Nikola Jokic":{g:72,PTS:27.7,TRB:12.4,AST:11.3,STL:1.7,BLK:0.8,TOV:3.2,P3:1.6,FG:10,FGA:17.5,FT:6.2,FTA:7.6},"Victor Wembanyama":{g:67,PTS:25.6,TRB:10.9,AST:3.3,STL:1.1,BLK:3,TOV:3.3,P3:2.6,FG:8.6,FGA:17.1,FT:5.7,FTA:6.9},"Shai Gilgeous-Alexander":{g:73,PTS:30.2,TRB:4.3,AST:6.1,STL:1.5,BLK:0.9,TOV:1.9,P3:1.6,FG:10.5,FGA:19.7,FT:7.7,FTA:8.7},"Kawhi Leonard":{g:69,PTS:24.1,TRB:4.9,AST:2.5,STL:1.9,BLK:0.3,TOV:1.7,P3:2.5,FG:8.4,FGA:17.1,FT:4.9,FTA:5.6},"Tyrese Maxey":{g:75,PTS:23.8,TRB:3.3,AST:5.9,STL:1.6,BLK:0.5,TOV:1.9,P3:3.4,FG:8.1,FGA:17.7,FT:4.3,FTA:4.9},"Luka Doncic":{g:67,PTS:31.9,TRB:8.1,AST:10.1,STL:2,BLK:0.5,TOV:4.2,P3:4.3,FG:10.1,FGA:21.7,FT:7.3,FTA:9.3},"Donovan Mitchell":{g:72,PTS:27.5,TRB:4.4,AST:4.4,STL:1.2,BLK:0.3,TOV:2.8,P3:3.6,FG:9.4,FGA:20.3,FT:5.1,FTA:6},"Jamal Murray":{g:78,PTS:22.5,TRB:3.8,AST:7.7,STL:1,BLK:0.5,TOV:2.5,P3:2.8,FG:7.8,FGA:16.3,FT:4.1,FTA:4.6},"Stephen Curry":{g:61,PTS:25.5,TRB:3.5,AST:4.2,STL:1.2,BLK:0.4,TOV:3.3,P3:4.9,FG:8.1,FGA:17.8,FT:4.4,FTA:4.7},"Lauri Markkanen":{g:63,PTS:23.4,TRB:6.3,AST:1.7,STL:1,BLK:0.4,TOV:1.7,P3:2.6,FG:7.9,FGA:16.7,FT:5,FTA:5.6},"Kevin Durant":{g:77,PTS:23.2,TRB:5,AST:4.6,STL:0.7,BLK:0.9,TOV:3,P3:2,FG:8.3,FGA:15.9,FT:4.7,FTA:5.5},"Trey Murphy III":{g:67,PTS:20.9,TRB:5.3,AST:3.8,STL:1.4,BLK:0.5,TOV:1.9,P3:3.7,FG:7.1,FGA:15.3,FT:3.1,FTA:3.5},"Scottie Barnes":{g:76,PTS:19.6,TRB:7.4,AST:7.3,STL:1.5,BLK:1.4,TOV:3.2,P3:1.1,FG:7.6,FGA:15.9,FT:3.2,FTA:4.1},"Anthony Edwards":{g:71,PTS:28.6,TRB:5.2,AST:3.1,STL:1.2,BLK:0.7,TOV:3.5,P3:3.1,FG:9.9,FGA:20.3,FT:5.7,FTA:7},"Chet Holmgren":{g:72,PTS:16.6,TRB:8.5,AST:1.9,STL:0.6,BLK:1.9,TOV:1.9,P3:1.6,FG:6,FGA:11.2,FT:3.1,FTA:4},"Joel Embiid":{g:51,PTS:21.7,TRB:7,AST:3,STL:0.4,BLK:1,TOV:3.1,P3:0.9,FG:7.4,FGA:15,FT:6.2,FTA:7.3},"Kevin Porter Jr":{g:58,PTS:12.7,TRB:4.1,AST:3.9,STL:1.3,BLK:0.3,TOV:1.8,P3:1,FG:4.6,FGA:9.9,FT:2.6,FTA:3},"James Harden":{g:75,PTS:19.9,TRB:4.5,AST:8.9,STL:1.2,BLK:0.6,TOV:2.9,P3:2.6,FG:5.9,FGA:14,FT:5.6,FTA:6.4},"Anthony Davis":{g:67,PTS:21.8,TRB:10.5,AST:3.4,STL:1.1,BLK:2,TOV:1.9,P3:0.6,FG:9,FGA:17.5,FT:3.1,FTA:4},"Karl-Anthony Towns":{g:76,PTS:20.3,TRB:11.4,AST:2.5,STL:0.7,BLK:0.5,TOV:2.6,P3:1.8,FG:6.9,FGA:13.4,FT:4.7,FTA:5.6},"Cade Cunningham":{g:66,PTS:23.4,TRB:5.4,AST:11.2,STL:1.5,BLK:0.7,TOV:4,P3:1.7,FG:8.5,FGA:18.2,FT:4.8,FTA:5.8},"Jalen Johnson":{g:74,PTS:21.1,TRB:9.8,AST:6.3,STL:1.5,BLK:0.7,TOV:3.2,P3:1.5,FG:7.8,FGA:16.2,FT:3.9,FTA:5},"Jimmy Butler":{g:47,PTS:16.4,TRB:4.5,AST:5.1,STL:1.3,BLK:0.2,TOV:1.1,P3:0.6,FG:5.2,FGA:10.1,FT:5.4,FTA:6.3},"Austin Reaves":{g:68,PTS:21.6,TRB:4.5,AST:4.7,STL:1,BLK:0.3,TOV:2.5,P3:2.4,FG:6.7,FGA:14.2,FT:5.8,FTA:6.6},"Nickeil Alexander-Walker":{g:76,PTS:18.6,TRB:3.6,AST:3.3,STL:1.3,BLK:0.6,TOV:2,P3:2.7,FG:6.3,FGA:13.8,FT:3.2,FTA:3.5},"Michael Porter Jr.":{g:61,PTS:19.2,TRB:6.6,AST:2.4,STL:0.8,BLK:0.3,TOV:1.7,P3:2.9,FG:6.7,FGA:14.5,FT:2.9,FTA:3.4},"Jayson Tatum":{g:65,PTS:23.9,TRB:8.6,AST:5.7,STL:1.3,BLK:0.5,TOV:3.3,P3:2.7,FG:8.3,FGA:17.9,FT:4.6,FTA:5.6},"Derrick White":{g:75,PTS:15.9,TRB:4.1,AST:5.3,STL:1.2,BLK:1.1,TOV:1.6,P3:2.6,FG:5.5,FGA:13.9,FT:2.3,FTA:2.5},"Jalen Duren":{g:77,PTS:17.5,TRB:10.7,AST:2.1,STL:0.6,BLK:1.1,TOV:1.8,P3:0,FG:6.7,FGA:10.3,FT:4.1,FTA:5.4},"Keyonte George":{g:74,PTS:19.8,TRB:3.5,AST:6.1,STL:0.7,BLK:0.2,TOV:3,P3:2.6,FG:6,FGA:13.2,FT:5.1,FTA:5.8},"Amen Thompson":{g:76,PTS:18.2,TRB:7.7,AST:4.3,STL:1.5,BLK:1.1,TOV:2.1,P3:0.4,FG:7,FGA:13,FT:3.8,FTA:5},"Donovan Clingan":{g:72,PTS:11.3,TRB:11.1,AST:1.9,STL:0.7,BLK:1.4,TOV:1.2,P3:0.9,FG:4.3,FGA:8.3,FT:1.7,FTA:2.5},"Desmond Bane":{g:78,PTS:19,TRB:4.6,AST:5.1,STL:1.2,BLK:0.3,TOV:2.4,P3:2.1,FG:6.7,FGA:13.9,FT:3.6,FTA:4},"Onyeka Okongwu":{g:71,PTS:14,TRB:8.4,AST:3.1,STL:0.9,BLK:1,TOV:1.8,P3:1.5,FG:5.3,FGA:11,FT:1.9,FTA:2.4},"OG Anunoby":{g:72,PTS:16.2,TRB:4.5,AST:1.7,STL:1.4,BLK:0.7,TOV:1.4,P3:2.1,FG:5.7,FGA:11.8,FT:2.7,FTA:3.3},"Paul George":{g:57,PTS:16.2,TRB:5.3,AST:3.9,STL:1.8,BLK:0.4,TOV:2,P3:2.1,FG:5.9,FGA:13.4,FT:2.4,FTA:2.9},"Mikal Bridges":{g:77,PTS:14,TRB:3.1,AST:3.9,STL:0.9,BLK:0.6,TOV:1.3,P3:1.7,FG:5.6,FGA:11.3,FT:1,FTA:1.2},"Bam Adebayo":{g:76,PTS:18.1,TRB:9.5,AST:3.7,STL:1.3,BLK:0.6,TOV:1.7,P3:1.6,FG:6.2,FGA:14.1,FT:4.1,FTA:5.3},"Cooper Flagg":{g:72,PTS:23.1,TRB:6.8,AST:5.6,STL:1.4,BLK:1.2,TOV:1.8,P3:1.1,FG:8.8,FGA:18.5,FT:4.4,FTA:5.3},"Tyler Herro":{g:65,PTS:21.2,TRB:4.5,AST:5,STL:0.8,BLK:0.3,TOV:2.6,P3:3.3,FG:7.4,FGA:15.4,FT:3,FTA:3.3},"Jaren Jackson Jr.":{g:66,PTS:21.4,TRB:5.5,AST:1.7,STL:1.2,BLK:1.4,TOV:2.5,P3:1.6,FG:8,FGA:16.6,FT:3.8,FTA:4.8},"Jalen Brunson":{g:72,PTS:25.4,TRB:3,AST:5.8,STL:0.7,BLK:0.1,TOV:2,P3:2.3,FG:9.2,FGA:19.7,FT:4.7,FTA:5.6},"Devin Booker":{g:73,PTS:25,TRB:3.5,AST:5.3,STL:0.7,BLK:0.2,TOV:3.2,P3:2.5,FG:7.9,FGA:17.4,FT:6.6,FTA:7.5},"Alex Sarr":{g:66,PTS:15.6,TRB:7.1,AST:2.7,STL:0.6,BLK:1.9,TOV:2.2,P3:1.4,FG:6.2,FGA:12.9,FT:1.9,FTA:2.7},"LeBron James":{g:65,PTS:20.1,TRB:5.8,AST:7.1,STL:1.1,BLK:0.4,TOV:3.2,P3:1.3,FG:7.5,FGA:14.5,FT:3.7,FTA:5},"Alperen Sengun":{g:76,PTS:19.9,TRB:9.4,AST:5.9,STL:1,BLK:1,TOV:2.9,P3:0.4,FG:8,FGA:15.4,FT:3.6,FTA:5.2},"Brandon Miller":{g:68,PTS:20.9,TRB:4.6,AST:3.9,STL:1.1,BLK:0.6,TOV:3,P3:3.4,FG:7.2,FGA:16.6,FT:3.1,FTA:3.4},"Ryan Rollins":{g:71,PTS:15.1,TRB:4,AST:5.9,STL:1.5,BLK:0.4,TOV:2.9,P3:2,FG:5.8,FGA:12.2,FT:1.5,FTA:1.9},"Jaylen Brown":{g:73,PTS:21.5,TRB:5.2,AST:3.9,STL:1,BLK:0.2,TOV:2.2,P3:1.5,FG:7.8,FGA:16.3,FT:4.5,FTA:5.6},"Dyson Daniels":{g:76,PTS:11.6,TRB:5.8,AST:5.4,STL:2.1,BLK:0.5,TOV:1.6,P3:0.6,FG:5,FGA:9.6,FT:0.9,FTA:1.4},"LaMelo Ball":{g:74,PTS:17.6,TRB:4.3,AST:8.5,STL:1.2,BLK:0.2,TOV:2.9,P3:2.5,FG:6.5,FGA:16.1,FT:2.1,FTA:2.4},"Kel'el Ware":{g:74,PTS:12.4,TRB:9.9,AST:1,STL:0.9,BLK:1.5,TOV:1,P3:0.9,FG:5.2,FGA:9.7,FT:1.1,FTA:1.5},"Evan Mobley":{g:75,PTS:19,TRB:9.3,AST:3.4,STL:0.9,BLK:1.6,TOV:1.7,P3:0.9,FG:7.6,FGA:13.8,FT:2.9,FTA:4.4},"Jalen Suggs":{g:67,PTS:14.7,TRB:3.9,AST:4.7,STL:1.5,BLK:0.7,TOV:2.4,P3:2,FG:5.4,FGA:12.6,FT:1.9,FTA:2.2},"Kristaps Porzingis":{g:54,PTS:17.9,TRB:5.7,AST:2.3,STL:0.7,BLK:1.1,TOV:1.3,P3:2.2,FG:5.7,FGA:12.8,FT:4.4,FTA:5.1},"Deni Avdija":{g:70,PTS:19.4,TRB:6.3,AST:5.7,STL:1,BLK:0.6,TOV:3.3,P3:1.9,FG:5.8,FGA:12.5,FT:5.8,FTA:7.2},"Andrew Wiggins":{g:73,PTS:16.8,TRB:4.8,AST:2.7,STL:1.3,BLK:1,TOV:1.7,P3:2,FG:6.4,FGA:13.6,FT:2.1,FTA:2.7},"Neemias Queta":{g:72,PTS:9.9,TRB:7.8,AST:1.3,STL:0.8,BLK:1.6,TOV:1.1,P3:0,FG:4.2,FGA:6.4,FT:1.6,FTA:2.3},"Nikola Vucevic":{g:64,PTS:10.8,TRB:6.1,AST:2.6,STL:0.6,BLK:0.4,TOV:1,P3:1.1,FG:4.4,FGA:8.9,FT:0.9,FTA:1.1},"Jaden McDaniels":{g:71,PTS:15.2,TRB:5.3,AST:2.6,STL:1,BLK:1,TOV:1.7,P3:1.4,FG:5.9,FGA:11.5,FT:2.1,FTA:2.5},"V. J. Edgecombe":{g:78,PTS:14.8,TRB:5.4,AST:4.4,STL:1.5,BLK:0.5,TOV:1.5,P3:1.8,FG:5.6,FGA:12.8,FT:1.8,FTA:2.2},"Kon Knueppel":{g:71,PTS:18.1,TRB:5.4,AST:3.2,STL:0.8,BLK:0.2,TOV:2.1,P3:2.9,FG:6.4,FGA:13.4,FT:2.4,FTA:2.8},"Mark Williams":{g:60,PTS:12.6,TRB:8.5,AST:1.9,STL:1,BLK:1.2,TOV:1.3,P3:0,FG:5.1,FGA:7.9,FT:2.4,FTA:3},"Brandon Ingram":{g:79,PTS:21.2,TRB:5.5,AST:3.9,STL:0.8,BLK:0.7,TOV:3.2,P3:1.6,FG:7.9,FGA:16.5,FT:3.8,FTA:4.6},"Jarrett Allen":{g:70,PTS:13.8,TRB:8.3,AST:1.5,STL:0.8,BLK:1,TOV:1.1,P3:0,FG:5.4,FGA:8.5,FT:3,FTA:4.3},"Immanuel Quickley":{g:72,PTS:17.4,TRB:3.8,AST:6.8,STL:1.4,BLK:0.1,TOV:1.8,P3:2.9,FG:6,FGA:13.6,FT:2.5,FTA:3.1},"Josh Giddey":{g:72,PTS:15.8,TRB:8.1,AST:7.9,STL:1.3,BLK:0.6,TOV:2.9,P3:1.6,FG:5.6,FGA:12.6,FT:3,FTA:3.9},"Reed Sheppard":{g:75,PTS:11.9,TRB:2.8,AST:2.7,STL:1.7,BLK:0.7,TOV:1.2,P3:2.3,FG:4.5,FGA:10.3,FT:0.7,FTA:0.9},"Giannis Antetokounmpo":{g:68,PTS:31.5,TRB:11.6,AST:5.7,STL:1.1,BLK:1.1,TOV:3.8,P3:0.2,FG:11.9,FGA:19.6,FT:7.4,FTA:11.8},"Matas Buzelis":{g:77,PTS:17.1,TRB:6.2,AST:2,STL:0.7,BLK:1.4,TOV:1.7,P3:2.7,FG:6,FGA:12.9,FT:2.5,FTA:3.2},"Jalen Williams":{g:70,PTS:20.4,TRB:4.9,AST:6,STL:1.5,BLK:0.4,TOV:2.3,P3:1.6,FG:7.5,FGA:15.6,FT:3.8,FTA:4.5},"De'Aaron Fox":{g:73,PTS:18.3,TRB:3.6,AST:4.7,STL:1.5,BLK:0.3,TOV:2.1,P3:1.6,FG:7.1,FGA:14.5,FT:2.6,FTA:3.4},"Franz Wagner":{g:66,PTS:22.8,TRB:5.4,AST:3.7,STL:1.2,BLK:0.3,TOV:2,P3:1.8,FG:7.9,FGA:16.3,FT:5.3,FTA:6.4},"Norman Powell":{g:64,PTS:21,TRB:3,AST:2.3,STL:1.2,BLK:0.2,TOV:1.8,P3:3.3,FG:6.8,FGA:14.3,FT:4.2,FTA:5.1},"Keegan Murray":{g:70,PTS:16.6,TRB:6.1,AST:1.7,STL:0.7,BLK:0.9,TOV:1,P3:2.6,FG:6.1,FGA:14.4,FT:1.8,FTA:2.2},"Tre Jones":{g:60,PTS:12.1,TRB:2.9,AST:4.3,STL:1.3,BLK:0.2,TOV:1.5,P3:0.6,FG:4.5,FGA:8.2,FT:2.5,FTA:3},"Payton Pritchard":{g:74,PTS:17.1,TRB:4.1,AST:4.7,STL:1,BLK:0.1,TOV:1.3,P3:3,FG:6.3,FGA:13.6,FT:1.5,FTA:1.7},"Grayson Allen":{g:66,PTS:12.8,TRB:2.6,AST:2.3,STL:1,BLK:0.3,TOV:1.4,P3:2.9,FG:3.9,FGA:9.6,FT:2.1,FTA:2.5},"Naz Reid":{g:73,PTS:15.5,TRB:6.9,AST:3,STL:1,BLK:1.2,TOV:1.9,P3:2.2,FG:6,FGA:13,FT:1.3,FTA:1.7},"Josh Hart":{g:72,PTS:11.2,TRB:7.3,AST:4.4,STL:1.5,BLK:0.3,TOV:1.7,P3:1.2,FG:4.4,FGA:8.6,FT:1.3,FTA:1.8},"Julius Randle":{g:72,PTS:19.9,TRB:6.5,AST:4.7,STL:0.9,BLK:0.2,TOV:2.6,P3:1.4,FG:6.9,FGA:14.5,FT:4.8,FTA:6},"Jabari Smith Jr.":{g:76,PTS:14.5,TRB:7.3,AST:1.9,STL:0.5,BLK:0.8,TOV:1.3,P3:2.2,FG:5.2,FGA:11.5,FT:1.9,FTA:2.4},"Jay Huff":{g:70,PTS:8.5,TRB:3,AST:1,STL:0.4,BLK:1.7,TOV:0.8,P3:1.4,FG:3.1,FGA:6.6,FT:0.9,FTA:1.1},"Saddiq Bey":{g:75,PTS:16.7,TRB:4.9,AST:2.5,STL:0.9,BLK:0.1,TOV:1,P3:2.2,FG:5.6,FGA:12.3,FT:3.2,FTA:3.9},"Collin Gillespie":{g:73,PTS:11,TRB:3.8,AST:5.1,STL:0.9,BLK:0.2,TOV:1.5,P3:2.2,FG:4,FGA:9.5,FT:0.8,FTA:0.9},"Deandre Ayton":{g:76,PTS:9.5,TRB:6.1,AST:0.7,STL:0.5,BLK:0.6,TOV:1,P3:0,FG:4.2,FGA:6.2,FT:0.9,FTA:1.4},"Darius Garland":{g:75,PTS:19.2,TRB:2.6,AST:7.8,STL:1.1,BLK:0.2,TOV:3.1,P3:2.4,FG:7.2,FGA:15.5,FT:2.4,FTA:2.8},"Kyshawn George":{g:67,PTS:12,TRB:4.5,AST:2.9,STL:1,BLK:1,TOV:2,P3:2,FG:4.1,FGA:9.3,FT:1.7,FTA:2.1},"Ayo Dosunmu":{g:75,PTS:14.9,TRB:3.7,AST:4.6,STL:0.9,BLK:0.3,TOV:1.3,P3:2,FG:5.5,FGA:10.6,FT:1.8,FTA:2.1},"Robert Williams":{g:61,PTS:6.3,TRB:6.6,AST:0.9,STL:0.6,BLK:1.6,TOV:0.8,P3:0.1,FG:2.8,FGA:3.9,FT:0.5,FTA:0.8},"Myles Turner":{g:77,PTS:12.5,TRB:5.6,AST:1.6,STL:0.6,BLK:1.7,TOV:1.4,P3:2.2,FG:4.2,FGA:9.6,FT:1.9,FTA:2.6},"Isaiah Hartenstein":{g:68,PTS:9.9,TRB:9.7,AST:3.3,STL:1,BLK:0.9,TOV:1.9,P3:0,FG:4.2,FGA:6.8,FT:1.5,FTA:2.4},"Ajay Mitchell":{g:66,PTS:14.7,TRB:3.6,AST:4.6,STL:1.5,BLK:0.3,TOV:1.3,P3:1.3,FG:5.4,FGA:11.2,FT:2.7,FTA:3},"Rudy Gobert":{g:75,PTS:10.9,TRB:10.4,AST:1.5,STL:0.8,BLK:1.7,TOV:1.4,P3:0,FG:4.4,FGA:6.5,FT:2.1,FTA:4},"Ivica Zubac":{g:71,PTS:14.9,TRB:10.6,AST:2.9,STL:0.5,BLK:1,TOV:1.5,P3:0,FG:6.3,FGA:10.5,FT:2.2,FTA:3.1},"Zach LaVine":{g:70,PTS:21.8,TRB:3.4,AST:2.8,STL:0.7,BLK:0.2,TOV:2.1,P3:3.4,FG:7.4,FGA:15.5,FT:3.5,FTA:3.9},"Cam Spencer":{g:75,PTS:11.2,TRB:2.4,AST:6.1,STL:0.6,BLK:0.1,TOV:1.4,P3:2.4,FG:3.6,FGA:7.5,FT:1.7,FTA:1.8},"John Collins":{g:72,PTS:15.3,TRB:6.3,AST:1.6,STL:0.8,BLK:0.9,TOV:2.2,P3:1.6,FG:5.9,FGA:10.7,FT:1.9,FTA:2.5},"Julian Champagnie":{g:75,PTS:11.1,TRB:4.8,AST:1.5,STL:0.7,BLK:0.4,TOV:0.9,P3:2.6,FG:3.6,FGA:8.2,FT:1.3,FTA:1.5},"Ausar Thompson":{g:75,PTS:11.7,TRB:5.9,AST:3.8,STL:2.4,BLK:0.8,TOV:1.7,P3:0.1,FG:4.9,FGA:9.2,FT:1.7,FTA:2.9},"Zion Williamson":{g:62,PTS:22.1,TRB:6.3,AST:4.5,STL:1.1,BLK:0.7,TOV:2.4,P3:0,FG:8.2,FGA:13.7,FT:5.7,FTA:7.9},"Tobias Harris":{g:65,PTS:11.8,TRB:4.7,AST:1.9,STL:0.8,BLK:0.6,TOV:1,P3:1,FG:4.4,FGA:9.4,FT:1.9,FTA:2.2},"Daniel Gafford":{g:68,PTS:9.3,TRB:5.9,AST:1.1,STL:0.4,BLK:1.1,TOV:1,P3:0,FG:3.7,FGA:5.6,FT:1.9,FTA:2.8},"Jrue Holiday":{g:70,PTS:12.9,TRB:3.9,AST:4.6,STL:0.8,BLK:0.2,TOV:1.9,P3:2.3,FG:4.7,FGA:10.5,FT:1.3,FTA:1.5},"Jakob Poeltl":{g:73,PTS:12.5,TRB:8,AST:2.5,STL:0.8,BLK:1.1,TOV:1.8,P3:0,FG:5.5,FGA:7.8,FT:1.5,FTA:2.4},"Miles Bridges":{g:75,PTS:17.8,TRB:5.9,AST:3.3,STL:0.6,BLK:0.5,TOV:1.5,P3:2.4,FG:6.3,FGA:13.7,FT:2.7,FTA:3.3},"Peyton Watson":{g:70,PTS:12.3,TRB:4.4,AST:2.2,STL:0.8,BLK:1.5,TOV:1.3,P3:1.1,FG:4.5,FGA:9.2,FT:2.2,FTA:3},"Kelly Oubre Jr.":{g:63,PTS:12.2,TRB:4.5,AST:1.3,STL:1.2,BLK:0.3,TOV:1,P3:1.2,FG:4.5,FGA:9.6,FT:2,FTA:2.6},"Devin Vassell":{g:71,PTS:14.2,TRB:3.9,AST:2.8,STL:0.9,BLK:0.5,TOV:1.3,P3:2.6,FG:5,FGA:11.5,FT:1.6,FTA:1.9},"Cason Wallace":{g:77,PTS:9.3,TRB:3.6,AST:2.9,STL:2.5,BLK:0.5,TOV:1.1,P3:1.5,FG:3.5,FGA:8.1,FT:0.8,FTA:1},"Trae Young":{g:67,PTS:22.6,TRB:2.8,AST:10,STL:1.1,BLK:0.1,TOV:3.5,P3:2.7,FG:8.2,FGA:18.8,FT:3.6,FTA:4.1},"Aaron Gordon":{g:60,PTS:15.1,TRB:4.8,AST:2.6,STL:0.4,BLK:0.2,TOV:1.5,P3:1.9,FG:5,FGA:10.1,FT:3.2,FTA:4.1},"Domantas Sabonis":{g:71,PTS:16.6,TRB:12,AST:4.4,STL:0.6,BLK:0.3,TOV:2.2,P3:0.6,FG:6.5,FGA:12,FT:3,FTA:4.2},"Santi Aldama":{g:65,PTS:12.9,TRB:4.8,AST:2.9,STL:0.8,BLK:0.5,TOV:1.1,P3:1.6,FG:4.8,FGA:10.1,FT:1.6,FTA:2.4},"Wendell Carter Jr.":{g:77,PTS:11,TRB:7.2,AST:1.8,STL:0.8,BLK:0.5,TOV:1.1,P3:0.9,FG:3.9,FGA:7.6,FT:2.4,FTA:3.1},"Pascal Siakam":{g:70,PTS:22.7,TRB:7,AST:3.1,STL:0.9,BLK:0.4,TOV:1.9,P3:2,FG:8.4,FGA:17.4,FT:3.9,FTA:5.7},"CJ McCollum":{g:78,PTS:19.8,TRB:3.2,AST:3.4,STL:0.7,BLK:0.4,TOV:1.6,P3:3.2,FG:7.1,FGA:15.6,FT:2.5,FTA:3.2},"Luke Kornet":{g:74,PTS:6.3,TRB:5.6,AST:1.9,STL:0.6,BLK:1,TOV:0.4,P3:0,FG:2.5,FGA:3.8,FT:1.3,FTA:1.6},"Moussa Diabate":{g:70,PTS:7.7,TRB:8.6,AST:1.4,STL:0.8,BLK:0.8,TOV:1.2,P3:0,FG:3.1,FGA:5,FT:1.5,FTA:2.2},"Andrew Nembhard":{g:64,PTS:13.2,TRB:3,AST:7.6,STL:1,BLK:0.1,TOV:1.9,P3:1.6,FG:4.5,FGA:10.2,FT:2.6,FTA:3.1},"Paolo Banchero":{g:71,PTS:23.4,TRB:8.1,AST:4.9,STL:0.6,BLK:0.5,TOV:3.2,P3:1.6,FG:7.6,FGA:16.7,FT:6.6,FTA:8.6},"Al Horford":{g:56,PTS:6.5,TRB:4.1,AST:2.1,STL:0.4,BLK:0.9,TOV:0.7,P3:1.1,FG:2.5,FGA:5.8,FT:0.4,FTA:0.5},"Brandin Podziemski":{g:77,PTS:14.8,TRB:5.6,AST:4.1,STL:1.2,BLK:0.2,TOV:1.5,P3:2.3,FG:5,FGA:11,FT:2.4,FTA:3},"Ja Morant":{g:64,PTS:19.4,TRB:3.2,AST:7.1,STL:0.9,BLK:0.2,TOV:2.8,P3:1.4,FG:6.4,FGA:15.6,FT:5.1,FTA:5.7},"Derik Queen":{g:76,PTS:13.2,TRB:7.6,AST:4.4,STL:1.3,BLK:1.2,TOV:2.2,P3:0.3,FG:4.9,FGA:10.2,FT:3,FTA:3.8},"Moses Moody":{g:51,PTS:10.1,TRB:2.5,AST:1.2,STL:0.8,BLK:0.4,TOV:0.8,P3:2.1,FG:3.4,FGA:7.7,FT:1.2,FTA:1.5},"Jerami Grant":{g:52,PTS:14.3,TRB:2.8,AST:2.1,STL:0.5,BLK:0.7,TOV:1.3,P3:1.8,FG:4.5,FGA:9.9,FT:3.6,FTA:4.4},"Sandro Mamukelashvili":{g:71,PTS:13.6,TRB:6,AST:1.8,STL:1,BLK:0.7,TOV:1.1,P3:1.6,FG:5.1,FGA:9.8,FT:1.8,FTA:2.4},"Royce O'Neale":{g:79,PTS:8.2,TRB:4.3,AST:2.3,STL:0.8,BLK:0.4,TOV:1.1,P3:2,FG:2.9,FGA:6.8,FT:0.3,FTA:0.5},"Bilal Coulibaly":{g:64,PTS:9.9,TRB:3.7,AST:2.1,STL:1.2,BLK:0.6,TOV:1.3,P3:1.1,FG:3.4,FGA:8,FT:2,FTA:2.7},"Cameron Johnson":{g:71,PTS:15,TRB:4,AST:2.9,STL:0.8,BLK:0.4,TOV:1.2,P3:2,FG:5.4,FGA:11.3,FT:2.2,FTA:2.7},"Toumani Camara":{g:75,PTS:12.1,TRB:5.2,AST:2.4,STL:1.2,BLK:0.5,TOV:1.3,P3:2,FG:4.5,FGA:10.2,FT:1.1,FTA:1.6},"Jaylon Tyson":{g:71,PTS:10,TRB:3.8,AST:1.9,STL:0.7,BLK:0.3,TOV:1.3,P3:1.7,FG:3.7,FGA:7.5,FT:0.9,FTA:1.2},"John Konchar":{g:41,PTS:1.7,TRB:1.8,AST:0.8,STL:0.4,BLK:0.2,TOV:0.2,P3:0.2,FG:0.6,FGA:1.3,FT:0.2,FTA:0.3},"Bennedict Mathurin":{g:63,PTS:13.8,TRB:4.1,AST:1.7,STL:0.6,BLK:0.2,TOV:1.8,P3:1.2,FG:4.2,FGA:9.7,FT:4.2,FTA:4.8},"Anthony Black":{g:66,PTS:12.8,TRB:3.6,AST:4.3,STL:1.5,BLK:0.8,TOV:2.2,P3:1.1,FG:4.7,FGA:10.5,FT:2.3,FTA:3.2},"Maxime Raynaud":{g:76,PTS:11.1,TRB:6.2,AST:1.4,STL:0.5,BLK:0.5,TOV:1,P3:0.3,FG:4.6,FGA:8,FT:1.6,FTA:2},"Kyle Filipowski":{g:75,PTS:7.6,TRB:4.9,AST:1.9,STL:0.7,BLK:0.3,TOV:1.1,P3:0.6,FG:2.8,FGA:5.7,FT:1.4,FTA:1.9},"Isaiah Stewart":{g:64,PTS:8.1,TRB:5.5,AST:1.4,STL:0.4,BLK:1.3,TOV:1.3,P3:0.4,FG:3.1,FGA:5.6,FT:1.4,FTA:1.9},"Derrick Jones Jr.":{g:66,PTS:10,TRB:3.3,AST:0.9,STL:1.2,BLK:0.6,TOV:0.9,P3:1,FG:3.8,FGA:7.6,FT:1.4,FTA:1.9},"Bobby Portis":{g:72,PTS:12.9,TRB:7.1,AST:1.9,STL:0.8,BLK:0.3,TOV:1.1,P3:1.6,FG:5.3,FGA:10.8,FT:0.7,FTA:1},"Cedric Coward":{g:69,PTS:16,TRB:6.2,AST:3.2,STL:0.8,BLK:0.4,TOV:2.2,P3:1.9,FG:5.7,FGA:12.2,FT:2.6,FTA:3.1},"Matisse Thybulle":{g:73,PTS:5.1,TRB:2,AST:1.3,STL:1.8,BLK:0.5,TOV:0.7,P3:1,FG:1.8,FGA:4.3,FT:0.6,FTA:0.7},"P.J. Washington":{g:68,PTS:13.9,TRB:6.9,AST:2.3,STL:0.8,BLK:0.9,TOV:1.8,P3:1.6,FG:5.1,FGA:11.4,FT:2.1,FTA:3.1},"Justin Champagnie":{g:71,PTS:6.4,TRB:4.1,AST:0.7,STL:0.6,BLK:0.4,TOV:0.6,P3:0.8,FG:2.4,FGA:4.7,FT:0.8,FTA:1},"Nic Claxton":{g:75,PTS:11,TRB:7.3,AST:3.1,STL:0.9,BLK:1.1,TOV:1.3,P3:0.1,FG:4.5,FGA:7.9,FT:1.9,FTA:3.1},"Mitchell Robinson":{g:64,PTS:6.4,TRB:9.5,AST:0.9,STL:1,BLK:1.2,TOV:0.7,P3:0,FG:2.8,FGA:3.8,FT:0.8,FTA:1.9},"Sam Merrill":{g:69,PTS:11.1,TRB:2.6,AST:1.9,STL:0.7,BLK:0.2,TOV:0.6,P3:3,FG:3.6,FGA:7.8,FT:0.9,FTA:1.1},"Kris Dunn":{g:69,PTS:6.7,TRB:3.1,AST:2.9,STL:1.3,BLK:0.3,TOV:1.1,P3:1,FG:2.5,FGA:5.2,FT:0.7,FTA:0.9},"Dylan Cardwell":{g:70,PTS:4.2,TRB:5.6,AST:1,STL:0.6,BLK:1.4,TOV:0.6,P3:0,FG:1.8,FGA:3.1,FT:0.5,FTA:1},"Christian Braun":{g:71,PTS:13.1,TRB:4.7,AST:2.6,STL:0.9,BLK:0.4,TOV:1.1,P3:1.2,FG:5,FGA:9.6,FT:1.9,FTA:2.4},"Collin Sexton":{g:71,PTS:14.1,TRB:2,AST:3.4,STL:0.9,BLK:0.1,TOV:1.6,P3:1.4,FG:4.9,FGA:10.1,FT:2.9,FTA:3.4},"Jordan Goodwin":{g:77,PTS:7.3,TRB:4.3,AST:2.2,STL:1.3,BLK:0.2,TOV:0.8,P3:1.3,FG:2.8,FGA:6.7,FT:0.5,FTA:0.7},"Stephon Castle":{g:73,PTS:17.6,TRB:4.7,AST:5.2,STL:1.3,BLK:0.3,TOV:3.5,P3:1.5,FG:5.9,FGA:12.4,FT:4.3,FTA:5.9},"Quentin Grimes":{g:73,PTS:14.9,TRB:4.1,AST:3,STL:1.1,BLK:0.4,TOV:1.7,P3:1.7,FG:5.1,FGA:11.4,FT:3,FTA:3.6},"Jusuf Nurkic":{g:59,PTS:11,TRB:9.5,AST:4.1,STL:1.3,BLK:0.7,TOV:2.9,P3:0.6,FG:4.4,FGA:8.7,FT:1.5,FTA:2.8},"Naji Marshall":{g:70,PTS:12.6,TRB:4.1,AST:3,STL:1.1,BLK:0.1,TOV:1.7,P3:0.8,FG:4.6,FGA:9,FT:2.5,FTA:3.3},"Tari Eason":{g:66,PTS:10.3,TRB:5.8,AST:1.5,STL:1.1,BLK:0.5,TOV:1.3,P3:1.4,FG:4,FGA:9.7,FT:0.9,FTA:1.1},"Jaime Jaquez Jr.":{g:70,PTS:13.7,TRB:5.4,AST:4.9,STL:1,BLK:0.3,TOV:2.5,P3:0.7,FG:5.5,FGA:10.8,FT:2,FTA:2.6},"Jalen Smith":{g:58,PTS:8.9,TRB:5.8,AST:1.3,STL:0.3,BLK:0.7,TOV:0.9,P3:1.5,FG:3.2,FGA:6.6,FT:1.1,FTA:1.5},"Davion Mitchell":{g:71,PTS:8.9,TRB:2.4,AST:5.4,STL:0.9,BLK:0.2,TOV:1.6,P3:1.3,FG:3.5,FGA:7.2,FT:0.6,FTA:0.9},"Duncan Robinson":{g:78,PTS:12.8,TRB:2.6,AST:2.4,STL:0.5,BLK:0.2,TOV:1,P3:3.4,FG:4.2,FGA:9.3,FT:1.1,FTA:1.4},"Shaedon Sharpe":{g:61,PTS:18.5,TRB:3.9,AST:2.2,STL:1.2,BLK:0.2,TOV:2.2,P3:2.2,FG:6.8,FGA:15.2,FT:2.7,FTA:3.4},"Dillon Brooks":{g:65,PTS:18.9,TRB:3.3,AST:1.8,STL:1,BLK:0.2,TOV:1.5,P3:2.5,FG:6.8,FGA:15.7,FT:2.8,FTA:3.4},"Herbert Jones":{g:65,PTS:9.3,TRB:3.5,AST:3,STL:1.7,BLK:0.4,TOV:1.4,P3:1.2,FG:3.5,FGA:9,FT:1,FTA:1.2},"RJ Barrett":{g:67,PTS:20,TRB:5.7,AST:4.8,STL:0.8,BLK:0.3,TOV:2.6,P3:1.9,FG:7.3,FGA:14.9,FT:3.6,FTA:5},"Isaiah Joe":{g:75,PTS:12.3,TRB:2.9,AST:1.9,STL:0.9,BLK:0.2,TOV:0.6,P3:2.8,FG:3.9,FGA:8.5,FT:1.7,FTA:1.9},"Miles McBride":{g:69,PTS:9.8,TRB:2.4,AST:2.8,STL:1,BLK:0.2,TOV:0.6,P3:2.2,FG:3.4,FGA:8,FT:0.7,FTA:0.9},"Max Christie":{g:78,PTS:11.7,TRB:3.3,AST:2.1,STL:0.9,BLK:0.4,TOV:1.1,P3:2.1,FG:4,FGA:9,FT:1.6,FTA:1.8},"T.J. McConnell":{g:51,PTS:7.6,TRB:2,AST:4.5,STL:0.9,BLK:0.2,TOV:1,P3:0.2,FG:3.5,FGA:6.5,FT:0.4,FTA:0.5},"Collin Murray-Boyles":{g:65,PTS:10.3,TRB:6.3,AST:2,STL:1.1,BLK:1.2,TOV:1.2,P3:0.4,FG:4.2,FGA:7.2,FT:1.5,FTA:2.4},"Ace Bailey":{g:70,PTS:13.5,TRB:4.1,AST:1.6,STL:0.9,BLK:0.6,TOV:1.6,P3:2.1,FG:5.3,FGA:11.9,FT:0.9,FTA:1.2},"Kevin Huerter":{g:73,PTS:8.5,TRB:2.6,AST:2.2,STL:0.7,BLK:0.3,TOV:0.9,P3:1.5,FG:3.2,FGA:7.1,FT:0.6,FTA:0.7},"Micah Potter":{g:79,PTS:3.3,TRB:2,AST:0.6,STL:0.2,BLK:0.1,TOV:0.4,P3:0.5,FG:1.1,FGA:2.1,FT:0.6,FTA:0.7},"Ziaire Williams":{g:68,PTS:7.7,TRB:2.7,AST:0.9,STL:0.9,BLK:0.3,TOV:0.8,P3:1,FG:2.5,FGA:5.8,FT:1.6,FTA:1.9},"Keldon Johnson":{g:74,PTS:12.1,TRB:4.7,AST:1.4,STL:0.5,BLK:0.2,TOV:0.8,P3:1.1,FG:4.6,FGA:8.9,FT:1.7,FTA:2.1},"Goga Bitadze":{g:69,PTS:5.2,TRB:4.8,AST:1.4,STL:0.6,BLK:0.9,TOV:0.8,P3:0,FG:2.1,FGA:3.1,FT:1,FTA:1.4},"Tristan Da Silva":{g:78,PTS:8,TRB:3.1,AST:1.4,STL:0.5,BLK:0.2,TOV:0.7,P3:1.5,FG:2.8,FGA:6.3,FT:0.9,FTA:1},"Dylan Harper":{g:70,PTS:15.4,TRB:4.3,AST:6,STL:1,BLK:0.5,TOV:2.2,P3:1.1,FG:6.3,FGA:12.5,FT:1.7,FTA:2.2},"De'Anthony Melton":{g:67,PTS:11.5,TRB:3,AST:2.5,STL:1.7,BLK:0.5,TOV:1.8,P3:1.7,FG:4,FGA:9.8,FT:1.9,FTA:2.4},"Marvin Bagley III":{g:64,PTS:10.2,TRB:5.9,AST:1.4,STL:0.5,BLK:0.7,TOV:1,P3:0.3,FG:4.2,FGA:6.9,FT:1.6,FTA:2.4},"Tim Hardaway Jr.":{g:75,PTS:13.5,TRB:2.6,AST:1.4,STL:0.6,BLK:0.1,TOV:0.5,P3:3.1,FG:4.2,FGA:9.3,FT:1.9,FTA:2.4},"Javon Small":{g:39,PTS:7.2,TRB:2.2,AST:2.5,STL:0.5,BLK:0.1,TOV:1,P3:1.2,FG:2.4,FGA:5.1,FT:1.2,FTA:1.4},"Precious Achiuwa":{g:69,PTS:8,TRB:5.7,AST:1.2,STL:1,BLK:0.7,TOV:0.7,P3:0.3,FG:3.4,FGA:6.5,FT:0.8,FTA:1.4},"Day'Ron Sharpe":{g:69,PTS:11.9,TRB:9.1,AST:2.6,STL:1.3,BLK:0.7,TOV:1.9,P3:0.2,FG:4.7,FGA:7.7,FT:2.3,FTA:3.4},"Brook Lopez":{g:77,PTS:7.5,TRB:3.2,AST:1.3,STL:0.5,BLK:1.3,TOV:0.6,P3:1.1,FG:2.9,FGA:6.7,FT:0.7,FTA:1},"Marcus Smart":{g:62,PTS:9.1,TRB:2.5,AST:2.6,STL:1.5,BLK:0.4,TOV:1.2,P3:1.4,FG:3,FGA:7.7,FT:1.7,FTA:2.1},"Draymond Green":{g:72,PTS:8.6,TRB:5.8,AST:5.6,STL:1.2,BLK:1,TOV:3.1,P3:1.4,FG:3.2,FGA:7.7,FT:0.9,FTA:1.2},"Anfernee Simons":{g:66,PTS:14.8,TRB:2.1,AST:3.1,STL:0.6,BLK:0.1,TOV:1.7,P3:2.6,FG:5.4,FGA:12.3,FT:1.3,FTA:1.4},"Jake LaRavia":{g:78,PTS:6.4,TRB:3.2,AST:2.1,STL:0.9,BLK:0.3,TOV:1,P3:0.8,FG:2.3,FGA:5.1,FT:1.1,FTA:1.5},"Isaiah Collier":{g:62,PTS:7,TRB:2,AST:4.5,STL:0.6,BLK:0.2,TOV:1.5,P3:0.3,FG:2.6,FGA:5.3,FT:1.5,FTA:2},"Jeremiah Fears":{g:75,PTS:13.1,TRB:3.2,AST:3.1,STL:1.2,BLK:0.3,TOV:1.6,P3:1,FG:4.9,FGA:11.4,FT:2.2,FTA:2.8},"Javonte Green":{g:77,PTS:4.9,TRB:2.4,AST:0.6,STL:1,BLK:0.2,TOV:0.5,P3:0.7,FG:1.6,FGA:3.5,FT:0.9,FTA:1},"GG Jackson II":{g:39,PTS:8.5,TRB:2.9,AST:1,STL:0.4,BLK:0.4,TOV:1.1,P3:0.9,FG:3.1,FGA:6.3,FT:1.4,FTA:1.9},"Brice Sensabaugh":{g:75,PTS:13.3,TRB:2.9,AST:1.9,STL:0.7,BLK:0.1,TOV:1.9,P3:2.1,FG:4.6,FGA:9.9,FT:1.9,FTA:2.3},"Jaylin Williams":{g:62,PTS:8.1,TRB:5.7,AST:3.5,STL:0.7,BLK:0.7,TOV:1,P3:1.8,FG:2.5,FGA:5.9,FT:1.2,FTA:1.5},"Aaron Nesmith":{g:69,PTS:14.8,TRB:4.4,AST:1.9,STL:0.6,BLK:0.4,TOV:1.4,P3:2.8,FG:4.9,FGA:11.9,FT:2.1,FTA:2.6},"Noah Clowney":{g:63,PTS:10.7,TRB:3.6,AST:1.1,STL:0.8,BLK:0.5,TOV:1.3,P3:1.9,FG:3.2,FGA:8.1,FT:2.3,FTA:2.9},"Malik Monk":{g:69,PTS:14.3,TRB:2.7,AST:4.8,STL:0.9,BLK:0.4,TOV:2.1,P3:2.1,FG:5.2,FGA:11.8,FT:1.8,FTA:2},"Kyle Kuzma":{g:74,PTS:11.2,TRB:3.9,AST:2.3,STL:0.5,BLK:0.2,TOV:1.8,P3:1.2,FG:4.1,FGA:8.4,FT:1.6,FTA:2.2},"Sam Hauser":{g:76,PTS:8.9,TRB:3.3,AST:1,STL:0.6,BLK:0.2,TOV:0.4,P3:2.6,FG:3,FGA:7.2,FT:0.2,FTA:0.3},"Luke Kennard":{g:77,PTS:8.1,TRB:2.2,AST:2.6,STL:0.8,BLK:0.1,TOV:0.8,P3:1.7,FG:2.8,FGA:5.3,FT:0.8,FTA:0.9},"Andre Drummond":{g:71,PTS:6.8,TRB:8.4,AST:1.3,STL:0.9,BLK:0.7,TOV:1,P3:0.4,FG:2.8,FGA:5.9,FT:0.9,FTA:1.5},"Dean Wade":{g:66,PTS:5.6,TRB:3.8,AST:1.2,STL:0.5,BLK:0.3,TOV:0.3,P3:1.4,FG:1.9,FGA:4.3,FT:0.4,FTA:0.5},"Pelle Larsson":{g:78,PTS:12.4,TRB:3.6,AST:4.2,STL:1.1,BLK:0.3,TOV:1.5,P3:1.1,FG:4.2,FGA:8.4,FT:2.8,FTA:3.6},"Coby White":{g:74,PTS:19.5,TRB:3.4,AST:4.8,STL:0.8,BLK:0.1,TOV:2.4,P3:3,FG:6.1,FGA:13.6,FT:4.3,FTA:5.3},"A.J. Green":{g:77,PTS:7.4,TRB:2.1,AST:1.5,STL:0.5,BLK:0.1,TOV:0.8,P3:1.9,FG:2.5,FGA:5.8,FT:0.5,FTA:0.6},"Rui Hachimura":{g:69,PTS:11.9,TRB:3.9,AST:0.9,STL:0.6,BLK:0.3,TOV:0.8,P3:1.8,FG:4.7,FGA:9.2,FT:0.8,FTA:1.3},"Jalen Green":{g:75,PTS:20.2,TRB:4.2,AST:3.1,STL:0.8,BLK:0.3,TOV:2.1,P3:2.3,FG:7.8,FGA:18.4,FT:2.3,FTA:3.1},"Daeqwon Plowden":{g:62,PTS:7.2,TRB:1.8,AST:0.7,STL:0.4,BLK:0.1,TOV:0.5,P3:1.4,FG:2.5,FGA:5.7,FT:0.9,FTA:1},"Jock Landale":{g:71,PTS:6.8,TRB:3.9,AST:0.9,STL:0.4,BLK:0.3,TOV:0.7,P3:0.6,FG:2.7,FGA:5.3,FT:0.8,FTA:1.3},"Kyle Anderson":{g:76,PTS:6.5,TRB:3.4,AST:2.2,STL:1,BLK:0.5,TOV:0.7,P3:0.3,FG:2.6,FGA:4.9,FT:1.1,FTA:1.6},"Karlo Matkovic":{g:63,PTS:5.2,TRB:3.4,AST:0.7,STL:0.4,BLK:0.8,TOV:0.6,P3:0.4,FG:2.2,FGA:3.6,FT:0.4,FTA:0.6},"Keon Ellis":{g:75,PTS:6.4,TRB:1.8,AST:1.1,STL:1,BLK:0.7,TOV:0.5,P3:1.4,FG:2.2,FGA:5.1,FT:0.7,FTA:1},"Yves Missi":{g:71,PTS:6.8,TRB:6.6,AST:1,STL:0.4,BLK:1.4,TOV:1.1,P3:0,FG:2.9,FGA:5.4,FT:1,FTA:1.7},"Zaccharie Risacher":{g:72,PTS:11.4,TRB:3.6,AST:1.3,STL:0.9,BLK:0.4,TOV:1.2,P3:1.8,FG:4.3,FGA:9.6,FT:1,FTA:1.4},"Dru Smith":{g:73,PTS:7,TRB:2.9,AST:2.5,STL:2,BLK:0.3,TOV:0.9,P3:0.7,FG:2.4,FGA:5.8,FT:1.5,FTA:1.9},"Vit Krejci":{g:60,PTS:5.4,TRB:1.8,AST:1.5,STL:0.5,BLK:0.2,TOV:0.6,P3:1.1,FG:2,FGA:4.4,FT:0.4,FTA:0.5},"Alex Caruso":{g:60,PTS:6.8,TRB:2.9,AST:2.5,STL:1.4,BLK:0.5,TOV:1,P3:1,FG:2.5,FGA:5.9,FT:0.8,FTA:1},"Egor Demin":{g:73,PTS:12.2,TRB:3.5,AST:4.1,STL:0.9,BLK:0.4,TOV:1.8,P3:2.8,FG:4.1,FGA:10.4,FT:1.2,FTA:1.6},"De'Andre Hunter":{g:66,PTS:18.8,TRB:4.7,AST:1.9,STL:0.7,BLK:0.2,TOV:1.9,P3:2.8,FG:6.2,FGA:15,FT:3.7,FTA:4.2},"Jordan Miller":{g:70,PTS:9,TRB:2.7,AST:2.4,STL:0.6,BLK:0.2,TOV:1,P3:0.6,FG:3.2,FGA:6.1,FT:2,FTA:2.5},"Harrison Barnes":{g:78,PTS:8.4,TRB:2.3,AST:1.6,STL:0.3,BLK:0.1,TOV:0.6,P3:1.7,FG:2.8,FGA:6.2,FT:1.1,FTA:1.4},"Olivier-Maxence Prosper":{g:29,PTS:4.7,TRB:2,AST:0.7,STL:0.5,BLK:0.1,TOV:0.3,P3:0.5,FG:1.7,FGA:3.1,FT:0.8,FTA:1.1},"Gui Santos":{g:74,PTS:11.6,TRB:5.8,AST:3.1,STL:1.3,BLK:0.5,TOV:1.9,P3:1.3,FG:4.4,FGA:8.8,FT:1.6,FTA:2.2},"Craig Porter Jr.":{g:62,PTS:4.2,TRB:2.5,AST:2,STL:0.6,BLK:0.5,TOV:1,P3:0.5,FG:1.7,FGA:3.8,FT:0.4,FTA:0.6},"Svi Mykhailiuk":{g:40,PTS:7.3,TRB:1.8,AST:1.6,STL:0.4,BLK:0.1,TOV:1,P3:1.7,FG:2.6,FGA:5.3,FT:0.4,FTA:0.5},"Isaac Okoro":{g:68,PTS:8.8,TRB:2.6,AST:1.7,STL:0.6,BLK:0.4,TOV:0.7,P3:1.1,FG:3.2,FGA:7.1,FT:1.3,FTA:1.7},"Isaiah Jackson":{g:51,PTS:6,TRB:4.5,AST:0.9,STL:0.5,BLK:0.7,TOV:0.8,P3:0,FG:2.5,FGA:4,FT:1.1,FTA:1.7},"Jaylen Wells":{g:75,PTS:12.4,TRB:3.5,AST:1.8,STL:0.9,BLK:0.1,TOV:1.2,P3:1.9,FG:4.3,FGA:9.9,FT:1.9,FTA:2.5},"Jarace Walker":{g:72,PTS:9.4,TRB:4.1,AST:1.7,STL:0.8,BLK:0.4,TOV:1.4,P3:1.3,FG:3.3,FGA:7.9,FT:1.5,FTA:2},"Oso Ighodaro":{g:71,PTS:4.1,TRB:3.3,AST:1.2,STL:0.6,BLK:0.5,TOV:0.7,P3:0,FG:1.8,FGA:2.8,FT:0.4,FTA:0.9},"Luguentz Dort":{g:74,PTS:8.3,TRB:3.2,AST:1.2,STL:0.9,BLK:0.5,TOV:0.8,P3:2.3,FG:2.7,FGA:7.1,FT:0.6,FTA:0.8},"Will Richard":{g:71,PTS:6.9,TRB:2.7,AST:1.4,STL:1.4,BLK:0.1,TOV:0.8,P3:1,FG:2.6,FGA:5.7,FT:0.7,FTA:0.8},"Aaron Wiggins":{g:68,PTS:11.2,TRB:3.5,AST:1.5,STL:0.8,BLK:0.3,TOV:1.1,P3:1.9,FG:4.2,FGA:9.6,FT:1,FTA:1.4},"Jordan Walsh":{g:74,PTS:5,TRB:3.6,AST:0.9,STL:0.6,BLK:0.4,TOV:0.6,P3:0.7,FG:1.8,FGA:3.5,FT:0.6,FTA:0.8},"Jordan Poole":{g:51,PTS:12.4,TRB:1.8,AST:2.7,STL:0.7,BLK:0.3,TOV:2.2,P3:2.2,FG:4,FGA:10.9,FT:2.4,FTA:2.8},"Grant Williams":{g:74,PTS:5.7,TRB:3.1,AST:1.5,STL:0.4,BLK:0.5,TOV:0.9,P3:1,FG:1.8,FGA:4.2,FT:1,FTA:1.2},"Dennis Schroder":{g:74,PTS:11.1,TRB:2.4,AST:3.9,STL:0.7,BLK:0.2,TOV:2,P3:1.3,FG:3.7,FGA:9.2,FT:2.4,FTA:2.9},"Spencer Jones":{g:69,PTS:5.3,TRB:3.1,AST:0.7,STL:0.9,BLK:0.4,TOV:0.6,P3:0.8,FG:2,FGA:3.9,FT:0.5,FTA:0.8},"Danny Wolf":{g:68,PTS:9.6,TRB:5.2,AST:2.1,STL:0.6,BLK:0.7,TOV:1.5,P3:1.1,FG:3.4,FGA:8.4,FT:1.6,FTA:2},"Daniss Jenkins":{g:71,PTS:11.9,TRB:2.8,AST:4.5,STL:1.2,BLK:0.3,TOV:1.9,P3:1.1,FG:4.2,FGA:10.4,FT:2.4,FTA:2.8},"Ron Holland":{g:77,PTS:8.9,TRB:3.8,AST:1.1,STL:0.9,BLK:0.3,TOV:1.2,P3:0.7,FG:3.3,FGA:7.7,FT:1.7,FTA:2.2},"Tre Johnson":{g:63,PTS:11.3,TRB:2.6,AST:1.9,STL:0.5,BLK:0.3,TOV:1.2,P3:1.7,FG:4.2,FGA:10.1,FT:1.2,FTA:1.4},"Terance Mann":{g:55,PTS:6.3,TRB:2.7,AST:2.3,STL:0.5,BLK:0.2,TOV:0.7,P3:0.6,FG:2.4,FGA:5.2,FT:0.9,FTA:1.2},"Adem Bona":{g:70,PTS:5.8,TRB:4.6,AST:0.5,STL:0.5,BLK:1.1,TOV:1.2,P3:0,FG:2.2,FGA:3.8,FT:1.3,FTA:1.9},"Bub Carrington":{g:74,PTS:7.1,TRB:2.6,AST:3.1,STL:0.5,BLK:0.2,TOV:1.4,P3:1.2,FG:2.6,FGA:6.2,FT:0.7,FTA:1},"Steven Adams":{g:56,PTS:5.4,TRB:7.6,AST:1.3,STL:0.6,BLK:0.5,TOV:1,P3:0,FG:2,FGA:3.9,FT:1.3,FTA:2.2},"Kentavious Caldwell-Pope":{g:65,PTS:6.9,TRB:1.7,AST:1.5,STL:0.8,BLK:0.2,TOV:0.9,P3:1.1,FG:2.3,FGA:5.7,FT:1.1,FTA:1.3},"Kasparas Jakucionis":{g:68,PTS:6.2,TRB:2.6,AST:3.1,STL:0.7,BLK:0.1,TOV:0.9,P3:1.4,FG:1.9,FGA:4.5,FT:1.1,FTA:1.2},"Baylor Scheierman":{g:75,PTS:4.3,TRB:2.7,AST:1,STL:0.6,BLK:0.1,TOV:0.5,P3:1,FG:1.5,FGA:3.2,FT:0.3,FTA:0.3},"Landry Shamet":{g:66,PTS:9.1,TRB:1.7,AST:1,STL:0.7,BLK:0.1,TOV:0.6,P3:2.2,FG:2.9,FGA:6.6,FT:1,FTA:1.4},"Jamal Shead":{g:75,PTS:7.7,TRB:1.8,AST:4.8,STL:0.9,BLK:0.2,TOV:2,P3:1.2,FG:2.6,FGA:6.9,FT:1.3,FTA:1.7},"Bones Hyland":{g:78,PTS:10.1,TRB:2,AST:2.7,STL:0.7,BLK:0.3,TOV:1.1,P3:2.3,FG:3.4,FGA:7.5,FT:1,FTA:1.3},"Klay Thompson":{g:74,PTS:11.1,TRB:2.2,AST:1.5,STL:0.5,BLK:0.3,TOV:1,P3:2.9,FG:3.8,FGA:9.8,FT:0.5,FTA:0.7},"Khris Middleton":{g:61,PTS:7.8,TRB:2.5,AST:2,STL:0.6,BLK:0.1,TOV:1.2,P3:0.7,FG:2.8,FGA:6.7,FT:1.5,FTA:1.7},"Bryce McGowens":{g:44,PTS:5.4,TRB:1.4,AST:0.9,STL:0.4,BLK:0.1,TOV:0.4,P3:0.6,FG:1.8,FGA:3.7,FT:1.2,FTA:1.5},"Quenton Jackson":{g:68,PTS:5.8,TRB:1.5,AST:1.9,STL:0.5,BLK:0.1,TOV:0.8,P3:0.5,FG:2,FGA:4.3,FT:1.3,FTA:1.6},"Simone Fontecchio":{g:74,PTS:8.6,TRB:3.4,AST:1.4,STL:0.6,BLK:0.2,TOV:1,P3:1.7,FG:2.8,FGA:6.7,FT:1.2,FTA:1.5},"Cody Williams":{g:69,PTS:4.9,TRB:1.8,AST:1.1,STL:0.5,BLK:0.3,TOV:0.7,P3:0.4,FG:1.9,FGA:4,FT:0.7,FTA:1},"Ryan Dunn":{g:70,PTS:6.4,TRB:4,AST:0.9,STL:0.9,BLK:0.4,TOV:0.7,P3:0.8,FG:2.6,FGA:5.9,FT:0.4,FTA:0.9},"Mouhamed Gueye":{g:76,PTS:4.6,TRB:3.6,AST:1,STL:0.7,BLK:0.6,TOV:0.5,P3:0.5,FG:1.8,FGA:4,FT:0.5,FTA:0.8},"Ben Sheppard":{g:65,PTS:5.2,TRB:2.4,AST:1.1,STL:0.5,BLK:0.2,TOV:0.5,P3:0.9,FG:2,FGA:4.6,FT:0.4,FTA:0.5},"Nique Clifford":{g:73,PTS:8.5,TRB:3.7,AST:2.3,STL:0.9,BLK:0.3,TOV:1.9,P3:0.9,FG:3.3,FGA:7.9,FT:0.9,FTA:1.3},"Jericho Sims":{g:59,PTS:2.6,TRB:3.5,AST:0.7,STL:0.2,BLK:0.3,TOV:0.6,P3:0,FG:1.1,FGA:1.4,FT:0.3,FTA:0.5},"Clint Capela":{g:78,PTS:4.4,TRB:4.5,AST:0.6,STL:0.4,BLK:0.6,TOV:0.5,P3:0,FG:1.8,FGA:3.4,FT:0.7,FTA:1.2},"Will Riley":{g:79,PTS:8.4,TRB:2.1,AST:1.6,STL:0.6,BLK:0.1,TOV:0.9,P3:1,FG:2.9,FGA:6.6,FT:1.5,FTA:1.9},"Corey Kispert":{g:78,PTS:4.4,TRB:1.1,AST:0.6,STL:0.2,BLK:0.1,TOV:0.5,P3:0.7,FG:1.6,FGA:3.4,FT:0.6,FTA:0.8},"Patrick Williams":{g:78,PTS:6.3,TRB:2.6,AST:1.2,STL:0.7,BLK:0.4,TOV:0.9,P3:1.3,FG:2.2,FGA:5.8,FT:0.7,FTA:0.9},"Jevon Carter":{g:67,PTS:6.3,TRB:1.6,AST:1.5,STL:0.7,BLK:0.2,TOV:0.7,P3:1.5,FG:2.3,FGA:5.8,FT:0.3,FTA:0.4},"Justin Edwards":{g:75,PTS:5.2,TRB:1.6,AST:1.1,STL:0.6,BLK:0.2,TOV:0.5,P3:0.8,FG:2,FGA:4.5,FT:0.5,FTA:0.6},"Sion James":{g:76,PTS:3.8,TRB:2.5,AST:1.5,STL:0.4,BLK:0.2,TOV:0.6,P3:0.7,FG:1.2,FGA:3.2,FT:0.7,FTA:0.8},"Kobe Sanders":{g:70,PTS:7.1,TRB:2.2,AST:1.6,STL:0.6,BLK:0.2,TOV:1,P3:1,FG:2.6,FGA:5.6,FT:0.8,FTA:1},"Mike Conley":{g:42,PTS:3.8,TRB:1.2,AST:2.5,STL:0.5,BLK:0.1,TOV:0.4,P3:0.9,FG:1.1,FGA:3.4,FT:0.7,FTA:0.8},"Pat Spencer":{g:60,PTS:3.9,TRB:1.3,AST:1.6,STL:0.4,BLK:0,TOV:0.9,P3:0.5,FG:1.5,FGA:3.5,FT:0.4,FTA:0.5},"Nae'Qwan Tomlin":{g:67,PTS:5.5,TRB:2.7,AST:0.7,STL:0.6,BLK:0.4,TOV:0.4,P3:0.4,FG:2.2,FGA:4.7,FT:0.7,FTA:1},"Devin Carter":{g:33,PTS:3.4,TRB:1.4,AST:0.9,STL:0.3,BLK:0.1,TOV:0.5,P3:0.3,FG:1.2,FGA:2.9,FT:0.7,FTA:1},"Jared McCain":{g:69,PTS:14.3,TRB:2.9,AST:2.7,STL:0.8,BLK:0.1,TOV:1.8,P3:2.7,FG:5.2,FGA:12.5,FT:1.3,FTA:1.5},"Kenrich Williams":{g:63,PTS:6.9,TRB:3.6,AST:1.2,STL:0.5,BLK:0.1,TOV:0.6,P3:0.9,FG:2.7,FGA:5.7,FT:0.6,FTA:0.9},"Jarred Vanderbilt":{g:67,PTS:4.7,TRB:5,AST:1.7,STL:0.9,BLK:0.4,TOV:0.9,P3:0.5,FG:1.9,FGA:4.1,FT:0.5,FTA:0.9},"Tidjane Salaun":{g:41,PTS:4,TRB:2.7,AST:0.6,STL:0.3,BLK:0.1,TOV:0.6,P3:0.7,FG:1.4,FGA:2.7,FT:0.4,FTA:0.6},"Moussa Cisse":{g:44,PTS:4.3,TRB:4.8,AST:0.2,STL:0.4,BLK:1,TOV:0.8,P3:0.4,FG:1.5,FGA:2.6,FT:0.9,FTA:1.9},"Joan Beringer":{g:68,PTS:10.1,TRB:5.2,AST:0.7,STL:0.4,BLK:1.6,TOV:0.7,P3:1,FG:3.8,FGA:5.9,FT:1.5,FTA:1.9},"Rayan Rupert":{g:31,PTS:2.6,TRB:1.3,AST:0.6,STL:0.3,BLK:0.1,TOV:0.4,P3:0.4,FG:1,FGA:2.6,FT:0.3,FTA:0.3},"Julian Strawther":{g:67,PTS:7.7,TRB:1.8,AST:0.9,STL:0.6,BLK:0.1,TOV:0.8,P3:1.3,FG:2.7,FGA:5.8,FT:1,FTA:1.2},"Caleb Love":{g:18,PTS:2.7,TRB:0.6,AST:0.7,STL:0.1,BLK:0,TOV:0.3,P3:0.5,FG:1,FGA:2.6,FT:0.2,FTA:0.3},"Ryan Nembhard":{g:67,PTS:4.6,TRB:1.5,AST:3.3,STL:0.4,BLK:0,TOV:1.1,P3:0.5,FG:1.9,FGA:4.6,FT:0.3,FTA:0.4},"Hugo Gonzalez":{g:72,PTS:5.1,TRB:4.3,AST:0.7,STL:0.8,BLK:0.4,TOV:0.7,P3:0.8,FG:2.1,FGA:4.3,FT:0.2,FTA:0.4},"Jordan Clarkson":{g:75,PTS:8.9,TRB:1.7,AST:1.9,STL:0.4,BLK:0.1,TOV:1.3,P3:1.3,FG:3.3,FGA:7.3,FT:1.1,FTA:1.3},"Drake Powell":{g:63,PTS:5.4,TRB:1.5,AST:1.5,STL:0.5,BLK:0.2,TOV:1,P3:0.7,FG:1.9,FGA:4.7,FT:0.9,FTA:1},"Nolan Traore":{g:65,PTS:7.5,TRB:1.5,AST:2.9,STL:0.6,BLK:0.3,TOV:2.3,P3:0.8,FG:2.8,FGA:7.3,FT:1.1,FTA:1.4},"Josh Green":{g:76,PTS:6.3,TRB:2.1,AST:1.4,STL:1,BLK:0.2,TOV:0.9,P3:1.5,FG:2.1,FGA:4.7,FT:0.6,FTA:0.7},"Bogdan Bogdanovic":{g:42,PTS:5.6,TRB:1.7,AST:1.5,STL:0.5,BLK:0.1,TOV:0.9,P3:1,FG:2,FGA:5.1,FT:0.7,FTA:0.9},"Johnny Furphy":{g:42,PTS:3.3,TRB:2.5,AST:0.7,STL:0.4,BLK:0.2,TOV:0.5,P3:0.5,FG:1.2,FGA:2.6,FT:0.3,FTA:0.6},"Josh Okogie":{g:76,PTS:4.1,TRB:2.1,AST:0.9,STL:0.6,BLK:0.2,TOV:0.5,P3:0.6,FG:1.5,FGA:3.6,FT:0.5,FTA:0.9},"Yanic Konan Niederhauser":{g:49,PTS:8.9,TRB:5.6,AST:0.6,STL:0.3,BLK:1.3,TOV:1.4,P3:0,FG:3.2,FGA:4.8,FT:2.4,FTA:3.3},"Jamaree Bouyea":{g:23,PTS:2.3,TRB:0.7,AST:0.6,STL:0.3,BLK:0.1,TOV:0.3,P3:0.2,FG:1,FGA:2.2,FT:0.2,FTA:0.3},"Noah Penda":{g:72,PTS:4.2,TRB:3.4,AST:1.4,STL:0.5,BLK:0.3,TOV:0.9,P3:0.6,FG:1.5,FGA:3.6,FT:0.6,FTA:0.8},"Jamal Cain":{g:61,PTS:4.3,TRB:1.6,AST:0.5,STL:0.3,BLK:0.1,TOV:0.5,P3:0.6,FG:1.4,FGA:2.8,FT:0.8,FTA:1},"Sidy Cissoko":{g:79,PTS:3.8,TRB:1.7,AST:1,STL:0.5,BLK:0.2,TOV:0.9,P3:0.6,FG:1.3,FGA:3.2,FT:0.6,FTA:0.9},"Gary Trent Jr.":{g:42,PTS:5.4,TRB:0.9,AST:0.7,STL:0.4,BLK:0,TOV:0.3,P3:1.1,FG:1.9,FGA:5,FT:0.4,FTA:0.5},"Gradey Dick":{g:76,PTS:5.7,TRB:1.5,AST:0.6,STL:0.4,BLK:0.1,TOV:0.6,P3:0.7,FG:2,FGA:4.9,FT:1,FTA:1.2},"Nikola Jovic":{g:59,PTS:7.6,TRB:2.9,AST:2.3,STL:0.7,BLK:0.3,TOV:1,P3:0.9,FG:2.6,FGA:7.3,FT:1.5,FTA:2.1},"Jaden Hardy":{g:32,PTS:4.4,TRB:0.8,AST:0.6,STL:0.2,BLK:0,TOV:0.7,P3:0.8,FG:1.6,FGA:3.8,FT:0.5,FTA:0.7},"Micah Peavy":{g:62,PTS:4.4,TRB:1.9,AST:1,STL:0.8,BLK:0.1,TOV:0.3,P3:0.5,FG:1.8,FGA:4.8,FT:0.4,FTA:0.5},"Tyrese Proctor":{g:49,PTS:5.2,TRB:1.2,AST:1.7,STL:0.5,BLK:0,TOV:1,P3:0.9,FG:1.8,FGA:4.3,FT:0.8,FTA:0.9},"Jabari Walker":{g:18,PTS:2.7,TRB:2,AST:0.4,STL:0.3,BLK:0.1,TOV:0.3,P3:0.2,FG:1,FGA:2.2,FT:0.5,FTA:0.7},"Jeremy Sochan":{g:49,PTS:5.9,TRB:3.4,AST:1.3,STL:0.5,BLK:0.2,TOV:0.7,P3:0.3,FG:2.5,FGA:4.8,FT:0.7,FTA:1},"Caleb Martin":{g:42,PTS:2.8,TRB:1.5,AST:0.9,STL:0.5,BLK:0.1,TOV:0.5,P3:0.3,FG:1,FGA:2.2,FT:0.5,FTA:0.9},"Tyler Kolek":{g:44,PTS:3.6,TRB:1.2,AST:2.6,STL:0.4,BLK:0.1,TOV:0.8,P3:0.7,FG:1.4,FGA:3.3,FT:0.2,FTA:0.3},"Khaman Maluach":{g:69,PTS:4.8,TRB:4.5,AST:0.2,STL:0.1,BLK:1.1,TOV:0.8,P3:0.2,FG:1.9,FGA:3.6,FT:0.8,FTA:1.1},"Tyus Jones":{g:79,PTS:5.4,TRB:1.3,AST:2.9,STL:0.5,BLK:0.1,TOV:0.6,P3:1.1,FG:2.1,FGA:6.3,FT:0.2,FTA:0.2},"Ariel Hukporti":{g:42,PTS:1.8,TRB:2.4,AST:0.5,STL:0.1,BLK:0.5,TOV:0.5,P3:0,FG:0.7,FGA:1.3,FT:0.4,FTA:0.5},"Jaylen Clark":{g:73,PTS:4.3,TRB:1.7,AST:0.6,STL:0.7,BLK:0.1,TOV:0.3,P3:0.6,FG:1.5,FGA:3.4,FT:0.7,FTA:1.2},"Rasheer Fleming":{g:68,PTS:6.7,TRB:3.3,AST:0.4,STL:0.5,BLK:0.5,TOV:1,P3:1.2,FG:2.5,FGA:6.1,FT:0.5,FTA:1},"Rob Dillingham":{g:65,PTS:6.4,TRB:1.7,AST:2.8,STL:0.7,BLK:0.1,TOV:1.6,P3:0.8,FG:2.5,FGA:6.3,FT:0.6,FTA:0.8},"Carter Bryant":{g:73,PTS:5.3,TRB:3.2,AST:0.8,STL:0.3,BLK:0.4,TOV:0.5,P3:0.9,FG:1.9,FGA:4.7,FT:0.5,FTA:0.7},"Jordan Hawkins":{g:42,PTS:5.6,TRB:1.6,AST:0.7,STL:0.3,BLK:0.2,TOV:0.5,P3:0.9,FG:2.1,FGA:5.8,FT:0.5,FTA:0.5},"Terrence Shannon Jr.":{g:75,PTS:10.1,TRB:2.5,AST:1.6,STL:0.6,BLK:0.2,TOV:1.3,P3:1.3,FG:3.2,FGA:7.1,FT:2.3,FTA:2.8},"Tre Mann":{g:42,PTS:4.8,TRB:1.3,AST:1.3,STL:0.3,BLK:0.1,TOV:1,P3:0.6,FG:1.9,FGA:5.2,FT:0.4,FTA:0.5},"Dalton Knecht":{g:52,PTS:4.7,TRB:1.3,AST:0.4,STL:0.2,BLK:0.1,TOV:0.3,P3:0.9,FG:1.7,FGA:3.7,FT:0.3,FTA:0.4},"Jae'Sean Tate":{g:41,PTS:2.3,TRB:1.4,AST:0.5,STL:0.3,BLK:0.1,TOV:0.3,P3:0.2,FG:1,FGA:2,FT:0.1,FTA:0.1},"Jase Richardson":{g:60,PTS:5.5,TRB:1.5,AST:1.6,STL:0.4,BLK:0,TOV:0.7,P3:0.6,FG:2.1,FGA:4.6,FT:0.8,FTA:1.2},"Jordan McLaughlin":{g:24,PTS:1.2,TRB:0.4,AST:0.5,STL:0.3,BLK:0,TOV:0.2,P3:0.2,FG:0.5,FGA:1.1,FT:0.1,FTA:0.2},"Bronny James":{g:32,PTS:1.8,TRB:0.4,AST:0.7,STL:0.3,BLK:0,TOV:0.3,P3:0.3,FG:0.7,FGA:1.7,FT:0.1,FTA:0.2},"Jamison Battle":{g:67,PTS:3.5,TRB:1.3,AST:0.4,STL:0.1,BLK:0.1,TOV:0.2,P3:0.9,FG:1.2,FGA:2.4,FT:0.1,FTA:0.2},"Cam Christie":{g:32,PTS:1.7,TRB:0.8,AST:0.3,STL:0.2,BLK:0,TOV:0.2,P3:0.1,FG:0.6,FGA:1.5,FT:0.4,FTA:0.5},"Andre Jackson Jr.":{g:64,PTS:1,TRB:0.8,AST:0.4,STL:0.2,BLK:0.1,TOV:0.3,P3:0.1,FG:0.3,FGA:0.9,FT:0.2,FTA:0.3},"Chaz Lanier":{g:39,PTS:1.6,TRB:0.5,AST:0.3,STL:0.1,BLK:0,TOV:0.1,P3:0.4,FG:0.6,FGA:1.9,FT:0.1,FTA:0.2},"Yang Hansen":{g:61,PTS:3.3,TRB:2.2,AST:0.7,STL:0.1,BLK:0.3,TOV:0.9,P3:0.1,FG:1.1,FGA:3.6,FT:1,FTA:1.1},"Dejounte Murray":{g:65,PTS:16.7,TRB:5.9,AST:6.4,STL:1.7,BLK:0.4,TOV:3,P3:1.4,FG:6.3,FGA:13.8,FT:2.7,FTA:3.2},"Walker Kessler":{g:70,PTS:10.7,TRB:10.4,AST:2,STL:0.6,BLK:1.9,TOV:1.9,P3:0.5,FG:4.2,FGA:6,FT:1.8,FTA:2.6},"Zach Edey":{g:68,PTS:11.8,TRB:10.1,AST:1.4,STL:0.6,BLK:1.9,TOV:1.4,P3:0.3,FG:4.7,FGA:7.5,FT:2.1,FTA:2.6},"Tyrese Haliburton":{g:64,PTS:17.3,TRB:3.2,AST:10.8,STL:1.3,BLK:0.6,TOV:1.8,P3:2.4,FG:6.1,FGA:13.1,FT:2.7,FTA:3.2},"Kyrie Irving":{g:55,PTS:20.4,TRB:3.8,AST:5.1,STL:1.3,BLK:0.4,TOV:1.6,P3:2.2,FG:7.5,FGA:15.5,FT:3.3,FTA:3.7},"Fred VanVleet":{g:60,PTS:12.9,TRB:3.2,AST:4.1,STL:1.4,BLK:0.3,TOV:1.3,P3:1.9,FG:4.5,FGA:9.5,FT:2,FTA:2.5},"Damian Lillard":{g:58,PTS:19.4,TRB:3.3,AST:5,STL:0.8,BLK:0.1,TOV:2.1,P3:3.3,FG:6.6,FGA:13.9,FT:2.9,FTA:3.7}};
+/* Which NBA club each player suits up for, off the same spreadsheet as AGG.
+   The only thing that reads it is the lineup lock: a tip-off is a property of
+   the NBA team, not the fantasy one. 336 of the 390 in RATER; anyone missing
+   falls back to the league-wide lock time. */
+const NBATM={"Nikola Jokic":"DEN","Victor Wembanyama":"SA","Shai Gilgeous-Alexander":"OKC","Kawhi Leonard":"TOR","Tyrese Maxey":"PHI","Luka Doncic":"LAL","Donovan Mitchell":"CLE","Jamal Murray":"DEN","Stephen Curry":"GS","Lauri Markkanen":"UTAH","Kevin Durant":"HOU","Trey Murphy III":"NO","Scottie Barnes":"TOR","Anthony Edwards":"MIN","Chet Holmgren":"OKC","Joel Embiid":"PHI","Kevin Porter Jr":"MIL","James Harden":"CLE","Anthony Davis":"WSH","Karl-Anthony Towns":"NY","Cade Cunningham":"DET","Jalen Johnson":"ATL","Jimmy Butler":"GS","Austin Reaves":"LAL","Nickeil Alexander-Walker":"ATL","Michael Porter Jr.":"BKN","Jayson Tatum":"BOS","Derrick White":"BOS","Jalen Duren":"DET","Keyonte George":"UTAH","Amen Thompson":"HOU","Donovan Clingan":"POR","Desmond Bane":"ORL","Onyeka Okongwu":"ATL","OG Anunoby":"NY","Paul George":"BOS","Mikal Bridges":"NY","Bam Adebayo":"MIA","Cooper Flagg":"DAL","Tyler Herro":"MIL","Jaren Jackson Jr.":"UTAH","Jalen Brunson":"NY","Devin Booker":"PHX","Alex Sarr":"WSH","LeBron James":"PHI","Alperen Sengun":"HOU","Brandon Miller":"CHA","Ryan Rollins":"MIL","Jaylen Brown":"PHI","Dyson Daniels":"ATL","LaMelo Ball":"MIN","Kel'el Ware":"MIL","Evan Mobley":"CLE","Jalen Suggs":"ORL","Kristaps Porzingis":"GS","Deni Avdija":"POR","Andrew Wiggins":"MIA","Neemias Queta":"BOS","Nikola Vucevic":"ORL","Jaden McDaniels":"MIN","V. J. Edgecombe":"PHI","Kon Knueppel":"CHA","Mark Williams":"PHX","Brandon Ingram":"LAC","Jarrett Allen":"CLE","Immanuel Quickley":"TOR","Josh Giddey":"CHI","Reed Sheppard":"HOU","Giannis Antetokounmpo":"MIA","Matas Buzelis":"CHI","Jalen Williams":"OKC","De'Aaron Fox":"SA","Franz Wagner":"ORL","Norman Powell":"CHI","Keegan Murray":"SAC","Tre Jones":"CHI","Payton Pritchard":"BOS","Grayson Allen":"CHA","Naz Reid":"CHA","Josh Hart":"NY","Julius Randle":"BKN","Jabari Smith Jr.":"HOU","Jay Huff":"IND","Saddiq Bey":"NO","Collin Gillespie":"PHX","Deandre Ayton":"WSH","Darius Garland":"LAC","Kyshawn George":"WSH","Ayo Dosunmu":"MIN","Robert Williams":"POR","Myles Turner":"MIL","Isaiah Hartenstein":"OKC","Ajay Mitchell":"OKC","Rudy Gobert":"MIN","Ivica Zubac":"IND","Zach LaVine":"SAC","Cam Spencer":"MEM","John Collins":"DET","Julian Champagnie":"SA","Ausar Thompson":"DET","Zion Williamson":"NO","Tobias Harris":"SA","Daniel Gafford":"DAL","Jrue Holiday":"POR","Jakob Poeltl":"TOR","Miles Bridges":"PHX","Peyton Watson":"CLE","Kelly Oubre Jr.":"IND","Devin Vassell":"SA","Cason Wallace":"OKC","Trae Young":"WSH","Aaron Gordon":"DEN","Domantas Sabonis":"SAC","Santi Aldama":"DAL","Wendell Carter Jr.":"ORL","Pascal Siakam":"IND","CJ McCollum":"ATL","Luke Kornet":"SA","Moussa Diabate":"CHA","Andrew Nembhard":"IND","Paolo Banchero":"ORL","Al Horford":"GS","Brandin Podziemski":"GS","Ja Morant":"POR","Derik Queen":"NO","Moses Moody":"GS","Jerami Grant":"MEM","Sandro Mamukelashvili":"LAL","Royce O'Neale":"CHA","Bilal Coulibaly":"WSH","Cameron Johnson":"DEN","Toumani Camara":"POR","Jaylon Tyson":"CLE","Bennedict Mathurin":"NO","Anthony Black":"ORL","Maxime Raynaud":"SAC","Kyle Filipowski":"UTAH","Isaiah Stewart":"MEM","Derrick Jones Jr.":"LAC","Bobby Portis":"MIA","Cedric Coward":"MEM","Matisse Thybulle":"LAL","P.J. Washington":"DAL","Justin Champagnie":"WSH","Nic Claxton":"CHI","Mitchell Robinson":"BOS","Sam Merrill":"CLE","Kris Dunn":"LAC","Dylan Cardwell":"SAC","Christian Braun":"DEN","Collin Sexton":"LAL","Jordan Goodwin":"PHX","Stephon Castle":"SA","Quentin Grimes":"LAL","Jusuf Nurkic":"UTAH","Naji Marshall":"DAL","Tari Eason":"HOU","Jaime Jaquez Jr.":"MIL","Jalen Smith":"CHI","Davion Mitchell":"MIA","Duncan Robinson":"DET","Shaedon Sharpe":"POR","Dillon Brooks":"PHX","Herbert Jones":"NO","RJ Barrett":"TOR","Isaiah Joe":"DET","Miles McBride":"NY","Max Christie":"DAL","T.J. McConnell":"IND","Collin Murray-Boyles":"TOR","Ace Bailey":"UTAH","Kevin Huerter":"DET","Micah Potter":"POR","Ziaire Williams":"LAL","Keldon Johnson":"SA","Goga Bitadze":"ORL","Tristan Da Silva":"ORL","Dylan Harper":"SA","De'Anthony Melton":"GS","Marvin Bagley III":"DEN","Tim Hardaway Jr.":"MIA","Javon Small":"MEM","Precious Achiuwa":"SAC","Day'Ron Sharpe":"BKN","Brook Lopez":"LAC","Marcus Smart":"HOU","Draymond Green":"GS","Anfernee Simons":"PHI","Jake LaRavia":"LAL","Isaiah Collier":"UTAH","Jeremiah Fears":"NO","Javonte Green":"DET","GG Jackson II":"MEM","Brice Sensabaugh":"UTAH","Jaylin Williams":"OKC","Aaron Nesmith":"IND","Noah Clowney":"BKN","Malik Monk":"SAC","Kyle Kuzma":"MIL","Sam Hauser":"BOS","Luke Kennard":"PHX","Andre Drummond":"NY","Dean Wade":"PHI","Pelle Larsson":"MIA","Coby White":"CHA","A.J. Green":"MIL","Rui Hachimura":"LAC","Jalen Green":"PHX","Daeqwon Plowden":"SAC","Jock Landale":"ATL","Kyle Anderson":"TOR","Karlo Matkovic":"NO","Keon Ellis":"BKN","Yves Missi":"NO","Zaccharie Risacher":"DAL","Dru Smith":"MIA","Vit Krejci":"POR","Alex Caruso":"OKC","Egor Demin":"BKN","De'Andre Hunter":"SAC","Jordan Miller":"LAC","Harrison Barnes":"SA","Olivier-Maxence Prosper":"MEM","Gui Santos":"GS","Craig Porter Jr.":"CLE","Svi Mykhailiuk":"UTAH","Isaac Okoro":"CHI","Isaiah Jackson":"LAC","Jaylen Wells":"MEM","Jarace Walker":"IND","Oso Ighodaro":"PHX","Luguentz Dort":"ATL","Will Richard":"GS","Aaron Wiggins":"ATL","Jordan Walsh":"BOS","Jordan Poole":"NO","Grant Williams":"CHA","Dennis Schroder":"CHA","Spencer Jones":"DEN","Danny Wolf":"BKN","Daniss Jenkins":"DET","Ron Holland":"DET","Tre Johnson":"WSH","Terance Mann":"BKN","Adem Bona":"PHI","Bub Carrington":"WSH","Steven Adams":"HOU","Kentavious Caldwell-Pope":"PHI","Kasparas Jakucionis":"MIL","Baylor Scheierman":"BOS","Landry Shamet":"NY","Jamal Shead":"TOR","Bones Hyland":"MIN","Klay Thompson":"MIA","Khris Middleton":"WSH","Bryce McGowens":"NO","Quenton Jackson":"IND","Simone Fontecchio":"MIA","Cody Williams":"MIN","Ryan Dunn":"PHX","Mouhamed Gueye":"ATL","Ben Sheppard":"IND","Nique Clifford":"SAC","Jericho Sims":"MIL","Clint Capela":"HOU","Will Riley":"WSH","Corey Kispert":"ATL","Patrick Williams":"CHI","Jevon Carter":"ORL","Justin Edwards":"PHI","Sion James":"CHA","Kobe Sanders":"LAC","Mike Conley":"BOS","Pat Spencer":"PHX","Nae'Qwan Tomlin":"CLE","Devin Carter":"ATL","Jared McCain":"OKC","Kenrich Williams":"OKC","Jarred Vanderbilt":"LAL","Tidjane Salaun":"CHA","Moussa Cisse":"DAL","Joan Beringer":"MIN","Rayan Rupert":"PHI","Julian Strawther":"DEN","Caleb Love":"PHI","Ryan Nembhard":"ATL","Hugo Gonzalez":"BOS","Jordan Clarkson":"NY","Drake Powell":"BKN","Nolan Traore":"BKN","Josh Green":"UTAH","Bogdan Bogdanovic":"HOU","Johnny Furphy":"IND","Josh Okogie":"UTAH","Yanic Konan Niederhauser":"LAC","Jamaree Bouyea":"PHX","Noah Penda":"ORL","Jamal Cain":"ORL","Sidy Cissoko":"POR","Gary Trent Jr.":"MIL","Gradey Dick":"LAC","Nikola Jovic":"MIA","Jaden Hardy":"LAL","Micah Peavy":"NO","Tyrese Proctor":"CLE","Jabari Walker":"PHI","Jeremy Sochan":"POR","Caleb Martin":"DAL","Tyler Kolek":"NY","Khaman Maluach":"PHX","Tyus Jones":"DEN","Ariel Hukporti":"PHI","Jaylen Clark":"MIN","Rasheer Fleming":"PHX","Rob Dillingham":"CHI","Carter Bryant":"SA","Jordan Hawkins":"NO","Terrence Shannon Jr.":"MIN","Tre Mann":"WSH","Dalton Knecht":"LAL","Jae'Sean Tate":"HOU","Jase Richardson":"ORL","Jordan McLaughlin":"SA","Bronny James":"LAL","Jamison Battle":"TOR","Cam Christie":"LAC","Andre Jackson Jr.":"TOR","Chaz Lanier":"DET","Yang Hansen":"POR","Dejounte Murray":"NO","Walker Kessler":"LAL","Zach Edey":"MEM","Tyrese Haliburton":"IND","Kyrie Irving":"DAL","Fred VanVleet":"HOU","Damian Lillard":"POR"};
 const SKEYS=["FG","FGA","FT","FTA","P3","TRB","AST","STL","BLK","TOV","PTS"];
 let PROJ={}, useProj=false, PROJSRC='mine', RTGCACHE=null;
 /* `useProj` still means "not raw 2025-26"; PROJSRC says which projection is in
@@ -4554,6 +4745,249 @@ function drawDraftAdmin(){
   $('dsClose').disabled=!d.open;
 }
 
+
+
+/* ================= NIGHTLY LINEUPS =================
+   Once the season is live a club does not play everyone it owns. Fifteen slots
+   start: one centre, four guards, four forwards and six utility. Everyone else
+   sits on the bench, and the injured reserve is separate again.
+
+   Only a started player's stats count for the night. That accrual is **not
+   built** — it needs the nightly stats feed, which is still the missing half of
+   this app. Everything up to that line is here: the slots, the eligibility, the
+   bench, the IR, and the lock. When the feed lands it reads `startedOn(club)`
+   and adds the night's box scores; nothing on this screen has to change.
+
+   The lineup lives on the club, `S.teams[t].lu`, so it rides the rosters slice
+   and merges per club exactly like a cut or a signing. Two GMs setting lineups
+   at the same moment cannot collide.
+
+     lu = { d:'2026-11-04', s:{ C:'Nikola Jokic', G1:'…', … U6:'' } }
+
+   `d` records the night it was last set and is informational: a lineup carries
+   forward until somebody changes it, which is what every fantasy app does and
+   what a GM on holiday needs. Locks are computed from the clock, never from `d`. */
+const SLOTS=[['C','C',1],['G','G',4],['F','F',4],['U','UTIL',6]];
+const SLOTIDS=(()=>{const out=[];SLOTS.forEach(([k,,n])=>{
+  for(let i=1;i<=n;i++) out.push(n===1?k:k+i);});return out;})();
+const slotKind=id=>id[0];
+const slotLabel=id=>({C:'C',G:'G',F:'F',U:'UTIL'})[slotKind(id)];
+/* The position a player is eligible at, as a set of G/F/C. The sheet writes
+   "G, F", "F, C" and one stray "PG"; a two-letter guard or forward reads as its
+   family, so PG and SG are both G. */
+function posSet(name){
+  const c=canon(name);
+  let raw=null;
+  for(const t of TEAMS()){
+    const p=S.teams[t].r.find(x=>canon(x.n)===c);
+    if(p&&p.p){ raw=p.p; break; }
+  }
+  if(!raw) raw=(POSFIX[c]!=null?POSFIX[c]:(RIDX[c]&&RIDX[c].p))||'';
+  const out=new Set();
+  String(raw).split(/[,/]/).forEach(tok=>{
+    const t=tok.trim().toUpperCase();
+    if(!t) return;
+    if(t.includes('C')) out.add('C');
+    if(t.includes('G')) out.add('G');
+    if(t.includes('F')) out.add('F');
+  });
+  return out;
+}
+const posText=name=>[...posSet(name)].sort().join('/')||'—';
+/* Utility takes anybody. Every other slot wants its own letter. */
+function slotOk(id,name){
+  const k=slotKind(id);
+  if(k==='U') return true;
+  return posSet(name).has(k);
+}
+function lineupOf(t){
+  const lu=(S.teams[t]||{}).lu;
+  const s={};
+  SLOTIDS.forEach(id=>{ s[id]=(lu&&lu.s&&typeof lu.s[id]==='string')?lu.s[id]:''; });
+  return {d:(lu&&lu.d)||'', s};
+}
+/* Everyone under contract, not on the IR, not already in a slot. */
+function benchOf(t){
+  const s=lineupOf(t).s, taken=new Set(Object.values(s).filter(Boolean).map(canon));
+  return S.teams[t].r.filter(p=>p.y[1]!=null&&!onIR(p)&&!taken.has(canon(p.n)));
+}
+const irOf=t=>S.teams[t].r.filter(p=>p.y[1]!=null&&onIR(p));
+/* What the stats feed will read: the names actually starting tonight. */
+function startedOn(t){
+  const s=lineupOf(t).s;
+  return SLOTIDS.map(id=>s[id]).filter(Boolean);
+}
+/* ---- the lock ----
+   Once a player's game has tipped off he is frozen for the night, in or out.
+   Two sources, in order:
+     S.cfg.sched[day][NBA team]  a tip-off time per team, written by the stats
+                                 feed when it lands. Nothing populates it today.
+     S.cfg.lockAt                a league-wide daily lock time, "HH:MM" in
+                                 LEAGUE_TZ, set by the commissioner. The stopgap
+                                 until the feed exists, and the reason the rule
+                                 is enforceable tonight rather than next season.
+   With neither set, nothing locks and the screen says so rather than pretending. */
+const leagueTZ=()=>S.cfg.tz||'America/New_York';
+function dayKey(at){
+  try{
+    return new Intl.DateTimeFormat('en-CA',{timeZone:leagueTZ(),
+      year:'numeric',month:'2-digit',day:'2-digit'}).format(at||new Date());
+  }catch(e){ return (at||new Date()).toISOString().slice(0,10); }
+}
+function minutesNow(){
+  try{
+    const p=new Intl.DateTimeFormat('en-GB',{timeZone:leagueTZ(),hour:'2-digit',
+      minute:'2-digit',hour12:false}).format(new Date()).split(':');
+    return (+p[0])*60+(+p[1]);
+  }catch(e){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+}
+function lockMinutes(){
+  const v=String(S.cfg.lockAt||'').trim();
+  const m=/^(\d{1,2}):(\d{2})$/.exec(v);
+  if(!m) return null;
+  const h=+m[1], mi=+m[2];
+  return (h>=0&&h<24&&mi>=0&&mi<60) ? h*60+mi : null;
+}
+/* Locked, and why — the why is what the screen tells the GM. */
+function lockOf(name,at){
+  const day=dayKey(at);
+  const tm=NBATM[canon(name)];
+  const sched=(S.cfg.sched||{})[day];
+  if(tm&&sched&&sched[tm]){
+    const tip=Date.parse(sched[tm]);
+    if(!isNaN(tip)) return (at?at.getTime():Date.now())>=tip
+      ? {locked:true,why:`${tm} has tipped off`} : {locked:false,why:''};
+  }
+  const lm=lockMinutes();
+  if(lm!=null&&minutesNow()>=lm)
+    return {locked:true,why:`lineups locked at ${S.cfg.lockAt}`};
+  return {locked:false,why:''};
+}
+const isLocked=name=>lockOf(name).locked;
+/* Why a club cannot be edited at all, or '' when it can. */
+function lineupNote(){
+  if((S.cfg.sched||{})[dayKey()]) return 'Locks follow each club’s tip-off.';
+  const lm=lockMinutes();
+  if(lm!=null) return `Everything locks at ${S.cfg.lockAt} ${leagueTZ().split('/').pop().replace('_',' ')}.`;
+  return 'No schedule and no lock time set — nothing is locked tonight.';
+}
+/* ---- moves ---- */
+async function setSlot(team,id,name){
+  if(!canEdit(team)) return alert('You can only set your own lineup.');
+  if(!seasonLive()) return alert('Lineups open once the commissioner sets the season live.');
+  if(!SLOTIDS.includes(id)) return;
+  const lu=lineupOf(team), was=lu.s[id];
+  if(was&&isLocked(was))
+    return alert(`${was} is locked for tonight — ${lockOf(was).why}.`);
+  if(name){
+    const p=S.teams[team].r.find(x=>canon(x.n)===canon(name));
+    if(!p||p.y[1]==null) return alert(`${name} is not under contract for ${team}.`);
+    if(onIR(p)) return alert(`${p.n} is on the injured reserve. Activate him first.`);
+    if(isLocked(p.n)) return alert(`${p.n} is locked for tonight — ${lockOf(p.n).why}.`);
+    if(!slotOk(id,p.n))
+      return alert(`${p.n} plays ${posText(p.n)} and cannot fill the ${slotLabel(id)} spot.`);
+    /* One player, one slot. Moving him out of the old one is what a GM means. */
+    SLOTIDS.forEach(k=>{ if(k!==id&&canon(lu.s[k])===canon(p.n)) lu.s[k]=''; });
+    lu.s[id]=p.n;
+  } else {
+    lu.s[id]='';
+  }
+  S.teams[team].lu={d:dayKey(),s:lu.s};
+  await commit({kind:'edit',team,detail: name
+    ? `${name} started at ${slotLabel(id)}` : `${slotLabel(id)} spot cleared`},['rosters']);
+}
+async function clearLineup(team){
+  if(!canEdit(team)) return alert('You can only set your own lineup.');
+  const lu=lineupOf(team);
+  const stuck=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id]));
+  if(!confirm(stuck.length
+    ? `Clear the lineup? ${stuck.length} locked player${stuck.length===1?'':'s'} will stay put.`
+    : 'Clear every spot in tonight’s lineup?')) return;
+  SLOTIDS.forEach(id=>{ if(lu.s[id]&&!isLocked(lu.s[id])) lu.s[id]=''; });
+  S.teams[team].lu={d:dayKey(),s:lu.s};
+  await commit({kind:'edit',team,detail:'Lineup cleared'},['rosters']);
+}
+/* Fill every open, unlocked slot with the best available man who fits it. The
+   scarcest slot goes first — centre, then the named positions, then utility —
+   because filling utility first strands a centre on the bench. */
+async function autoLineup(team){
+  if(!canEdit(team)) return alert('You can only set your own lineup.');
+  if(!seasonLive()) return alert('Lineups open once the commissioner sets the season live.');
+  const lu=lineupOf(team);
+  const used=new Set(Object.values(lu.s).filter(Boolean).map(canon));
+  const pool=S.teams[team].r.filter(p=>p.y[1]!=null&&!onIR(p)&&!used.has(canon(p.n))&&!isLocked(p.n))
+    .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
+  let filled=0;
+  SLOTIDS.forEach(id=>{
+    if(lu.s[id]) return;
+    const i=pool.findIndex(p=>slotOk(id,p.n));
+    if(i<0) return;
+    lu.s[id]=pool.splice(i,1)[0].n; filled++;
+  });
+  if(!filled) return projToast('Nothing left to fill');
+  S.teams[team].lu={d:dayKey(),s:lu.s};
+  await commit({kind:'edit',team,detail:`Lineup auto-filled — ${filled} spot${filled===1?'':'s'}`},['rosters']);
+}
+
+function drawLineup(){
+  const wrap=$('luWrap'); if(!wrap) return;
+  wrap.hidden = !me || !seasonLive();
+  if(wrap.hidden) return;
+  const T=meTeam(), lu=lineupOf(T), can=canEdit(T);
+  const bench=benchOf(T), ir=irOf(T);
+  const open=SLOTIDS.filter(id=>!lu.s[id]).length;
+  const lockedN=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id])).length;
+  $('luHead').innerHTML=`<div class="dhead"><h3>Tonight &#183; ${htmlEsc(dayKey())}</h3>
+    <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
+    <span class="pill">${bench.length} on the bench</span>
+    ${ir.length?`<span class="pill">${ir.length} on the IR</span>`:''}
+    ${lockedN?`<span class="pill">${lockedN} locked</span>`:''}
+    ${can?`<button class="btn ghost" id="luAuto" style="margin-left:auto">Auto-fill</button>
+      <button class="btn ghost" id="luClear">Clear</button>`:''}</div>
+    <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night.
+      <b>That accrual is not built yet</b> &#8212; it needs the nightly stats feed, so nothing here
+      moves the standings today. The slots, the eligibility and the lock are real.</p>`;
+  /* One row per slot. A locked man is text, not a control: there is nothing the
+     GM may do with him tonight and a disabled select invites a click anyway. */
+  const opts=(id)=>{
+    const cur=lu.s[id];
+    const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
+      .filter(p=>slotOk(id,p.n)&&!isLocked(p.n))
+      .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
+    return `<option value="">&#8212; empty &#8212;</option>`
+      +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
+        htmlEsc(p.n)} &#183; ${htmlEsc(posText(p.n))}</option>`).join('');
+  };
+  $('luSlots').innerHTML=SLOTIDS.map(id=>{
+    const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
+    const r=nm?pstat(nm):null;
+    return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
+      <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
+      ${lk.locked
+        ? `<span class="luname">${htmlEsc(nm)}<span class="tag t-cut">locked &#183; ${htmlEsc(lk.why)}</span></span>`
+        : can ? `<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>`
+              : `<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}
+      <span class="lustat">${nm?(r&&r.g?statLine(nm):htmlEsc(posText(nm))):''}</span></div>`;
+  }).join('');
+  if(can){
+    $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>
+      setSlot(T,sel.dataset.slot,sel.value));
+    if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
+    if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
+  }
+  const card=(p,cls)=>{
+    const lk=lockOf(p.n);
+    return `<div class="lubench ${cls||''}"><span class="pname" data-player="${htmlEsc(p.n)}">${
+      htmlEsc(p.n)}</span><span class="tag t-po">${htmlEsc(posText(p.n))}</span>${
+      lk.locked?'<span class="tag t-cut">locked</span>':''}</div>`;
+  };
+  $('luBench').innerHTML = bench.length
+    ? bench.sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99)).map(p=>card(p)).join('')
+    : '<div class="empty">Nobody on the bench.</div>';
+  $('luIR').innerHTML = ir.length
+    ? ir.map(p=>card(p,'onir')).join('')
+    : '<div class="empty">Nobody on the injured reserve.</div>';
+}
 
 /* ================= LEAGUE CHAT =================
    A room for the league to talk, and a private notepad that never leaves the

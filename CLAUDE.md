@@ -158,6 +158,75 @@ percentages as projected.
 2025-26 line, which is just what `pstat()` does with any missing key. Players in
 the source who are not in `RATER` were dropped — there is no row to show them in.
 
+### The roster limit is on ACTIVE players
+**15 active, 1 injured-reserve slot.** That is the rulebook's "sixteen men, and
+only while one of them is hurt", and it works because `headcount()` has always
+excluded the IR. `S.cfg.roster` is therefore the *active* limit, not the number
+of bodies — `signPlayer()` and `validateTrade()` both already read it that way.
+
+The offseason has no injured reserve at all, so the same number means 15 flat.
+
+**Activating a man off the IR when the club is full is a swap, not a move.**
+`toggleIR()` hands off to `openSwap()`, which asks which active player goes and
+runs him through `releaseRecord()` — the release factored out of `cutPlayer()` so
+every path that drops somebody writes the same `cuts` entry and carries the same
+waiver rules. The release happens *before* the activation: the other order leaves
+the roster illegal for the length of a statement, and a merge or a poll reading
+it in between would see a club one over.
+
+**Closing the season empties the IR**, which can leave a club at 16 active. It is
+told, not fixed — which player goes is the GM's call, not the commissioner's. The
+same step drops every stored lineup, since there is no season to have one for.
+
+A league saved before any of this carries the old 16-and-2. `drawAdmin()` shows a
+banner when `roster !== 15 || ir !== 1` rather than rewriting a commissioner's
+settings behind his back.
+
+### Nightly lineups
+Once the season is live a club does not play everyone it owns. **Fifteen slots
+start**: one C, four G, four F and six UTIL (`SLOTS` / `SLOTIDS`). Everyone else
+is on the bench; the injured reserve is separate again.
+
+Eligibility is `posSet(name)` — the roster entry's `p` read as a set of G/F/C.
+The sheet writes `"G, F"`, `"F, C"` and one stray `"PG"`, so a two-letter guard
+or forward reads as its family. `slotOk(id,name)`: UTIL takes anybody, every
+other slot wants its own letter.
+
+The lineup lives on the club, `S.teams[t].lu = {d,s}`, so it rides **rosters**
+and merges per club — two GMs setting lineups at the same instant cannot
+collide. `d` is the night it was last set and is informational: **a lineup
+carries forward** until somebody changes it, which is what a GM on holiday needs.
+Locks are computed from the clock, never from `d`.
+
+**Only a started player's stats count for the night, and that accrual is NOT
+built.** It needs the nightly stats feed. Everything up to that line is here, and
+the screen says so rather than implying the standings move. When the feed lands
+it reads `startedOn(club)` and adds the night's box scores; no screen has to
+change. `clubTotals()` and `fullTotals()` are untouched and still count every
+signed player, because there is nothing daily to count yet.
+
+**The lock.** Once a player's game tips off he is frozen for the night, in the
+lineup or out of it. `lockOf(name)` reads two sources in order:
+
+1. `S.cfg.sched[day][NBA team]` — a tip-off time per team, written by the stats
+   feed when it lands. Nothing populates it today. `NBATM` maps a player to his
+   NBA club for exactly this reason: a tip-off belongs to the NBA team, not the
+   fantasy one.
+2. `S.cfg.lockAt` — a league-wide daily `HH:MM` in league time, set by the
+   commissioner alongside the season phase. The stopgap, and the reason the rule
+   is enforceable tonight rather than next season.
+
+With neither set nothing locks and `lineupNote()` says so. Do not make the
+screen imply a lock that is not there.
+
+A locked player is rendered as text, not a disabled control — there is nothing
+the GM may do with him, and a dead select invites a click. `clearLineup()` and
+`autoLineup()` both step around locked men rather than failing.
+
+**The IR sorts to the bottom of My Roster whatever the sort is set to**, and
+carries `tr.isir` for the dimming. A man who cannot be started is not competing
+with the ones who can.
+
 ### An expiring contract is a free agent
 He is sitting on a roster this minute, but nobody has committed a dollar to him
 for next season, and that is the only test the auction, the strategy board and
@@ -299,6 +368,11 @@ league — `fillComm()` fills the commissioner half either way.
 "Not on a roster" is offered **only** to a player who is already unrostered, so
 the dialog can never become a way to release somebody. That is what Cut is for,
 and Cut carries the waiver rules this path does not.
+
+**Saving the season phase asks first**, and the question says what will actually
+happen — the IR and lineups opening or closing, how a release will be treated,
+how many salaries come off the books tonight. It is the most consequential switch
+on that page and the only one that changes the rules under every GM at once.
 
 Assignment warns rather than blocks on the two limits it can break — past the
 hard cap, and over the roster limit. This dialog exists to make the ledger match
@@ -548,8 +622,10 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 357 assertions against the real functions
-node tests/smoke.js       renders every view as signed-out, commissioner, each GM
+node tests/test.js        the app: 428 assertions against the real functions
+node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
+                          commissioner and each GM — the live season is what opens
+                          the lineup block, the IR and the lock
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 ```
 
@@ -757,7 +833,11 @@ renders correctly but says "this device only" is a broken deploy that looks fine
   They want a browser-ish `Referer` and `User-Agent` or they hang, which is fine
   from a Netlify function. Do not scrape Basketball-Reference: it prohibits it,
   and 570 page fetches will not finish inside the function timeout.
-- Auto-populate and optimize lineups. Both need the daily feed first.
+- **Daily stat accrual.** The lineup structure is built — slots, eligibility,
+  bench, IR, lock — but nothing counts a night's box score against a started
+  player yet. That is the nightly feed's job. `startedOn(club)` is the hook.
+- Optimising a lineup beyond `autoLineup()`'s "best available who fits, scarcest
+  slot first". A real optimiser needs the daily feed and the schedule.
 - Multi-year weighted projections and historical comps.
 - Deriving rosters from the transaction log rather than storing them directly.
   The log is already a complete append-only record, so this is possible whenever
