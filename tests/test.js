@@ -3115,6 +3115,131 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('and a table is only boxed once it is genuinely long', g('CAPROWS') >= 10);
   }
 
+  console.log('\n== a shooting rate is never shown without its volume ==');
+  {
+    /* FG% and FT% are scored WEIGHTED BY ATTEMPTS in this league, so a
+       percentage on its own is half the fact: .900 on two free throws a night
+       and .900 on nine are worth very different amounts, and only the second
+       wins the category. Every screen that shows one of these rates now shows
+       the makes and attempts underneath it. */
+    const P = g('shotPct'), T = g('pctText'), M = g('madeAtt');
+
+    ok('a rate is makes over attempts', Math.abs(P(9.9, 17.4) - 0.56896) < 0.0001);
+    ok('no attempts is null, not a divide by zero', P(0, 0) === null);
+    ok('...and so is a missing make', P(null, 17.4) === null);
+    ok('a null rate prints as an em dash', T(null) === '\u2014');
+    /* 56.9%, not .569 — the form people say out loud, and the one catCell() in
+       the trade machine already used. */
+    ok('a rate prints as a percentage, not a decimal', T(P(9.9, 17.4)) === '56.9%', T(P(9.9,17.4)));
+    ok('...to one decimal place', T(P(2, 3)) === '66.7%', T(P(2,3)));
+    ok('a perfect rate is 100%', T(P(2, 2)) === '100.0%');
+
+    /* The pair is joined by a NON-BREAKING hyphen: a stat track is four
+       characters wide and "9.9-17.4" must not wrap onto two lines in it. */
+    ok('makes and attempts read as a pair', M(9.9, 17.4) === '9.9\u201117.4', M(9.9,17.4));
+    ok('...joined by a non-breaking hyphen, so a narrow column cannot split it',
+       M(9.9, 17.4).includes('\u2011') && !M(9.9, 17.4).includes('-'));
+    ok('a missing pair is an em dash, not "null-null"', M(null, null) === '\u2014');
+    ok('...and half a pair is too', M(9.9, null) === '\u2014' && M(null, 17.4) === '\u2014');
+    ok('zero attempts is still a real pair, not a blank', M(0, 0) === '0.0\u20110.0');
+
+    /* A rookie has no box score at all — `s` is null — and every one of these
+       is reached from a table row, so none of them may throw on it. */
+    const CELLS = g('shotCells');
+    ok('a player with no stats still renders two cells',
+       (CELLS(null).match(/<td/g) || []).length === 2, CELLS(null));
+    ok('...and says so rather than printing NaN',
+       !/NaN|undefined|null/.test(CELLS(null)), CELLS(null));
+    ok('a real line renders the rate and the pair',
+       CELLS({FG:9.9,FGA:17.4,FT:6.1,FTA:7.4}).includes('56.9%')
+       && CELLS({FG:9.9,FGA:17.4,FT:6.1,FTA:7.4}).includes('9.9\u201117.4'));
+
+    /* The projections table marks a number the GM has changed. A rate that moved
+       because he moved it is marked the same way. */
+    const VS = g('shotCellsVs');
+    const base = {FG:9.9,FGA:17.4,FT:6.1,FTA:7.4};
+    ok('an unchanged rate is not marked',
+       !VS(base, base, true).includes('edited'));
+    ok('a changed rate is marked when the change is the GM\'s',
+       VS({FG:12,FGA:17.4,FT:6.1,FTA:7.4}, base, true).includes('edited'));
+    ok('...and is not marked on the aggregate, which is nobody\'s edit',
+       !VS({FG:12,FGA:17.4,FT:6.1,FTA:7.4}, base, false).includes('edited'));
+
+    /* clubTotals() keeps the sums the rate was computed from. standings() ranks
+       by PCATS keys only, so the extra key must not disturb it. */
+    const CT = g('clubTotals')(g('TEAMS')()[0]);
+    ok('a club total carries the raw makes and attempts',
+       CT.raw && CT.raw.FGA > 0, JSON.stringify(Object.keys(CT)));
+    ok('...and its FG% still agrees with them',
+       Math.abs(CT.FG - CT.raw.FG / CT.raw.FGA) < 1e-9);
+
+    /* The trade machine's pick list is where a GM decides whether a shooter is
+       worth having, so its one-line summary carries both. */
+    const L = g('statLine')('Nikola Jokic');
+    ok('the pick-list line names both rates', /fg/.test(L) && /ft/.test(L), L);
+    ok('...with the attempts behind them', L.includes('\u2011'), L);
+  }
+
+  console.log('\n== the transaction history is roster moves only ==');
+  {
+    /* A roster move is somebody joining a club, leaving one, or moving between
+       two. `edit` is the other thirty-odd log kinds put together — a cap change,
+       a PIN reset, a deputy granted — worth logging, and not what anyone opens
+       this page to read. */
+    const IS = g('isRosterMove'), MOVES = g('rosterMoves');
+    ok('a signing is a roster move', IS({kind:'sign'}) === true);
+    ok('a release is a roster move', IS({kind:'cut'}) === true);
+    ok('a trade is a roster move', IS({kind:'trade'}) === true);
+    ok('a settings edit is not', IS({kind:'edit'}) === false);
+    ok('nor is anything else', IS({kind:'test'}) === false);
+    ok('and nothing at all is not a crash', IS(null) === false && IS(undefined) === false);
+
+    const log = [{kind:'sign',detail:'a'},{kind:'edit',detail:'b'},{kind:'cut',detail:'c'},
+                 {kind:'test',detail:'d'},{kind:'trade',detail:'e'}];
+    const kept = MOVES(log);
+    ok('the list keeps only the three move kinds', kept.length === 3, String(kept.length));
+    ok('...in the order it was given', kept.map(x=>x.detail).join('') === 'ace');
+    ok('...without touching the log itself', log.length === 5);
+    ok('an empty log filters to nothing', MOVES([]).length === 0 && MOVES(null).length === 0);
+
+    /* The export is a BACKUP, so it carries the whole log — the filtering above
+       is a reading aid, not a claim about what happened. */
+    const csv = g('logCSV')(log).split('\n');
+    ok('the export writes every entry, not just the moves',
+       csv.length === log.length + 1, String(csv.length));
+    ok('...under a header naming the fields',
+       csv[0] === 'when,kind,club,who,detail', csv[0]);
+    /* A detail is free text a GM typed; a comma in it must not become a column. */
+    const tricky = g('logCSV')([{ts:'t',kind:'sign',team:'A',by:'B',
+      detail:'Signed "Bob", 2 yrs'}]).split('\n')[1];
+    ok('a comma or a quote in the detail is escaped',
+       tricky === 't,sign,A,B,"Signed ""Bob"", 2 yrs"', tricky);
+    ok('a missing field is empty, not "undefined"',
+       !/undefined/.test(g('logCSV')([{kind:'sign'}])));
+  }
+
+  console.log('\n== the rater shows the number each z-score came from ==');
+  {
+    /* A z-score says how far ahead of the field a player is; it does not say he
+       scored 27.7. The rater showed only the z-score — and its two shooting
+       columns were z-scores wearing a FG% header, so the rate was never on that
+       screen at all. */
+    const RAW = g('raterRaw');
+    const p = {s:{FG:9.9,FGA:17.4,FT:6.1,FTA:7.4,P3:1.7,TRB:12.9,AST:10.7,
+                  STL:1.4,BLK:0.8,TOV:3.7,PTS:27.7}};
+    ok('points come back as the per-game line', RAW(p,'PTS') === '27.7', RAW(p,'PTS'));
+    /* RCATS names a category the way the league says it and `s` keys it the way
+       the box score does. Two of them disagree, and both were easy to get wrong. */
+    ok('REB reads the TRB key', RAW(p,'REB') === '12.9', RAW(p,'REB'));
+    ok('TO reads the TOV key', RAW(p,'TO') === '3.7', RAW(p,'TO'));
+    ok('the shooting columns carry the rate and the volume',
+       RAW(p,'FG') === '56.9% \u00b7 9.9\u201117.4', RAW(p,'FG'));
+    ok('...and so does the free throw column',
+       RAW(p,'FT') === '82.4% \u00b7 6.1\u20117.4', RAW(p,'FT'));
+    ok('a player with no box score is an em dash, not a crash',
+       RAW({s:null},'PTS') === '\u2014' && RAW(null,'FG') === '\u2014');
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

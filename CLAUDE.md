@@ -1001,7 +1001,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 870 assertions against the real functions
+node tests/test.js        the app: 912 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1311,6 +1311,99 @@ the key fell back to `proj_anon`.
 
 ---
 
+## A shooting rate is never shown without its volume
+
+FG% and FT% are scored **weighted by attempts**, so a percentage on its own is
+half the fact: .900 on two free throws a night and .900 on nine are worth very
+different amounts, and only the second wins the category. Every screen that
+shows one of these rates therefore shows the makes and attempts it came from.
+
+`RATER` always carried all four numbers (`s.FG`/`s.FGA`, `s.FT`/`s.FTA`) — it
+was only the tables that dropped them. Seven of the ten stat tables did not
+show FG% or FT% at all, and none of them showed volume anywhere.
+
+| | |
+|---|---|
+| `shotPct(m,a)` | the rate, or **null** — never a divide by zero |
+| `pctText(v)` | `56.9%`, or an em dash — **not** `.569` |
+| `madeAtt(m,a)` | `9.9‑17.4`, joined by a **non-breaking** hyphen |
+| `shotCell(m,a,edited)` | one cell: the rate, and under it what it is made of |
+| `shotCells(s)` / `shotHeads(H)` | the pair of cells, and the pair of headers |
+| `shotCellsVs(cur,base,mark)` | the same, with the projections table's amber mark |
+
+**It goes inside the cell, not into new columns.** The rate is the headline and
+the volume qualifies it, which is the order the league actually scores in — and
+four new columns across seven tables would have undone the mobile work in the
+section below. The lineup rows get the same treatment for the same reason:
+that grid is tuned to a 1040px cap and two more tracks is exactly what the cap
+exists to prevent.
+
+The hyphen in `madeAtt()` is `\u2011`, not `-`. A stat track is four characters
+wide and "9.9-17.4" must not wrap onto two lines inside it.
+
+**A rookie has no box score at all** — `s` is null, which is what `hasStats()`
+is for — so every one of these is null-safe rather than throwing on `s.FGA`, and
+`shotCells(null)` still renders two cells so the row keeps its column count.
+
+**Percentages read as `56.9%`, never `.569`.** `catCell()` in the trade machine
+always did; everything else used `toFixed(3)`, which is a box-score convention
+that means nothing to half the league. `pctText()` is the one formatter, and the
+club profile, the player card, the what-if build and the impact panel all go
+through it. A *change* in a rate is percentage points and says so: `+0.42pt`.
+
+**Every column in the player rater carries the number its z-score came from.**
+A z-score says how far ahead of the field a player is; it does not say he scored
+27.7, and that is the number GMs argue about. `raterRaw(p,c)` is the line under
+each cell (`td.zshot`).
+
+Its two shooting columns are where this started: the header said **FG%** and the
+value under it was `p.z.FG`, a z-score — the rate itself was never on that screen
+at all. They now carry the rate and the makes and attempts.
+
+`RAWKEY` exists because `RCATS` names a category the way the league says it and
+`s` keys it the way the box score does: **REB is `TRB` and TO is `TOV`**.
+
+`clubTotals()` and `tradeCats()` keep the sums the rate was computed from, as
+`raw`. `standings()` ranks by `PCATS` keys only, so the extra key is invisible
+to it; `fullTotals()` already returned them as `agg`. That is what lets the
+what-if build, the impact panel and the trade swing table show a club's volume.
+In the impact panel it goes in the per-game column, which meant nothing for a
+rate and carried an em dash.
+
+**Two tables cannot show volume, and it is not an oversight.** `PROF` and `HIST`
+are static historical tables holding percentages only — the makes and attempts
+behind them were never transcribed. They show the rates and nothing more.
+
+## What counts as a transaction
+
+The history page shows **roster moves only**: `sign`, `cut` and `trade` —
+somebody joined a club, left one, or moved between two. `isRosterMove(e)` is the
+predicate and `rosterMoves(log)` the filter, both pure.
+
+`edit` is the other thirty-odd log kinds put together — a cap change, a PIN
+reset, a deputy granted, a season rolled, a corrected year-acquired. They are
+worth logging and they are not roster moves; mixed into one list they buried the
+handful of entries anyone opened the page to read. They are still in the log,
+still exported, still undoable from wherever they were made, and the count line
+says how many are not being shown.
+
+The undo buttons carry the entry's index in the **whole** log, not its position
+in the filtered list — `entry(e, L.indexOf(e))`. Get that wrong and the
+commissioner reverses the wrong move.
+
+**Export** is `logCSV()` and writes **every** entry, not just the moves: it is a
+backup, and the filtering above is a reading aid rather than a claim about what
+happened. Detail text is free text a GM typed, so commas and quotes are escaped.
+
+**Delete every transaction** is `wipeLog()`, commissioner-only, and it is the one
+operation that rewrites the log rather than adding to it — so unlike
+`appendLog()` it needs a revision, exactly like deleting a chat post. A 409 means
+somebody logged a move while the confirmation was on screen; the refusal carries
+the server's copy, so it takes that revision and tries once more rather than
+clobbering them. It confirms twice and points at the export first, because
+rosters are stored rather than derived: clearing the log loses the record of
+*why* a roster looks the way it does and nothing else.
+
 ## Tables on a phone
 
 Three rules, and all three replaced something that looked like a design choice
@@ -1345,6 +1438,25 @@ on every render because a filter is exactly what makes a long table short. This
 is also what finally makes the sticky header work: a sticky row needs a scrolling
 ancestor, and with no cap the page was the only thing scrolling, so the header
 slid away and left 390 rows of unlabelled numbers.
+
+**The lineup keeps all nine categories too.** Those rows are a CSS grid, not a
+table, and they had the same fault in a different form: `display:none` on the
+last **four** stats below 1000px and the last **seven** below 640px, so a phone
+in season showed two of the nine — and the pair it dropped last was FG% and FT%,
+the two the league weights by attempts. The row scrolls sideways now, with the
+slot chip and the player's controls pinned. The second pin sits at **47px**, not
+40: the grid's own 7px gap is not part of the first column, and pinning at 40
+jams the name against the chip and reads as one run-together word in the header.
+
+**The More menu is placed from the masthead, in JS.** It was `position:fixed`
+with `top:auto` below 820px, which asks the browser for the *static position* —
+where the box would have sat in the flow — and that spot is inside a sticky
+header. Desktop Chrome held it under the bar; on a phone, scrolled down, it went
+somewhere you could not see. `placeMore()` reads `#mast`'s bottom edge on open,
+on scroll and on resize, so the menu opens directly under the bar wherever the
+page is scrolled to, and caps its own height to what is left of the screen.
+The masthead carries `id="mast"` because `querySelector('.mast')` is a class
+selector and the Node stub only resolves attribute selectors.
 
 **Scrolling, not pagination**, and deliberately. These tables are already sorted
 and filtered, so a page number is a third navigation axis on top of two that
