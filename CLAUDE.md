@@ -1001,7 +1001,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 839 assertions against the real functions
+node tests/test.js        the app: 854 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1232,6 +1232,32 @@ every screen that lists clubs — reported from a phone, on Contracts.
 `renamedAway()` says it went **and** my own copy agrees it is gone, so a name
 legitimately used again is never swept up. `renamedAway()` walks the journal in
 order, so a club renamed away and later renamed back reads as present.
+
+**The merge was only half of it. Boot put the club straight back.** `seedTopUp()`
+tops up any `SEED` club the stored league is missing — a league never written, or
+one saved before a club joined the seed, needs that — and losing a key is exactly
+what a rename does. So the old name returned on the very next page load, carrying
+the full seed roster and an empty PIN, and the league showed the club under both
+names again. Worse, once the ghost is in `S.teams` the merge *keeps* it: `mine[t]`
+exists, so the removal pass steps around it — that is the guard protecting a name
+legitimately used again — and this browser's next write pushes the ghost to the
+league database for everybody. `seedTopUp()` therefore asks `renamedAway()` too,
+which covers `removeClub()` as well, since it writes `noteRename(t,null)`.
+A club that is genuinely missing is still topped up; only a deliberate removal is
+protected.
+
+**The base copy has to be anchored on the MIGRATED shape.** `Store.get()` can only
+anchor on the raw slices — `normRosters()` reads `curSeason()` and so needs an `S`
+that does not exist until boot assigns it — and `normCfg()`/`normRosters()` then
+migrate **in place**. That left `BASE` holding the pre-migration shape while `S`
+held the migrated one, and `mergeSlice()` tells "I changed this club" from "I am
+out of date about it" by comparing serialised copies: every club carrying a legacy
+four-slot contract read as *mine*. It stole a league-mate's signing on the next
+409 — the exact bug the third copy was added to prevent — and it re-added a club
+that had been renamed away. `anchorBase()` re-anchors after the migrations, and
+only when there is a read to re-anchor on: with no base at all the first write
+wins outright, and overwriting that with a seeded roster would quietly give the
+league away.
 
 **Removing a club** is `removeClub()` on the Commissioner tab, and it exists
 because the app could add a club and never remove one — survivable until a

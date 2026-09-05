@@ -1440,6 +1440,12 @@ const Store={
           if(r.ok){ const j=await r.json(); REV[k]=j.rev; setBase(k,sl[k]); break; }
           if(r.status===409){
             const j=await r.json(); REV[k]=j.rev;
+            /* Migrate what the server handed back BEFORE it is compared or
+               anchored. mergeSlice() tells "I changed this club" from "I am out
+               of date about it" by comparing serialised copies, so a raw slice
+               against a migrated one differs on shape alone and every club reads
+               as mine. */
+            if(k==='rosters'&&j.data) normRosters(j.data);
             sl[k]=mergeSlice(k,j.data,sl[k]);
             applySlice(k,sl[k]);
             setBase(k,j.data);          // what the server had when it refused us
@@ -1476,6 +1482,26 @@ async function appendLog(entries){
 const BASE={};
 function setBase(k,v){
   try{ BASE[k]=v==null?null:JSON.parse(JSON.stringify(v)); }catch(e){ BASE[k]=null; }
+}
+/* Re-anchor the base on the state as the app actually holds it.
+
+   Store.get() has to anchor on the raw slices — normRosters() reads curSeason()
+   and so needs S.cfg, which does not exist until the boot sequence assigns it —
+   and normCfg() and normRosters() then migrate IN PLACE. That leaves the base
+   holding the pre-migration shape while S holds the migrated one, and mergeSlice()
+   tells "I changed this club" from "I am out of date about it" by comparing
+   serialised copies: every club carrying a legacy four-slot contract or an
+   unstamped cut therefore reads as mine. It steals a league-mate's signing on the
+   next 409 — the very bug the third copy was added to prevent — and it re-adds a
+   club that was renamed away.
+
+   Only when there is a read to re-anchor on. With no base at all the first write
+   wins outright, which is the right default for a league never read, and
+   overwriting that with a seeded roster would quietly give it away. */
+function anchorBase(){
+  if(!BASE.rosters) return;
+  setBase('rosters',S.teams);
+  setBase('settings',S.cfg);
 }
 function mergeSlice(k,theirs,mine){
   if(k==='auction'){
@@ -3029,6 +3055,26 @@ function renamedAway(name){
     if(r.from===name) gone=true;
   });
   return gone;
+}
+/* Top up any SEED club the stored league is missing. A league that has never
+   been written, or one saved before a club was added to the seed, needs this.
+
+   What it must NOT do is re-create a club that was renamed or removed ON
+   PURPOSE — and losing a key is exactly what a rename does. Without the journal
+   check the old name came back on the very next page load, carrying the full
+   seed roster and an empty PIN, and the league showed the club under both names
+   on every screen that lists clubs. Worse, once the ghost is in S.teams the
+   rosters merge keeps it — mine[t] exists, so the removal pass steps around it,
+   which is the guard that protects a name legitimately used again — and this
+   browser's next write pushes it back to the league database for everybody.
+
+   noteRename(t,null) is what removeClub() writes, so removals are covered by
+   the same test. */
+function seedTopUp(){
+  Object.keys(SEED.teams).forEach(t=>{
+    if(S.teams[t]||renamedAway(t)) return;
+    S.teams[t]={...JSON.parse(JSON.stringify(SEED.teams[t])),pin:''};
+  });
 }
 function noteRename(from,to){
   const log=renameLog().slice();
@@ -7110,11 +7156,13 @@ function netChip(){
 }
 
 (async()=>{
-  S=await Store.get()||fresh();
+  const loaded=await Store.get();
+  S=loaded||fresh();
   if(!S.cfg||!S.teams){S=fresh();}
   normCfg(S.cfg);
   normRosters(S.teams);
-  Object.keys(SEED.teams).forEach(t=>{if(!S.teams[t])S.teams[t]={...JSON.parse(JSON.stringify(SEED.teams[t])),pin:''};});
+  if(S===loaded) anchorBase();
+  seedTopUp();
   try{ me=localStorage.getItem('ll_me');
        useProj=localStorage.getItem('ll_proj')==='1';
        const src=localStorage.getItem('ll_projsrc');
