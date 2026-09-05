@@ -553,6 +553,21 @@ font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
   letter-spacing:.08em;border-top:1px solid var(--line2)}
 /* A finger needs a bigger row than a mouse does. */
 @media(pointer:coarse){.combopanel button{padding:13px 12px;font-size:15px}}
+/* A shooting cell carries two things: the rate, and the makes and attempts it
+   came from. The league weights FG% and FT% by attempts, so the volume is not
+   trivia — but it is the qualifier, not the headline, so it sits under the rate
+   in the dim colour numbers of secondary importance use everywhere else. */
+td.shot{line-height:1.15;white-space:nowrap}
+/* The rater's two shooting columns are z-scores with the rate and the volume
+   they came from underneath. */
+td.zshot{white-space:nowrap;line-height:1.2}
+td.zshot small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:2px}
+.luv .luma{display:block;font-family:var(--mono);font-size:9px;color:var(--dim);
+  line-height:1.1;margin-top:1px;white-space:nowrap}
+td.shot b{font-weight:500;font-family:var(--mono);font-size:12.5px;display:block}
+td.shot small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.02em;margin-top:1px}
+thead th.shot{white-space:nowrap}
 tbody td.pname{cursor:pointer}
 tbody td.pname:hover{color:var(--amber);text-decoration:underline}
 dialog:not([open]){display:none}
@@ -2593,7 +2608,9 @@ function drawFA(){
     const key='fag'+gi, FS=SORTS[key]||{col:'rtg',desc:true};
     const fv=(p,c)=>{const v=pstat(p.n);
       return c==='n'?p.n:c==='from'?p.from:c==='last'?(salPrev(p)||0):c==='rtg'?RG[canon(p.n)]
-        :c==='g'?(v?v.g:null):(v?v.s[c]:null);};
+        :c==='g'?(v?v.g:null)
+        :c==='FGP'?(v?shotPct(v.s.FG,v.s.FGA):null)
+        :c==='FTP'?(v?shotPct(v.s.FT,v.s.FTA):null):(v?v.s[c]:null);};
     const list=fa.filter(f).filter(p=>!q||p.n.toLowerCase().includes(q))
       .sort((x,y)=>cmp(fv(x,FS.col),fv(y,FS.col),FS.desc));
     if(!list.length)return '';
@@ -2603,13 +2620,16 @@ function drawFA(){
         <th class="hide2" data-k="last">Last</th><th data-k="g">G</th><th data-k="PTS">PTS</th>
         <th data-k="TRB">REB</th><th data-k="AST">AST</th><th data-k="P3">3P</th>
         <th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
-        <th class="hide2" data-k="TOV">TO</th><th data-k="rtg">Rating</th></tr></thead>
+        <th class="hide2" data-k="TOV">TO</th>
+        <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
+        <th data-k="rtg">Rating</th></tr></thead>
       <tbody>${list.map(p=>{const v=pstat(p.n); const r=RG[canon(p.n)];
         return `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td>${p.n}</td>
         <td class="l hide">${p.from}</td><td class="hide2">${salPrev(p)?money(salPrev(p)):'&#8212;'}</td>
         ${v&&v.g?`<td>${v.g}</td><td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
-          <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>`
-         :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+          <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
+          ${shotCells(v.s)}`
+         :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
         <td class="rating">${r==null?'&#8212;':(r>0?'+':'')+r}</td></tr>`;}).join('')}
       </tbody></table></div></div>`;
   }).join('');
@@ -2641,7 +2661,9 @@ function drawQuickPool(){
   }).map(p=>{const v=pstat(p.n)||p;
     return {...v,n:p.n,p:v.p||p.p,rtg:RG[canon(p.n)],from:ownerOf(p.n)};});
   const S0=SORTS.qs||{col:'rtg',desc:true};
-  const val=(p,c)=>c==='n'?p.n:c==='from'?p.from:c==='rtg'?p.rtg:c==='g'?p.g:(p.s?p.s[c]:null);
+  const val=(p,c)=>c==='n'?p.n:c==='from'?p.from:c==='rtg'?p.rtg:c==='g'?p.g
+    :c==='FGP'?(p.s?shotPct(p.s.FG,p.s.FGA):null)
+    :c==='FTP'?(p.s?shotPct(p.s.FT,p.s.FTA):null):(p.s?p.s[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   if($('qsCount')) $('qsCount').textContent=`${rows.length} free agents`;
   const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
@@ -2649,15 +2671,15 @@ function drawQuickPool(){
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('from','Rights','l hide2')}
     ${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}${H('AST','AST')}${H('P3','3P')}
     ${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}${H('TOV','TO','hide2')}
-    ${H('rtg','Rating')}<th></th></tr></thead><tbody>${
+    ${shotHeads(H)}${H('rtg','Rating')}<th></th></tr></thead><tbody>${
     rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
       <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
       <td class="pos l hide">${htmlEsc(p.p||'—')}</td>
       <td class="l hide2" style="font-size:11.5px">${htmlEsc(p.from)}</td>
       ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
         <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
-        <td class="hide2">${p.s.TOV}</td>`
-       :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+        <td class="hide2">${p.s.TOV}</td>${shotCells(p.s)}`
+       :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td><button class="act edit" data-qs="${htmlEsc(p.n)}">Pick</button></td></tr>`).join('')}
     </tbody></table>`;
@@ -3477,6 +3499,50 @@ function faPool(){
   return out;
 }
 const hasStats=p=>!!(p&&p.s&&p.g);
+/* ================= SHOOTING: THE RATE AND THE VOLUME =================
+   FG% and FT% are scored **weighted by attempts** in this league, so a
+   percentage on its own is half the fact: .900 on two free throws a night and
+   .900 on nine are worth very different amounts, and only the second wins the
+   category. Every screen that shows a shooting rate therefore shows the makes
+   and attempts it came from, in the same cell — the rate reads as the headline
+   and the volume qualifies it, which is the order the league actually scores in.
+
+   RATER already carried all four numbers (`s.FG`/`s.FGA`, `s.FT`/`s.FTA`); it
+   was only ever the tables that dropped them. `pstat()` returns the same shape
+   for a projection, so a projected line gets the same treatment for free.
+
+   A rookie has no box score at all — `s` is null, which is what hasStats() is
+   for — so every one of these is null-safe rather than throwing on `s.FGA`. */
+const shotPct=(m,a)=>(a&&m!=null)?m/a:null;
+const pctText=v=>v==null?'\u2014':v.toFixed(3);          // .553, the box-score form
+/* A non-breaking hyphen: "9.9-17.4" must not wrap onto two lines in a stat
+   track four characters wide. */
+const madeAtt=(m,a)=>(m==null||a==null)?'\u2014':`${(+m).toFixed(1)}\u2011${(+a).toFixed(1)}`;
+/* One shooting cell: the rate, and under it what it is made of. `edited` is the
+   projections table's amber mark — the rate moved because the GM moved it. */
+function shotCell(m,a,edited){
+  return `<td class="shot"><b class="${edited?'edited':''}">${pctText(shotPct(m,a))}</b>`
+    +`<small>${madeAtt(m,a)}</small></td>`;
+}
+/* The pair of them, for a row that has a stat object — or blanks when it has
+   none, so a rookie's row keeps its column count. */
+function shotCells(st){
+  const s=st||{};
+  return shotCell(s.FG,s.FGA)+shotCell(s.FT,s.FTA);
+}
+/* The same pair against a baseline, so a projection that changes a rate is
+   marked the way every other changed number on that table is. */
+function shotCellsVs(cur,base,mark){
+  const c=cur||{}, b=base||{};
+  const moved=(m,a,bm,ba)=>{
+    const v=shotPct(m,a), w=shotPct(bm,ba);
+    return !!mark&&v!=null&&w!=null&&Math.abs(v-w)>0.0005;
+  };
+  return shotCell(c.FG,c.FGA,moved(c.FG,c.FGA,b.FG,b.FGA))
+       + shotCell(c.FT,c.FTA,moved(c.FT,c.FTA,b.FT,b.FTA));
+}
+/* The two headers, through whatever `H` the table builds its headers with. */
+function shotHeads(H){ return H('FGP','FG%')+H('FTP','FT%'); }
 function statVal(p,k){
   if(k==='g')return p.g;
   if(k==='rtg')return p.tot;
@@ -3514,7 +3580,9 @@ function drawFAList(){
   rows=rows.map(p=>{const v=pstat(p.n)||p;
     return {...v,n:p.n,p:v.p||p.p,rtg:RG[canon(p.n)],ceil:bidCeiling(me2,p.n)};});
   const S0=SORTS.fa||{col:'rtg',desc:true};
-  const val=(p,c)=>c==='n'?p.n:c==='rtg'?p.rtg:c==='ceil'?p.ceil:c==='g'?p.g:p.s[c];
+  const val=(p,c)=>c==='n'?p.n:c==='rtg'?p.rtg:c==='ceil'?p.ceil:c==='g'?p.g
+    :c==='FGP'?shotPct(p.s&&p.s.FG,p.s&&p.s.FGA)
+    :c==='FTP'?shotPct(p.s&&p.s.FT,p.s&&p.s.FTA):p.s[c];
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   $('faCount').textContent=`${rows.length} available`;
   if($('faSignNote')) $('faSignNote').textContent = !seasonLive()
@@ -3529,7 +3597,7 @@ function drawFAList(){
   $('faTable').innerHTML=`<table class="fatab" id="faTbl"><thead><tr>
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}
     ${H('AST','AST')}${H('P3','3P')}${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}
-    ${H('TOV','TO','hide2')}${H('rtg','Rating')}${H('ceil','Max bid')}${
+    ${H('TOV','TO','hide2')}${shotHeads(H)}${H('rtg','Rating')}${H('ceil','Max bid')}${
       canSignFA(me2)?'<th class="acts"></th>':''}</tr></thead><tbody>${
     rows.slice(0,160).map(p=>{
       const R=rightsOf(me2,p.n), e=hasProj(p.n);
@@ -3540,8 +3608,9 @@ function drawFAList(){
       <td class="pos hide">${p.p||'&#8212;'}</td>
       ${hasStats(p)?`<td>${p.g}</td>
       <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
-      <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>`
-      :`<td colspan="8" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+      <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
+      ${shotCells(p.s)}`
+      :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
       ${canSignFA(me2)?`<td class="acts"><span><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></span></td>`:''}</tr>`;}).join('')}
@@ -3776,8 +3845,7 @@ function rosterTable(team,into){
       <td>${c.n}</td><td class="hide">${money(salNow(c))}</td><td>${r.g}</td>
       <td>${r.s.PTS}</td><td>${r.s.TRB}</td><td>${r.s.AST}</td><td>${r.s.P3}</td>
       <td>${r.s.STL}</td><td>${r.s.BLK}</td><td>${r.s.TOV}</td>
-      <td class="hide2">${r.s.FGA?(r.s.FG/r.s.FGA).toFixed(3):'&#8212;'}</td>
-      <td class="hide2">${r.s.FTA?(r.s.FT/r.s.FTA).toFixed(3):'&#8212;'}</td>
+      ${shotCells(r.s)}
       <td class="rating">${rtg(c.n)==null?'&#8212;':(rtg(c.n)>0?'+':'')+rtg(c.n)}</td></tr>`
       :`<tr><td>${c.n}</td><td class="hide">${money(salNow(c))}</td>
         <td colspan="11" class="unrated" style="text-align:center">no 2025-26 stats</td></tr>`).join('')}
@@ -3785,8 +3853,7 @@ function rosterTable(team,into){
         <span class="tag t-bird">on the block</span></td><td class="hide">${money(a.bid)}</td>
         <td>${cand.g}</td><td>${cand.s.PTS}</td><td>${cand.s.TRB}</td><td>${cand.s.AST}</td>
         <td>${cand.s.P3}</td><td>${cand.s.STL}</td><td>${cand.s.BLK}</td><td>${cand.s.TOV}</td>
-        <td class="hide2">${cand.s.FGA?(cand.s.FG/cand.s.FGA).toFixed(3):'&#8212;'}</td>
-        <td class="hide2">${cand.s.FTA?(cand.s.FT/cand.s.FTA).toFixed(3):'&#8212;'}</td>
+        ${shotCells(cand.s)}
         <td class="rating">${(rtg(cand.n)??0)>0?'+':''}${rtg(cand.n)??'&#8212;'}</td></tr>`:''}
     </tbody>
     <tfoot><tr><td>Season totals</td><td class="hide"></td><td>${Math.round(gp)}</td>
@@ -3794,12 +3861,18 @@ function rosterTable(team,into){
       <td>${Math.round(agg.AST).toLocaleString()}</td><td>${Math.round(agg.P3).toLocaleString()}</td>
       <td>${Math.round(agg.STL).toLocaleString()}</td><td>${Math.round(agg.BLK).toLocaleString()}</td>
       <td>${Math.round(agg.TOV).toLocaleString()}</td>
-      <td class="hide2">${agg.FGA?(agg.FG/agg.FGA).toFixed(3):'&#8212;'}</td>
-      <td class="hide2">${agg.FTA?(agg.FT/agg.FTA).toFixed(3):'&#8212;'}</td><td></td></tr>
+      <td class="shot"><b>${pctText(shotPct(agg.FG,agg.FGA))}</b><small>${
+        Math.round(agg.FG).toLocaleString()}\u2011${Math.round(agg.FGA).toLocaleString()}</small></td>
+      <td class="shot"><b>${pctText(shotPct(agg.FT,agg.FTA))}</b><small>${
+        Math.round(agg.FT).toLocaleString()}\u2011${Math.round(agg.FTA).toLocaleString()}</small></td>
+      <td></td></tr>
     <tr><td>Per game at ${GC.toLocaleString()}</td><td class="hide"></td><td></td>
       <td>${(agg.PTS/GC).toFixed(2)}</td><td>${(agg.TRB/GC).toFixed(2)}</td><td>${(agg.AST/GC).toFixed(2)}</td>
       <td>${(agg.P3/GC).toFixed(2)}</td><td>${(agg.STL/GC).toFixed(2)}</td><td>${(agg.BLK/GC).toFixed(2)}</td>
-      <td>${(agg.TOV/GC).toFixed(2)}</td><td class="hide2"></td><td class="hide2"></td><td></td></tr></tfoot></table></div>`;
+      <td>${(agg.TOV/GC).toFixed(2)}</td>
+      <td class="shot"><b></b><small>${(agg.FG/GC).toFixed(1)}\u2011${(agg.FGA/GC).toFixed(1)}</small></td>
+      <td class="shot"><b></b><small>${(agg.FT/GC).toFixed(1)}\u2011${(agg.FTA/GC).toFixed(1)}</small></td>
+      <td></td></tr></tfoot></table></div>`;
   sortable(into+'Tbl','ros','rtg',true);
   redraw.ros=()=>rosterTable(team,into);
   $(into).querySelectorAll('tbody tr').forEach(tr=>{
@@ -3963,7 +4036,9 @@ function drawLab(){
       return `<div class="irow"><span class="cat">${lab}</span>
         <span class="track"><span class="tn" style="width:${Math.max(2,Math.min(100,v/mx*100))}%"></span>
           <span class="winmark" style="left:${Math.min(99,w/mx*100)}%"></span></span>
-        <span style="text-align:right">${fm(v)}</span>
+        <span style="text-align:right">${fm(v)}${isP?`<small style="display:block;font-family:var(--mono);font-size:9px;color:var(--dim)">${
+          k==='FG'?madeAtt(Math.round(F.agg.FG),Math.round(F.agg.FGA))
+                  :madeAtt(Math.round(F.agg.FT),Math.round(F.agg.FTA))}</small>`:''}</span>
         <span class="dl" style="color:var(--dim)">${fm(w)}</span>
         <span class="pgv ${hp<=3?'up':hp>=7?'down':'flat'}">${hp}${['st','nd','rd'][hp-1]||'th'}</span>
         <span class="rk ${rk<=3?'up':rk>=7?'down':'flat'}">${rk}/${all.length}</span></div>`;}).join('')}
@@ -4030,19 +4105,23 @@ function drawLabPool(){
   $('labPoolCount').textContent=`${rows.length} available`;
   const LS0=SORTS.labpool||{col:'rtg',desc:true};
   const lv=(p,c)=>{const v=pstat(p.n)||p;
-    return c==='n'?p.n:c==='own'?ownerOf(p.n):c==='rtg'?RG[canon(p.n)]:c==='g'?v.g:v.s[c];};
+    return c==='n'?p.n:c==='own'?ownerOf(p.n):c==='rtg'?RG[canon(p.n)]:c==='g'?v.g
+      :c==='FGP'?shotPct(v.s.FG,v.s.FGA):c==='FTP'?shotPct(v.s.FT,v.s.FTA):v.s[c];};
   rows.sort((a,b)=>cmp(lv(a,LS0.col),lv(b,LS0.col),LS0.desc));
   $('labPool').innerHTML=`<table class="fatab" id="labPoolTbl"><thead><tr>
     <th class="l" data-k="n">Player</th><th class="l" data-k="own">Club</th><th class="l hide">Pos</th>
     <th data-k="g">G</th><th data-k="PTS">PTS</th><th data-k="TRB">REB</th><th data-k="AST">AST</th>
     <th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
-    <th class="hide2" data-k="TOV">TO</th><th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
+    <th class="hide2" data-k="TOV">TO</th>
+    <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
+    <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
     rows.slice(0,140).map(p=>{const v=pstat(p.n)||p; const own=ownerOf(p.n);
       return `<tr><td class="pname" data-player="${p.n}">${p.n}</td>
       <td class="l" style="font-size:12px;color:${isFreeAgent(p.n)?'var(--space)':'var(--steel)'}">${own}</td>
       <td class="pos hide">${p.p||'&#8212;'}</td><td>${v.g}</td>
       <td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
       <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
+      ${shotCells(v.s)}
       <td class="rating">${RG[canon(p.n)]==null?'&#8212;':(RG[canon(p.n)]>0?'+':'')+RG[canon(p.n)]}</td>
       <td><button class="act edit" data-la="${p.n}">Add</button></td></tr>`;}).join('')}
     </tbody></table>`;
@@ -4936,14 +5015,17 @@ function drawProjTab(){
   const R=ratings();
   const S0=SORTS.pj||{col:'rtg',desc:true};
   const gv=(p,c)=>{const v=pstat(p.n)||p;
-    return c==='n'?p.n:c==='t'?p.t:c==='rtg'?(useProj?R[canon(p.n)]:p.tot):c==='g'?v.g:v.s[c];};
+    return c==='n'?p.n:c==='t'?p.t:c==='rtg'?(useProj?R[canon(p.n)]:p.tot):c==='g'?v.g
+      :c==='FGP'?shotPct(v.s.FG,v.s.FGA):c==='FTP'?shotPct(v.s.FT,v.s.FTA):v.s[c];};
   rows.sort((a,b)=>cmp(gv(a,S0.col),gv(b,S0.col),S0.desc));
   $('pjCount').textContent=`${rows.length} players \u00b7 ${Object.keys(PROJ).length} edited \u00b7 showing ${projSrcLabel()}`;
   $('pjTable').innerHTML=`<table class="fatab" id="pjTbl"><thead><tr><th class="l" data-k="n">Player</th>
     <th class="l hide" data-k="t">Club</th>
     <th data-k="g">G</th><th data-k="PTS">PTS</th><th data-k="TRB">REB</th><th data-k="AST">AST</th>
     <th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
-    <th class="hide2" data-k="TOV">TO</th><th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
+    <th class="hide2" data-k="TOV">TO</th>
+    <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
+    <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
     rows.slice(0,160).map(p=>{const v=pstat(p.n)||{g:p.g,s:p.s},e=hasProj(p.n),r=useProj?R[canon(p.n)]:p.tot;
       /* The amber "edited" mark means the GM changed it. On the aggregate
          nothing is his, so nothing is marked even though the numbers moved. */
@@ -4956,6 +5038,7 @@ function drawProjTab(){
         <td>${d('PTS',v.s.PTS)}</td><td>${d('TRB',v.s.TRB)}</td><td>${d('AST',v.s.AST)}</td>
         <td>${d('P3',v.s.P3)}</td><td class="hide2">${d('STL',v.s.STL)}</td>
         <td class="hide2">${d('BLK',v.s.BLK)}</td><td class="hide2">${d('TOV',v.s.TOV)}</td>
+        ${shotCellsVs(v.s,RIDX[p.n].s,mk)}
         <td class="rating">${r==null?'\u2014':(r>0?'+':'')+r}</td>
         <td><button class="act edit" data-pj="${p.n}">Edit</button></td></tr>`;}).join('')}
     </tbody></table>`;
@@ -5219,7 +5302,11 @@ function clubTotals(team,add){
   const a={FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0};
   names.forEach(n=>{const r=pstat(n); if(!r||!r.g)return;
     Object.keys(a).forEach(k=>a[k]+=(r.s[k]||0)*r.g);});
-  return {FG:a.FGA?a.FG/a.FGA:0, FT:a.FTA?a.FT/a.FTA:0,
+  /* `raw` carries the makes and attempts behind the two weighted categories.
+     standings() ranks by PCATS keys only, so an extra key here is invisible to
+     it, and the panels that draw a club's FG% can show what it is made of. */
+  return {raw:a,
+          FG:a.FGA?a.FG/a.FGA:0, FT:a.FTA?a.FT/a.FTA:0,
           P3:a.P3,TRB:a.TRB,AST:a.AST,STL:a.STL,BLK:a.BLK,TOV:a.TOV,PTS:a.PTS};
 }
 function standings(overTeam,addName){
@@ -5255,7 +5342,14 @@ function impactCard(team,name,priceNote){
     const fm=v=>isP?v.toFixed(3):Math.round(v).toLocaleString();
     const dv=a-b, dcls=(k==='TOV'? (dv<0?'up':dv>0?'down':'flat') : (dv>0?'up':dv<0?'down':'flat'));
     const dtxt=isP?(dv>0?'+':'')+dv.toFixed(4):(dv>0?'+':'')+Math.round(dv).toLocaleString();
-    const pg=isP?'&#8212;':(a/GC).toFixed(2);
+    /* The per-game column means nothing for a rate, so it carried an em dash.
+       The makes and attempts behind the rate are what belongs in that space. */
+    const RW=(I.after.tot[team]||{}).raw||{};
+    const pg=isP
+      ? `<span style="font-size:10px;color:var(--dim)">${k==='FG'
+          ? madeAtt(Math.round(RW.FG),Math.round(RW.FGA))
+          : madeAtt(Math.round(RW.FT),Math.round(RW.FTA))}</span>`
+      : (a/GC).toFixed(2);
     const pgd=isP?'':` <span class="${dcls}" style="font-size:10px">${dv>0?'+':''}${(dv/GC).toFixed(2)}</span>`;
     return `<div class="irow"><span class="cat">${lab}</span>
       <span class="track"><span class="tb" style="width:${pct(b)}%"></span>
@@ -5973,7 +6067,13 @@ function statLine(name){
   const r=pstat(name);
   if(!r||!r.g) return '<span class="dimx">no 2025\u201326 games on file</span>';
   const n=(k,d)=>r.s[k]==null?'\u2013':r.s[k].toFixed(d==null?1:d);
-  return `${r.g} G \u00b7 ${n('PTS')} pts \u00b7 ${n('TRB')} reb \u00b7 ${n('AST')} ast \u00b7 ${n('P3')} 3p`;
+  /* The two weighted categories, with the volume that earns them — a pick list
+     is where a GM decides whether a shooter is worth having, and .900 on two
+     attempts a night is not the same asset as .900 on nine. */
+  const shot=`${pctText(shotPct(r.s.FG,r.s.FGA))} fg (${madeAtt(r.s.FG,r.s.FGA)})`
+    +` \u00b7 ${pctText(shotPct(r.s.FT,r.s.FTA))} ft (${madeAtt(r.s.FT,r.s.FTA)})`;
+  return `${r.g} G \u00b7 ${n('PTS')} pts \u00b7 ${n('TRB')} reb \u00b7 ${n('AST')} ast \u00b7 ${n('P3')} 3p`
+    +`<br>${shot}`;
 }
 /* Season totals for a set of players, the same way clubTotals() and standings()
    count — this is a totals league, so what moves in a trade is a season's worth
@@ -5988,7 +6088,11 @@ function tradeCats(players){
     rated++; g+=r.g;
     Object.keys(a).forEach(k=>a[k]+=(r.s[k]||0)*r.g);
   });
-  return {g, rated, unrated,
+  /* `raw` keeps the makes and attempts the two rates were computed from. They
+     cannot be netted across clubs any more than the rates can, but each side's
+     own volume is exactly what tells you whether its percentage is worth
+     anything. */
+  return {g, rated, unrated, raw:a,
     v:{FG:a.FGA?a.FG/a.FGA:null, FT:a.FTA?a.FT/a.FTA:null,
        P3:a.P3, TRB:a.TRB, AST:a.AST, STL:a.STL, BLK:a.BLK, TOV:a.TOV, PTS:a.PTS}};
 }
@@ -6005,7 +6109,12 @@ function drawTradeCats(v){
   const row=(label,cells,cls)=>`<tr class="${cls||''}"><td class="l">${label}</td>${cells}</tr>`;
   const side=(t,c)=>row(`${htmlEsc(t)} sends`,
     `<td>${c.g?c.g.toLocaleString():'\u2013'}</td>`
-    +PCATS.map(([k])=>`<td>${catCell(k,c.v[k])}</td>`).join(''));
+    +PCATS.map(([k])=>{
+      if(k!=='FG'&&k!=='FT') return `<td>${catCell(k,c.v[k])}</td>`;
+      const m=k==='FG'?c.raw.FG:c.raw.FT, at=k==='FG'?c.raw.FGA:c.raw.FTA;
+      return `<td class="shot"><b>${catCell(k,c.v[k])}</b><small>${
+        at?Math.round(m).toLocaleString()+'\u2011'+Math.round(at).toLocaleString():'\u2013'}</small></td>`;
+    }).join(''));
   /* What each club ends up with: it loses what it sends and gains what it gets.
      Shooting percentages do not subtract, so they are shown per side only. */
   const net=(t,out,inc)=>row(`${htmlEsc(t)} net`,
@@ -6879,6 +6988,17 @@ function luVal(r,k){
 }
 const luCell=(k,v)=>v==null?'&#8212;'
   :(k==='FGP'||k==='FTP')?(v*100).toFixed(1):(+v).toFixed(1);
+/* The two shooting cells carry the makes and attempts under the rate, like
+   every other stat table — the league weights these two by attempts, so a
+   percentage with no volume behind it is half the fact. It goes inside the
+   existing cell rather than adding columns, because this grid is tuned to a
+   1040px cap and two more tracks is exactly what that cap exists to prevent. */
+function luShot(k,r){
+  if(!r||!r.s) return '';
+  const m=k==='FGP'?r.s.FG:r.s.FT, a=k==='FGP'?r.s.FGA:r.s.FTA;
+  if(m==null||a==null) return '';
+  return `<small class="luma">${madeAtt(m,a)}</small>`;
+}
 /* Tonight's actual box score, once the stats feed writes one. Until then every
    row shows the per-game line the rest of the app is showing, which is what a
    GM is choosing between anyway. */
@@ -6914,7 +7034,8 @@ function drawLineup(){
   const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span>
     ${LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}</div>`;
   const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
-    nm?luCell(k,luVal(L&&L.r,k)):''}</span>`).join('');
+    nm?luCell(k,luVal(L&&L.r,k)):''}${
+    nm&&(k==='FGP'||k==='FTP')?luShot(k,L&&L.r):''}</span>`).join('');
   const irBtn=nm=>can&&!isLocked(nm)&&ir.length<irMax
     ? `<button class="act" data-toir="${htmlEsc(nm)}" title="Move to the injured reserve">IR</button>` : '';
 
@@ -7200,7 +7321,17 @@ function drawRater(){
       <td class="hide2">${p.g}</td><td colspan="9" class="unrated" style="text-align:center">under 15 games &#8212; not rated</td>
       <td class="unrated">&#8212;</td></tr>`;
     return `<tr><td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
-      ${RCATS.map(c=>`<td><span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span></td>`).join('')}
+      ${RCATS.map(c=>{
+        const z=`<span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span>`;
+        /* The two shooting columns are z-scores of a RATE, and this table never
+           showed the rate itself — the header said FG% and the number under it
+           was a z-score. Both now sit beneath it, because the league weights
+           these two by attempts and the z-score alone hides the volume that
+           earned it. */
+        if(c!=='FG'&&c!=='FT') return `<td>${z}</td>`;
+        const m=c==='FG'?p.s.FG:p.s.FT, a=c==='FG'?p.s.FGA:p.s.FTA;
+        return `<td class="zshot">${z}<small>${pctText(shotPct(m,a))} \u00b7 ${madeAtt(m,a)}</small></td>`;
+      }).join('')}
       <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
   }).join('');
   sortable('raterTbl','rater','tot',true);

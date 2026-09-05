@@ -3115,6 +3115,68 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('and a table is only boxed once it is genuinely long', g('CAPROWS') >= 10);
   }
 
+  console.log('\n== a shooting rate is never shown without its volume ==');
+  {
+    /* FG% and FT% are scored WEIGHTED BY ATTEMPTS in this league, so a
+       percentage on its own is half the fact: .900 on two free throws a night
+       and .900 on nine are worth very different amounts, and only the second
+       wins the category. Every screen that shows one of these rates now shows
+       the makes and attempts underneath it. */
+    const P = g('shotPct'), T = g('pctText'), M = g('madeAtt');
+
+    ok('a rate is makes over attempts', Math.abs(P(9.9, 17.4) - 0.56896) < 0.0001);
+    ok('no attempts is null, not a divide by zero', P(0, 0) === null);
+    ok('...and so is a missing make', P(null, 17.4) === null);
+    ok('a null rate prints as an em dash', T(null) === '\u2014');
+    ok('a rate prints in the box-score form', T(P(9.9, 17.4)) === '0.569', T(P(9.9,17.4)));
+    ok('a perfect rate still prints three places', T(P(2, 2)) === '1.000');
+
+    /* The pair is joined by a NON-BREAKING hyphen: a stat track is four
+       characters wide and "9.9-17.4" must not wrap onto two lines in it. */
+    ok('makes and attempts read as a pair', M(9.9, 17.4) === '9.9\u201117.4', M(9.9,17.4));
+    ok('...joined by a non-breaking hyphen, so a narrow column cannot split it',
+       M(9.9, 17.4).includes('\u2011') && !M(9.9, 17.4).includes('-'));
+    ok('a missing pair is an em dash, not "null-null"', M(null, null) === '\u2014');
+    ok('...and half a pair is too', M(9.9, null) === '\u2014' && M(null, 17.4) === '\u2014');
+    ok('zero attempts is still a real pair, not a blank', M(0, 0) === '0.0\u20110.0');
+
+    /* A rookie has no box score at all — `s` is null — and every one of these
+       is reached from a table row, so none of them may throw on it. */
+    const CELLS = g('shotCells');
+    ok('a player with no stats still renders two cells',
+       (CELLS(null).match(/<td/g) || []).length === 2, CELLS(null));
+    ok('...and says so rather than printing NaN',
+       !/NaN|undefined|null/.test(CELLS(null)), CELLS(null));
+    ok('a real line renders the rate and the pair',
+       CELLS({FG:9.9,FGA:17.4,FT:6.1,FTA:7.4}).includes('0.569')
+       && CELLS({FG:9.9,FGA:17.4,FT:6.1,FTA:7.4}).includes('9.9\u201117.4'));
+
+    /* The projections table marks a number the GM has changed. A rate that moved
+       because he moved it is marked the same way. */
+    const VS = g('shotCellsVs');
+    const base = {FG:9.9,FGA:17.4,FT:6.1,FTA:7.4};
+    ok('an unchanged rate is not marked',
+       !VS(base, base, true).includes('edited'));
+    ok('a changed rate is marked when the change is the GM\'s',
+       VS({FG:12,FGA:17.4,FT:6.1,FTA:7.4}, base, true).includes('edited'));
+    ok('...and is not marked on the aggregate, which is nobody\'s edit',
+       !VS({FG:12,FGA:17.4,FT:6.1,FTA:7.4}, base, false).includes('edited'));
+
+    /* clubTotals() keeps the sums the rate was computed from. standings() ranks
+       by PCATS keys only, so the extra key must not disturb it. */
+    const CT = g('clubTotals')(g('TEAMS')()[0]);
+    ok('a club total carries the raw makes and attempts',
+       CT.raw && CT.raw.FGA > 0, JSON.stringify(Object.keys(CT)));
+    ok('...and its FG% still agrees with them',
+       Math.abs(CT.FG - CT.raw.FG / CT.raw.FGA) < 1e-9);
+
+    /* The trade machine's pick list is where a GM decides whether a shooter is
+       worth having, so its one-line summary carries both. */
+    const L = g('statLine')('Nikola Jokic');
+    ok('the pick-list line names both rates', /fg/.test(L) && /ft/.test(L), L);
+    ok('...with the attempts behind them', L.includes('\u2011'), L);
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

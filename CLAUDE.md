@@ -1001,7 +1001,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 870 assertions against the real functions
+node tests/test.js        the app: 891 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1310,6 +1310,56 @@ the key fell back to `proj_anon`.
   button's bounding rect.
 
 ---
+
+## A shooting rate is never shown without its volume
+
+FG% and FT% are scored **weighted by attempts**, so a percentage on its own is
+half the fact: .900 on two free throws a night and .900 on nine are worth very
+different amounts, and only the second wins the category. Every screen that
+shows one of these rates therefore shows the makes and attempts it came from.
+
+`RATER` always carried all four numbers (`s.FG`/`s.FGA`, `s.FT`/`s.FTA`) — it
+was only the tables that dropped them. Seven of the ten stat tables did not
+show FG% or FT% at all, and none of them showed volume anywhere.
+
+| | |
+|---|---|
+| `shotPct(m,a)` | the rate, or **null** — never a divide by zero |
+| `pctText(v)` | `.569`, the box-score form, or an em dash |
+| `madeAtt(m,a)` | `9.9‑17.4`, joined by a **non-breaking** hyphen |
+| `shotCell(m,a,edited)` | one cell: the rate, and under it what it is made of |
+| `shotCells(s)` / `shotHeads(H)` | the pair of cells, and the pair of headers |
+| `shotCellsVs(cur,base,mark)` | the same, with the projections table's amber mark |
+
+**It goes inside the cell, not into new columns.** The rate is the headline and
+the volume qualifies it, which is the order the league actually scores in — and
+four new columns across seven tables would have undone the mobile work in the
+section below. The lineup rows get the same treatment for the same reason:
+that grid is tuned to a 1040px cap and two more tracks is exactly what the cap
+exists to prevent.
+
+The hyphen in `madeAtt()` is `\u2011`, not `-`. A stat track is four characters
+wide and "9.9-17.4" must not wrap onto two lines inside it.
+
+**A rookie has no box score at all** — `s` is null, which is what `hasStats()`
+is for — so every one of these is null-safe rather than throwing on `s.FGA`, and
+`shotCells(null)` still renders two cells so the row keeps its column count.
+
+**The player rater's two shooting columns are z-scores, not rates.** The header
+said FG% and the number under it was `p.z.FG`. Both the real rate and the volume
+now sit beneath the z-score (`td.zshot`), because the z-score alone hides the
+volume that earned it.
+
+`clubTotals()` and `tradeCats()` keep the sums the rate was computed from, as
+`raw`. `standings()` ranks by `PCATS` keys only, so the extra key is invisible
+to it; `fullTotals()` already returned them as `agg`. That is what lets the
+what-if build, the impact panel and the trade swing table show a club's volume.
+In the impact panel it goes in the per-game column, which meant nothing for a
+rate and carried an em dash.
+
+**Two tables cannot show volume, and it is not an oversight.** `PROF` and `HIST`
+are static historical tables holding percentages only — the makes and attempts
+behind them were never transcribed. They show the rates and nothing more.
 
 ## Tables on a phone
 
