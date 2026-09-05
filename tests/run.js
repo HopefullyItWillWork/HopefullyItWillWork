@@ -62,6 +62,7 @@ const EPILOGUE = ';globalThis.__X={' + [
   'nomCount',
   'BASE','setBase','mergeSlice','renameLog','renamedAway','noteRename','removeClub','clubRemovalCost','doRemoveClub',
   'seedTopUp','anchorBase','SEED','Store',
+  'comboNorm','comboFilter','comboAttach','comboSource','CAPROWS','COMBOMAX','capScrollers',
   'gmOf','gmName','clubWho','gmNameError','saveGmName','nameClean','drawSettings',
   'tradeSideOf','drawTrade','validateTrade','drawTradeLists','openPlayerCard','meTeam',
   'stillCharged','deadSalary','unrollSeason','fresh','committed','cutRecords',

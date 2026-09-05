@@ -3068,6 +3068,53 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__alerts.length = 0;
   }
 
+  console.log('\n== the player search box matches the way canon() does ==');
+  {
+    /* Six fields let a GM pick a player by typing. They were <input list=...>
+       against a datalist of 326-390 options, which is not a control at all on a
+       phone: iOS Safari draws a datalist as a strip over the keyboard, gives up
+       on lists this long, and other mobile browsers ignore it. The panel is
+       browser-only and is checked there; this is the matching rule, which is
+       pure and belongs here. */
+    const N = g('comboNorm');
+    ok('accents are stripped, so the box-score spelling finds the roster one',
+       N('Nikola Joki\u0107') === 'nikola jokic', N('Nikola Joki\u0107'));
+    ok('...and the other five that have bitten this app',
+       N('\u015eeng\u00fcn') === 'sengun' && N('Vu\u010devi\u0107') === 'vucevic',
+       N('\u015eeng\u00fcn') + '/' + N('Vu\u010devi\u0107'));
+    ok('punctuation is dropped, so "jr" finds "Jr."', N('Jaime Jaquez Jr.') === 'jaime jaquez jr');
+    ok('case and padding do not matter', N('  KEVIN  Durant ') === 'kevin  durant');
+    ok('nothing is not a crash', N(null) === '' && N(undefined) === '');
+
+    const F = g('comboFilter');
+    const pool = [{v:'Anthony Davis',t:''},{v:'Jalen Brunson',t:''},
+                  {v:'Nikola Joki\u0107',t:''},{v:'James Harden',t:''},
+                  {v:'Jaime Jaquez Jr.',t:''}];
+    ok('an empty box offers everybody', F(pool,'').length === pool.length);
+    ok('...and does not hand back the caller\'s own array',
+       F(pool,'') !== pool);
+    ok('typing an accented name unaccented finds him',
+       F(pool,'jokic').map(o=>o.v).join() === 'Nikola Joki\u0107');
+    /* The ordering rule: a name you have started typing beats one that merely
+       contains the letters. Typing "har" must reach Harrison Barnes before it
+       offers James Harden, whose surname happens to contain it. */
+    const har = F(pool.concat([{v:'Harrison Barnes',t:''}]),'har').map(o=>o.v);
+    ok('a name starting with what you typed leads',
+       har[0] === 'Harrison Barnes', har.join());
+    ok('...and the one that merely contains it still follows',
+       har.indexOf('James Harden') === 1, har.join());
+    ok('both are offered, neither is dropped', har.length === 2, har.join());
+    const ja = F(pool,'ja').map(o=>o.v);
+    ok('every name beginning with the letters is offered',
+       ja.length === 3 && !ja.includes('Anthony Davis'), ja.join());
+    ok('a name nobody has returns nothing', F(pool,'zzzz').length === 0);
+    ok('the option text is searched as well as the value',
+       F([{v:'Some Body',t:'Osborn'}],'osborn').length === 1);
+
+    ok('the panel caps what it draws at once', g('COMBOMAX') > 0);
+    ok('and a table is only boxed once it is genuinely long', g('CAPROWS') >= 10);
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
