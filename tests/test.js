@@ -2904,6 +2904,121 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.cfg.renames = [];
   }
 
+  console.log('\n== a reload does not put the old club back ==');
+  {
+    /* The half the rename journal did not cover. Boot tops up any SEED club the
+       stored league is missing, and losing a key is exactly what a rename does —
+       so the old name came back on the very next page load, with the full seed
+       roster and an empty PIN, and the league showed the club twice. The merge
+       then KEPT the ghost, because mine[t] existed, and the next write pushed it
+       to the league database for everybody. */
+    const CS = g('S');
+    CS.cfg.renames = [];
+    const from = 'Osborn', to = 'Osborn Athletic';
+    const before = g('TEAMS')().length;
+
+    ok('the club starts under its seed name', !!CS.teams[from]);
+    g('renameClub')(from, to);
+    ok('the rename removed the old key', !CS.teams[from]);
+
+    g('seedTopUp')();                        // this is what a page load runs
+    ok('a reload does not resurrect the old name', !CS.teams[from],
+       g('TEAMS')().join());
+    ok('...and the league still has nine clubs', g('TEAMS')().length === before,
+       String(g('TEAMS')().length));
+    ok('...with the club under its new name only', !!CS.teams[to]);
+
+    console.log('-- and a ghost never reaches the database --');
+    /* Belt and braces: even having survived a reload, the merge must not push a
+       renamed-away club back to the server. */
+    const server = JSON.parse(JSON.stringify(CS.teams));
+    const merged = g('mergeSlice')('rosters', server, CS.teams);
+    ok('the merge writes nine clubs', Object.keys(merged).length === before,
+       Object.keys(merged).join());
+    ok('...and not the old name', !merged[from]);
+
+    console.log('-- a club that is genuinely missing is still topped up --');
+    /* The top-up exists for a reason: a league saved before a club joined the
+       seed. Only a DELIBERATE removal is protected. */
+    const spare = g('TEAMS')().find(t => t !== to);
+    delete CS.teams[spare];
+    g('seedTopUp')();
+    ok('the missing seed club comes back', !!CS.teams[spare]);
+    ok('...with no PIN, so the first GM to sign in claims it',
+       (CS.teams[spare].pin || '') === '');
+
+    console.log('-- and a removed club stays removed --');
+    /* removeClub() writes noteRename(t,null), so the same journal test covers it. */
+    g('noteRename')(spare, null);
+    delete CS.teams[spare];
+    g('seedTopUp')();
+    ok('a removed club is not re-created by a reload', !CS.teams[spare]);
+
+    // put the league back
+    CS.cfg.renames = [];
+    g('renameClub')(to, from);
+    g('seedTopUp')();
+    ok('the fixture is restored', g('TEAMS')().length === before && !!CS.teams[from],
+       g('TEAMS')().join());
+    CS.cfg.renames = [];
+  }
+
+  console.log('\n== the base copy is anchored on the MIGRATED shape ==');
+  {
+    /* Store.get() anchors the base on the RAW server slices — normRosters() reads
+       curSeason() and so needs an S that does not exist yet — and boot then
+       migrates S in place. Left there, the base and S differ on migration shape
+       alone, and mergeSlice() reads every club carrying a legacy four-slot
+       contract as one I changed: it steals a league-mate's signing, and it
+       re-adds a club that was renamed away. anchorBase() is the re-anchor. */
+    const CS = g('S');
+    CS.cfg.renames = [];
+    const mate = g('TEAMS')().find(t => (CS.teams[t].r || []).length);
+    const keep = g('BASE').rosters;
+
+    // the league exactly as the server stores it: a four-slot array contract
+    const raw = JSON.parse(JSON.stringify(CS.teams));
+    raw[mate].r[0].y = [null, 5.00, 5.25, null];
+    const server = JSON.parse(JSON.stringify(raw));
+
+    g('setBase')('rosters', raw);              // what Store.get() anchors
+    const mine = JSON.parse(JSON.stringify(raw));
+    g('normRosters')(mine);                    // what boot then does to S.teams
+    ok('the migration turned the array into a season map',
+       !Array.isArray(mine[mate].r[0].y));
+
+    // a league-mate signs somebody while my tab sits on its stale copy
+    g('normRosters')(server);
+    server[mate].r.push({n:'His Signing', p:'G', y:{'2026-27':1}, o:'', b:'', acq:2025, cut:false});
+
+    const bug = g('mergeSlice')('rosters', JSON.parse(JSON.stringify(server)), mine);
+    ok('WITHOUT the re-anchor the merge wrongly takes his club as mine',
+       !bug[mate].r.some(p => p.n === 'His Signing'),
+       'this assertion documents the bug, and fails if the base ever stops mattering');
+
+    /* Now the fix: boot re-anchors on the migrated state, so a club I did not
+       touch reads as unchanged and the server's copy of it is left alone. */
+    const savedTeams = CS.teams;
+    CS.teams = mine;
+    g('anchorBase')();
+    CS.teams = savedTeams;
+    const fixed = g('mergeSlice')('rosters', JSON.parse(JSON.stringify(server)), mine);
+    ok('with it, his signing survives',
+       fixed[mate].r.some(p => p.n === 'His Signing'),
+       Object.keys(fixed).join());
+
+    console.log('-- but it never invents a base that was not read --');
+    /* With no base at all the first write wins outright — the right default for a
+       league this client has never read. anchorBase() must not overwrite that
+       with a seeded roster. */
+    g('setBase')('rosters', null);
+    g('anchorBase')();
+    ok('a client that has never read keeps no base', g('BASE').rosters === null);
+
+    g('setBase')('rosters', keep);
+    CS.cfg.renames = [];
+  }
+
   console.log('\n== removing a club takes its references with it ==');
   {
     const CS = g('S');
