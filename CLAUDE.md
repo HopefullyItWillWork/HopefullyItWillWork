@@ -1001,7 +1001,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 854 assertions against the real functions
+node tests/test.js        the app: 870 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1308,6 +1308,94 @@ the key fell back to `proj_anon`.
 - Six primary nav tabs; everything else lives in the More menu, which sits
   **outside** `<nav>` to escape its overflow clip and is positioned in JS from the
   button's bounding rect.
+
+---
+
+## Tables on a phone
+
+Three rules, and all three replaced something that looked like a design choice
+and was actually data loss.
+
+**A column is never deleted to make a table fit.** `.hide` and `.hide2` used to
+be `display:none` below 900px and 820px. That does not narrow a table, it removes
+data from it: Contracts showed **two of its seven columns** on a 390px phone, the
+free agent classes seven of twelve, the commissioner's player table eight of
+thirteen. A column you cannot scroll to is a column you do not have. The classes
+are still on about eighty cells — they mark what would go first if it were ever
+wanted again — but nothing hides them.
+
+**Wide tables scroll sideways with the name pinned.** `.scroller`, `.rosterwrap`
+and `.tscroll` all sticky the first column so a row never becomes an anonymous
+line of figures. Two tables lead with a *rank* rather than a name, and a pinned
+"231" tells you nothing while the name scrolls away — they carry `data-pin2` and
+pin the second column instead, so the rank slides underneath it.
+
+**The action column is pinned to the other edge.** `td.acts` — cut, block, IR, and
+Sign on My Team's free agent list — is `position:sticky; right:0`. This is the
+fault the app has shipped three times (My Roster's Cut, the Builder's Drop, My
+Team's Sign): a button that renders, binds its handler and sits 250px past the
+right edge. Letting the stats scroll is what made it safe to stop deleting
+columns; pinning the buttons is what keeps it safe. The matching `<th>` carries
+`class="acts"` so the header pins with it.
+
+**A long table gets its own scroll box.** `capScrollers()` puts `.capped` on any
+`[data-cap]` container whose table is longer than `CAPROWS`, capping it at 70vh
+(62vh on a phone). It has to be JS because CSS cannot count rows, and it re-runs
+on every render because a filter is exactly what makes a long table short. This
+is also what finally makes the sticky header work: a sticky row needs a scrolling
+ancestor, and with no cap the page was the only thing scrolling, so the header
+slid away and left 390 rows of unlabelled numbers.
+
+**Scrolling, not pagination**, and deliberately. These tables are already sorted
+and filtered, so a page number is a third navigation axis on top of two that
+already narrow better; browser find works down a scrolled list and not across
+pages; and a flick beats tapping a small page control. The `.scroller` div
+survives a redraw — only the table inside is replaced — so `scrollTop` and
+`scrollLeft` are kept across the four-second auction poll and a GM reading row
+200 is not thrown back to the top every time somebody bids.
+
+## The player search box
+
+Six fields let a GM pick a player out of the league by typing. They were
+`<input list=...>` against a `<datalist>` of **326-390 options**, which works on a
+desktop and is not a control at all on a phone: iOS Safari draws a datalist as a
+cramped strip over the keyboard, gives up on lists this long, and other mobile
+browsers ignore the element entirely. The only way to pick a player was to type
+his name exactly right, from memory.
+
+The `<datalist>` elements **stay**, still filled by the same six lines of drawing
+code that always filled them, and are read as nothing but the list of options.
+The inputs carry **`data-list` rather than `list`** — that one attribute is the
+whole switch, because it stops the browser binding its own dropdown — and
+`comboAttach()` renders a real tappable list instead. Nothing that populates a
+search box had to change, and everything downstream still just reads
+`input.value`.
+
+| | |
+|---|---|
+| `comboNorm(s)` | accent-stripped, lower-cased, punctuation dropped — so "jokic" finds Jokić |
+| `comboFilter(all,q)` | **pure**, and the whole matching rule: starts-with leads, contains follows |
+| `comboAttach(inp)` | idempotent; wires one field |
+| `capScrollers()` | the table rule above |
+
+Three things about it are load-bearing:
+
+- **The panel is `position:fixed` on `<body>`.** Every other placement can be
+  clipped by an ancestor's overflow, which has already cost this app a dropdown
+  once — `nav{overflow-x:auto}` hid the More menu, which opened correctly every
+  time and was never visible.
+- **Attachment is delegated from `focusin`, not done once at boot.** Two of these
+  fields live in panels rebuilt from `innerHTML` — the nomination box and the
+  strategy board's add row — so the element attached to at boot is thrown away on
+  the next draw and its replacement had no combobox at all.
+- **Arrowing writes the value into the field as it moves**, like a native select,
+  and `COMBOSET` guards the `input` event it fires. Without the guard the field's
+  own input listener redrew the panel from the name just written, reset the
+  highlight and made the second arrow press a no-op. It is also what keeps Enter
+  working: two of these fields carry their own Enter handler, registered first and
+  therefore running first, so if Enter had to commit the highlighted row it would
+  read a value the handler had already taken. With the value written on the way
+  past there is nothing to commit.
 
 ---
 
