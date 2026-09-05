@@ -58,9 +58,19 @@ font-size:16px;letter-spacing:.01em;padding:9px 14px;cursor:pointer;border-botto
 .more>#moreBtn[aria-expanded=true]{color:var(--amber)}
 .more>#moreBtn::after{content:" \25BE";font-size:9px}
 .menuwrap{max-width:1280px;margin:0 auto;position:relative;height:0}
-.moremenu{position:absolute;top:2px;right:20px;min-width:200px;background:var(--panel);
+/* Fixed at every width, and its top is set from the masthead by placeMore().
+
+   It used to be `position:fixed` with `top:auto` below 820px, which asks the
+   browser for the "static position" — where the element would have sat in the
+   flow — and that is a spot inside a sticky header, so what you got depended
+   entirely on how the browser resolved a fixed box inside a sticky ancestor.
+   Desktop Chrome held it under the header; on a phone, scrolled down, it went
+   somewhere you could not see. Measuring the header and saying where the menu
+   goes removes the guesswork: it opens directly under the bar, always. */
+.moremenu{position:fixed;min-width:200px;background:var(--panel);
 border:1px solid var(--line);border-radius:3px;box-shadow:0 10px 28px rgba(0,0,0,.35);
-padding:5px;z-index:80;display:flex;flex-direction:column}
+padding:5px;z-index:80;display:flex;flex-direction:column;
+overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .moremenu button{background:none;border:0;color:var(--steel);font-family:var(--body);font-size:13.5px;
 text-align:left;padding:8px 11px;border-radius:2px;cursor:pointer;white-space:nowrap;letter-spacing:0}
 .moremenu button:hover{background:var(--panel2);color:var(--chalk)}
@@ -296,13 +306,34 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 .rosterwrap table{min-width:0}
 tbody tr.isir td{opacity:.55}
 tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:var(--steel)}
+/* ---- the lineup keeps all nine categories on a phone ----
+   These rules used to drop the last four stats below 1000px and the last SEVEN
+   below 640px, so a phone in season showed two of the nine — and the two it
+   dropped last were FG% and FT%, the pair the league weights by attempts. That
+   is the same "delete the column" fault the tables carried, and the same fix:
+   the row scrolls sideways instead, with the slot and the player pinned so you
+   always know whose line you are reading and can still work the controls.
+
+   The stat tracks keep a real minimum. Letting them shrink to fit is what makes
+   a per-game number wrap to two lines, and a lineup row is already two lines
+   tall now that each shooting cell carries its makes and attempts. */
 @media (max-width:1000px){
-  .lurow{grid-template-columns:44px minmax(150px,1fr) repeat(5,minmax(42px,54px))}
-  .lurow>.luv:nth-last-child(-n+4),.luhdr>span:nth-last-child(-n+4){display:none}
+  .luslots{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .lurow,.luhdr{min-width:730px}
+  .lurow{grid-template-columns:40px minmax(170px,1fr) repeat(9,minmax(46px,56px))}
+  /* Pinned, and each variant paints its own background: a sticky cell with no
+     background of its own lets the stats scroll visibly underneath it. */
+  .lurow>.luslot,.luhdr>span:first-child{position:sticky;left:0;z-index:2;background:var(--panel)}
+  /* 40px of slot column plus the grid's own 7px gap. Pinning at 40 puts this
+     hard against the chip and reads as one run-together word in the header. */
+  .lurow>.lupick,.luhdr>span:nth-child(2){position:sticky;left:47px;z-index:2;background:var(--panel);
+    box-shadow:1px 0 0 var(--line)}
+  .luhdr>span:first-child,.luhdr>span:nth-child(2){background:var(--panel2)}
+  .lurow.empty>.luslot,.lurow.empty>.lupick,
+  .lurow.bench>.luslot,.lurow.bench>.lupick,
+  .lurow.onir>.luslot,.lurow.onir>.lupick{background:var(--panel2)}
 }
 @media (max-width:640px){
-  .lurow{grid-template-columns:40px minmax(0,1fr) repeat(2,minmax(40px,auto))}
-  .lurow>.luv:nth-last-child(-n+7),.luhdr>span:nth-last-child(-n+7){display:none}
   .lurowctl{flex-wrap:wrap}
 }
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
@@ -601,7 +632,7 @@ dialog::backdrop{background:rgba(5,8,12,.78)}
 main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav button{padding:9px 10px;font-size:14px}
   .more>#moreBtn{padding:9px 10px;font-size:14px}
   .menuwrap{position:static;height:auto}
-  .moremenu{position:fixed;left:8px;right:8px;top:auto;min-width:0}
+  .moremenu{min-width:0}
   .welcome{padding:13px 14px;gap:12px}
   .chip{display:none}
 }
@@ -674,7 +705,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 </style>
 </head>
 <body>
-<header class="mast">
+<header class="mast" id="mast">
   <div class="mast-in">
     <div class="brand">League Ledger</div>
     <div class="season" id="seasonL">2026&#8211;27</div>
@@ -1109,8 +1140,15 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   </section>
 
   <section class="view" id="v-log" role="tabpanel" hidden>
-    <h2>Transaction history</h2>
-    <p class="note">Every roster move, newest first. The commissioner can reverse an entry.</p>
+    <h2>Transaction history <span class="fcount" id="logCount"></span></h2>
+    <p class="note">Signings, releases and trades, newest first &#8212; the moves that change who
+      is on a roster. Cap edits, settings changes and corrections are not roster moves and are
+      left out. The commissioner can reverse an entry.</p>
+    <div class="filters" id="logTools" hidden>
+      <button class="btn ghost" id="logExport">Export CSV</button>
+      <button class="btn danger" id="logWipe">Delete every transaction</button>
+      <span class="fcount" id="logWipeNote"></span>
+    </div>
     <div class="log" id="logList"></div>
   </section>
 
@@ -2472,6 +2510,51 @@ $('doEmail').onclick=async(e)=>{
    through. Stats are not editable: they come from the season's box scores, and a
    GM's own numbers belong in projections. openPlayerEdit() opens the one
    contract dialog for all of it; see fillComm() above. */
+/* ---- clearing the log ----
+   The log is APPEND-ONLY on the server: POST ?key=log&append=1 adds without a
+   revision check, which is what lets two GMs log a move at the same instant and
+   both survive. Emptying it is the one operation that rewrites the list instead
+   of adding to it, so it needs a revision, exactly like deleting a chat post —
+   and a 409 means somebody logged a move while the confirmation was on screen,
+   so it re-reads and tries once more rather than clobbering them.
+
+   It does not touch a roster. Rosters are stored, not derived from the log, so
+   clearing the history loses the history and nothing else — but the history is
+   the only record of WHY a roster looks the way it does, which is why this
+   confirms twice and offers the export first. */
+async function wipeLog(){
+  if(!hasComm()) return alert('Only the commissioner can clear the transaction history.');
+  const n=(S.log||[]).length;
+  if(!n) return alert('There are no transactions to delete.');
+  if(!confirm(`Delete all ${n} transactions?\n\n`
+    +'This clears the whole history for every GM, including the entries this page does not show. '
+    +'No roster, contract or setting changes \u2014 only the record of how they got that way.\n\n'
+    +'Export the CSV first if you want to keep it. This cannot be undone.')) return;
+  if(!confirm(`Last check: permanently delete ${n} transactions?`)) return;
+  setSync('busy','Clearing\u2026');
+  if(!await probeAPI()){
+    S.log=[]; setSync('ok','Saved locally \u00b7 0 transactions'); render(); return;
+  }
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      const r=await fetch(`${API}?key=log&rev=${REV.log}`,{method:'PUT',
+        headers:{'content-type':'application/json'},body:JSON.stringify({data:[]})});
+      if(r.ok){
+        const j=await r.json(); REV.log=j.rev; S.log=[];
+        setSync('ok','Shared \u00b7 0 transactions'); render();
+        return projToast('Transaction history cleared');
+      }
+      if(r.status===409){                 // somebody logged a move mid-confirmation
+        /* The refusal hands back what the server has, so there is nothing to
+           re-fetch — take its revision and try once more. */
+        const j=await r.json(); REV.log=j.rev; S.log=j.data||[]; continue;
+      }
+    }catch(e){}
+    break;
+  }
+  setSync('err','Could not clear the history');
+  projToast('Could not clear the transaction history');
+}
 async function undo(i){
   if(!hasComm()) return;
   if(!confirm('Remove this entry from the transaction history? Roster changes are not reversed automatically.')) return;
@@ -2698,12 +2781,56 @@ function entry(e,i){
     <div>${e.detail}</div><div class="by">${e.team||''} &#183; ${e.by}</div>
     ${hasComm()?`<button class="x" data-u="${i}" aria-label="Remove entry">&#215;</button>`:'<div></div>'}</div>`;
 }
+/* ================= WHAT COUNTS AS A TRANSACTION =================
+   A roster move: somebody joined a club, left one, or moved between two. That is
+   `sign`, `cut` and `trade`, and it is what the transaction history is for.
+
+   `edit` is the other thirty-odd log kinds put together — a cap change, a PIN
+   reset, a deputy granted, a season rolled, a corrected year-acquired. They are
+   worth logging and they are not roster moves; mixed into the same list they
+   bury the handful of entries anyone actually came to read. They are still in
+   the log, still exported, and still undoable from wherever they were made.
+
+   Pure, so the rule is one place and testable. */
+const MOVEKINDS=['sign','cut','trade'];
+const isRosterMove=e=>!!e&&MOVEKINDS.includes(e.kind);
+const rosterMoves=log=>(log||[]).filter(isRosterMove);
+/* Every transaction, roster move or not, as a CSV. The export is a backup, so
+   it deliberately carries the whole log rather than what the screen is
+   filtered to — the filtering is a reading aid, not a statement about what
+   happened. */
+function logCSV(log){
+  const rows=[['when','kind','club','who','detail']];
+  (log||[]).forEach(e=>{
+    if(!e) return;
+    rows.push([e.ts||'',e.kind||'',e.team||'',e.by||'',e.detail||'']);
+  });
+  return rows.map(r=>r.map(v=>{
+    const t=String(v==null?'':v);
+    return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
+  }).join(',')).join('\n');
+}
 function drawLogs(){
   const L=S.log;
-  $('logList').innerHTML=L.length?L.map(entry).join(''):'<div class="empty">No transactions yet.</div>';
+  const moves=rosterMoves(L);
+  if($('logCount')) $('logCount').textContent =
+    `${moves.length} roster move${moves.length===1?'':'s'}`
+    + (L.length>moves.length?` \u00b7 ${L.length-moves.length} other entries not shown`:'');
+  if($('logTools')) $('logTools').hidden=!hasComm();
+  if($('logWipeNote')) $('logWipeNote').textContent =
+    `export writes all ${L.length} entries; delete clears all ${L.length}`;
+  $('logList').innerHTML=moves.length
+    ? moves.map(e=>entry(e,L.indexOf(e))).join('')
+    : `<div class="empty">${L.length?'No signings, releases or trades yet.':'No transactions yet.'}</div>`;
   const sg=L.filter(e=>e.kind==='sign').slice(0,12);
   $('recent').innerHTML=sg.length?sg.map((e,i)=>entry(e,L.indexOf(e))).join(''):'<div class="empty">No signings recorded yet.</div>';
   document.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>undo(+b.dataset.u));
+  if($('logExport')&&!$('logExport').dataset.built){
+    $('logExport').dataset.built='1';
+    $('logExport').onclick=()=>downloadCSV(
+      `transactions-${dayKey()}.csv`, logCSV(S.log));
+    $('logWipe').onclick=wipeLog;
+  }
   drawQuickPool();
   if($('qsSearch')&&!$('qsSearch').dataset.built){
     $('qsSearch').dataset.built='1';
@@ -3514,7 +3641,10 @@ const hasStats=p=>!!(p&&p.s&&p.g);
    A rookie has no box score at all — `s` is null, which is what hasStats() is
    for — so every one of these is null-safe rather than throwing on `s.FGA`. */
 const shotPct=(m,a)=>(a&&m!=null)?m/a:null;
-const pctText=v=>v==null?'\u2014':v.toFixed(3);          // .553, the box-score form
+/* 56.9%, not .569. catCell() in the trade machine already read this way and it
+   is the form people say out loud; a leading-dot decimal is a box-score
+   convention that means nothing to half the league. */
+const pctText=v=>v==null?'\u2014':(v*100).toFixed(1)+'%';
 /* A non-breaking hyphen: "9.9-17.4" must not wrap onto two lines in a stat
    track four characters wide. */
 const madeAtt=(m,a)=>(m==null||a==null)?'\u2014':`${(+m).toFixed(1)}\u2011${(+a).toFixed(1)}`;
@@ -4032,7 +4162,7 @@ function drawLab(){
       const ord=all.slice().sort((a,b)=>k==='TOV'?tot[a][k]-tot[b][k]:tot[b][k]-tot[a][k]);
       const rk=ord.indexOf('Your build')+1;
       const mx=Math.max(w,...all.map(t=>tot[t][k]))||1;
-      const fm=x=>isP?x.toFixed(3):Math.round(x).toLocaleString();
+      const fm=x=>isP?pctText(x):Math.round(x).toLocaleString();
       return `<div class="irow"><span class="cat">${lab}</span>
         <span class="track"><span class="tn" style="width:${Math.max(2,Math.min(100,v/mx*100))}%"></span>
           <span class="winmark" style="left:${Math.min(99,w/mx*100)}%"></span></span>
@@ -5161,7 +5291,7 @@ function playerCard(name,opts){
   const has=!!o, mine=!!o&&(!useProj||usingMine());
   const pv=k=>k==='g'?(o&&o.g!=null?o.g:b.g):(o&&o[k]!=null?o[k]:b.s[k]);
   const av=k=>k==='g'?b.g:b.s[k];
-  const pct=(m,a)=>a?(m/a).toFixed(3):'\u2014';
+  const pct=(m,a)=>pctText(shotPct(m,a));
   const rows=DCATS.map(([k,lab,dp])=>{
     const A=av(k), P=pv(k), diff=P-A;
     const f=v=>dp?(+v).toFixed(1):Math.round(v);
@@ -5339,9 +5469,12 @@ function impactCard(team,name,priceNote){
     const pct=v=>Math.max(2,Math.min(100,v/mx*100));
     const d=ra-rb, cls=d<0?'up':d>0?'down':'flat';
     const isP=(k==='FG'||k==='FT');
-    const fm=v=>isP?v.toFixed(3):Math.round(v).toLocaleString();
+    const fm=v=>isP?pctText(v):Math.round(v).toLocaleString();
     const dv=a-b, dcls=(k==='TOV'? (dv<0?'up':dv>0?'down':'flat') : (dv>0?'up':dv<0?'down':'flat'));
-    const dtxt=isP?(dv>0?'+':'')+dv.toFixed(4):(dv>0?'+':'')+Math.round(dv).toLocaleString();
+    /* A change in a rate is percentage POINTS, and saying so is the difference
+       between "+0.4" meaning four tenths of a point and four hundredths. */
+    const dtxt=isP?(dv>0?'+':'')+(dv*100).toFixed(2)+'pt'
+                  :(dv>0?'+':'')+Math.round(dv).toLocaleString();
     /* The per-game column means nothing for a rate, so it carried an em dash.
        The makes and attempts behind the rate are what belongs in that space. */
     const RW=(I.after.tot[team]||{}).raw||{};
@@ -7290,6 +7423,17 @@ function wireChat(){
 
 /* ================= PLAYER RATER (descriptive, 2025-26) ================= */
 const RCATS=["FG","FT","P3","REB","AST","STL","BLK","TO","PTS"];
+/* RCATS names a category the way the league says it; `s` keys it the way the box
+   score does, and two of them disagree — REB is TRB and TO is TOV. */
+const RAWKEY={P3:'P3',REB:'TRB',AST:'AST',STL:'STL',BLK:'BLK',TO:'TOV',PTS:'PTS'};
+/* The line a z-score was computed from, for the cell under it. */
+function raterRaw(p,c){
+  if(!p||!p.s) return '\u2014';
+  if(c==='FG') return `${pctText(shotPct(p.s.FG,p.s.FGA))} \u00b7 ${madeAtt(p.s.FG,p.s.FGA)}`;
+  if(c==='FT') return `${pctText(shotPct(p.s.FT,p.s.FTA))} \u00b7 ${madeAtt(p.s.FT,p.s.FTA)}`;
+  const v=p.s[RAWKEY[c]];
+  return v==null?'\u2014':(+v).toFixed(1);
+}
 function zColor(v){
   if(v==null) return '';
   const light=document.documentElement.getAttribute('data-theme')==='light';
@@ -7323,14 +7467,16 @@ function drawRater(){
     return `<tr><td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
       ${RCATS.map(c=>{
         const z=`<span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span>`;
-        /* The two shooting columns are z-scores of a RATE, and this table never
-           showed the rate itself — the header said FG% and the number under it
-           was a z-score. Both now sit beneath it, because the league weights
-           these two by attempts and the z-score alone hides the volume that
-           earned it. */
-        if(c!=='FG'&&c!=='FT') return `<td>${z}</td>`;
-        const m=c==='FG'?p.s.FG:p.s.FT, a=c==='FG'?p.s.FGA:p.s.FTA;
-        return `<td class="zshot">${z}<small>${pctText(shotPct(m,a))} \u00b7 ${madeAtt(m,a)}</small></td>`;
+        /* Every column carries the number the z-score was computed FROM. A
+           z-score says how far ahead of the field a player is; it does not say
+           he scored 27.7. Both belong here, and the raw line is what a GM
+           actually argues about.
+
+           The two shooting columns are the reason this started: their header
+           said FG% and the value under it was a z-score, so the rate itself was
+           never on this screen at all. They carry the rate and the makes and
+           attempts, because the league weights them by attempts. */
+        return `<td class="zshot">${z}<small>${raterRaw(p,c)}</small></td>`;
       }).join('')}
       <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
   }).join('');
@@ -7350,7 +7496,7 @@ function drawProfile(){
     const cell=c=>{
       const rank=r[c], a=1-(rank-1)/(n-1);
       const style=a>=.5?`background:rgba(85,166,122,${((a-.5)*0.75).toFixed(3)})`:`background:rgba(201,85,63,${((.5-a)*0.75).toFixed(3)})`;
-      const val=(c==='FG'||c==='FT')?p[c].toFixed(3):p[c].toFixed(c==='PTS'||c==='REB'?1:2);
+      const val=(c==='FG'||c==='FT')?pctText(p[c]):p[c].toFixed(c==='PTS'||c==='REB'?1:2);
       return `<td><span class="heat" style="${style}">${rank}</span>
         <div style="font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:2px">${val}</div></td>`;
     };
@@ -7551,6 +7697,7 @@ $('tabs').onclick=e=>{
   if(b.id==='moreBtn'){
     const open=$('moreMenu').hidden;
     $('moreMenu').hidden=!open; b.setAttribute('aria-expanded',String(open));
+    if(open) placeMore();
     return;
   }
   if(!b.dataset.v) return;
@@ -7567,6 +7714,34 @@ function closeMore(){
   $('moreMenu').hidden=true;
   $('moreBtn').setAttribute('aria-expanded','false');
 }
+/* Put the menu directly under the masthead, wherever the page happens to be
+   scrolled to. The header is sticky, so its bottom edge in viewport coordinates
+   IS "just below the bar" — reading it each time is what makes this hold on a
+   phone that has been scrolled, which the old CSS-only placement did not.
+
+   The height is capped to what is left of the screen and the menu scrolls
+   inside itself: there are ten entries in it and a phone in landscape has less
+   room below the bar than the menu wants. */
+function placeMore(){
+  const m=$('moreMenu'); if(!m||m.hidden) return;
+  const mast=$('mast');
+  const top=mast?Math.max(0,mast.getBoundingClientRect().bottom):0;
+  /* The on-screen keyboard shrinks the visual viewport without touching
+     innerHeight, so on a phone that is the height that actually exists. */
+  const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+  m.style.top=(top+4)+'px';
+  m.style.maxHeight=Math.max(160,vh-top-20)+'px';
+  if(window.innerWidth<=820){          // span the screen, a gutter each side
+    m.style.left='8px'; m.style.right='8px';
+  }else{                               // hang under the More button
+    const btn=$('moreBtn'), r=btn?btn.getBoundingClientRect():null;
+    m.style.left='auto';
+    m.style.right=(r?Math.max(8,window.innerWidth-r.right):20)+'px';
+  }
+}
+/* Fixed to the viewport, so anything that moves the header has to move it too. */
+window.addEventListener('resize',placeMore);
+window.addEventListener('scroll',placeMore,true);
 document.addEventListener('click',e=>{
   if(!e.target.closest) return;
   if(e.target.closest('.more')||e.target.closest('.moremenu')) return;
