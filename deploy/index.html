@@ -5577,12 +5577,16 @@ function impactCard(team,name,priceNote){
     const dtxt=isP?(dv>0?'+':'')+(dv*100).toFixed(2)+'pt'
                   :(dv>0?'+':'')+Math.round(dv).toLocaleString();
     /* The per-game column means nothing for a rate, so it carried an em dash.
-       The makes and attempts behind the rate are what belongs in that space. */
+       The makes and attempts behind the rate are what belongs in that space —
+       and they belong in it PER GAME, like every other row in this column,
+       which divides its season total by the game cap. They went in as the
+       club's season totals, so the two rate rows read "4693.0-9600.0" under a
+       header saying PER GM while the row above them said 1.24. */
     const RW=(I.after.tot[team]||{}).raw||{};
+    const perGm=(m,a)=>madeAtt(m==null?null:m/GC, a==null?null:a/GC);
     const pg=isP
       ? `<span style="font-size:10px;color:var(--dim)">${k==='FG'
-          ? madeAtt(Math.round(RW.FG),Math.round(RW.FGA))
-          : madeAtt(Math.round(RW.FT),Math.round(RW.FTA))}</span>`
+          ? perGm(RW.FG,RW.FGA) : perGm(RW.FT,RW.FTA)}</span>`
       : (a/GC).toFixed(2);
     const pgd=isP?'':` <span class="${dcls}" style="font-size:10px">${dv>0?'+':''}${(dv/GC).toFixed(2)}</span>`;
     return `<div class="irow"><span class="cat">${lab}</span>

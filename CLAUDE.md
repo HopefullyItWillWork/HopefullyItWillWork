@@ -1412,7 +1412,13 @@ at all. They now carry the rate and the makes and attempts.
 to it; `fullTotals()` already returned them as `agg`. That is what lets the
 what-if build, the impact panel and the trade swing table show a club's volume.
 In the impact panel it goes in the per-game column, which meant nothing for a
-rate and carried an em dash.
+rate and carried an em dash — **per game, like every other row in that column**.
+It went in as the club's season totals, so the two rate rows read
+"4693.0‑9600.0" under a header saying PER GM while the row under them said 1.24.
+Everywhere else the makes and attempts sit beside a total (the what-if build's
+YOU column, the trade swing table, the club roster's Season totals row) and are
+correctly season totals there; the club roster's own "Per game at 920" row
+always divided. Match the column, not the habit.
 
 **Two tables cannot show volume, and it is not an oversight.** `PROF` and `HIST`
 are static historical tables holding percentages only — the makes and attempts

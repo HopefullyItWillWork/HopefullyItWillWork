@@ -230,6 +230,24 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction = null; X.me = keepMe; X.STRAT = keepStrat;
   }
 
+  console.log('\n== the impact panel\'s per-game column is per game ==');
+  {
+    const CS = g('S'), team = 'Osborn', who = 'Kevin Durant';
+    const GC = CS.cfg.gamecap || 920;
+    const raw = g('clubTotals')(team, who).raw;
+    const card = g('impactCard')(team, who);
+    const perGm = (raw.FG/GC).toFixed(1) + '\u2011' + (raw.FGA/GC).toFixed(1);
+    const season = Math.round(raw.FG).toFixed(1) + '\u2011' + Math.round(raw.FGA).toFixed(1);
+    ok('FG% carries the makes and attempts a night', card.includes(perGm), perGm);
+    ok('and not the club\'s season totals under a PER GM header',
+       !card.includes(season), season);
+    const perFt = (raw.FT/GC).toFixed(1) + '\u2011' + (raw.FTA/GC).toFixed(1);
+    ok('FT% the same', card.includes(perFt), perFt);
+    // The counting rows always divided; this is what the rates now match.
+    ok('a counting row is still per game',
+       card.includes((g('clubTotals')(team, who).PTS/GC).toFixed(2)));
+  }
+
   console.log('\n== the league names itself ==');
   {
     const CS = g('S'), keepName = CS.cfg.league;
