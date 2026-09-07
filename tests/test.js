@@ -3913,6 +3913,49 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     })());
   }
 
+  console.log('\n== the 2025-26 import ==');
+  {
+    const R = g('RATER'), CN = g('canon'), NF = g('NAMEFIX'), S = g('S');
+    ok('the full season is in, not a 25-game slice', R.length > 500, R.length);
+    ok('minutes came with it', R.filter(p=>p.s&&p.s.MP!=null).length > 500);
+    /* A traded man has a combined row and one row per club in the source. Taking
+       a club row would book half a season as the whole of it. */
+    const h2 = R.find(p=>p.n==='James Harden');
+    ok('a traded player carries his combined season', !h2 || h2.g === 70, h2 && h2.g);
+    ok('nobody is in the table twice', (()=>{
+      const k = x => x.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z]/g,'').toLowerCase();
+      const seen = new Set();
+      return R.every(p => { const q = k(p.n); if(seen.has(q)) return false; seen.add(q); return true; });
+    })());
+    /* The whole point of NAMEFIX: its key is the roster's spelling and its value
+       is the box score's, so every value must BE a RATER row and no key may be.
+       Edgecombe was stored the wrong way round — canon() sent his roster entry
+       to a name no row had, so Brice's first-round pick contributed zero to
+       every projection, exactly as Jokic once did. */
+    ok('every NAMEFIX target is a real RATER row', (()=>{
+      const names = new Set(R.map(p=>p.n));
+      return Object.keys(NF).every(k => names.has(NF[k]) && !names.has(k));
+    })(), Object.keys(NF).filter(k=>{const n=new Set(R.map(p=>p.n));return !n.has(NF[k])||n.has(k);}).join(', '));
+    ok('...so every rostered player still finds his stats', (()=>{
+      const names = new Set(R.map(p=>p.n));
+      const miss = [];
+      Object.keys(S.teams).forEach(t=>(S.teams[t].r||[]).forEach(p=>{
+        if(!names.has(CN(p.n))) miss.push(t+': '+p.n); }));
+      return miss.length === 0 ? true : miss.join(', ');
+    })() === true, (()=>{
+      const names = new Set(R.map(p=>p.n)); const miss=[];
+      Object.keys(S.teams).forEach(t=>(S.teams[t].r||[]).forEach(p=>{
+        if(!names.has(CN(p.n))) miss.push(t+': '+p.n); }));
+      return miss.join(', ');
+    })());
+    /* Four rostered men missed the whole season, so the box scores have no row
+       for them. They keep their (zero-game) entry rather than vanishing off
+       their club's roster. */
+    ok('a player who missed the season keeps his row',
+       ['Tyrese Haliburton','Kyrie Irving','Fred VanVleet','Damian Lillard']
+         .every(n => R.some(p => p.n === n)));
+  }
+
   console.log('\n== the rater engine reproduces the shipped ratings ==');
   {
     const RS = g('raterScore'), R = g('RATER'), CATS = g('RCATS');
@@ -3944,20 +3987,34 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const RS = g('raterScore'), R = g('RATER');
     const pg = RS(R, {basis:'pg'}), tot = RS(R, {basis:'tot'});
     ok('both rate the same players', pg.rows.length === tot.rows.length);
+    const rkTot = new Map(tot.rows.map(p => [p.n, p.rk]));
+    const moved = pg.rows.filter(p => rkTot.get(p.n) !== p.rk).length;
     ok('the totals basis reorders the league',
-       pg.rows[0].n !== tot.rows[0].n, `${pg.rows[0].n} vs ${tot.rows[0].n}`);
-    /* The 920-game cap is the reason this basis exists: on totals a durable
-       player passes a better one who played less. SGA played 68 to Jokic's 65. */
-    ok('...and it is durability that does it',
-       tot.rows[0].n === 'Shai Gilgeous-Alexander', tot.rows[0].n);
+       moved > pg.rows.length * 0.5, `${moved} of ${pg.rows.length} moved`);
+    /* The 920-game cap is the reason this basis exists, and the mechanism is
+       games rather than any particular player: a high rate over few games is
+       worth far less once the marginal games are the scarce thing. Naming a man
+       at the top would just be brittle — what must hold is that the short
+       seasons fall and the long ones do not. */
+    ok('...and it is games that do it', (()=>{
+      const drop = p => rkTot.get(p.n) - p.rk;          // positive = fell
+      const short = pg.rows.filter(p => p.g < 45 && p.rk <= 120);
+      const full  = pg.rows.filter(p => p.g >= 70 && p.rk <= 120);
+      if(!short.length || !full.length) return false;
+      const avg = a => a.reduce((s,p)=>s+drop(p),0)/a.length;
+      return avg(short) > 40 && avg(full) < 0;
+    })());
     ok('a rate is unchanged by the basis, its weight is not', (()=>{
       const a = pg.rows.find(p=>p.n==='Nikola Jokic'), b = tot.rows.find(p=>p.n==='Nikola Jokic');
       return Math.abs(a.z.FG - b.z.FG) > 0.01;
     })());
     ok('the raw line follows the basis', (()=>{
       const RR = g('raterRaw'), j = R.find(p=>p.n==='Nikola Jokic');
-      return RR(j,'PTS','pg') === '27.7' && RR(j,'PTS','tot').replace(/,/g,'') === String(Math.round(27.7*65));
+      return RR(j,'PTS','pg') === j.s.PTS.toFixed(1)
+          && RR(j,'PTS','tot') === String(Math.round(j.s.PTS * j.g));
     })(), g('raterRaw')(R.find(p=>p.n==='Nikola Jokic'),'PTS','tot'));
+    ok('...and never with a locale separator, which the CSV scraper would eat',
+       !/[,.]\d{3}\b/.test(g('raterRaw')(R.find(p=>p.n==='Nikola Jokic'),'PTS','tot')));
   }
 
   console.log('\n== the dynamic rater re-baselines against its own field ==');
@@ -3990,10 +4047,16 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        stocks.rows[0].n !== wide.rows[0].n, `${stocks.rows[0].n} vs ${wide.rows[0].n}`);
     ok('...putting the right man on top of a defensive build',
        stocks.rows[0].n === 'Victor Wembanyama', stocks.rows[0].n);
-    /* The transcribed set carries no MP column, so a minutes floor can match
-       nobody. It must say that by rating nobody, not by ignoring the filter. */
-    ok('a minutes floor with no minutes on file rates nobody',
-       g('raterHasMin')() ? true : RS(R, {basis:'pg', minMp:30}).rows.length === 0);
+    /* Minutes arrived with the full 2025-26 import. A floor must actually bite,
+       and must never rate a man it has no minutes for. */
+    ok('the pool now carries minutes', g('raterHasMin')());
+    const mins = RS(R, {basis:'pg', minG:0, minMp:30});
+    ok('a minutes floor bites', mins.pool > 0 && mins.pool < wide.pool,
+       `${mins.pool} vs ${wide.pool}`);
+    ok('...and everyone it rates clears it',
+       mins.rows.every(p => g('raterMin')(p) >= 30));
+    ok('...and nobody without minutes on file is rated',
+       mins.rows.every(p => g('raterMin')(p) != null));
   }
 
   console.log('\n== the dynamic rater does not leak ==');

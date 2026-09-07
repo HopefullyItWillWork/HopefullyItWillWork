@@ -1140,9 +1140,32 @@ Replacement level is the median minimum-salary ($1.00–1.25) player of 2025-26.
 
 ## Player data
 
-`RATER` holds 390 players: everyone on a league roster plus every free agent who
-played 25+ games at 12+ minutes in 2025-26. Source: Basketball-Reference,
-transcribed by hand. Treat any single surprising number as worth verifying.
+`RATER` holds **586 players — the whole of 2025-26, with no games or minutes
+cutoff**. It replaced a hand-transcribed 390 that kept only rostered players plus
+free agents at 25+ games and 12+ minutes; a cutoff is a filter, and filtering is
+the GM's job now that the rater has one. Source is Basketball-Reference's season
+totals export, converted on import.
+
+Four things about that import are worth keeping straight:
+
+- **`s` is still per game**, to two decimals. The source publishes totals and the
+  whole app — `pstat()`, `AGG`, a GM's projections — reads per game, so the
+  division happens once at import rather than everywhere at read. The extra
+  decimal is for the totals basis, which multiplies back up by games played.
+- **`s.MP` is new**, and is what the dynamic rater's minutes floor reads. Nothing
+  else touches it; the accumulators that walk a stat line iterate their own keys,
+  not `s`'s, so adding one was inert.
+- **A traded player has one row, from the source's combined line.** The export
+  carries a `2TM`/`3TM`/`4TM` row *and* a row per club, and 72 players have one.
+  Taking a club row would book half a season as the whole of it.
+- **Four rostered men missed the entire season** (Haliburton, Irving, VanVleet,
+  Lillard) so the box scores have no row for them. They keep their zero-game
+  entries rather than vanishing off their clubs' rosters.
+
+Games agree exactly with the old table on all 386 players common to both, which
+is what proves the traded-player handling and the parse; the per-game numbers
+differ by at most 0.05, which is the old table's one decimal against the new
+two. Treat any single surprising number as worth verifying.
 
 `BENCH[cat][position]` is the real distribution of what finished 1st through 9th
 in each category, averaged over the five full nine-team seasons (2022–2026). The
@@ -1161,6 +1184,19 @@ the best player in the league was invisible.
 
 **Always route player lookups through `canon()`.** It handles the alias map plus
 an accent-stripping fallback.
+
+**`NAMEFIX` has a direction, and one entry was stored backwards.** Its key is the
+spelling the *roster* uses and its value is the spelling `RATER` uses, so every
+value must be a real `RATER` row and no key may be — `canon()` returns the value.
+`V. J. Edgecombe` was in it the wrong way round: the RATER row carried the key's
+spelling and the value, `VJ Edgecombe`, matched no row at all. So `canon()` sent
+Brice's first-round pick to a name nothing had and he contributed **zero** to
+every projection — the Jokic fault again, on a player nobody had noticed. The row,
+the `AGG` key and the `NBATM` key now all use `VJ Edgecombe` (both of those are
+read through `canon()`, so both must be keyed on RATER's spelling); the SEED
+roster keeps the sheet's `V. J. Edgecombe`, which is exactly what NAMEFIX is for.
+`tests/test.js` now asserts the invariant for every entry, and separately that
+every rostered player resolves to a row.
 
 `rightsOf()` compared raw strings and so was part of this: asked about "Jakob
 Poeltl" (the box-score spelling) it never found "Jakob Poetl" on N. Fink's
@@ -1589,7 +1625,7 @@ again, so `raterScore(pool,opts)` is the arithmetic, in the app:
 | `raterScore(pool,opts)` | **pure**; scores, ranks and **copies**. `opts` is `{basis,cats,minG,minMp}` |
 | `raterVal(p,c,basis)` / `raterPair(p,c,basis)` | the number, or the made/attempted pair, a category is scored from |
 | `raterMin(p)` / `raterHasMin()` | per-game minutes, when the data carries them |
-| `RMING` | 15 games — under it a player is listed but not rated |
+| `RMING` | 15 games — under it a player is listed but not rated. With no cutoff in the data this is the only games floor, and the dynamic rater raises it |
 
 It reproduces the shipped table to within 0.04 of a z-score, which is the
 rounding in `s` (stored to one decimal) and not a difference in method: a
