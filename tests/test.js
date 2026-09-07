@@ -264,30 +264,47 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('and what has gone', g('mleSpent')(T) === 3.75);
     delete CS.teams[T].mle; delete CS.cfg.mle;
 
-    // Only the money above cap room spends it, and Bird covers its own player.
+    /* The exception is a LANE, not a top-up: a deal is on it when the GM
+       declares it, or when cap room cannot reach the price and nothing else
+       can. Either way the whole contract is what the pot pays. */
     const room = g('capRoom')(T);
-    ok('a price inside cap room needs none of it',
-       g('mleNeed')(T, 'Nobody At All', Math.max(0, room)) === 0);
-    ok('...and the money above it does',
-       Math.abs(g('mleNeed')(T, 'Nobody At All', Math.max(0, room) + 2) - 2) < 0.001,
-       g('mleNeed')(T, 'Nobody At All', Math.max(0, room) + 2));
-    ok('usesMle says the same thing', g('usesMle')(T, 'Nobody At All', Math.max(0, room) + 2) === true);
+    ok('a price inside cap room is not on the exception unless he says so',
+       g('mleLane')(T, 'Nobody At All', Math.max(0, room), false) === false);
+    ok('...and is when he declares it',
+       g('mleLane')(T, 'Nobody At All', Math.max(0, room), true) === true);
+    ok('a price cap room cannot reach is on it either way',
+       g('mleLane')(T, 'Nobody At All', Math.max(0, room) + 2, false) === true);
+    ok('the pot pays the WHOLE contract, not the part above the room',
+       g('mleCost')(4.25) === 4.25, g('mleCost')(4.25));
     X.me = keepMe;
   }
 
-  console.log('\n== cap room and the exception add up ==');
+  console.log('\n== the two lanes are never added together ==');
   {
-    const T = 'Osborn', room = g('capRoom')(T), ml = g('mleLeft')(T);
+    const CS = g('S'), T = 'Osborn';
+    const room = g('capRoom')(T), ml = g('mleLeft')(T);
     ok('the club has both', room > 1 && ml > 0, room + '/' + ml);
-    // The exception EXTENDS cap room rather than replacing it. The ceiling used
-    // to reach the MLE only once room was under $1.00, so a club with room
-    // could not use the exception at all.
-    ok('the ceiling is room plus exception',
-       Math.abs(g('bidCeiling')(T, 'Nobody At All') - (room + ml)) < 0.001,
-       g('bidCeiling')(T, 'Nobody At All') + ' vs ' + (room + ml));
-    ok('and the reason says so',
-       /plus the .* of mid-level/.test(g('ceilWhy')(T, 'Nobody At All').why),
+    /* $20.00 of room and a $5.50 exception does NOT buy a $25.50 player. Each
+       lane stands on its own and the ceiling is the better of the two. */
+    ok('the ceiling is the better lane, not the sum',
+       Math.abs(g('bidCeiling')(T, 'Nobody At All') - Math.max(room, ml)) < 0.001,
+       g('bidCeiling')(T, 'Nobody At All') + ' vs max(' + room + ',' + ml + ')');
+    ok('and the reason says they are not added',
+       /not the two added together/.test(g('ceilWhy')(T, 'Nobody At All').why),
        g('ceilWhy')(T, 'Nobody At All').why);
+
+    // With no room at all, the exception is the ceiling — and it may sit above
+    // the salary cap, which is the whole point of it.
+    const keepCap = CS.cfg.cap;
+    CS.cfg.cap = g('committed')(T);                    // no room whatsoever
+    ok('over the cap, the exception IS the ceiling',
+       Math.abs(g('bidCeiling')(T, 'Nobody At All') - ml) < 0.001,
+       g('bidCeiling')(T, 'Nobody At All'));
+    ok('...which is above the salary cap by design',
+       g('committed')(T) + g('bidCeiling')(T, 'Nobody At All') > CS.cfg.cap);
+    ok('but never past the hard cap',
+       g('bidCeiling')(T, 'Nobody At All') <= CS.cfg.tax - g('committed')(T) + 0.001);
+    CS.cfg.cap = keepCap;
   }
 
   console.log('\n== the hard cap still beats the exception ==');
@@ -345,10 +362,12 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     await g('placeBid')('Osborn', 4.00, false, true);
     ok('a bid inside cap room with it ticked is accepted', ctx.__alerts.length === 0,
        JSON.stringify(ctx.__alerts));
-    ok('...and is NOT marked as a mid-level bid', CS.auction.bids[0].mle !== true,
+    /* A declaration counts on its own, room or no room — which is exactly what
+       lets two clubs that both ticked it level each other at the same figure. */
+    ok('...and IS a mid-level bid because he said so', CS.auction.bids[0].mle === true,
        JSON.stringify(CS.auction.bids[0]));
-    ok('because the money decides, not the box',
-       g('mleNeed')('Osborn', 'James Harden', 4.00) === 0);
+    ok('undeclared, the same money would not be',
+       g('mleLane')('Osborn', 'James Harden', 4.00, false) === false);
 
     // Above cap room it is marked, which is what the levelling rule keys off.
     CS.cfg.cap = g('committed')('Osborn') + 1.00;
@@ -397,10 +416,10 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('nothing was refused', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
     ok('and the form is cleared for the next one', g('NOMUI').p === '', JSON.stringify(g('NOMUI')));
 
-    // Undeclared, it is an ordinary opening bid a rival may not level.
-    CS.auction = null;
+    // Undeclared and inside cap room, it is an ordinary opening bid.
+    CS.auction = null; CS.cfg.cap = keepCap;
     await g('nominate')('James Harden', 'Osborn', 4.00, 0, false);
-    ok('undeclared, the same money is not a mid-level bid',
+    ok('undeclared and inside cap room, it is not a mid-level bid',
        CS.auction.bids[0].mle === false, JSON.stringify(CS.auction.bids[0]));
 
     // More than the pot holds is refused before anything is written.
@@ -471,6 +490,44 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction.bids[0].mle = false;
     ok('a level bid that is not on the exception is not a tie', g('mleTied')().length === 0);
     CS.auction = null; X.me = keepMe;
+  }
+
+  console.log('\n== two GMs both on the full exception is a coin flip ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap;
+    const ML = g('mleAmt')();
+    /* The reported case: both clubs tick the box and both bid the exception in
+       full. It used to require the price to be above the club's cap room too,
+       so if either had room the second could not level and there was no tie. */
+    CS.cfg.cap = 400;                                   // both clubs have room to spare
+    ok('both have room, so nothing forces them onto the exception',
+       g('capRoom')('Osborn') > ML && g('capRoom')('Brice') > ML);
+    // A third club opens it, so neither of the two is already bidding against
+    // himself when he declares.
+    CS.auction = {player:'James Harden', by:'Coulter', bid:1.00, leader:'Coulter',
+                  bids:[{t:'Coulter', amt:1.00, ts:1}], max:{}, status:'open'};
+    ctx.__alerts.length = 0;
+    X.me = 'Osborn';
+    await g('placeBid')('Osborn', ML, false, true);     // declared, the full exception
+    ok('the first is on the exception', CS.auction.bids[0].mle === true,
+       JSON.stringify(CS.auction.bids[0]));
+    X.me = 'Brice';
+    await g('placeBid')('Brice', ML, false, true);      // LEVEL, not a raise
+    ok('the second may level rather than raise', ctx.__alerts.length === 0,
+       JSON.stringify(ctx.__alerts));
+    ok('the price did not move', Math.abs(CS.auction.bid - ML) < 0.001, CS.auction.bid);
+    const tied = g('mleTied')().sort().join();
+    ok('and the lot is tied between them', tied === 'Brice,Osborn', tied);
+
+    // Neither may go past the pot, which is why levelling is the only move.
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Brice', ML + 0.25, false, true);
+    ok('a quarter more than the exception is refused',
+       /mid-level exception/.test(ctx.__alerts[0] || ''), JSON.stringify(ctx.__alerts));
+    ok('...and says the lanes are not added',
+       /not added to cap room/.test(ctx.__alerts[0] || ''), ctx.__alerts[0]);
+
+    CS.auction = null; CS.cfg.cap = keepCap; X.me = keepMe;
   }
 
   console.log('\n== the bid log keeps every step ==');
