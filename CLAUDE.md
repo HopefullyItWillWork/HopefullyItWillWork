@@ -672,14 +672,28 @@ players as it covers, so what is tracked is the money **left**.
 | `mleAmt()` | the league's figure; `MLEDEF` ($5.50) when unset |
 | `mleLeft(t)` | dollars remaining — legacy `mle===false` reads as 0, a missing key as the full amount, so nothing migrates |
 | `capRoom(t)` | room under the **soft** cap, holding a minimum back for each empty seat |
-| `mleNeed(t,name,price)` | the part of a price above cap room that no Bird right covers |
-| `usesMle(...)` | that, as a predicate |
+| `mleLane(t,name,price,declared)` | is this deal on the exception rather than on cap room? |
+| `mleCost(price)` | what it costs the pot — **the whole contract** |
 | `mleTied()` | the clubs level with the standing bid on declared MLE bids |
 
-**Whether the exception is being spent is a fact about the money, not about which
-box a GM ticked.** `awardTo()` asks `mleNeed()`: any part of the price above cap
-room that Bird or Early Bird does not cover comes out of the pot, which is what
-makes the contract **two seasons flat** (`termFrom(price,2)`) and what is debited.
+**The exception is a LANE, not a top-up, and this was got wrong first time.** A
+club signs a player out of its cap room **or** out of the exception, and the
+exception caps that one contract: $5.50 buys a $5.50 player, and a club $20.00
+under the cap **cannot pay $25.50 by adding the two together**. `bidCeiling()`
+therefore takes `max(room, mleLeft)`, never their sum. What the exception does buy
+is the right to spend its whole balance **above the salary cap** — the full amount
+may go into tax territory, and the hard cap still binds.
+
+**A deal is on the exception when the GM declares it, or when cap room cannot
+reach the price** and there is no other lane (`mleLane()`). Either way the **whole
+contract** is charged to the pot (`mleCost()`), which is what makes the exception a
+per-player limit rather than headroom, and the contract runs **two seasons flat**
+(`termFrom(price,2)`).
+
+**The declaration counts on its own, room or no room.** It used to also require the
+price to exceed cap room, which is what broke the tie rule below: two GMs who both
+ticked the box and both bid the exception in full could not level each other if
+either had room — the one case the rule exists for.
 
 **The signing is stamped with the offseason that paid for it**:
 `p.mle = {s:'2026-27', amt:4.00}`, written by `signPlayer()` so every path that
@@ -704,18 +718,13 @@ the levelling rule below is available — it is not what makes it an MLE deal.
 **It beats the soft cap and nothing else.** `bidCeiling()` computes `hard` first and
 every branch is clamped to it, so the $200.50 hard cap is still absolute.
 
-**Two clubs down to their exception cannot separate themselves by a quarter**, so a
-declared MLE bid may **level** an existing one rather than raise it. `placeBid()`
-allows the equal bid only in that case; the lot then carries a tie, and
+**Two clubs on the exception cannot separate themselves by a quarter** — the pot is
+the same size for both and neither may go past it — so a mid-level bid may
+**level** an existing one rather than raise it. `placeBid()` allows the equal bid
+only when both sides are on the exception; the lot then carries a tie, and
 `closeAuction()` flips a coin at the award — nothing in this app is random until a
-person presses a button — and writes the flip into the bid log.
-
-**The exception EXTENDS cap room, it does not replace it.** `bidCeiling()` reads
-`space + mleLeft` whenever there is any left, so a club with $9.00 of room and
-$5.50 of exception has a $14.50 ceiling. It used to reach the MLE branch only once
-room was already under $1.00, which capped that club at $9.00 and made the
-exception unusable to anyone not already over the cap — the other face of "the MLE
-button does nothing".
+person presses a button — and writes the flip into the bid log. Only the winner's
+pot is debited.
 
 **The tick is on the nomination form too.** A nomination opens with the
 nominator's own bid, so everything a bid can declare it can declare as well;

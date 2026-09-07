@@ -4104,11 +4104,12 @@ function bidControls(){
       <button class="btn ghost" id="bMaxGo">Set max</button>
     </div>
     ${canMle?`<label class="mlebox"><input type="checkbox" id="bMle"${BIDUI.mle?' checked':''}>
-      <span>Use my mid-level exception &#8212; ${money(ml)} left.
-      ${room>0?`Your first ${money(room)} of cap room is spent before any of it is,
-        so this only bites above ${money(room)}.`:'You are over the salary cap, so every dollar comes out of it.'}
-      A bid it pays any part of <b>signs him for two seasons</b>, and another club on its own exception
-      may level your bid rather than raise it, which the commissioner settles with a coin flip.</span></label>`:''}
+      <span>Bid on my mid-level exception &#8212; ${money(ml)} left.
+      <b>The whole contract comes out of it</b>, so ${money(ml)} is the most you may bid this way, and it
+      may sit above the ${money(S.cfg.cap)} salary cap. It is not added to your cap room${
+        room>0?` — you have ${money(room)} of that, and this is the other lane, not extra`:''}.
+      It <b>signs him for two seasons</b>, and another club on its own exception may level your bid
+      rather than raise it, which the commissioner settles with a coin flip.</span></label>`:''}
     ${tied.length>1?`<div class="warnbox"><b>Level at ${money(a.bid)}:</b> ${htmlEsc(tied.join(' and '))}.
       Neither can raise on the exception, so the commissioner flips for him.</div>`:''}
     ${ceil<a.bid+0.25
@@ -4693,10 +4694,10 @@ function drawAuction(){
       <button class="btn" id="nomGo">Put on the block</button></div>
       ${nomMl>0?`<label class="mlebox"><input type="checkbox" id="nomMle"${NOMUI.mle?' checked':''}>
         <span>Open on my mid-level exception &#8212; ${money(nomMl)} left.
-        ${Math.max(0,capRoom(me))>0?`Your first ${money(Math.max(0,capRoom(me)))} of cap room is spent before any of it is,
-          so this only bites above ${money(Math.max(0,capRoom(me)))}.`:'You are over the salary cap, so every dollar comes out of it.'}
-        A bid it pays any part of <b>signs him for two seasons</b>, and another club on its own exception
-        may level it rather than raise, which the commissioner settles with a coin flip.</span></label>`:''}`
+        <b>The whole contract comes out of it</b>, so ${money(nomMl)} is the most you may open at this way,
+        and it may sit above the ${money(S.cfg.cap)} salary cap. It is not added to your cap room.
+        It <b>signs him for two seasons</b>, and another club on its own exception may level it rather
+        than raise, which the commissioner settles with a coin flip.</span></label>`:''}`
     : !me ? '<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>'
       : isComm() ? ''
       : nomFull(me) ? `<p class="note" style="margin-top:14px">${me} carries ${S.cfg.roster} players and cannot nominate.</p>`
@@ -6061,15 +6062,28 @@ function capRoom(team){
   const sp=S.cfg.roster-headcount(team);
   return S.cfg.cap-committed(team)-Math.max(0,sp-1)*1.00;
 }
-/* How much of this price sits above the club's cap room, and so has to come out
-   of the mid-level. Bird and Early Bird cover their own player, so a club using
-   one of those is not spending the MLE on him. */
-function mleNeed(team,name,price){
+/* The mid-level is a SEPARATE LANE, not a top-up on cap room. A club signs a
+   player out of its room OR out of the exception, and the exception caps what
+   that one contract may be: $5.50 buys a $5.50 player, and a club $20.00 under
+   the cap still cannot pay $25.50 by adding the two together. What the exception
+   does buy is the right to spend its whole balance ABOVE the salary cap — the
+   full amount may go into tax territory. The hard cap still binds.
+
+   So a deal is on the exception when the GM declares it, or when the price is
+   more than his cap room and there is no other lane left; either way the WHOLE
+   price is charged to the pot and the contract runs two seasons.
+
+   Bird and Early Bird cover their own player, so a club using one of those is
+   in neither lane and spends nothing. */
+function mleLane(team,name,price,declared){
   const R=rightsOf(team,name);
-  if(R.club===team&&R.bird) return 0;
-  return Math.max(0, Math.round((price-Math.max(0,capRoom(team)))*4)/4);
+  if(R.club===team&&R.bird) return false;
+  if(declared) return true;
+  return Math.round(price*4)/4 > Math.max(0,capRoom(team))+0.001;
 }
-const usesMle=(team,name,price)=>mleNeed(team,name,price)>0.001;
+/* What a deal on the exception costs the pot: the whole contract. */
+const mleCost=price=>Math.max(0,Math.round(price*4)/4);
+const usesMle=(team,name,price,declared)=>mleLane(team,name,price,declared);
 function bidCeiling(team,name){
   const cr0=cutRestriction(team,name);
   if(cr0&&cr0.hard) return 0;
@@ -6083,9 +6097,11 @@ function bidCeiling(team,name){
   const R=rightsOf(team,name);
   if(R.club===team&&R.bird==='Yes') return Math.max(1,hard);
   if(R.club===team&&R.bird) return Math.max(1,Math.min(hard,Math.max(space,0)+7.00));
+  /* The better of the two lanes, never their sum: cap room buys up to the room,
+     the exception buys up to its own balance and may sit above the cap. */
   const ml=mleLeft(team);
-  if(ml>0) return Math.max(1,Math.min(hard,Math.max(space,0)+ml));
-  if(space>=1) return Math.max(1,Math.min(hard,space));
+  const best=Math.max(Math.max(space,0), ml);
+  if(best>=1) return Math.max(1,Math.min(hard,best));
   return hard>=1?1:0;
 }
 /* The ceiling AND the one-sentence reason it is where it is. The bid panel used
@@ -6108,11 +6124,11 @@ function ceilWhy(team,name){
   if(R.club===team&&R.bird)
     return {ceil,why:`Early Bird on ${name} — ${money(space>0?space:0)} of cap room plus ${money(7)} over the `
       +`${money(S.cfg.cap)} salary cap.`};
-  if(ml>0) return {ceil,why:space>=1
-    ? `${money(space)} of room under the ${money(S.cfg.cap)} salary cap, plus the ${money(ml)} of mid-level `
-      +`exception left. Anything above ${money(space)} spends the exception and signs him for two seasons.`
-    : `${team} is over the ${money(S.cfg.cap)} salary cap, so this is the ${money(ml)} of mid-level exception `
-      +`it has left. Using it signs him for two seasons.`};
+  if(ml>0&&space>=1) return {ceil,why:`${money(space)} of room under the ${money(S.cfg.cap)} salary cap, `
+    +`or ${money(ml)} on the mid-level exception \u2014 whichever lane you use, not the two added together. `
+    +`A mid-level signing may sit above the cap and runs two seasons.`};
+  if(ml>0) return {ceil,why:`${team} is over the ${money(S.cfg.cap)} salary cap, so this is the ${money(ml)} of `
+    +`mid-level exception it has left. It may go above the cap, and signs him for two seasons.`};
   if(space>=1&&ceil<=space+0.001)
     return {ceil,why:`${money(ceil)} is ${team}'s room under the ${money(S.cfg.cap)} salary cap.`};
   return {ceil,why:`${team} is over the ${money(S.cfg.cap)} salary cap with no exception left — minimum deals only.`};
@@ -6153,8 +6169,8 @@ function restrictionNote(team,name){
   const sp=S.cfg.roster-headcount(team);
   const space=S.cfg.cap-committed(team)-Math.max(0,sp-1);
   if(space<1&&!(R.club===team&&R.bird)) out.push(mleLeft(team)>0
-    ? `Over the salary cap &#8212; limited to the ${money(mleLeft(team))} of mid-level exception left, or minimum deals. `
-      +'A mid-level signing is two seasons.'
+    ? `Over the salary cap &#8212; one contract of up to ${money(mleLeft(team))} on the mid-level exception, `
+      +'or minimum deals. A mid-level signing is two seasons.'
     : 'Over the salary cap and the mid-level is spent &#8212; minimum deals only.');
   if(sp<=0) out.push('Roster is full.');
   return out;
@@ -6175,7 +6191,10 @@ function resolveProxies(){
     if(want<=a.bid && a.leader) break;
     a.bid=want; a.leader=t1;
     const last=a.bids[0];
-    if(!last||last.t!==t1||last.amt!==want){a.bids.unshift({t:t1,amt:want,ts:now(),mle:usesMle(t1,a.player,want)});}
+    if(!last||last.t!==t1||last.amt!==want){
+      /* A proxy raise is not a declaration, so it is a mid-level bid only when
+         cap room cannot reach it. */
+      a.bids.unshift({t:t1,amt:want,ts:now(),mle:mleLane(t1,a.player,want,false)});}
     break;
   }
 }
@@ -6201,17 +6220,15 @@ async function placeBid(team,amt,isMax,isMle){
   if(amt>cw.ceil+0.001) return alert(`${team} may bid at most ${money(cw.ceil)} on ${a.player}.\n\n${
     String(cw.why).replace(/&#8212;/g,'\u2014')}`);
   /* A declared mid-level bid has to be one the exception can actually cover. */
-  const mleReal = !!isMle && mleNeed(team,a.player,amt)>0.001;
-  if(isMle){
-    const need=mleNeed(team,a.player,amt);
-    /* Ticking it at a price his cap room covers is not a mistake to refuse —
-       it is a declaration about a bid he has not had to make yet. The money
-       decides whether the exception is actually spent, so the flag simply does
-       not apply at this price and the bid goes in as an ordinary one. */
-    if(need>mleLeft(team)+0.001)
-      return alert(`${money(amt)} would need ${money(need)} of mid-level exception and ${team} has `
-        +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
-  }
+  /* A bid is on the exception when he declares it, or when his cap room cannot
+     reach it and the exception is the only lane left. Either way the WHOLE bid
+     is what the pot would pay, so that is what has to fit inside it. */
+  const mleReal = mleLane(team,a.player,amt,!!isMle);
+  if(mleReal && mleCost(amt)>mleLeft(team)+0.001)
+    return alert(`${money(amt)} on the mid-level exception, and ${team} has `
+      +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.\n\n`
+      +`The exception is not added to cap room — it buys one contract of up to `
+      +`${money(mleLeft(team))}, and it may sit above the ${money(S.cfg.cap)} salary cap.`);
   if(isMax){
     a.max=a.max||{}; a.max[team]=amt;
     /* He has bid, not merely written a number down: if his max beats the
@@ -6221,15 +6238,21 @@ async function placeBid(team,amt,isMax,isMle){
     if(!a.leader || (team!==a.leader && amt>=a.bid+0.25-0.001)){
       const step=Math.min(amt, a.leader ? a.bid+0.25 : Math.max(1,a.bid));
       a.bid=Math.round(step*4)/4; a.leader=team;
-      a.bids.unshift({t:team,amt:a.bid,ts:now(),mle:!!isMle&&mleNeed(team,a.player,a.bid)>0.001});
+      a.bids.unshift({t:team,amt:a.bid,ts:now(),mle:mleLane(team,a.player,a.bid,!!isMle)});
     }
     resolveProxies();
   }else{
     const standing=a.bids[0];
-    /* Two clubs down to their exception cannot separate themselves by a
-       quarter, so a declared mid-level bid may LEVEL an existing one instead of
-       raising it. The lot then carries a tie and the commissioner flips for it
-       at the award. */
+    /* Two clubs on the exception cannot separate themselves by a quarter — the
+       pot is the same size for both and neither may go past it — so a mid-level
+       bid may LEVEL an existing one instead of raising it. The lot then carries
+       a tie and the commissioner flips for it at the award.
+
+       It hangs on the DECLARATION and on the money fitting the pot, nothing
+       else: it used to also require the price to exceed the club's cap room, so
+       two GMs who both ticked the box and both bid the exception in full could
+       not level each other if either had room. That is the case the rule exists
+       for. */
     const levelling = mleReal && standing && standing.mle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
     if(a.leader===team&&!levelling) return alert(`${team} already holds the high bid at ${money(a.bid)}. You cannot bid against yourself.`);
     if(!levelling && amt<a.bid+0.25-0.001 && a.leader) return alert(`Bid must be at least ${money(a.bid+0.25)}.`);
@@ -6455,13 +6478,10 @@ async function nominate(name,team,open,max,isMle){
      applies. The opening bid used to be marked from the money alone, which
      meant an over-the-cap nominator declared nothing and yet opened a lot a
      rival could level. */
-  const mleReal = !!isMle && usesMle(team,name,at);
-  if(isMle){
-    const need=mleNeed(team,name,at);
-    if(need>mleLeft(team)+0.001)
-      return alert(`Opening at ${money(at)} would need ${money(need)} of mid-level exception and ${team} has `
-        +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
-  }
+  const mleReal = mleLane(team,name,at,!!isMle);
+  if(mleReal && mleCost(at)>mleLeft(team)+0.001)
+    return alert(`Opening at ${money(at)} on the mid-level exception, and ${team} has `
+      +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
   S.auction={player:name,by:team,bid:at,leader:team,
     bids:[{t:team,amt:at,ts:now(),mle:mleReal}],max:{},status:'open',ts:now()};
   /* A nominator who already knows his ceiling should not have to sit on the
@@ -6509,11 +6529,13 @@ async function awardTo(team,note){
   const price=a.price!=null?a.price:a.bid;
   const bad=signBlock(team,a.player,price);
   if(bad) return alert(bad);
-  /* Whether the mid-level is being spent is a fact about the money, not about
-     which box a GM ticked: any part of the price above his cap room that no
-     Bird right covers comes out of the exception. That is what makes it two
-     seasons, and what is debited from the pot. */
-  const need=mleNeed(team,a.player,price), mle=need>0.001;
+  /* The winning bid says which lane it was in — the club declared it, or its
+     cap room could not reach the price. A deal on the exception charges the pot
+     the WHOLE contract, which is what makes the exception a per-player limit
+     rather than a top-up. */
+  const won=(a.bids||[]).find(b=>b.t===team&&Math.abs(b.amt-price)<0.001);
+  const mle=mleLane(team,a.player,price,!!(won&&won.mle));
+  const need=mle?mleCost(price):0;
   a.status='closed'; a.winner=team; a.price=price; a.match=null;
   await signPlayer(a.player,team,price,mle?2:1,{force:true,mle:mle?{amt:need}:null});
   if(mle) S.teams[team].mle=Math.max(0,Math.round((mleLeft(team)-need)*4)/4);
