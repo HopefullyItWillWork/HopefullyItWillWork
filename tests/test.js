@@ -191,6 +191,74 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('datalist labels who holds him', /James Harden">Coulter/.test(box.innerHTML),
      (box.innerHTML.match(/James Harden[^<]*</)||[''])[0]);
 
+  console.log('\n== the block panel carries the GM\'s own board row ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepStrat = X.STRAT;
+    CS.auction = {player:'Kevin Durant', by:'Osborn', bid:9, leader:'Osborn',
+                  bids:[], max:{}, status:'open'};
+    X.me = 'Osborn';
+    X.STRAT = [{n:'James Harden', pri:'low', max:3, note:''},
+               {n:'Kevin Durant', pri:'high', max:12, note:'only if the guards go early'}];
+    g('drawBidPanel')();
+    const bp = () => document.getElementById('bidPanel').innerHTML;
+    ok('the board row is shown', /Your board/.test(bp()), bp().slice(0,200));
+    ok('with where he ranks', /#2 of 2/.test(bp()));
+    ok('his priority', /High priority/.test(bp()));
+    ok('the max he wrote down', /your max \$12\.00/.test(bp()));
+    ok('and his comment', /only if the guards go early/.test(bp()));
+    ok('nothing warns while the bidding is under it', !/the bidding is/.test(bp()));
+    CS.auction.bid = 12;
+    g('drawBidPanel')();
+    ok('the bidding reaching his max says so', /the bidding is at it/.test(bp()));
+    CS.auction.bid = 12.5;
+    g('drawBidPanel')();
+    ok('and going past it says that instead', /the bidding is past it/.test(bp()));
+    // canon(): the board holds what he typed, the lot what the nomination used.
+    X.STRAT = [{n:'Nikola Jokic', pri:'med', max:40, note:''}];
+    ok('the row is matched through canon()',
+       (g('stratRowFor')('Nikola Joki\u0107')||{}).max===40,
+       JSON.stringify(g('stratRowFor')('Nikola Joki\u0107')));
+    // A player he never wrote about is not told he wrote nothing.
+    g('drawBidPanel')();
+    ok('a player with no row renders no note', !/Your board/.test(bp()));
+    ok('stratRowFor says so too', g('stratRowFor')('Kevin Durant')===null);
+    // The board is a GM's own; the commissioner has none.
+    X.STRAT = [{n:'Kevin Durant', pri:'high', max:12, note:'his'}];
+    X.me = '__comm__';
+    g('drawBidPanel')();
+    ok('the commissioner is shown no board', !/Your board/.test(bp()));
+    CS.auction = null; X.me = keepMe; X.STRAT = keepStrat;
+  }
+
+  console.log('\n== the league names itself ==');
+  {
+    const CS = g('S'), keepName = CS.cfg.league;
+    ok('a league that never set one is still called something',
+       (delete CS.cfg.league, g('leagueName')()) === g('LEAGUEDEF'), g('leagueName')());
+    CS.cfg.league = '   ';
+    ok('and so is one that blanked it', g('leagueName')() === g('LEAGUEDEF'));
+    CS.cfg.league = 'The Grimsby Nine';
+    ok('otherwise it is what the commissioner typed', g('leagueName')() === 'The Grimsby Nine');
+    g('render')();
+    ok('the masthead carries it',
+       document.getElementById('brand').textContent === 'The Grimsby Nine',
+       document.getElementById('brand').textContent);
+    ok('and so does the browser tab', document.title === 'The Grimsby Nine', document.title);
+    // normCfg is what a settings slice arriving on the poll goes through.
+    const c = g('normCfg')({league:'  The   Grimsby  Nine  ', deputies:[], season:'2026-27'});
+    ok('normCfg collapses the whitespace', c.league === 'The Grimsby Nine', JSON.stringify(c.league));
+    ok('and caps the length',
+       g('normCfg')({league:'x'.repeat(200), deputies:[]}).league.length === g('LEAGUEMAX'));
+    // The check the save runs.
+    ok('blank is allowed and means the default', g('leagueNameError')('') === null);
+    ok('so is an ordinary name', g('leagueNameError')('The Grimsby Nine') === null);
+    ok('too long is not', /at most/.test(g('leagueNameError')('x'.repeat(61)) || ''),
+       g('leagueNameError')('x'.repeat(61)));
+    ok('and neither is punctuation on its own',
+       /letter or a number/.test(g('leagueNameError')('---') || ''));
+    CS.cfg.league = keepName; g('render')();
+  }
+
   console.log('\n== free agents are in the commissioner list ==');
   X.me = '__comm__';
   document.getElementById('apQ').value = '';
@@ -534,6 +602,22 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   document.getElementById('blkQ').value = '';
   g('drawBlock')();
 
+  console.log('\n== the block header names the source the stats came from ==');
+  // The block's stat line is pstat(), so it follows the header toggle. A fixed
+  // "Last season" above it was a lie in two of the three modes.
+  ok('actuals by default', /Last season/.test(document.getElementById('blockList').innerHTML));
+  await g('setProjMode')('agg');
+  g('drawBlock')();
+  ok('the aggregate says so', /2026\u201327 proj/.test(document.getElementById('blockList').innerHTML),
+     g('projSrcHead')());
+  await g('setProjMode')('mine');
+  g('drawBlock')();
+  ok('and a GM\'s own projections say so', /My proj/.test(document.getElementById('blockList').innerHTML),
+     g('projSrcHead')());
+  await g('setProjMode')('act');
+  g('drawBlock')();
+  ok('back to last season', /Last season/.test(document.getElementById('blockList').innerHTML));
+
   console.log('\n== stats show in the pick lists ==');
   document.getElementById('tA').value = 'Osborn';
   document.getElementById('tB').value = 'Coulter';
@@ -545,7 +629,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('games are first, because of the 920 cap', /\d+ G · /.test(listA));
   ok('points, rebounds, assists, threes', /pts · .* reb · .* ast · .* 3p/.test(listA));
   ok('statLine handles a player with no games',
-     g('statLine')('Nobody Who Ever Played').includes('no 2025'),
+     g('statLine')('Nobody Who Ever Played').includes('no games on file'),
      g('statLine')('Nobody Who Ever Played'));
 
   console.log('\n== the category comparison ==');
@@ -730,7 +814,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   const faHtml = document.getElementById('faTable').innerHTML;
   ok('searching for him finds him', faHtml.includes(rk1), faHtml.slice(0, 300));
   ok('and a player with no box score renders as unrated, not a crash',
-     /no 2025-26 stats/.test(faHtml));
+     /no stats on file/.test(faHtml));
   document.getElementById('faSearch').value = '';
   g('drawFAList')();
   ok('statVal is null-safe on a statless row', g('statVal')({g:null,s:null,tot:null},'PTS')===null);

@@ -699,6 +699,24 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 #stratTbl input.smax{width:84px;padding:5px 7px;font-size:12px;text-align:right}
 #stratTbl input.snote{padding:5px 7px;font-size:12.5px;min-width:200px}
 #stratTbl tr.onblock td{background:var(--sel)}
+/* The board's row for the player on the block, shown in the bid panel on My
+   Team. Deliberately quiet: it is a note the GM wrote, not a rule the app is
+   enforcing, so it never looks like the ceiling boxes above it. */
+.stratnote{border:1px solid var(--line);border-left:2px solid var(--space);border-radius:2px;
+  padding:8px 11px;margin-top:11px;background:var(--panel2)}
+.stratnote.past{border-left-color:var(--tax)}
+.stratnote .sthd{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--space);margin-bottom:6px}
+.stratnote.past .sthd{color:var(--tax)}
+.stratnote .stbits{display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center}
+.stratnote .stbit{font-family:var(--mono);font-size:11px;color:var(--steel)}
+/* A middle dot between the bits, never before the first one or after a wrap
+   onto a new line - it is a separator, not a bullet. */
+.stratnote .stbit+.stbit::before{content:'\00B7';color:var(--line);margin-right:9px}
+.stratnote .stbit.p-high{color:var(--tax)}
+.stratnote .stbit.p-med{color:var(--amber)}
+.stratnote .stbit.sthot{color:var(--tax)}
+.stratnote .stcom{font-size:12.5px;color:var(--chalk);margin-top:6px;line-height:1.45}
 #stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--space);margin-bottom:9px}
 @media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
@@ -707,7 +725,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 <body>
 <header class="mast" id="mast">
   <div class="mast-in">
-    <div class="brand">League Ledger</div>
+    <div class="brand" id="brand">League Ledger</div>
     <div class="season" id="seasonL">2026&#8211;27</div>
     <span class="chip" id="netChip" title="League data status"></span>
   <div class="who" id="whoBar"></div>
@@ -1181,6 +1199,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="warn" id="birdWarn" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
+      <div><label for="sLeague">League name</label><input id="sLeague" maxlength="60"
+        placeholder="League Ledger" autocomplete="off"></div>
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
       <div><label for="sTax">Luxury tax / hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
       <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
@@ -1709,9 +1729,27 @@ function mergeSlice(k,theirs,mine){
    all, and an empty list is a real answer — nobody has it. So the seed is only
    applied when the key is MISSING, never when it is present and empty, or
    revoking the last deputy would silently re-grant him on the next load. */
+/* What this league calls itself. It is one commissioner setting, so it rides
+   the settings slice and arrives in every other browser on the poll like the cap
+   does. Blank means the default rather than an empty masthead — a league that
+   never set one is still called something. */
+const LEAGUEDEF='League Ledger';
+const LEAGUEMAX=60;
+function leagueName(){ return nameClean(S.cfg.league)||LEAGUEDEF; }
+/* Why this name cannot be recorded, or null. Blank is allowed and means the
+   default; beyond a length and "has a character in it" the app does not
+   second-guess what a league calls itself. */
+function leagueNameError(v){
+  const n=nameClean(v);
+  if(!n) return null;
+  if(n.length>LEAGUEMAX) return `A league name is at most ${LEAGUEMAX} characters.`;
+  if(!/[A-Za-z0-9]/.test(n)) return 'A league name needs a letter or a number in it.';
+  return null;
+}
 function normCfg(c){
   if(!c||typeof c!=='object') return c;
   if(!Array.isArray(c.deputies)) c.deputies=DEPUTY_SEED.slice();
+  if(c.league!=null) c.league=nameClean(c.league).slice(0,LEAGUEMAX);
   /* One season style. The seed wrote an en dash and a roll computes a hyphen, so
      without this the header changed punctuation the first time the league moved
      — and, worse, a hand-typed season would not match the keys on a contract. */
@@ -1827,7 +1865,7 @@ function fresh(){
      reserve — so 15 active plus 1 IR slot is the rulebook's "16 men, and only if
      one of them is hurt". The offseason has no IR at all, which makes the same
      number mean 15 flat. */
-  return {cfg:{cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,
+  return {cfg:{league:LEAGUEDEF,cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,
     phase:'offseason',ir:1,minSal:1.00,deadline:'',nomOrder:[],
     deputies:DEPUTY_SEED.slice()},teams:t,log:[]};
 }
@@ -2710,7 +2748,7 @@ function drawFA(){
         ${v&&v.g?`<td>${v.g}</td><td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
           <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
           ${shotCells(v.s)}`
-         :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+         :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
         <td class="rating">${r==null?'&#8212;':(r>0?'+':'')+r}</td></tr>`;}).join('')}
       </tbody></table></div></div>`;
   }).join('');
@@ -2759,7 +2797,7 @@ function drawQuickPool(){
       ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
         <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
         <td class="hide2">${p.s.TOV}</td>${shotCells(p.s)}`
-       :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+       :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td><button class="act edit" data-qs="${htmlEsc(p.n)}">Pick</button></td></tr>`).join('')}
     </tbody></table>`;
@@ -3157,6 +3195,7 @@ function drawAdmin(){
       await commit({kind:'trade',team:`${from} / ${to}`,detail:`Commissioner moved ${n} to ${to}`});
     };
   }
+  if($('sLeague')) $('sLeague').value=S.cfg.league||'';
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
   if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
   if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
@@ -3533,6 +3572,12 @@ function render(){
   if(typeof netChip==='function') netChip();
   if(typeof markMore==='function') markMore();
   if(typeof markPhaseTabs==='function') markPhaseTabs();
+  /* The masthead and the browser tab both carry the league's own name. It can
+     be changed in another browser and reach this one on the poll, so it is
+     written on every render rather than once at boot. */
+  const LN=leagueName();
+  if($('brand')) $('brand').textContent=LN;
+  if(document.title!==LN) document.title=LN;
   $('seasonL').textContent=S.cfg.season;
   /* A club can be renamed in another tab and arrive here on the poll, so
      anything holding a club NAME has to be re-checked against S.teams rather
@@ -3756,7 +3801,7 @@ function drawFAList(){
       <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
       <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
       ${shotCells(p.s)}`
-      :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+      :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
       ${canSignFA(me2)?`<td class="acts"><span><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></span></td>`:''}</tr>`;}).join('')}
@@ -3912,6 +3957,7 @@ function drawBidPanel(){
       ? `<div class="warnbox">You cannot go higher on ${a.player}. Your ceiling is ${money(ceil)}.</div>`
       : `<div class="okbox">You may bid up to ${money(ceil)} on this player.</div>`}
     ${notes.length?`<div class="warnbox">${notes.join('<br>')}</div>`:''}
+    ${stratBidNote(a.player,a.bid)}
   </div>
   <div style="margin-top:14px">${impactCard(me2,a.player,`at ${money(a.bid)}`)}</div>`;
   const amt=$('bAmt');
@@ -3994,7 +4040,7 @@ function rosterTable(team,into){
       ${shotCells(r.s)}
       <td class="rating">${rtg(c.n)==null?'&#8212;':(rtg(c.n)>0?'+':'')+rtg(c.n)}</td></tr>`
       :`<tr><td>${c.n}</td><td class="hide">${money(salNow(c))}</td>
-        <td colspan="11" class="unrated" style="text-align:center">no 2025-26 stats</td></tr>`).join('')}
+        <td colspan="11" class="unrated" style="text-align:center">no stats on file</td></tr>`).join('')}
       ${cand?`<tr style="background:#1E2A1F"><td><b>+ ${cand.n}</b>
         <span class="tag t-bird">on the block</span></td><td class="hide">${money(a.bid)}</td>
         <td>${cand.g}</td><td>${cand.s.PTS}</td><td>${cand.s.TRB}</td><td>${cand.s.AST}</td>
@@ -4806,6 +4852,37 @@ async function refreshStrat(){
 let stratTimer=null;
 function saveStratSoon(){ clearTimeout(stratTimer); stratTimer=setTimeout(()=>saveStrat(true),600); }
 function stratIdx(n){ return STRAT.findIndex(x=>x.n===n); }
+/* A GM's own board row for one player, matched through canon() because the
+   board holds the name he typed and the auction carries the spelling the
+   nomination used. Pure, and null when he never wrote anything down. */
+function stratRowFor(name){
+  const c=canon(name);
+  const i=STRAT.findIndex(x=>canon(x.n)===c);
+  return i<0?null:{...STRAT[i],rank:i+1,of:STRAT.length};
+}
+/* What that row says, as the small block the bid panel carries. A GM bidding is
+   looking at the ceiling the rules give him; what he wants next is the ceiling
+   he gave himself, and it lives two tabs away on the strategy board. Nothing is
+   read from it and no bid is ever placed from it — it is his own note, still
+   private, shown where the decision is made.
+
+   Silent when there is no row: a GM who wrote nothing about this player is not
+   told that he wrote nothing. */
+function stratBidNote(name,bid){
+  if(!me||isComm()) return '';
+  const x=stratRowFor(name);
+  if(!x) return '';
+  const past = x.max!=null && bid!=null && bid>=x.max;
+  const bit=(t,cls)=>`<span class="stbit${cls?' '+cls:''}">${t}</span>`;
+  return `<div class="stratnote${past?' past':''}">
+    <div class="sthd">Your board \u00b7 private to you</div>
+    <div class="stbits">${bit('#'+x.rank+' of '+x.of)}${
+      bit((PRI[x.pri]||PRI.med)+' priority','p-'+(PRI[x.pri]?x.pri:'med'))}${
+      bit(x.max!=null?'your max '+money(x.max):'no max written down')}${
+      past?bit(bid>x.max?'the bidding is past it':'the bidding is at it','sthot'):''}</div>
+    ${x.note?`<div class="stcom">${htmlEsc(x.note)}</div>`:''}
+  </div>`;
+}
 function moveStrat(i,d){
   const j=i+d;
   if(!STRAT[i]||j<0||j>=STRAT.length) return;
@@ -5014,6 +5091,10 @@ let PROJ={}, useProj=false, PROJSRC='mine', RTGCACHE=null;
 const usingMine=()=>useProj&&PROJSRC==='mine';
 const usingAgg=()=>useProj&&PROJSRC==='agg';
 const projSrcLabel=()=>usingAgg()?'2026\u201327 aggregate':usingMine()?'my projections':'2025\u201326 actuals';
+/* The same answer as a column heading. Any table whose numbers come through
+   pstat() is showing whatever the header toggle is set to, so a fixed "Last
+   season" above them is a lie in two of the three modes. */
+const projSrcHead=()=>usingAgg()?'2026\u201327 proj':usingMine()?'My proj':'Last season';
 function projFor(name){
   if(!useProj) return null;
   const c=canon(name);
@@ -5236,7 +5317,10 @@ function goTab(id){
   btns.forEach(b=>{const on=b.dataset.v===id; b.setAttribute('aria-selected',on); if(on)found=true;});
   if(!found) return false;
   document.querySelectorAll('.view').forEach(v=>v.hidden = v.id!==id);
-  if(id==='v-auction'&&typeof refreshStrat==='function') refreshStrat();
+  /* Both tabs show the board's own numbers now — the auction its full table,
+     My Team the one row for the player on the block — so both are a moment
+     worth fetching what the other device wrote. */
+  if((id==='v-auction'||id==='v-me')&&typeof refreshStrat==='function') refreshStrat();
   // Chat is fetched on its own, not through ?key=all, so opening the tab is what
   // asks for it. Nothing is polled while nobody is looking.
   if(id==='v-chat'&&typeof loadChat==='function'){
@@ -5476,7 +5560,7 @@ function impact(team,name){
 function impactCard(team,name,priceNote){
   const r=pstat(name);
   if(!r||!r.g) return `<div class="impact"><h4>${name}</h4>
-    <div class="sub2">no 2025-26 stats on file &#8212; cannot project</div></div>`;
+    <div class="sub2">no stats on file &#8212; cannot project</div></div>`;
   const I=impact(team,name);
   const GC=S.cfg.gamecap||920;
   const rows=PCATS.map(([k,lab])=>{
@@ -6215,7 +6299,7 @@ function drawTradeLists(){
    much as what he produces in them. */
 function statLine(name){
   const r=pstat(name);
-  if(!r||!r.g) return '<span class="dimx">no 2025\u201326 games on file</span>';
+  if(!r||!r.g) return '<span class="dimx">no games on file</span>';
   const n=(k,d)=>r.s[k]==null?'\u2013':r.s[k].toFixed(d==null?1:d);
   /* The two weighted categories, with the volume that earns them — a pick list
      is where a GM decides whether a shooter is worth having, and .900 on two
@@ -6276,7 +6360,7 @@ function drawTradeCats(v){
     }).join(''), 'netrow');
   const missing=A.unrated+B.unrated;
   box.innerHTML=`<h3 class="sub" style="margin-top:20px">What moves</h3>
-    <p class="note">Last season's totals, counted the way the league scores. Turnovers count against
+    <p class="note">Totals from ${projSrcLabel()}, counted the way the league scores. Turnovers count against
       you, so shedding them shows as a gain. Percentages are weighted by attempts and do not add up
       across clubs, so they are shown per side only. Games matter on their own: the league caps a
       club at ${S.cfg.gamecap||920} player-games, and slots you cannot use are wasted.</p>
@@ -6287,7 +6371,7 @@ function drawTradeCats(v){
       ${net(v.a,A,B)}${net(v.b,B,A)}
     </tbody></table></div>
     ${missing?`<p class="note">${missing} player${missing===1?'':'s'} in this offer had no games
-      in 2025\u201326 and count as zero here.</p>`:''}
+      on file and count as zero here.</p>`:''}
     ${(v.ka.length+v.kb.length)?`<p class="note">Draft picks are not counted above. A pick produces
       nothing until it is used, and what it will be worth is exactly what the two clubs are
       arguing about.</p>`:''}`;
@@ -6319,7 +6403,7 @@ function drawBlock(){
   box.innerHTML=`<table id="blkTbl"><thead><tr>
     <th class="l" data-k="n">Player</th><th class="l" data-k="club">Club</th>
     <th class="l hide" data-k="pos">Pos</th><th data-k="sal">Salary</th>
-    <th data-k="rtg">Rating</th><th class="l hide2" data-k="line">Last season</th>
+    <th data-k="rtg">Rating</th><th class="l hide2" data-k="line">${projSrcHead()}</th>
     <th></th></tr></thead><tbody>${rows.map(({t,i,p})=>{
     const r=rtg(p.n), right=tradeRight(p), st=pstat(p.n);
     return `<tr><td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}${tags(p)}</td>
@@ -7683,13 +7767,17 @@ $('saveCfg').onclick=async()=>{
   const dl=($('sDeadline').value||'').trim();
   if(dl&&!/^\d{4}-\d{2}-\d{2}$/.test(dl))
     return alert('The trade deadline reads as YYYY-MM-DD, or leave it blank.');
+  const ln=$('sLeague')?nameClean($('sLeague').value):null;
+  const lerr=leagueNameError(ln);
+  if(lerr) return alert(lerr);
+  if(ln!=null) S.cfg.league=ln;
   S.cfg.cap=parseFloat($('sCap').value)||S.cfg.cap;
   S.cfg.tax=parseFloat($('sTax').value)||S.cfg.tax;
   S.cfg.roster=parseInt($('sRoster').value)||S.cfg.roster;
   const mn=parseFloat($('sMin').value);
   if(mn>0) S.cfg.minSal=Math.round(mn*4)/4;
   S.cfg.deadline=dl;
-  await commit({kind:'edit',detail:`League settings \u2014 cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
+  await commit({kind:'edit',detail:`League settings \u2014 ${leagueName()}, cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
     +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}`});
 };
 $('exportBtn').onclick=()=>{

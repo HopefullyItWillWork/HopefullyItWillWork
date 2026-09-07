@@ -149,6 +149,16 @@ only important caller — everything else inherits. `usingMine()` and `usingAgg(
 exist so the amber "edited" marks stay on a GM's own numbers: on the aggregate
 the numbers move but nothing is his, so nothing is marked.
 
+**A table fed by `pstat()` may not name its source in fixed text.** The trade
+block's stat column said "Last season" whatever the toggle was set to, and the
+trade machine's category swing said "Last season's totals" over aggregate or
+projected numbers. `projSrcHead()` is that label as a column heading (`Last
+season` / `2026–27 proj` / `My proj`) and `projSrcLabel()` is the same answer in a
+sentence. The empty-row placeholders that said "no 2025-26 stats" now say "no
+stats on file", because whether a player has a line on file is not a claim about
+which season is being shown. The player rater is the deliberate exception: it
+reads `RATER` directly and is descriptive of 2025–26, so its heading is fixed.
+
 `setProjMode()` normalises its argument, including the old `true`/`false` call
 shape, because an unrecognised value silently meaning "some projection" is
 exactly the bug worth not having. Anything unknown is `act`.
@@ -580,6 +590,17 @@ expiring contract — the board only ever showed unrostered players, and the poo
 was 252 instead of 296. Do not reintroduce that. A player leaves the board when
 someone commits salary to him for next season, not when he appears on a roster.
 
+**The board's own row follows the player onto My Team.** When a lot is open,
+`drawBidPanel()` carries `stratBidNote()` under the ceiling boxes: where the
+player ranks, the priority, the max the GM wrote down and his comment, plus a
+red line when the bidding has reached or passed that max. `stratRowFor()` is the
+pure lookup and matches through `canon()`, because the board holds the name he
+typed and the lot the spelling the nomination used. It is silent for a player he
+never wrote about — a GM is not told that he wrote nothing — and for the
+commissioner, who has no board. **Nothing is read back out of it**: the max is
+still a note, never an automatic bid, and opening My Team now calls
+`refreshStrat()` for the same reason opening the auction does.
+
 `stratHold()` tags each board row with the club that holds him and what it holds
 him with (Bird, Early Bird, restricted), so the ranking is read against the
 matching right. Both sides go through `canon()`; without it "Jakob Poetl" and
@@ -723,6 +744,17 @@ unlike the strategy board. A man in the last year of a deal is already listed
 under his club, and listing him twice would give the commissioner two rows for
 one player. Duplicate *contract* rows are left visible on purpose: the sheet
 really does carry Poeltl on two rosters, and hiding that would hide the problem.
+
+**The league's own name** is `S.cfg.league`, the first field in League settings.
+`leagueName()` is what every screen asks — the cleaned value, or `LEAGUEDEF`
+("League Ledger") when it is blank, because a league that never set one is still
+called something. `render()` writes it into `#brand` and `document.title` on
+every draw rather than once at boot: it is a settings-slice value, so a rename
+made in one browser arrives in the others on the poll. `leagueNameError()` is the
+check the save runs (blank is fine, at most `LEAGUEMAX` characters, needs a
+letter or a number) and `normCfg()` collapses the whitespace and caps the length
+on the way in. The `<title>` in the file stays "League Ledger" — it is the name
+the page carries until the first render.
 
 **Adding a club** is on the same tab. A new club joins with an empty roster and
 no PIN, so the first person to sign in as it claims it. Nothing else is
