@@ -1133,11 +1133,12 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   </section>
 
   <section class="view" id="v-rater" role="tabpanel" hidden>
-    <h2>Player rater &#8212; 2025&#8211;26</h2>
-    <p class="note">What each player actually produced last season, scored the way this league counts. Every category is a
-      z-score against the pool of rostered players; shooting percentages are weighted by attempts, so a big volume of bad
-      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated. Switch the header
-      toggle to <b>2026&#8211;27 aggregate</b> to score the same way against next season's projections instead.
+    <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
+    <p class="note">The field ranked the way this league counts, on whichever numbers the header toggle is showing &#8212;
+      <b>2025&#8211;26 actuals</b>, the <b>2026&#8211;27 aggregate</b>, or <b>your own projections</b>. Every category is a
+      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
+      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
+      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
       <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
       player passes a better one who played less, which is the 920-game cap showing up.
       <b>Dynamic rater</b> is your own scratch version: set a games or minutes floor and choose which categories count,
@@ -5499,20 +5500,20 @@ function pstat(name){
 }
 function hasProj(name){ return !!PROJ[canon(name)]; }
 /* rating recomputed against the whole pool so edits move the scale honestly */
+/* ---- one rating, computed one way ----
+   This used to carry its own copy of the z-score arithmetic, and the two did not
+   agree: it took the pool's shooting rate weighted by games where the rater took
+   it straight, so the same player under the aggregate could be 0.18 apart on two
+   tabs. That was survivable only while the rater ignored the toggle and the two
+   were never showing the same question. Now that it does, they must be the same
+   number, so this delegates and `raterScore()` is the only implementation.
+
+   Cached in RTGCACHE, which setProjMode() and the projection load/save already
+   clear — those are the only things that move the pool. */
 function ratings(){
-  if(!useProj) { const m={}; RATER.forEach(p=>m[p.n]=p.tot); return m; }
   if(RTGCACHE) return RTGCACHE;
-  const act=RATER.map(p=>pstat(p.n)).filter(p=>p&&p.g>=15);
-  const sum=(f)=>act.reduce((a,p)=>a+f(p),0);
-  const fgp=sum(p=>p.s.FG*p.g)/Math.max(1,sum(p=>p.s.FGA*p.g));
-  const ftp=sum(p=>p.s.FT*p.g)/Math.max(1,sum(p=>p.s.FTA*p.g));
-  const cat=p=>({FG:p.s.FGA?p.s.FGA*(p.s.FG/p.s.FGA-fgp):0, FT:p.s.FTA?p.s.FTA*(p.s.FT/p.s.FTA-ftp):0,
-    P3:p.s.P3,REB:p.s.TRB,AST:p.s.AST,STL:p.s.STL,BLK:p.s.BLK,TO:-p.s.TOV,PTS:p.s.PTS});
-  const raw=act.map(p=>({n:p.n,c:cat(p)})), K=Object.keys(raw[0].c);
-  const mu={},sd={};
-  K.forEach(k=>{const v=raw.map(r=>r.c[k]); mu[k]=v.reduce((a,b)=>a+b,0)/v.length;
-    sd[k]=Math.sqrt(v.reduce((a,b)=>a+(b-mu[k])**2,0)/v.length)||1;});
-  const m={}; raw.forEach(r=>m[r.n]=+K.reduce((a,k)=>a+(r.c[k]-mu[k])/sd[k],0).toFixed(2));
+  const m={};
+  raterScore(raterPool(),{basis:'pg'}).rows.forEach(p=>{ m[p.n]=p.tot; });
   RTGCACHE=m; return m;
 }
 function rtg(name){ const m=ratings(); const c=canon(name); return m[c]!=null?m[c]:null; }
@@ -8194,6 +8195,28 @@ function raterPair(p,c,basis){
   const f=rScale(p,basis);
   return [m*f,a*f];
 }
+/* ---- the pool the rater scores ----
+   The rater used to read `RATER` directly and was the app's one screen that
+   ignored the header toggle: it was documented as descriptive of 2025-26 and so
+   deliberately exempt. The league asked for the opposite — a GM wants to rank
+   the field on the aggregate he is drafting against, or on his own numbers, not
+   only on what happened. So it goes through `pstat()` like every other stats
+   table, and the heading names its source rather than being fixed.
+
+   `pstat()` merges a projection over the 2025-26 line through `SKEYS`, which has
+   no `MP`: a projection says what a player will produce, not how long he will be
+   on the floor. Minutes are last season's fact under every source, so they are
+   carried across rather than vanishing the moment a GM switches — otherwise the
+   dynamic rater's minutes floor would silently match nobody on the aggregate. */
+function raterPool(){
+  return RATER.map(b=>{
+    const r=pstat(b.n);
+    if(!r) return null;
+    if(r!==b && r.s && r.s.MP==null && b.s && b.s.MP!=null)
+      return {...r,s:{...r.s,MP:b.s.MP}};
+    return r;
+  }).filter(Boolean);
+}
 /* Pure. Takes a pool and returns it scored, ranked and copied.
    opts: {basis:'pg'|'tot', cats:[...], minG, minMp}
    The pool it is handed IS the field it z-scores against — that is what makes
@@ -8310,7 +8333,7 @@ function drawDynBox(R){
      mid-draw and the redraw dies with the table half written. It is the same
      fault the bid panel had, and the same answer: build the controls once, then
      touch only what changed. It keeps a half-typed games floor on screen too. */
-  const shape='mp'+(hasMp?1:0);
+  const shape='mp'+(hasMp?1:0)+(useProj?'p':'a');   // the minutes hint depends on the source
   if(box.getAttribute('data-built')===shape){ syncDynBox(); drawDynBanner(R); return; }
   box.setAttribute('data-built',shape);
   box.innerHTML=`<div class="dynbox">
@@ -8321,7 +8344,7 @@ function drawDynBox(R){
         <span class="hint">league default ${RMING}</span></div>
       <div class="dynfield"><label for="dMinMp">Minimum minutes a game</label>
         <input id="dMinMp" type="number" min="0" max="48" step="0.5" value="${htmlEsc(String(RDYN.minMp))}"${hasMp?'':' disabled'}>
-        <span class="hint">${hasMp?'blank for no floor':'no minutes on file'}</span></div>
+        <span class="hint">${!hasMp?'no minutes on file':useProj?'2025\u201326 minutes':'blank for no floor'}</span></div>
       <div class="dynfield"><label>&nbsp;</label>
         <button class="btn ghost" id="dReset">Reset</button></div>
     </div>
@@ -8401,7 +8424,7 @@ function drawRater(){
      against fifteen team-mates says a club's fourth-best guard is average, which
      is true of nothing. The dynamic rater's own filters DO define the field, and
      that difference is the entire reason it is a separate mode. */
-  const R=raterScore(RATER,raterOpts());
+  const R=raterScore(raterPool(),raterOpts());
   drawDynBox(R);
   const all=R.rows.concat(R.unrated);
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
@@ -8412,6 +8435,9 @@ function drawRater(){
   const S0=SORTS.rater||{col:'tot',desc:true};
   const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
+  const H2=$('raterH2');
+  if(H2) H2.textContent='Player rater \u2014 '+projSrcLabel();
+  const mark=usingMine();
   $('rCount').textContent=`${rows.length} of ${RATER.length} players`
     +(raterDynOn()?` · scored against ${R.pool}`:'');
   const span=RCATS.length;
@@ -8425,7 +8451,11 @@ function drawRater(){
         /* A category the GM has switched off keeps its column — the row would
            otherwise change width under him — but shows the number with no
            z-score, because it is not contributing to the rating any more. */
-        if(p.z[c]==null) return `<td class="zshot unrated">&#8212;<small>${raterRaw(p,c,basis)}</small></td>`;
+        /* Under a GM's own projections the raw line is HIS number, so it
+           carries the amber mark every other table uses. On the aggregate the
+           numbers move but none of them are his, so nothing is marked. */
+        const ed=mark&&hasProj(p.n)?' class="edited"':'';
+        if(p.z[c]==null) return `<td class="zshot unrated">&#8212;<small${ed}>${raterRaw(p,c,basis)}</small></td>`;
         const z=`<span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span>`;
         /* Every column carries the number the z-score was computed FROM. A
            z-score says how far ahead of the field a player is; it does not say
@@ -8436,7 +8466,7 @@ function drawRater(){
            said FG% and the value under it was a z-score, so the rate itself was
            never on this screen at all. They carry the rate and the makes and
            attempts, because the league weights them by attempts. */
-        return `<td class="zshot">${z}<small>${raterRaw(p,c,basis)}</small></td>`;
+        return `<td class="zshot">${z}<small${ed}>${raterRaw(p,c,basis)}</small></td>`;
       }).join('')}
       <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
   }).join('');
