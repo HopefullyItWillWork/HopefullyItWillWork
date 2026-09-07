@@ -56,7 +56,7 @@ const EPILOGUE = ';globalThis.__X={' + [
   'notesKey','NOTES','normProj','normNotes','syncWord',
   'cboxRemoteKey','cboxLocalKey','cboxPick','cboxReadLocal','CBOXAT','CBOXREV',
   'isFreeAgent','ownerLabel','LAB','raterClub',
-  'AGG','PROJSRC','projFor','usingMine','usingAgg','projSrcLabel','RTGCACHE',
+  'AGG','PROJSRC','projFor','usingMine','usingAgg','projSrcLabel','projSrcHead','RTGCACHE',
   'NBATM','SLOTS','SLOTIDS','slotKind','slotLabel','isLocked','leagueTZ','irOf','posText','onIR','irCount','fresh','signedClub','swapping','LUCATS','hhmm','SLOTIDS','SCHED','TRICODE','tipFor',
   'minSal','deadlinePassed','canSignFA','nomOrder','nomFull','canNominate','OFFSEASON_TABS',
   'nomCount',

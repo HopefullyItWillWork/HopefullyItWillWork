@@ -149,6 +149,16 @@ only important caller — everything else inherits. `usingMine()` and `usingAgg(
 exist so the amber "edited" marks stay on a GM's own numbers: on the aggregate
 the numbers move but nothing is his, so nothing is marked.
 
+**A table fed by `pstat()` may not name its source in fixed text.** The trade
+block's stat column said "Last season" whatever the toggle was set to, and the
+trade machine's category swing said "Last season's totals" over aggregate or
+projected numbers. `projSrcHead()` is that label as a column heading (`Last
+season` / `2026–27 proj` / `My proj`) and `projSrcLabel()` is the same answer in a
+sentence. The empty-row placeholders that said "no 2025-26 stats" now say "no
+stats on file", because whether a player has a line on file is not a claim about
+which season is being shown. The player rater is the deliberate exception: it
+reads `RATER` directly and is descriptive of 2025–26, so its heading is fixed.
+
 `setProjMode()` normalises its argument, including the old `true`/`false` call
 shape, because an unrecognised value silently meaning "some projection" is
 exactly the bug worth not having. Anything unknown is `act`.

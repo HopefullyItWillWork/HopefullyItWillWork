@@ -534,6 +534,22 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   document.getElementById('blkQ').value = '';
   g('drawBlock')();
 
+  console.log('\n== the block header names the source the stats came from ==');
+  // The block's stat line is pstat(), so it follows the header toggle. A fixed
+  // "Last season" above it was a lie in two of the three modes.
+  ok('actuals by default', /Last season/.test(document.getElementById('blockList').innerHTML));
+  await g('setProjMode')('agg');
+  g('drawBlock')();
+  ok('the aggregate says so', /2026\u201327 proj/.test(document.getElementById('blockList').innerHTML),
+     g('projSrcHead')());
+  await g('setProjMode')('mine');
+  g('drawBlock')();
+  ok('and a GM\'s own projections say so', /My proj/.test(document.getElementById('blockList').innerHTML),
+     g('projSrcHead')());
+  await g('setProjMode')('act');
+  g('drawBlock')();
+  ok('back to last season', /Last season/.test(document.getElementById('blockList').innerHTML));
+
   console.log('\n== stats show in the pick lists ==');
   document.getElementById('tA').value = 'Osborn';
   document.getElementById('tB').value = 'Coulter';
@@ -545,7 +561,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('games are first, because of the 920 cap', /\d+ G · /.test(listA));
   ok('points, rebounds, assists, threes', /pts · .* reb · .* ast · .* 3p/.test(listA));
   ok('statLine handles a player with no games',
-     g('statLine')('Nobody Who Ever Played').includes('no 2025'),
+     g('statLine')('Nobody Who Ever Played').includes('no games on file'),
      g('statLine')('Nobody Who Ever Played'));
 
   console.log('\n== the category comparison ==');
@@ -730,7 +746,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   const faHtml = document.getElementById('faTable').innerHTML;
   ok('searching for him finds him', faHtml.includes(rk1), faHtml.slice(0, 300));
   ok('and a player with no box score renders as unrated, not a crash',
-     /no 2025-26 stats/.test(faHtml));
+     /no stats on file/.test(faHtml));
   document.getElementById('faSearch').value = '';
   g('drawFAList')();
   ok('statVal is null-safe on a statless row', g('statVal')({g:null,s:null,tot:null},'PTS')===null);

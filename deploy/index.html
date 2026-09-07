@@ -2710,7 +2710,7 @@ function drawFA(){
         ${v&&v.g?`<td>${v.g}</td><td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
           <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
           ${shotCells(v.s)}`
-         :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+         :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
         <td class="rating">${r==null?'&#8212;':(r>0?'+':'')+r}</td></tr>`;}).join('')}
       </tbody></table></div></div>`;
   }).join('');
@@ -2759,7 +2759,7 @@ function drawQuickPool(){
       ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
         <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
         <td class="hide2">${p.s.TOV}</td>${shotCells(p.s)}`
-       :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+       :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td><button class="act edit" data-qs="${htmlEsc(p.n)}">Pick</button></td></tr>`).join('')}
     </tbody></table>`;
@@ -3756,7 +3756,7 @@ function drawFAList(){
       <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
       <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
       ${shotCells(p.s)}`
-      :`<td colspan="10" class="unrated" style="text-align:center">no 2025-26 stats</td>`}
+      :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
       ${canSignFA(me2)?`<td class="acts"><span><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></span></td>`:''}</tr>`;}).join('')}
@@ -3994,7 +3994,7 @@ function rosterTable(team,into){
       ${shotCells(r.s)}
       <td class="rating">${rtg(c.n)==null?'&#8212;':(rtg(c.n)>0?'+':'')+rtg(c.n)}</td></tr>`
       :`<tr><td>${c.n}</td><td class="hide">${money(salNow(c))}</td>
-        <td colspan="11" class="unrated" style="text-align:center">no 2025-26 stats</td></tr>`).join('')}
+        <td colspan="11" class="unrated" style="text-align:center">no stats on file</td></tr>`).join('')}
       ${cand?`<tr style="background:#1E2A1F"><td><b>+ ${cand.n}</b>
         <span class="tag t-bird">on the block</span></td><td class="hide">${money(a.bid)}</td>
         <td>${cand.g}</td><td>${cand.s.PTS}</td><td>${cand.s.TRB}</td><td>${cand.s.AST}</td>
@@ -5014,6 +5014,10 @@ let PROJ={}, useProj=false, PROJSRC='mine', RTGCACHE=null;
 const usingMine=()=>useProj&&PROJSRC==='mine';
 const usingAgg=()=>useProj&&PROJSRC==='agg';
 const projSrcLabel=()=>usingAgg()?'2026\u201327 aggregate':usingMine()?'my projections':'2025\u201326 actuals';
+/* The same answer as a column heading. Any table whose numbers come through
+   pstat() is showing whatever the header toggle is set to, so a fixed "Last
+   season" above them is a lie in two of the three modes. */
+const projSrcHead=()=>usingAgg()?'2026\u201327 proj':usingMine()?'My proj':'Last season';
 function projFor(name){
   if(!useProj) return null;
   const c=canon(name);
@@ -5476,7 +5480,7 @@ function impact(team,name){
 function impactCard(team,name,priceNote){
   const r=pstat(name);
   if(!r||!r.g) return `<div class="impact"><h4>${name}</h4>
-    <div class="sub2">no 2025-26 stats on file &#8212; cannot project</div></div>`;
+    <div class="sub2">no stats on file &#8212; cannot project</div></div>`;
   const I=impact(team,name);
   const GC=S.cfg.gamecap||920;
   const rows=PCATS.map(([k,lab])=>{
@@ -6215,7 +6219,7 @@ function drawTradeLists(){
    much as what he produces in them. */
 function statLine(name){
   const r=pstat(name);
-  if(!r||!r.g) return '<span class="dimx">no 2025\u201326 games on file</span>';
+  if(!r||!r.g) return '<span class="dimx">no games on file</span>';
   const n=(k,d)=>r.s[k]==null?'\u2013':r.s[k].toFixed(d==null?1:d);
   /* The two weighted categories, with the volume that earns them — a pick list
      is where a GM decides whether a shooter is worth having, and .900 on two
@@ -6276,7 +6280,7 @@ function drawTradeCats(v){
     }).join(''), 'netrow');
   const missing=A.unrated+B.unrated;
   box.innerHTML=`<h3 class="sub" style="margin-top:20px">What moves</h3>
-    <p class="note">Last season's totals, counted the way the league scores. Turnovers count against
+    <p class="note">Totals from ${projSrcLabel()}, counted the way the league scores. Turnovers count against
       you, so shedding them shows as a gain. Percentages are weighted by attempts and do not add up
       across clubs, so they are shown per side only. Games matter on their own: the league caps a
       club at ${S.cfg.gamecap||920} player-games, and slots you cannot use are wasted.</p>
@@ -6287,7 +6291,7 @@ function drawTradeCats(v){
       ${net(v.a,A,B)}${net(v.b,B,A)}
     </tbody></table></div>
     ${missing?`<p class="note">${missing} player${missing===1?'':'s'} in this offer had no games
-      in 2025\u201326 and count as zero here.</p>`:''}
+      on file and count as zero here.</p>`:''}
     ${(v.ka.length+v.kb.length)?`<p class="note">Draft picks are not counted above. A pick produces
       nothing until it is used, and what it will be worth is exactly what the two clubs are
       arguing about.</p>`:''}`;
@@ -6319,7 +6323,7 @@ function drawBlock(){
   box.innerHTML=`<table id="blkTbl"><thead><tr>
     <th class="l" data-k="n">Player</th><th class="l" data-k="club">Club</th>
     <th class="l hide" data-k="pos">Pos</th><th data-k="sal">Salary</th>
-    <th data-k="rtg">Rating</th><th class="l hide2" data-k="line">Last season</th>
+    <th data-k="rtg">Rating</th><th class="l hide2" data-k="line">${projSrcHead()}</th>
     <th></th></tr></thead><tbody>${rows.map(({t,i,p})=>{
     const r=rtg(p.n), right=tradeRight(p), st=pstat(p.n);
     return `<tr><td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}${tags(p)}</td>
