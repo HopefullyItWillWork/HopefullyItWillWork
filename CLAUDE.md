@@ -590,6 +590,17 @@ expiring contract — the board only ever showed unrostered players, and the poo
 was 252 instead of 296. Do not reintroduce that. A player leaves the board when
 someone commits salary to him for next season, not when he appears on a roster.
 
+**The board's own row follows the player onto My Team.** When a lot is open,
+`drawBidPanel()` carries `stratBidNote()` under the ceiling boxes: where the
+player ranks, the priority, the max the GM wrote down and his comment, plus a
+red line when the bidding has reached or passed that max. `stratRowFor()` is the
+pure lookup and matches through `canon()`, because the board holds the name he
+typed and the lot the spelling the nomination used. It is silent for a player he
+never wrote about — a GM is not told that he wrote nothing — and for the
+commissioner, who has no board. **Nothing is read back out of it**: the max is
+still a note, never an automatic bid, and opening My Team now calls
+`refreshStrat()` for the same reason opening the auction does.
+
 `stratHold()` tags each board row with the club that holds him and what it holds
 him with (Bird, Early Bird, restricted), so the ranking is read against the
 matching right. Both sides go through `canon()`; without it "Jakob Poetl" and

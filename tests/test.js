@@ -191,6 +191,45 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('datalist labels who holds him', /James Harden">Coulter/.test(box.innerHTML),
      (box.innerHTML.match(/James Harden[^<]*</)||[''])[0]);
 
+  console.log('\n== the block panel carries the GM\'s own board row ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepStrat = X.STRAT;
+    CS.auction = {player:'Kevin Durant', by:'Osborn', bid:9, leader:'Osborn',
+                  bids:[], max:{}, status:'open'};
+    X.me = 'Osborn';
+    X.STRAT = [{n:'James Harden', pri:'low', max:3, note:''},
+               {n:'Kevin Durant', pri:'high', max:12, note:'only if the guards go early'}];
+    g('drawBidPanel')();
+    const bp = () => document.getElementById('bidPanel').innerHTML;
+    ok('the board row is shown', /Your board/.test(bp()), bp().slice(0,200));
+    ok('with where he ranks', /#2 of 2/.test(bp()));
+    ok('his priority', /High priority/.test(bp()));
+    ok('the max he wrote down', /your max \$12\.00/.test(bp()));
+    ok('and his comment', /only if the guards go early/.test(bp()));
+    ok('nothing warns while the bidding is under it', !/the bidding is/.test(bp()));
+    CS.auction.bid = 12;
+    g('drawBidPanel')();
+    ok('the bidding reaching his max says so', /the bidding is at it/.test(bp()));
+    CS.auction.bid = 12.5;
+    g('drawBidPanel')();
+    ok('and going past it says that instead', /the bidding is past it/.test(bp()));
+    // canon(): the board holds what he typed, the lot what the nomination used.
+    X.STRAT = [{n:'Nikola Jokic', pri:'med', max:40, note:''}];
+    ok('the row is matched through canon()',
+       (g('stratRowFor')('Nikola Joki\u0107')||{}).max===40,
+       JSON.stringify(g('stratRowFor')('Nikola Joki\u0107')));
+    // A player he never wrote about is not told he wrote nothing.
+    g('drawBidPanel')();
+    ok('a player with no row renders no note', !/Your board/.test(bp()));
+    ok('stratRowFor says so too', g('stratRowFor')('Kevin Durant')===null);
+    // The board is a GM's own; the commissioner has none.
+    X.STRAT = [{n:'Kevin Durant', pri:'high', max:12, note:'his'}];
+    X.me = '__comm__';
+    g('drawBidPanel')();
+    ok('the commissioner is shown no board', !/Your board/.test(bp()));
+    CS.auction = null; X.me = keepMe; X.STRAT = keepStrat;
+  }
+
   console.log('\n== free agents are in the commissioner list ==');
   X.me = '__comm__';
   document.getElementById('apQ').value = '';

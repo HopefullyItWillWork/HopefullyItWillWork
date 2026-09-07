@@ -699,6 +699,24 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 #stratTbl input.smax{width:84px;padding:5px 7px;font-size:12px;text-align:right}
 #stratTbl input.snote{padding:5px 7px;font-size:12.5px;min-width:200px}
 #stratTbl tr.onblock td{background:var(--sel)}
+/* The board's row for the player on the block, shown in the bid panel on My
+   Team. Deliberately quiet: it is a note the GM wrote, not a rule the app is
+   enforcing, so it never looks like the ceiling boxes above it. */
+.stratnote{border:1px solid var(--line);border-left:2px solid var(--space);border-radius:2px;
+  padding:8px 11px;margin-top:11px;background:var(--panel2)}
+.stratnote.past{border-left-color:var(--tax)}
+.stratnote .sthd{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--space);margin-bottom:6px}
+.stratnote.past .sthd{color:var(--tax)}
+.stratnote .stbits{display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center}
+.stratnote .stbit{font-family:var(--mono);font-size:11px;color:var(--steel)}
+/* A middle dot between the bits, never before the first one or after a wrap
+   onto a new line - it is a separator, not a bullet. */
+.stratnote .stbit+.stbit::before{content:'\00B7';color:var(--line);margin-right:9px}
+.stratnote .stbit.p-high{color:var(--tax)}
+.stratnote .stbit.p-med{color:var(--amber)}
+.stratnote .stbit.sthot{color:var(--tax)}
+.stratnote .stcom{font-size:12.5px;color:var(--chalk);margin-top:6px;line-height:1.45}
 #stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--space);margin-bottom:9px}
 @media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
@@ -3912,6 +3930,7 @@ function drawBidPanel(){
       ? `<div class="warnbox">You cannot go higher on ${a.player}. Your ceiling is ${money(ceil)}.</div>`
       : `<div class="okbox">You may bid up to ${money(ceil)} on this player.</div>`}
     ${notes.length?`<div class="warnbox">${notes.join('<br>')}</div>`:''}
+    ${stratBidNote(a.player,a.bid)}
   </div>
   <div style="margin-top:14px">${impactCard(me2,a.player,`at ${money(a.bid)}`)}</div>`;
   const amt=$('bAmt');
@@ -4806,6 +4825,37 @@ async function refreshStrat(){
 let stratTimer=null;
 function saveStratSoon(){ clearTimeout(stratTimer); stratTimer=setTimeout(()=>saveStrat(true),600); }
 function stratIdx(n){ return STRAT.findIndex(x=>x.n===n); }
+/* A GM's own board row for one player, matched through canon() because the
+   board holds the name he typed and the auction carries the spelling the
+   nomination used. Pure, and null when he never wrote anything down. */
+function stratRowFor(name){
+  const c=canon(name);
+  const i=STRAT.findIndex(x=>canon(x.n)===c);
+  return i<0?null:{...STRAT[i],rank:i+1,of:STRAT.length};
+}
+/* What that row says, as the small block the bid panel carries. A GM bidding is
+   looking at the ceiling the rules give him; what he wants next is the ceiling
+   he gave himself, and it lives two tabs away on the strategy board. Nothing is
+   read from it and no bid is ever placed from it — it is his own note, still
+   private, shown where the decision is made.
+
+   Silent when there is no row: a GM who wrote nothing about this player is not
+   told that he wrote nothing. */
+function stratBidNote(name,bid){
+  if(!me||isComm()) return '';
+  const x=stratRowFor(name);
+  if(!x) return '';
+  const past = x.max!=null && bid!=null && bid>=x.max;
+  const bit=(t,cls)=>`<span class="stbit${cls?' '+cls:''}">${t}</span>`;
+  return `<div class="stratnote${past?' past':''}">
+    <div class="sthd">Your board \u00b7 private to you</div>
+    <div class="stbits">${bit('#'+x.rank+' of '+x.of)}${
+      bit((PRI[x.pri]||PRI.med)+' priority','p-'+(PRI[x.pri]?x.pri:'med'))}${
+      bit(x.max!=null?'your max '+money(x.max):'no max written down')}${
+      past?bit(bid>x.max?'the bidding is past it':'the bidding is at it','sthot'):''}</div>
+    ${x.note?`<div class="stcom">${htmlEsc(x.note)}</div>`:''}
+  </div>`;
+}
 function moveStrat(i,d){
   const j=i+d;
   if(!STRAT[i]||j<0||j>=STRAT.length) return;
@@ -5240,7 +5290,10 @@ function goTab(id){
   btns.forEach(b=>{const on=b.dataset.v===id; b.setAttribute('aria-selected',on); if(on)found=true;});
   if(!found) return false;
   document.querySelectorAll('.view').forEach(v=>v.hidden = v.id!==id);
-  if(id==='v-auction'&&typeof refreshStrat==='function') refreshStrat();
+  /* Both tabs show the board's own numbers now — the auction its full table,
+     My Team the one row for the player on the block — so both are a moment
+     worth fetching what the other device wrote. */
+  if((id==='v-auction'||id==='v-me')&&typeof refreshStrat==='function') refreshStrat();
   // Chat is fetched on its own, not through ?key=all, so opening the tab is what
   // asks for it. Nothing is polled while nobody is looking.
   if(id==='v-chat'&&typeof loadChat==='function'){
