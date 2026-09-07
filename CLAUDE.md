@@ -680,6 +680,24 @@ players as it covers, so what is tracked is the money **left**.
 box a GM ticked.** `awardTo()` asks `mleNeed()`: any part of the price above cap
 room that Bird or Early Bird does not cover comes out of the pot, which is what
 makes the contract **two seasons flat** (`termFrom(price,2)`) and what is debited.
+
+**The signing is stamped with the offseason that paid for it**:
+`p.mle = {s:'2026-27', amt:4.00}`, written by `signPlayer()` so every path that
+signs writes the same shape, and cleared there when a signing does not use the
+exception. The contract runs two seasons, so a year later the money alone no
+longer says where it came from — the stamp is how the ledger still answers "why
+is he on the books over the cap". `tags(p)` renders it as `MLE 2026-27` on every
+roster row, and `leagueCSV()` carries `mle_season` and `mle_amount`.
+
+**It is deliberately NOT `p.b='MLE'`.** `birdKind()` reads every non-empty label
+that is not `Yes` as Early Bird, so putting it there would hand the club a $7.00
+over-the-cap exception it has not earned — the exact fault the `p.b` note above
+was written about.
+
+**The stamp does not travel with the player.** `unlist()` drops it alongside the
+trade-block flag, for the same reason: the exception was the *old* club's pot and
+was debited from it, so carrying the mark across would say the new club spent an
+exception it still holds. The two-season contract is his and does travel.
 The checkbox on the bid form declares intent so the GM sees the consequence and so
 the levelling rule below is available — it is not what makes it an MLE deal.
 
