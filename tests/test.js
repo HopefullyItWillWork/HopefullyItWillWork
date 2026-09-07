@@ -416,6 +416,49 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.cfg.cap = keepCap; CS.cfg.nomOrder = keepOrder; CS.auction = null; X.me = keepMe;
   }
 
+  console.log('\n== a mid-level signing is stamped with the offseason that paid ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap;
+    const logWas = (CS.log || []).slice();
+    X.me = '__comm__';
+    CS.cfg.cap = g('committed')('Osborn') + 1.00;      // $1.00 of room, then the pot
+    CS.auction = {player:'James Harden', by:'Osborn', bid:4.00, leader:'Osborn',
+                  bids:[{t:'Osborn', amt:4.00, ts:1, mle:true}], max:{}, status:'open'};
+    await g('awardTo')('Osborn', '');
+    const p = CS.teams['Osborn'].r.find(x => x.n === 'James Harden');
+
+    ok('the contract runs two seasons, flat',
+       JSON.stringify(p.y) === JSON.stringify({'2026-27':4, '2027-28':4}), JSON.stringify(p.y));
+    ok('and is stamped with the offseason that paid for him',
+       p.mle && p.mle.s === g('curSeason')(), JSON.stringify(p.mle));
+    ok('...and with how much of the exception he took', p.mle.amt === 4.00, JSON.stringify(p.mle));
+    ok('the pot is down by exactly that', g('mleLeft')('Osborn') === g('mleAmt')() - 4.00,
+       g('mleLeft')('Osborn'));
+    ok('the roster row wears the mark', /t-mle/.test(g('tags')(p)), g('tags')(p));
+    ok('and it names the season', /MLE 2026-27/.test(g('tags')(p)), g('tags')(p));
+
+    // It is NOT written into p.b: birdKind() reads every non-empty label that is
+    // not 'Yes' as Early Bird, which would hand out a $7.00 exception.
+    ok('the stamp is not a rights label', p.b !== 'MLE', p.b);
+
+    // The exception was the old club's pot, so the mark does not travel.
+    g('unlist')(p);
+    ok('a club change drops it', p.mle === undefined, JSON.stringify(p.mle));
+
+    // Re-signing without the exception clears a stale one.
+    p.mle = {s:'2025-26', amt:2};
+    CS.cfg.cap = 500;                                   // room to spare now
+    await g('signPlayer')('James Harden', 'Osborn', 1.00, 1, {force:true});
+    const p2 = CS.teams['Osborn'].r.find(x => x.n === 'James Harden');
+    ok('an ordinary signing carries no stamp', p2.mle === undefined, JSON.stringify(p2.mle));
+
+    CS.cfg.cap = keepCap; CS.auction = null;
+    CS.log.length = 0; logWas.forEach(e => CS.log.push(e));
+    CS.teams['Osborn'].r = CS.teams['Osborn'].r.filter(x => x.n !== 'James Harden');
+    delete CS.teams['Osborn'].mle;
+    X.me = keepMe;
+  }
+
   console.log('\n== two clubs level on the exception ==');
   {
     const CS = g('S'), keepMe = X.me;

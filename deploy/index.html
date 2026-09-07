@@ -25,7 +25,7 @@
   --tto-b:#1D2E47;--tto-t:#7FB0E8; --tro-b:#1B3A2A;--tro-t:#6FC28E;
   --tpo-b:#40300F;--tpo-t:#E8A93F; --tbi-b:#3A2E17;--tbi-t:#E0A340;
   --teb-b:#2E2A17;--teb-t:#C9B463; --trf-b:#41231E;--trf-t:#E5806B;
-  --tcu-b:#3A1E1A;--tcu-t:#D4715C; --tbl-b:#4A3410;--tbl-t:#F0B85A;
+  --tcu-b:#3A1E1A;--tcu-t:#D4715C; --tbl-b:#4A3410;--tbl-t:#F0B85A; --tml-b:#22333F;--tml-t:#7FC3D8;
   --bnr:linear-gradient(170deg,#1C2432,#141B25);
   --shadow:none;
 }
@@ -39,7 +39,7 @@
   --okbg:#E9F4ED; --okln:#B4D8C2; --oktx:#1F6D45;
   --wnbg:#FBEDE9; --wnln:#E5BDB1; --wntx:#8E2C18;
   --tto-b:#DCE8F7;--tto-t:#1D5A94; --tro-b:#DCF0E4;--tro-t:#1B6B3C;
-  --tpo-b:#F7E9CE;--tpo-t:#8A5A06; --tbi-b:#F6E8CC;--tbi-t:#8A5A06; --tbl-b:#FBE7BE;--tbl-t:#6E4304;
+  --tpo-b:#F7E9CE;--tpo-t:#8A5A06; --tbi-b:#F6E8CC;--tbi-t:#8A5A06; --tbl-b:#FBE7BE;--tbl-t:#6E4304; --tml-b:#DCEDF4;--tml-t:#1C5468;
   --teb-b:#F2EDD6;--teb-t:#75651B; --trf-b:#FBE1DB;--trf-t:#9A3018;
   --tcu-b:#F7E2DC;--tcu-t:#93321C;
   --bnr:linear-gradient(170deg,#FFFFFF,#F1F4F8);
@@ -147,6 +147,7 @@ tbody tr.iscut td:first-child{text-decoration:line-through;text-decoration-color
 .tag{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.09em;padding:1.5px 5px;border-radius:2px;margin-left:6px;vertical-align:1px;font-weight:500}
 .t-to{background:var(--tto-b);color:var(--tto-t)}.t-ro{background:var(--tro-b);color:var(--tro-t)}.t-po{background:var(--tpo-b);color:var(--tpo-t)}
 .t-blk{background:var(--tbl-b);color:var(--tbl-t);font-weight:700}
+.t-mle{background:var(--tml-b);color:var(--tml-t)}
 .act.on{border-color:var(--amber);color:var(--amber)}
 .t-bird{background:var(--tbi-b);color:var(--tbi-t)}.t-eb{background:var(--teb-b);color:var(--teb-t)}
 .t-rfa{background:var(--trf-b);color:var(--trf-t)}.t-cut{background:var(--tcu-b);color:var(--tcu-t)}
@@ -2204,11 +2205,15 @@ async function toggleBlock(team,idx){
   await commit({kind:'edit',team,
     detail:`${p.n} ${p.blk?'listed on the trade block':'taken off the trade block'}`},['rosters']);
 }
-/* A listing belongs to the club that made it, so it does not travel with the
-   player. Without this a man traded away arrives at his new club still on the
-   block, advertising him on behalf of a GM who never listed him. Call this
-   anywhere a roster entry moves between clubs. */
-function unlist(p){ if(p&&p.blk) delete p.blk; return p; }
+/* Two things belong to the club, not to the player, so neither travels with him.
+   Without the first a man traded away arrives at his new club still on the
+   block, advertising him on behalf of a GM who never listed him. The second is
+   the mid-level stamp: the exception that paid for him was the OLD club's and
+   was debited from the old club's pot, so carrying the mark across would say
+   the new club spent an exception it still holds. The contract itself — two
+   seasons — is his and does travel. Call this anywhere a roster entry moves
+   between clubs. */
+function unlist(p){ if(p&&p.blk) delete p.blk; if(p&&p.mle) delete p.mle; return p; }
 /* Every player any club has listed, contracts before rights. */
 function blockList(){
   const out=[];
@@ -2352,6 +2357,16 @@ async function signPlayer(name,team,price,years,opts){
   if(opts.bird!=null){
     const p=S.teams[team].r.find(x=>x.n===name);
     if(p) p.b=opts.bird;
+  }
+  /* The mid-level stamp: which offseason's exception paid for him, and how much
+     of it. Written here rather than at the call site so a player who arrives by
+     any other route cannot keep a previous club's stamp. */
+  {
+    const p=S.teams[team].r.find(x=>x.n===name);
+    if(p){
+      if(opts.mle&&opts.mle.amt>0) p.mle={s:curSeason(),amt:Math.round(opts.mle.amt*4)/4};
+      else delete p.mle;
+    }
   }
   await commit({kind:'sign',team,detail:`${name} \u2014 ${money(price)} \u00d7 ${years} yr${years>1?'s':''}`
     +(opts.why?` (${opts.why})`:'')});
@@ -2707,6 +2722,8 @@ function tags(p){
   if(!contracted(p)&&p.o)h+='<span class="tag t-rfa">Restricted</span>';
   const bk=birdRight(p);
   if(bk==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(bk)h+='<span class="tag t-eb">Early Bird</span>';
+  const m=mleStamp(p);
+  if(m)h+=`<span class="tag t-mle" title="${mleStampText(p)}">MLE ${htmlEsc(m.s)}</span>`;
   return h;
 }
 function drawDetail(){
@@ -5735,7 +5752,7 @@ function downloadCSV(name,csv){
    csvSeasonCols() is evaluated per export, so the headings move with the league. */
 const CSVFIXED=['key','player','club','pos'];
 const CSVTAIL=['years_left','option','rights','acquired','ir','on_block','rating',
-  'alias','status'];
+  'mle_season','mle_amount','alias','status'];
 const csvSeasonCols=()=>{const c=curSeason();
   return ['salary_'+seasonPrev(c),'salary_'+c,'salary_'+seasonAt(c,1),'salary_'+seasonAt(c,2)];};
 const CSVCOLS=CSVFIXED.concat(['salary_now','salary_next','salary_plus1','salary_plus2'],CSVTAIL);
@@ -5755,6 +5772,7 @@ function leagueCSV(rows){
       num(salPrev(p)),num(salNow(p)),num(salOff(p,1)),num(salOff(p,2)),
       r.fa?'':r.yrs, p.o||'', p.b||'', p.acq==null?'':p.acq,
       p.ir?'yes':'', p.blk?'yes':'', r.rtg==null?'':r.rtg,
+      (mleStamp(p)||{}).s||'', mleStamp(p)?num(p.mle.amt):'',
       aliasesFor(c), r.fa?'free agent':'contract'].map(csvCell).join(','));
   });
   return out.join('\n');
@@ -6024,6 +6042,19 @@ function mleLeft(team){
   return mleAmt();                                  // never touched it
 }
 const mleSpent=team=>Math.max(0,mleAmt()-mleLeft(team));
+/* A signing paid for out of the exception is stamped with WHICH offseason's
+   exception it was and how much of it he took: `p.mle = {s:'2026-27', amt:4.00}`.
+   The contract itself is two seasons, so a year later the money alone no longer
+   says where it came from — the stamp is how the ledger still answers "why is he
+   on the books over the cap".
+
+   It is deliberately NOT `p.b='MLE'`. `birdKind()` reads every non-empty label
+   that is not 'Yes' as Early Bird, so writing the label there would hand the club
+   a $7.00 over-the-cap exception it has not earned — the exact bug that section
+   of CLAUDE.md was written about. */
+const mleStamp=p=>(p&&p.mle&&p.mle.s)?p.mle:null;
+const mleStampText=p=>{const m=mleStamp(p);
+  return m?`Mid-level exception \u2014 ${money(m.amt||0)} of the ${htmlEsc(m.s)} exception`:'';};
 /* Cap room, the number every exception is measured against: what a club may
    commit before the soft cap, holding back a minimum for each empty seat. */
 function capRoom(team){
@@ -6484,7 +6515,7 @@ async function awardTo(team,note){
      seasons, and what is debited from the pot. */
   const need=mleNeed(team,a.player,price), mle=need>0.001;
   a.status='closed'; a.winner=team; a.price=price; a.match=null;
-  await signPlayer(a.player,team,price,mle?2:1,{force:true});
+  await signPlayer(a.player,team,price,mle?2:1,{force:true,mle:mle?{amt:need}:null});
   if(mle) S.teams[team].mle=Math.max(0,Math.round((mleLeft(team)-need)*4)/4);
   await commit({kind:'sign',team,detail:`Won ${a.player} at ${money(price)}${note||''}`
     +(mle?` \u2014 ${money(need)} of the mid-level, two seasons`:'')});
