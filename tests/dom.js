@@ -128,7 +128,20 @@ class Doc {
     let m;
     while((m = re.exec(html))){
       const id = m[3];
-      if(this._els.has(id)) continue;
+      /* An element is reused by id on purpose: the app binds handlers straight
+         after writing innerHTML, and handing back a fresh object each time made
+         every button look dead. But a BROWSER destroys the old node, so state
+         the new markup declares must be re-derived or the stub reports stale
+         state as live — a checkbox re-rendered unticked stayed ticked here, and
+         reported a working reset as broken. Same fault the <select> value fix
+         above covers, in the other direction. */
+      if(this._els.has(id)){
+        const cur = this._els.get(id), at2 = parseTag('<'+m[1]+m[2]+'>');
+        cur.checked = 'checked' in at2;
+        cur.disabled = 'disabled' in at2;
+        if('value' in at2) cur.value = at2.value;
+        continue;
+      }
       const at = parseTag('<'+m[1]+m[2]+'>');
       const e = new El(id, this, m[1]);
       e.attrs = at; e.className = at.class||''; e.hidden = 'hidden' in at;

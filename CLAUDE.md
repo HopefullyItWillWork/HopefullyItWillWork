@@ -692,6 +692,21 @@ allows the equal bid only in that case; the lot then carries a tie, and
 `closeAuction()` flips a coin at the award — nothing in this app is random until a
 person presses a button — and writes the flip into the bid log.
 
+**The tick is a declaration about a bid not yet made, so it is on screen whenever
+the club has an exception to declare** — `ml>0` and no Bird right of its own on
+that player, which would cover him instead. It first shipped gated on the *next
+quarter* already exceeding cap room, which meant that in an offseason where every
+club has room **nobody could ever tick it**. A tick at a price the cap room covers
+is not refused either: `mleNeed()` decides whether the exception is really paying,
+and the bid is marked `mle` only when it is — otherwise a rival could level an
+ordinary bid.
+
+**The auction poll rebuilds the bid panel every four seconds, which threw away
+whatever the GM was in the middle of** — his half-typed bid, his max, and the tick,
+so a bid sent a moment later went in undeclared. `BIDUI` remembers the three,
+keyed to the lot so a new player starts clean, and `bidControls()` puts them back
+after the rebuild. Same answer the strategy board's `stratFocus()` gives.
+
 The one gap: the commissioner's assignment dialog does not debit the pot. It exists
 to make the ledger match reality and warns rather than blocks throughout; the
 auction is the path that spends the exception.
@@ -1136,7 +1151,14 @@ in `tests/dom.js`:
   keeps the old string reports a correctly defaulted dropdown as holding a stale
   club;
 - an attribute parser that only understands `k="v"` never sees `<option selected>`
-  or a bare `hidden`, which are exactly the two things this app leans on most.
+  or a bare `hidden`, which are exactly the two things this app leans on most;
+- **an element reused by id keeps state the new markup does not declare.** The
+  reuse is deliberate — the app binds handlers straight after writing `innerHTML`,
+  and handing back a fresh object made every button look dead — but a browser
+  *destroys* the old node, so `checked`, `disabled` and a `value` attribute have to
+  be re-derived on each scan. Without that a checkbox re-rendered unticked stayed
+  ticked, and the stub reported a working reset as broken. It is the `<select>`
+  value fault in the other direction.
 
 **`querySelectorAll` only understands attribute selectors.** `#tabs button` finds
 nothing, so anything reached that way — `goTab()`, `markPhaseTabs()` — cannot be

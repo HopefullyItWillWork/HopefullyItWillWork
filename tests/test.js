@@ -296,6 +296,57 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('and never calls the hard cap a luxury tax', !/luxury/i.test(w.why), w.why);
   }
 
+  console.log('\n== the mid-level tick is offerable, and survives the poll ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap;
+    X.me = 'Osborn';
+    CS.auction = {player:'James Harden', by:'Osborn', bid:3.00, leader:'Coulter',
+                  bids:[{t:'Coulter', amt:3.00, ts:1}], max:{}, status:'open'};
+    // The fault: the box only appeared when the NEXT QUARTER was already above
+    // cap room, so in an offseason where every club has room nobody could tick
+    // it. It is a declaration about a bid not yet made.
+    ok('the club has cap room to spare', g('capRoom')('Osborn') > 1, g('capRoom')('Osborn'));
+    g('bidControls')();
+    ok('...and is still offered the exception', !!document.getElementById('bMle'));
+
+    // The four-second poll rebuilt the panel and threw the tick away.
+    document.getElementById('bMle').checked = true;
+    document.getElementById('bMle').onchange();
+    document.getElementById('bAmt').value = '7.75';
+    document.getElementById('bAmt').oninput();
+    g('bidControls')();                                  // the poll
+    ok('the tick survives a redraw', document.getElementById('bMle').checked === true);
+    ok('and so does the half-typed bid', document.getElementById('bAmt').value === '7.75',
+       document.getElementById('bAmt').value);
+
+    // A new lot starts clean rather than inheriting the last one's tick.
+    CS.auction.player = 'Somebody Else';
+    g('bidControls')();
+    ok('a new player clears it', document.getElementById('bMle').checked === false);
+    CS.auction.player = 'James Harden';
+
+    // Ticking it at a price cap room covers is a declaration, not an error.
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Osborn', 4.00, false, true);
+    ok('a bid inside cap room with it ticked is accepted', ctx.__alerts.length === 0,
+       JSON.stringify(ctx.__alerts));
+    ok('...and is NOT marked as a mid-level bid', CS.auction.bids[0].mle !== true,
+       JSON.stringify(CS.auction.bids[0]));
+    ok('because the money decides, not the box',
+       g('mleNeed')('Osborn', 'James Harden', 4.00) === 0);
+
+    // Above cap room it is marked, which is what the levelling rule keys off.
+    CS.cfg.cap = g('committed')('Osborn') + 1.00;
+    CS.auction.bid = 1.00; CS.auction.leader = 'Coulter';
+    CS.auction.bids = [{t:'Coulter', amt:1.00, ts:1}];
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Osborn', 3.00, false, true);
+    ok('a bid the exception pays for is marked', CS.auction.bids[0].mle === true,
+       JSON.stringify(CS.auction.bids[0]));
+    ok('and nothing was refused', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+    CS.cfg.cap = keepCap; CS.auction = null; X.me = keepMe;
+  }
+
   console.log('\n== two clubs level on the exception ==');
   {
     const CS = g('S'), keepMe = X.me;
