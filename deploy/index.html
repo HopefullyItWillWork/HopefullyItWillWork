@@ -4037,6 +4037,15 @@ function drawMe(){
    undeclared. Same shape as the strategy board's answer: remember, rebuild,
    put it back. Keyed to the lot, so a new player starts clean. */
 let BIDUI={player:'',amt:'',max:'',mle:false};
+/* The nomination form's equivalent. Cleared once the nomination lands, or when
+   the form is not on screen at all. */
+let NOMUI={p:'',open:'',max:'',mle:false};
+function nomRemember(){
+  if($('nomP')) NOMUI.p=$('nomP').value;
+  if($('nomO')) NOMUI.open=$('nomO').value;
+  if($('nomM')) NOMUI.max=$('nomM').value;
+  if($('nomMle')) NOMUI.mle=!!$('nomMle').checked;
+}
 function bidRemember(){
   const a=A(); if(!a||BIDUI.player!==a.player) return;
   if($('bAmt')) BIDUI.amt=$('bAmt').value;
@@ -4652,20 +4661,42 @@ function drawAuction(){
          <span class="fcount">round ${clock.round} of the snake${
            clock.skipped?` &#183; ${clock.skipped} full club${clock.skipped===1?'':'s'} skipped`:''}</span>`
       : '<span class="pill bad">Every club is full &#8212; nobody left to nominate.</span>';
+  /* A nomination opens with the nominator's own bid, so everything a bid can
+     declare it can declare too — including the mid-level. The player is not
+     chosen when this renders, so the box can only ask whether he HAS an
+     exception left; whether it is actually spent is settled by the money at
+     `nominate()`, exactly as it is for a bid. */
+  const nomMl = can ? mleLeft(me) : 0;
   $('nomBox').innerHTML=can?`<div class="form f4" style="margin-top:14px">
       <div><label for="nomP">Nominate a player</label><input id="nomP" data-list="falist2" placeholder="Player name" autocomplete="off">
         <datalist id="falist2">${faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
       <div><label for="nomO">Opening bid</label><input id="nomO" class="mono" type="number" step="0.25" min="1" value="1.00"></div>
       <div><label for="nomM">Max bid <span style="color:var(--dim)">optional</span></label>
         <input id="nomM" class="mono" type="number" step="0.25" min="1" placeholder="bids for you"></div>
-      <button class="btn" id="nomGo">Put on the block</button></div>`
+      <button class="btn" id="nomGo">Put on the block</button></div>
+      ${nomMl>0?`<label class="mlebox"><input type="checkbox" id="nomMle"${NOMUI.mle?' checked':''}>
+        <span>Open on my mid-level exception &#8212; ${money(nomMl)} left.
+        ${Math.max(0,capRoom(me))>0?`Your first ${money(Math.max(0,capRoom(me)))} of cap room is spent before any of it is,
+          so this only bites above ${money(Math.max(0,capRoom(me)))}.`:'You are over the salary cap, so every dollar comes out of it.'}
+        A bid it pays any part of <b>signs him for two seasons</b>, and another club on its own exception
+        may level it rather than raise, which the commissioner settles with a coin flip.</span></label>`:''}`
     : !me ? '<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>'
       : isComm() ? ''
       : nomFull(me) ? `<p class="note" style="margin-top:14px">${me} carries ${S.cfg.roster} players and cannot nominate.</p>`
       : (ordered&&clock&&clock.team!==me) ? `<p class="note" style="margin-top:14px">Waiting on ${htmlEsc(clock.team)} to nominate.</p>`
       : '';
+  /* The poll rebuilds this box too, and a GM picking a player out of the
+     combobox and typing an opening bid is exactly who it would interrupt. Same
+     remember-rebuild-restore the bid panel does. */
+  if(can){
+    if($('nomP')&&NOMUI.p) $('nomP').value=NOMUI.p;
+    if($('nomO')&&NOMUI.open) $('nomO').value=NOMUI.open;
+    if($('nomM')&&NOMUI.max) $('nomM').value=NOMUI.max;
+    ['nomP','nomO','nomM'].forEach(id=>{ const el=$(id); if(el) el.oninput=nomRemember; });
+    if($('nomMle')) $('nomMle').onchange=nomRemember;
+  } else NOMUI={p:'',open:'',max:'',mle:false};
   if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1,
-    parseFloat(($('nomM')&&$('nomM').value)||'')||0);
+    parseFloat(($('nomM')&&$('nomM').value)||'')||0, !!($('nomMle')&&$('nomMle').checked));
   bidControls();
   drawAuctRoster();
   drawBarred();
@@ -6021,9 +6052,9 @@ function bidCeiling(team,name){
   const R=rightsOf(team,name);
   if(R.club===team&&R.bird==='Yes') return Math.max(1,hard);
   if(R.club===team&&R.bird) return Math.max(1,Math.min(hard,Math.max(space,0)+7.00));
-  if(space>=1) return Math.max(1,Math.min(hard,space));
   const ml=mleLeft(team);
   if(ml>0) return Math.max(1,Math.min(hard,Math.max(space,0)+ml));
+  if(space>=1) return Math.max(1,Math.min(hard,space));
   return hard>=1?1:0;
 }
 /* The ceiling AND the one-sentence reason it is where it is. The bid panel used
@@ -6046,13 +6077,13 @@ function ceilWhy(team,name){
   if(R.club===team&&R.bird)
     return {ceil,why:`Early Bird on ${name} — ${money(space>0?space:0)} of cap room plus ${money(7)} over the `
       +`${money(S.cfg.cap)} salary cap.`};
-  if(space>=1&&ceil<=space+0.001)
-    return {ceil,why:`${money(ceil)} is ${team}'s room under the ${money(S.cfg.cap)} salary cap.`};
   if(ml>0) return {ceil,why:space>=1
-    ? `${money(space)} of room under the ${money(S.cfg.cap)} salary cap, plus ${money(ml)} of mid-level exception `
-      +`left. Anything above the cap room spends the exception and signs him for two seasons.`
+    ? `${money(space)} of room under the ${money(S.cfg.cap)} salary cap, plus the ${money(ml)} of mid-level `
+      +`exception left. Anything above ${money(space)} spends the exception and signs him for two seasons.`
     : `${team} is over the ${money(S.cfg.cap)} salary cap, so this is the ${money(ml)} of mid-level exception `
       +`it has left. Using it signs him for two seasons.`};
+  if(space>=1&&ceil<=space+0.001)
+    return {ceil,why:`${money(ceil)} is ${team}'s room under the ${money(S.cfg.cap)} salary cap.`};
   return {ceil,why:`${team} is over the ${money(S.cfg.cap)} salary cap with no exception left — minimum deals only.`};
 }
 /* Why a club may NOT put this contract on its books, in one sentence, or null if
@@ -6377,7 +6408,7 @@ async function saveNomOrder(list){
   await commit({kind:'edit',
     detail:`Auction nomination order set — ${S.cfg.nomOrder.join(', ')||'cleared'}`},['settings']);
 }
-async function nominate(name,team,open,max){
+async function nominate(name,team,open,max,isMle){
   if(!name) return;
   if(!canNominate(team)){
     const c=nomOnClock();
@@ -6389,8 +6420,19 @@ async function nominate(name,team,open,max){
   const nb=signBlock(team,name,Math.round((open||1)*4)/4);
   if(nb) return alert(`${team} cannot nominate ${name}.\n\n${nb}`);
   const at=Math.round((open||1)*4)/4;
+  /* Declared AND actually paid for by the exception, the same test placeBid()
+     applies. The opening bid used to be marked from the money alone, which
+     meant an over-the-cap nominator declared nothing and yet opened a lot a
+     rival could level. */
+  const mleReal = !!isMle && usesMle(team,name,at);
+  if(isMle){
+    const need=mleNeed(team,name,at);
+    if(need>mleLeft(team)+0.001)
+      return alert(`Opening at ${money(at)} would need ${money(need)} of mid-level exception and ${team} has `
+        +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
+  }
   S.auction={player:name,by:team,bid:at,leader:team,
-    bids:[{t:team,amt:at,ts:now(),mle:usesMle(team,name,at)}],max:{},status:'open',ts:now()};
+    bids:[{t:team,amt:at,ts:now(),mle:mleReal}],max:{},status:'open',ts:now()};
   /* A nominator who already knows his ceiling should not have to sit on the
      tab to defend the lot. The max is his own, checked against the same
      ceiling any bid is, and silently dropped rather than refused if it is
@@ -6401,8 +6443,9 @@ async function nominate(name,team,open,max){
     if(mx>ceil+0.001) return alert(`${team} may bid at most ${money(ceil)} on ${name}, so that max cannot be set.`);
     S.auction.max[team]=mx;
   }
+  NOMUI={p:'',open:'',max:'',mle:false};
   await commit({kind:'sign',team,detail:`Nominated ${name} at ${money(at)}`
-    +(mx>=at?` (max ${money(mx)})`:'')},['auction']);
+    +(mx>=at?` (max ${money(mx)})`:'')+(mleReal?' on the mid-level':'')},['auction']);
 }
 /* ---- awarding ----
    Awarding is the commissioner's, not the room's. The GM who nominated a player
