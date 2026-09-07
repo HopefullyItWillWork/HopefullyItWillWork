@@ -480,6 +480,30 @@ another club, and the league year is used everywhere rather than
 `new Date().getFullYear()`, so a January signing belongs to the season it was
 made in.
 
+### Bidding lives on the auction tab
+The controls used to sit on My Team, two tabs from the bid history, the money left
+and the player on the block — a GM bidding was reading one screen and typing into
+another. `bidControls()` fills `#bidBox` on the auction tab and `drawAuction()`
+draws it every pass, because the four-second poll rebuilds that panel and a handler
+bound to a thrown-away node is the oldest bug in this file.
+
+**My Team keeps the impact card**, which is what it was always the right home for:
+what the player would do to *your* club at the current price, plus the strategy-board
+row and a button to the auction. It does not duplicate the controls.
+
+`ceilWhy(team,name)` is pure and returns the ceiling **and the one sentence saying
+which wall it is** — the soft cap, the hard cap, the exception, a release bar or a
+full roster. "You may bid up to $9.00" alone left a GM guessing. Nothing a GM reads
+calls the hard cap a luxury tax any more; the settings field and the club page say
+"hard cap".
+
+**The bid log records every step.** `auto`/"automatic" is gone. A max is a bid *up
+to*, so the club setting one is on record at the price it takes even when a rival's
+higher max answers in the same instant — without that entry the rival's two lines
+read as one club bidding against itself, which is exactly what was reported. The
+nomination form carries an optional **max bid**, checked against the same ceiling
+any bid is.
+
 ### Awarding is the commissioner's, not the room's
 The GM who nominated a player used to be able to close his own lot, which let him
 end the bidding the moment he was in front. **Only `hasComm()` sees the Award
@@ -639,17 +663,50 @@ roster. Worth $7.00 over the cap.
 player, or rookie option. Their club sits out the bidding, then decides whether
 to match. All cap rules apply to the match.
 
-**Mid-level exception**: once a year. $5.50 over the cap, $3.25 under. Consumed
-when used.
+**Mid-level exception**: $5.50 over the cap by default, and the commissioner sets
+the figure (`S.cfg.mle`). It is **a pot, not a coupon** — it splits across as many
+players as it covers, so what is tracked is the money **left**.
 
-**Trades**, over the cap, incoming salary is limited by outgoing:
+| | |
+|---|---|
+| `mleAmt()` | the league's figure; `MLEDEF` ($5.50) when unset |
+| `mleLeft(t)` | dollars remaining — legacy `mle===false` reads as 0, a missing key as the full amount, so nothing migrates |
+| `capRoom(t)` | room under the **soft** cap, holding a minimum back for each empty seat |
+| `mleNeed(t,name,price)` | the part of a price above cap room that no Bird right covers |
+| `usesMle(...)` | that, as a predicate |
+| `mleTied()` | the clubs level with the standing bid on declared MLE bids |
+
+**Whether the exception is being spent is a fact about the money, not about which
+box a GM ticked.** `awardTo()` asks `mleNeed()`: any part of the price above cap
+room that Bird or Early Bird does not cover comes out of the pot, which is what
+makes the contract **two seasons flat** (`termFrom(price,2)`) and what is debited.
+The checkbox on the bid form declares intent so the GM sees the consequence and so
+the levelling rule below is available — it is not what makes it an MLE deal.
+
+**It beats the soft cap and nothing else.** `bidCeiling()` computes `hard` first and
+every branch is clamped to it, so the $200.50 hard cap is still absolute.
+
+**Two clubs down to their exception cannot separate themselves by a quarter**, so a
+declared MLE bid may **level** an existing one rather than raise it. `placeBid()`
+allows the equal bid only in that case; the lot then carries a tie, and
+`closeAuction()` flips a coin at the award — nothing in this app is random until a
+person presses a button — and writes the flip into the bid log.
+
+The one gap: the commissioner's assignment dialog does not debit the pot. It exists
+to make the ledger match reality and warns rather than blocks throughout; the
+auction is the path that spends the exception.
+
+**Trades**: salary matching is **off** by default and is now the commissioner's
+switch, `S.cfg.match`, read through `matchOn()`. A missing key means off, so
+nothing migrates. With it off a deal needs only the **hard cap** and the roster
+limit — the one rule the rulebook never lets anything beat. Re-validate at accept
+time either way — rosters move between offer and acceptance.
+
+Switched on, the old bands apply to a club over the cap before the trade or that
+the trade pushes over:
 - $9.75 or less → 150% of outgoing
 - $10.00–$19.50 → outgoing + $5.00
 - $19.75 or more → 125% of outgoing
-
-Matching applies only to a club that is over the cap before the trade or that the
-trade pushes over. Re-validate at accept time — rosters move between offer and
-acceptance.
 
 A club can also trade the **rights** it holds to a player whose deal is expiring
 — Bird, Early Bird, or restricted — and the rights travel with him. `tradeRight()`
@@ -755,6 +812,26 @@ check the save runs (blank is fine, at most `LEAGUEMAX` characters, needs a
 letter or a number) and `normCfg()` collapses the whitespace and caps the length
 on the way in. The `<title>` in the file stays "League Ledger" — it is the name
 the page carries until the first render.
+
+**Adding a player to the pool** is on the same tab. `RATER` is a hand-transcribed
+snapshot, so a man signed since, a call-up, or somebody the sheet missed has no row
+and cannot be nominated, drafted or signed. `S.cfg.addl` is the commissioner's list
+of extras; `addlPlayers()` returns them in RATER row shape with **`g`, `s` and `tot`
+null**, exactly like an undrafted rookie — `hasStats()` is what every table already
+asks, so no screen changed and nothing invents numbers for a player nobody has any
+for. `addlError()` is the check (blank, over 60 characters, already in `RATER`,
+already added, already on a roster). A RATER row always wins, so when the feed
+lands the extra simply stops being used. It rides **settings**: league-wide
+reference data written rarely by one person.
+
+**Emailing the league** is `wireBroadcast()` and `{kind:'all'}` in `notify.mjs`.
+Three things guard the one endpoint that writes free text to more than one person:
+**only the commissioner login** may send it (a deputy's club PIN is not enough —
+this leaves the app and cannot be taken back), every address still comes from the
+rosters slice rather than the request, and the whole run is counted against the
+daily ceiling **before** anything is sent, so a broadcast that would breach it
+sends to nobody rather than to half the league. The body is plain text, escaped,
+with its line breaks kept.
 
 **Adding a club** is on the same tab. A new club joins with an empty roster and
 no PIN, so the first person to sign in as it claims it. Nothing else is
@@ -1099,7 +1176,7 @@ configuration → Environment variables:
 | `MAIL_FROM` | required | e.g. `League Ledger <ledger@yourdomain.com>`; the domain must be verified with Resend |
 | `SITE_URL` | optional | links back into the app |
 | `LEAGUE_TZ` | optional | defaults to `America/New_York` |
-| `MAIL_DAILY_CAP` | optional | defaults to 200 sends a day |
+| `MAIL_DAILY_CAP` | optional | defaults to **100** sends a day — Resend's own free-tier daily limit, so our ceiling bites first |
 
 **With no key set, every send returns `{ok:false, reason:"not configured"}` and
 the caller carries on.** That is the deliberate default: a fresh deploy never

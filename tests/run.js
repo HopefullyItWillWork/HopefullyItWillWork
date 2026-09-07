@@ -69,7 +69,7 @@ const EPILOGUE = ';globalThis.__X={' + [
   'gmOf','gmName','clubWho','gmNameError','saveGmName','nameClean','drawSettings',
   'tradeSideOf','drawTrade','validateTrade','drawTradeLists','openPlayerCard','meTeam',
   'stillCharged','deadSalary','unrollSeason','fresh','committed','cutRecords',
-  'LEAGUEDEF','LEAGUEMAX','normCfg','tenureOf','cutAboveMin','faPool','signedClub','TEAMS','headcount',
+  'LEAGUEDEF','LEAGUEMAX','MLEDEF','mleAmt','mleSpent','usesMle','addlList','matchOn','normCfg','tenureOf','cutAboveMin','faPool','signedClub','TEAMS','headcount',
   'CSVFIXED','CSVTAIL','csvSeasonCols','rollPreview','rollSeason','birdRight','birdYears','cutSeason',
   'seasonKey','seasonStart','seasonAt','seasonNext','seasonPrev','curSeason','normContract',
   'salIn','salNow','salPrev','salOff','contracted','yrsLeft','termFrom','CUTV','salOf',

@@ -1,8 +1,9 @@
 /* POST /api/notify — the league's outgoing mail.
 
-   Two kinds today:
+   Three kinds today:
      {kind:"trade",  from, pin, to, summary}   tells a GM an offer is waiting
      {kind:"test",   from, pin}                sends one message to yourself
+     {kind:"all",    from, pin, subject, body} the commissioner writes the league
 
    The endpoint never accepts an address. It looks the recipient up in the
    rosters slice by club name, so the worst a caller can do is mail a league
@@ -92,6 +93,49 @@ export default async (req) => {
       text: `${from} has offered ${to} a trade. Review it at ${siteUrl()}`,
     });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
+  }
+
+  /* The commissioner's league-wide note. It is the ONE kind that writes free
+     text to more than one person, so three things guard it: only the
+     commissioner login may send it (a deputy's club PIN is not enough — this
+     leaves the app and cannot be taken back), every address still comes from
+     the rosters slice rather than the request, and the whole run is counted
+     against the daily ceiling BEFORE anything is sent, so a broadcast that
+     would breach it sends nothing rather than half a league.
+
+     The body is plain text, escaped, with its line breaks kept. It is not
+     markup and must never be treated as any. */
+  if (kind === "all") {
+    if (!asComm) return json({ ok: false, reason: "commissioner only" }, 403);
+    const subject = String(body.subject || "").trim().slice(0, 160);
+    const text = String(body.body || "").trim().slice(0, 4000);
+    if (!subject || !text) return json({ ok: false, reason: "subject and body are both required" }, 400);
+
+    const to = Object.keys(teams)
+      .map((t) => ({ club: t, addr: (teams[t] || {}).email }))
+      .filter((x) => x.addr);
+    if (!to.length) return json({ ok: false, reason: "no addresses on file" });
+    if (!(await underCap(s, to.length)))
+      return json({ ok: false, reason: `daily send limit reached — ${to.length} would go out` });
+
+    const para = text
+      .split(/\n{2,}/)
+      .map((b) => `<p style="margin:0 0 12px">${esc(b).replace(/\n/g, "<br>")}</p>`)
+      .join("");
+
+    const sent = [], failed = [];
+    for (const x of to) {
+      const r = await sendMail({
+        to: x.addr,
+        subject,
+        html: wrap(subject, `${para}<p style="margin:18px 0 0"><a href="${siteUrl()}"
+          style="color:#c8922e;font-weight:700">Open the league ledger</a></p>`,
+          "you are getting this because your club has an address on file"),
+        text,
+      });
+      (r.ok ? sent : failed).push(x.club);
+    }
+    return json({ ok: sent.length > 0, sent: sent.length, clubs: sent, failed });
   }
 
   return json({ ok: false, reason: "unknown kind" }, 400);

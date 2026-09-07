@@ -62,8 +62,14 @@ export async function sendMail({ to, subject, html, text }) {
    /api/notify has no real authentication — the PINs it checks are readable by
    anyone who can reach /api/state, exactly as CLAUDE.md says. So the ceiling is
    not a security control, it is a cost control: a script that finds the endpoint
-   can annoy nine people for one day, not run up a bill. Counts reset daily. */
-const CAP = Number(process.env.MAIL_DAILY_CAP || 200);
+   can annoy nine people for one day, not run up a bill. Counts reset daily.
+
+   The default is 100 because that is Resend's own free-tier daily limit: our
+   ceiling should bite before the provider's does, so a runaway fails here with
+   a soft {ok:false} the app already handles rather than as a rejection from
+   Resend. Nine clubs send nine digests a day, so it is nowhere near binding.
+   MAIL_DAILY_CAP still overrides it for a paid Resend plan. */
+const CAP = Number(process.env.MAIL_DAILY_CAP || 100);
 
 export async function underCap(s, n = 1) {
   const today = new Date().toISOString().slice(0, 10);
