@@ -1099,7 +1099,7 @@ configuration → Environment variables:
 | `MAIL_FROM` | required | e.g. `League Ledger <ledger@yourdomain.com>`; the domain must be verified with Resend |
 | `SITE_URL` | optional | links back into the app |
 | `LEAGUE_TZ` | optional | defaults to `America/New_York` |
-| `MAIL_DAILY_CAP` | optional | defaults to 200 sends a day |
+| `MAIL_DAILY_CAP` | optional | defaults to **100** sends a day — Resend's own free-tier daily limit, so our ceiling bites first |
 
 **With no key set, every send returns `{ok:false, reason:"not configured"}` and
 the caller carries on.** That is the deliberate default: a fresh deploy never
