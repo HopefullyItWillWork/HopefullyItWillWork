@@ -66,6 +66,8 @@ const EPILOGUE = ';globalThis.__X={' + [
   'shotPct','pctText','madeAtt','shotCell','shotCells','shotCellsVs','statLine','tradeCats','clubTotals','fullTotals',
   'isRosterMove','rosterMoves','MOVEKINDS','logCSV','wipeLog','raterRaw','RAWKEY','placeMore','drawLogs',
   'sortStat','cmp','undraftedRookies','drawFAList','SORTS',
+  'NAMEFIX','canon','RIDX','raterScore','raterVal','raterPair','raterMin','raterHasMin','rScale','RMING','RSHOOT','RDOWN','RCATS',
+  'RDYN','raterOpts','raterDynOn','raterBasis','dynDefaults','dynActive','dynSummary',
   'gmOf','gmName','clubWho','gmNameError','saveGmName','nameClean','drawSettings',
   'tradeSideOf','drawTrade','validateTrade','drawTradeLists','openPlayerCard','meTeam',
   'stillCharged','deadSalary','unrollSeason','fresh','committed','cutRecords',

@@ -3913,6 +3913,191 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     })());
   }
 
+  console.log('\n== the 2025-26 import ==');
+  {
+    const R = g('RATER'), CN = g('canon'), NF = g('NAMEFIX'), S = g('S');
+    ok('the full season is in, not a 25-game slice', R.length > 500, R.length);
+    ok('minutes came with it', R.filter(p=>p.s&&p.s.MP!=null).length > 500);
+    /* A traded man has a combined row and one row per club in the source. Taking
+       a club row would book half a season as the whole of it. */
+    const h2 = R.find(p=>p.n==='James Harden');
+    ok('a traded player carries his combined season', !h2 || h2.g === 70, h2 && h2.g);
+    ok('nobody is in the table twice', (()=>{
+      const k = x => x.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z]/g,'').toLowerCase();
+      const seen = new Set();
+      return R.every(p => { const q = k(p.n); if(seen.has(q)) return false; seen.add(q); return true; });
+    })());
+    /* The whole point of NAMEFIX: its key is the roster's spelling and its value
+       is the box score's, so every value must BE a RATER row and no key may be.
+       Edgecombe was stored the wrong way round — canon() sent his roster entry
+       to a name no row had, so Brice's first-round pick contributed zero to
+       every projection, exactly as Jokic once did. */
+    ok('every NAMEFIX target is a real RATER row', (()=>{
+      const names = new Set(R.map(p=>p.n));
+      return Object.keys(NF).every(k => names.has(NF[k]) && !names.has(k));
+    })(), Object.keys(NF).filter(k=>{const n=new Set(R.map(p=>p.n));return !n.has(NF[k])||n.has(k);}).join(', '));
+    ok('...so every rostered player still finds his stats', (()=>{
+      const names = new Set(R.map(p=>p.n));
+      const miss = [];
+      Object.keys(S.teams).forEach(t=>(S.teams[t].r||[]).forEach(p=>{
+        if(!names.has(CN(p.n))) miss.push(t+': '+p.n); }));
+      return miss.length === 0 ? true : miss.join(', ');
+    })() === true, (()=>{
+      const names = new Set(R.map(p=>p.n)); const miss=[];
+      Object.keys(S.teams).forEach(t=>(S.teams[t].r||[]).forEach(p=>{
+        if(!names.has(CN(p.n))) miss.push(t+': '+p.n); }));
+      return miss.join(', ');
+    })());
+    /* Four rostered men missed the whole season, so the box scores have no row
+       for them. They keep their (zero-game) entry rather than vanishing off
+       their club's roster. */
+    ok('a player who missed the season keeps his row',
+       ['Tyrese Haliburton','Kyrie Irving','Fred VanVleet','Damian Lillard']
+         .every(n => R.some(p => p.n === n)));
+  }
+
+  console.log('\n== the rater engine reproduces the shipped ratings ==');
+  {
+    const RS = g('raterScore'), R = g('RATER'), CATS = g('RCATS');
+    const base = RS(R, {basis:'pg'});
+    const shipped = R.filter(p => p.z);
+    ok('every shipped rating is rated here too',
+       base.rows.length === shipped.length, `${base.rows.length} vs ${shipped.length}`);
+    /* `s` is stored to one decimal, so a z-score rebuilt from it cannot land on
+       the transcribed value exactly. Anything past a couple of hundredths would
+       mean the FORMULA is wrong rather than the rounding. */
+    let dz = 0, dt = 0;
+    base.rows.forEach(p => {
+      const o = R.find(x => x.n === p.n); if(!o || !o.z) return;
+      CATS.forEach(c => { dz = Math.max(dz, Math.abs(p.z[c] - o.z[c])); });
+      dt = Math.max(dt, Math.abs(p.tot - o.tot));
+    });
+    ok('per-category z-scores match the shipped table', dz < 0.06, 'max drift '+dz.toFixed(3));
+    ok('and so does the rating', dt < 0.10, 'max drift '+dt.toFixed(3));
+    ok('the top of the league is unchanged',
+       base.rows[0].n === 'Nikola Jokic', base.rows[0].n);
+    ok('turnovers still score in reverse', (()=>{
+      const a = base.rows.find(p=>p.n==='Nikola Jokic');
+      return a.z.TO < 0;                       // 3.7 a game, well above the mean
+    })());
+  }
+
+  console.log('\n== totals and per game are different questions ==');
+  {
+    const RS = g('raterScore'), R = g('RATER');
+    const pg = RS(R, {basis:'pg'}), tot = RS(R, {basis:'tot'});
+    ok('both rate the same players', pg.rows.length === tot.rows.length);
+    const rkTot = new Map(tot.rows.map(p => [p.n, p.rk]));
+    const moved = pg.rows.filter(p => rkTot.get(p.n) !== p.rk).length;
+    ok('the totals basis reorders the league',
+       moved > pg.rows.length * 0.5, `${moved} of ${pg.rows.length} moved`);
+    /* The 920-game cap is the reason this basis exists, and the mechanism is
+       games rather than any particular player: a high rate over few games is
+       worth far less once the marginal games are the scarce thing. Naming a man
+       at the top would just be brittle — what must hold is that the short
+       seasons fall and the long ones do not. */
+    ok('...and it is games that do it', (()=>{
+      const drop = p => rkTot.get(p.n) - p.rk;          // positive = fell
+      const short = pg.rows.filter(p => p.g < 45 && p.rk <= 120);
+      const full  = pg.rows.filter(p => p.g >= 70 && p.rk <= 120);
+      if(!short.length || !full.length) return false;
+      const avg = a => a.reduce((s,p)=>s+drop(p),0)/a.length;
+      return avg(short) > 40 && avg(full) < 0;
+    })());
+    ok('a rate is unchanged by the basis, its weight is not', (()=>{
+      const a = pg.rows.find(p=>p.n==='Nikola Jokic'), b = tot.rows.find(p=>p.n==='Nikola Jokic');
+      return Math.abs(a.z.FG - b.z.FG) > 0.01;
+    })());
+    ok('the raw line follows the basis', (()=>{
+      const RR = g('raterRaw'), j = R.find(p=>p.n==='Nikola Jokic');
+      return RR(j,'PTS','pg') === j.s.PTS.toFixed(1)
+          && RR(j,'PTS','tot') === String(Math.round(j.s.PTS * j.g));
+    })(), g('raterRaw')(R.find(p=>p.n==='Nikola Jokic'),'PTS','tot'));
+    ok('...and never with a locale separator, which the CSV scraper would eat',
+       !/[,.]\d{3}\b/.test(g('raterRaw')(R.find(p=>p.n==='Nikola Jokic'),'PTS','tot')));
+  }
+
+  console.log('\n== the dynamic rater re-baselines against its own field ==');
+  {
+    const RS = g('raterScore'), R = g('RATER');
+    const wide = RS(R, {basis:'pg'});
+    const deep = RS(R, {basis:'pg', minG:70});
+    ok('a games floor shrinks the field', deep.pool < wide.pool, `${deep.pool} vs ${wide.pool}`);
+    ok('...and everyone below it stops being rated',
+       deep.rows.every(p => p.g >= 70));
+    ok('...and the survivors are re-scored, not merely filtered', (()=>{
+      const a = wide.rows.find(p=>p.n==='Tyrese Maxey');
+      const b = deep.rows.find(p=>p.n==='Tyrese Maxey');
+      return a && b && Math.abs(a.tot - b.tot) > 0.01;
+    })());
+    const punt = RS(R, {basis:'pg', cats:['PTS','REB','AST']});
+    ok('dropping categories drops them from the rating', (()=>{
+      const p = punt.rows[0];
+      return p.z.PTS != null && p.z.FG == null && p.z.TO == null;
+    })());
+    ok('...and the rating is the sum of what is left', (()=>{
+      const p = punt.rows[0];
+      return Math.abs(p.tot - (p.z.PTS + p.z.REB + p.z.AST)) < 0.02;
+    })());
+    /* A points/rebounds/assists build keeps Jokic top, correctly — he leads all
+       three. A build has to drop what a player is good at before the order moves,
+       which is what punting actually is. */
+    const stocks = RS(R, {basis:'pg', cats:['BLK','STL']});
+    ok('...which reorders the league once it drops what the leader is good at',
+       stocks.rows[0].n !== wide.rows[0].n, `${stocks.rows[0].n} vs ${wide.rows[0].n}`);
+    ok('...putting the right man on top of a defensive build',
+       stocks.rows[0].n === 'Victor Wembanyama', stocks.rows[0].n);
+    /* Minutes arrived with the full 2025-26 import. A floor must actually bite,
+       and must never rate a man it has no minutes for. */
+    ok('the pool now carries minutes', g('raterHasMin')());
+    const mins = RS(R, {basis:'pg', minG:0, minMp:30});
+    ok('a minutes floor bites', mins.pool > 0 && mins.pool < wide.pool,
+       `${mins.pool} vs ${wide.pool}`);
+    ok('...and everyone it rates clears it',
+       mins.rows.every(p => g('raterMin')(p) >= 30));
+    ok('...and nobody without minutes on file is rated',
+       mins.rows.every(p => g('raterMin')(p) != null));
+  }
+
+  console.log('\n== the dynamic rater does not leak ==');
+  {
+    /* This is the whole promise of the feature. p.tot and p.rk are read by the
+       strategy board, the Players tab, the player card and the what-if lab, so
+       an engine that wrote its answer back onto the row would silently re-rank
+       all four. */
+    const RS = g('raterScore'), R = g('RATER');
+    const before = JSON.stringify(R);
+    const jokBefore = R.find(p=>p.n==='Nikola Jokic').tot;
+    RS(R, {basis:'tot', minG:75, cats:['BLK']});
+    RS(R, {basis:'pg', cats:['PTS']});
+    ok('scoring never mutates a RATER row', JSON.stringify(R) === before);
+    ok('...so the league rating is untouched',
+       R.find(p=>p.n==='Nikola Jokic').tot === jokBefore);
+    ok('...and the returned rows are copies',
+       RS(R,{basis:'pg'}).rows[0] !== R[0]);
+
+    /* Now through the real screen: turn the dynamic rater on, draw, and confirm
+       nothing outside this tab moved. */
+    const rtgBefore = g('rtg') ? JSON.stringify(g('faPool')().map(p=>[p.n,p.tot])) : null;
+    const dyn = ctx.__X;
+    if(document.getElementById('rDyn')){
+      dyn.RDYN = {on:true, minG:75, minMp:'', cats:['BLK','REB']};
+      g('drawRater')();
+      ok('the table redrew under the dynamic settings',
+         (document.getElementById('rCount').textContent||'').includes('scored against'),
+         document.getElementById('rCount').textContent);
+      ok('...the rank column says so',
+         (document.getElementById('rRkHead').textContent||'') === 'DYN#');
+      ok('...RATER is still untouched', JSON.stringify(R) === before);
+      ok('...and the free agent pool still carries league ratings',
+         rtgBefore === null || JSON.stringify(g('faPool')().map(p=>[p.n,p.tot])) === rtgBefore);
+      dyn.RDYN = g('dynDefaults')();
+      g('drawRater')();
+      ok('turning it off restores the plain heading',
+         (document.getElementById('rRkHead').textContent||'') === '#');
+    }
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

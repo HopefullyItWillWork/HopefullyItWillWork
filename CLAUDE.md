@@ -1140,9 +1140,32 @@ Replacement level is the median minimum-salary ($1.00–1.25) player of 2025-26.
 
 ## Player data
 
-`RATER` holds 390 players: everyone on a league roster plus every free agent who
-played 25+ games at 12+ minutes in 2025-26. Source: Basketball-Reference,
-transcribed by hand. Treat any single surprising number as worth verifying.
+`RATER` holds **586 players — the whole of 2025-26, with no games or minutes
+cutoff**. It replaced a hand-transcribed 390 that kept only rostered players plus
+free agents at 25+ games and 12+ minutes; a cutoff is a filter, and filtering is
+the GM's job now that the rater has one. Source is Basketball-Reference's season
+totals export, converted on import.
+
+Four things about that import are worth keeping straight:
+
+- **`s` is still per game**, to two decimals. The source publishes totals and the
+  whole app — `pstat()`, `AGG`, a GM's projections — reads per game, so the
+  division happens once at import rather than everywhere at read. The extra
+  decimal is for the totals basis, which multiplies back up by games played.
+- **`s.MP` is new**, and is what the dynamic rater's minutes floor reads. Nothing
+  else touches it; the accumulators that walk a stat line iterate their own keys,
+  not `s`'s, so adding one was inert.
+- **A traded player has one row, from the source's combined line.** The export
+  carries a `2TM`/`3TM`/`4TM` row *and* a row per club, and 72 players have one.
+  Taking a club row would book half a season as the whole of it.
+- **Four rostered men missed the entire season** (Haliburton, Irving, VanVleet,
+  Lillard) so the box scores have no row for them. They keep their zero-game
+  entries rather than vanishing off their clubs' rosters.
+
+Games agree exactly with the old table on all 386 players common to both, which
+is what proves the traded-player handling and the parse; the per-game numbers
+differ by at most 0.05, which is the old table's one decimal against the new
+two. Treat any single surprising number as worth verifying.
 
 `BENCH[cat][position]` is the real distribution of what finished 1st through 9th
 in each category, averaged over the five full nine-team seasons (2022–2026). The
@@ -1161,6 +1184,19 @@ the best player in the league was invisible.
 
 **Always route player lookups through `canon()`.** It handles the alias map plus
 an accent-stripping fallback.
+
+**`NAMEFIX` has a direction, and one entry was stored backwards.** Its key is the
+spelling the *roster* uses and its value is the spelling `RATER` uses, so every
+value must be a real `RATER` row and no key may be — `canon()` returns the value.
+`V. J. Edgecombe` was in it the wrong way round: the RATER row carried the key's
+spelling and the value, `VJ Edgecombe`, matched no row at all. So `canon()` sent
+Brice's first-round pick to a name nothing had and he contributed **zero** to
+every projection — the Jokic fault again, on a player nobody had noticed. The row,
+the `AGG` key and the `NBATM` key now all use `VJ Edgecombe` (both of those are
+read through `canon()`, so both must be keyed on RATER's spelling); the SEED
+roster keeps the sheet's `V. J. Edgecombe`, which is exactly what NAMEFIX is for.
+`tests/test.js` now asserts the invariant for every entry, and separately that
+every rostered player resolves to a row.
 
 `rightsOf()` compared raw strings and so was part of this: asked about "Jakob
 Poeltl" (the box-score spelling) it never found "Jakob Poetl" on N. Fink's
@@ -1577,6 +1613,87 @@ at all. They now carry the rate and the makes and attempts.
 
 `RAWKEY` exists because `RCATS` names a category the way the league says it and
 `s` keys it the way the box score does: **REB is `TRB` and TO is `TOV`**.
+
+## The rater computes its own ratings now
+
+`z`, `tot` and `rk` on a `RATER` row were computed once, offline, on per-game
+numbers against the whole pool. Two controls on that tab need them computed
+again, so `raterScore(pool,opts)` is the arithmetic, in the app:
+
+| | |
+|---|---|
+| `raterScore(pool,opts)` | **pure**; scores, ranks and **copies**. `opts` is `{basis,cats,minG,minMp}` |
+| `raterVal(p,c,basis)` / `raterPair(p,c,basis)` | the number, or the made/attempted pair, a category is scored from |
+| `raterMin(p)` / `raterHasMin()` | per-game minutes, when the data carries them |
+| `RMING` | 15 games — under it a player is listed but not rated. With no cutoff in the data this is the only games floor, and the dynamic rater raises it |
+
+It reproduces the shipped table to within 0.04 of a z-score, which is the
+rounding in `s` (stored to one decimal) and not a difference in method: a
+counting category is `(x - mean) / sd` across the rated pool, turnovers are that
+negated, and a rate is `(his rate - the pool's rate) * his attempts` then
+z-scored like anything else. `tests/test.js` asserts the drift stays small — if
+that assertion ever fails the **formula** has changed, not the data.
+
+**Nothing in the engine mutates a `RATER` row, and that is load-bearing.**
+`p.tot` and `p.rk` are read by the strategy board, the Players tab, the player
+card and the what-if lab. An engine that wrote its answer back would silently
+re-rank all four, which is exactly what the dynamic rater must never do. Every
+caller gets fresh objects; there is a test that serialises `RATER` before and
+after and compares.
+
+### Per game or season totals
+`RBASIS` picks what every z-score is computed from. `s` is per game throughout,
+so a total is that times games played (`rScale()`), and for a rate both the makes
+and the attempts scale — which leaves the percentage alone and multiplies its
+weight. That is the point: **on totals, durability is volume.** Shai
+Gilgeous-Alexander passes Jokic on 68 games to 65, which is the 920-game cap
+showing up in the ranking rather than in a footnote.
+
+`raterRaw(p,c,basis)` renders the line under each z-score at the same basis, and
+deliberately does **not** call `toLocaleString()` — that follows the browser's
+locale, so a season total would read `2,115` here and `2.115` in Berlin, and
+`tableToCSV()` would carry the second straight out as a decimal.
+
+### The dynamic rater
+`RDYN` is one GM's scratch version: a games floor, a minutes floor and which of
+the nine categories count. **The pool it is handed IS the field it z-scores
+against**, so raising the games floor re-scores the survivors rather than merely
+hiding the rest — that is what makes it an *adjusted* rater and not a filtered
+one.
+
+**The display filters must never re-baseline.** Search, club and position filter
+what is shown and nothing else: filter to one club and a z-score against fifteen
+team-mates would say a club's fourth-best guard is average, which is true of
+nothing. Only the dynamic rater's own filters define the field, and that
+difference is the whole reason it is a separate mode rather than three more
+boxes in the filter row.
+
+`RBASIS` and `RDYN` are module-level and deliberately **not** in `S.cfg`: they
+are one GM's way of reading a table, not a league setting, so they are never
+committed, merged, polled or carried to another browser. Off, the dynamic
+filters are not merely ignored — they are not in the options object at all.
+
+**It is marked as different in four places at once**, because a screen that
+silently re-ranks the league looks exactly like a screen that is broken: its own
+colour token (`--dyn`, deliberately none of amber/tax/space, which already mean
+edited/over-a-limit/room), a badge on the panel, a banner naming the field it is
+scored against, and a rank column headed `DYN#` rather than `#`.
+
+**The panel is built once and then only synced.** `drawRater()` runs on every
+render and a category checkbox calls it from its own change handler — rewriting
+`#rDynBox`'s `innerHTML` from in there removes the node that fired the event and
+Chromium throws `NotFoundError` mid-draw, leaving the table half written. Same
+fault the bid panel had, same answer: `syncDynBox()` touches only what changed,
+and never overwrites a field the GM is typing in. The banner is a separate
+element and never an ancestor of a control, so that one is rewritten freely.
+
+The last category cannot be switched off — a rating that is the sum of nothing
+is zero for everybody, and 383 identical zeroes is not a punt build.
+
+A minutes floor with no `MP` in the data rates **nobody** rather than silently
+matching everybody, and the field is disabled with "no minutes on file" so a GM
+cannot get there by accident. The transcribed 2025-26 set has no minutes column.
+
 
 `clubTotals()` and `tradeCats()` keep the sums the rate was computed from, as
 `raw`. `standings()` ranks by `PCATS` keys only, so the extra key is invisible
