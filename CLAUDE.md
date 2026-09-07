@@ -156,8 +156,15 @@ projected numbers. `projSrcHead()` is that label as a column heading (`Last
 season` / `2026–27 proj` / `My proj`) and `projSrcLabel()` is the same answer in a
 sentence. The empty-row placeholders that said "no 2025-26 stats" now say "no
 stats on file", because whether a player has a line on file is not a claim about
-which season is being shown. The player rater is the deliberate exception: it
-reads `RATER` directly and is descriptive of 2025–26, so its heading is fixed.
+which season is being shown.
+
+**The player rater used to be the exception and no longer is.** It read `RATER`
+directly and was documented as descriptive of 2025-26, so its heading was fixed.
+The league asked for the opposite: a GM wants to rank the field on the aggregate
+he is drafting against, or on his own numbers, not only on what happened. It goes
+through `pstat()` like every other stats table now, `raterPool()` is that pool,
+and the `<h2>` is written from `projSrcLabel()` on every draw. There is no table
+left in the app that names a fixed season over numbers the toggle can change.
 
 `setProjMode()` normalises its argument, including the old `true`/`false` call
 shape, because an unrecognised value silently meaning "some projection" is
@@ -1172,8 +1179,9 @@ in each category, averaged over the five full nine-team seasons (2022–2026). T
 2021 COVID season is **excluded** — at 731 mean games played its totals sit far
 below every other year and blending it in drags the benchmarks down.
 
-Ratings are 9-category z-scores against the whole 390-player pool, with FG% and
+Ratings are 9-category z-scores against the whole rated pool, with FG% and
 FT% weighted by attempts so a high volume of bad free throws hurts proportionally.
+`raterScore()` is the one implementation — see below.
 
 ### Name matching — this has bitten us
 Roster names come from the league spreadsheet, stat names from box scores. Six
@@ -1688,11 +1696,41 @@ and never overwrites a field the GM is typing in. The banner is a separate
 element and never an ancestor of a control, so that one is rewritten freely.
 
 The last category cannot be switched off — a rating that is the sum of nothing
-is zero for everybody, and 383 identical zeroes is not a punt build.
+is zero for everybody, and a table of identical zeroes is not a punt build.
 
 A minutes floor with no `MP` in the data rates **nobody** rather than silently
 matching everybody, and the field is disabled with "no minutes on file" so a GM
-cannot get there by accident. The transcribed 2025-26 set has no minutes column.
+cannot get there by accident. That guard is now only a fallback — the 2025-26
+import carries minutes — but it is what makes the field safe against a future
+source that does not.
+
+### The rater reads whatever the header toggle is showing
+`raterPool()` maps `RATER` through `pstat()`, so the table ranks the field on
+2025-26 actuals, the 2026-27 aggregate or a GM's own projections, and every
+z-score is recomputed against that source's numbers. The aggregate carries its
+own games — Jokic at 72 rather than 65 — so the totals basis moves with it too.
+
+**Minutes are carried across by hand, and have to be.** `pstat()` merges a
+projection over the actual line through `SKEYS`, which has no `MP`: a projection
+says what a player will produce, not how long he will be on the floor. Without
+the carry-across the dynamic rater's minutes floor would match nobody the moment
+a GM switched to the aggregate. They are last season's minutes under every
+source, so the hint under the field says `2025–26 minutes` rather than implying
+the projection has an opinion about them.
+
+Under **my projections** the raw line under each z-score carries the amber
+`edited` mark, like every other table. On the **aggregate** nothing is marked:
+the numbers move but none of them are his.
+
+**`ratings()` no longer carries its own copy of the arithmetic.** It did, and the
+two did not agree — it took the pool's shooting rate weighted by games where
+`raterScore()` takes it straight, so the same player under the aggregate could be
+0.18 apart on the rater and on the Players tab. That was survivable only while
+the rater ignored the toggle and the two were never answering the same question.
+Now that it does, they have to be the same number, so `ratings()` delegates and
+`raterScore()` is the only implementation in the app. `RTGCACHE` still caches it;
+`setProjMode()` and the projection load and save already clear that, and they are
+the only things that move the pool.
 
 
 `clubTotals()` and `tradeCats()` keep the sums the rate was computed from, as

@@ -4098,6 +4098,47 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     }
   }
 
+  console.log('\n== the rater follows the header toggle ==');
+  {
+    const RS = g('raterScore'), R = g('RATER'), pool = () => g('raterPool')();
+    const seen = {};
+    for(const m of ['act','agg','mine']){
+      await g('setProjMode')(m);
+      const P = pool(), sc = RS(P, {basis:'pg'});
+      seen[m] = { pool: sc.pool, top: sc.rows[0].n,
+                  jok: P.find(x => x.n === 'Nikola Jokic'),
+                  label: g('projSrcLabel')() };
+      /* The invariant that matters most: the rater and every other screen must
+         give the same player the same rating under the same source. They used
+         to be two implementations and disagreed by 0.18 on the aggregate. */
+      const rg = g('ratings')();
+      let d = 0;
+      sc.rows.forEach(x => { if(rg[x.n] != null) d = Math.max(d, Math.abs(rg[x.n] - x.tot)); });
+      ok(`${m}: the rater and ratings() are the same number`, d < 0.005, 'drift '+d.toFixed(4));
+    }
+    ok('the aggregate really is different numbers',
+       seen.agg.jok.g !== seen.act.jok.g, `${seen.act.jok.g} vs ${seen.agg.jok.g}`);
+    ok('...and a different field', seen.agg.pool !== seen.act.pool,
+       `${seen.act.pool} vs ${seen.agg.pool}`);
+    ok('the heading names its source, and they differ',
+       seen.act.label !== seen.agg.label && !!seen.act.label && !!seen.agg.label,
+       `${seen.act.label} / ${seen.agg.label}`);
+    /* pstat() merges through SKEYS, which has no MP. Without the carry-across
+       the dynamic rater's minutes floor would match nobody on the aggregate. */
+    ok('minutes survive a projection', seen.agg.jok.s.MP != null && seen.agg.jok.s.MP === seen.act.jok.s.MP,
+       String(seen.agg.jok.s.MP));
+    ok('...so a minutes floor still bites on the aggregate', (()=>{
+      const f = RS(pool(), {basis:'pg', minG:0, minMp:30});
+      return f.pool > 0 && f.pool < RS(pool(), {basis:'pg', minG:0}).pool;
+    })());
+    await g('setProjMode')('act');
+    ok('back on actuals the rating is the table\'s own',
+       Math.abs(g('ratings')()['Nikola Jokic'] - R.find(p=>p.n==='Nikola Jokic').tot) < 0.03,
+       `${g('ratings')()['Nikola Jokic']} vs ${R.find(p=>p.n==='Nikola Jokic').tot}`);
+    ok('...and the pool is RATER itself, unmutated',
+       g('raterPool')().length === R.length);
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
