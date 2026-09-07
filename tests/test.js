@@ -487,8 +487,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction.bids.unshift({t:'Brice', amt:3.00, ts:2, mle:true});
     ok('two clubs level on declared MLE bids are', g('mleTied')().sort().join() === 'Brice,Osborn',
        JSON.stringify(g('mleTied')()));
+    /* One of the two has to be on the exception — only a mid-level bid can
+       produce a level pair. With neither on it, this is not a tie. */
     CS.auction.bids[0].mle = false;
-    ok('a level bid that is not on the exception is not a tie', g('mleTied')().length === 0);
+    ok('one still on the exception keeps the tie', g('mleTied')().length === 2,
+       JSON.stringify(g('mleTied')()));
+    CS.auction.bids[1].mle = false;
+    ok('neither on it is not a tie at all', g('mleTied')().length === 0);
     CS.auction = null; X.me = keepMe;
   }
 
@@ -528,6 +533,145 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        /not added to cap room/.test(ctx.__alerts[0] || ''), ctx.__alerts[0]);
 
     CS.auction = null; CS.cfg.cap = keepCap; X.me = keepMe;
+  }
+
+  console.log('\n== a cap-room bid can be matched on the exception ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap;
+    const ML = g('mleAmt')();
+    /* Only the club doing the MATCHING has to be on the exception. Osborn bids
+       the figure out of ordinary cap room; Brice, whose only money is the
+       exception, cannot raise past it, so he levels and it goes to a flip. */
+    CS.cfg.cap = g('committed')('Brice');            // Brice has no room at all
+    CS.auction = {player:'James Harden', by:'Coulter', bid:ML, leader:'Osborn',
+                  bids:[{t:'Osborn', amt:ML, ts:1}], max:{}, status:'open'};
+    X.me = 'Brice';
+    ok('his ceiling is the exception', Math.abs(g('bidCeiling')('Brice','James Harden') - ML) < 0.001,
+       g('bidCeiling')('Brice','James Harden'));
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Brice', ML, false, true);
+    ok('he may match it', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+    ok('the price did not move', Math.abs(CS.auction.bid - ML) < 0.001, CS.auction.bid);
+    ok('his bid is on the exception',
+       CS.auction.bids.some(b => b.t === 'Brice' && b.mle === true),
+       JSON.stringify(CS.auction.bids));
+    ok('the standing bid is NOT, and does not have to be',
+       CS.auction.bids.some(b => b.t === 'Osborn' && !b.mle));
+    ok('and both are in the flip', g('mleTied')().sort().join() === 'Brice,Osborn',
+       JSON.stringify(g('mleTied')()));
+
+    /* A club with no exception left cannot match, and is told what it has
+       rather than told to bid a quarter past its own ceiling. */
+    CS.auction = {player:'James Harden', by:'Coulter', bid:ML, leader:'Osborn',
+                  bids:[{t:'Osborn', amt:ML, ts:1}], max:{}, status:'open'};
+    CS.teams['Brice'].mle = 0;
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Brice', ML, false, true);
+    const said = ctx.__alerts[0] || '';
+    /* Either honest refusal will do — what matters is that it names what he
+       actually has rather than demanding a figure above his own ceiling. */
+    ok('with the pot spent he is refused',
+       /cannot go higher|may bid at most/.test(said), said);
+    ok('and is NOT told to bid past his own ceiling', !/must be at least/.test(said), said);
+    ok('the refusal names his real ceiling',
+       said.includes(g('money')(g('bidCeiling')('Brice','James Harden'))), said);
+    ok('nothing was written', CS.auction.bids.length === 1, JSON.stringify(CS.auction.bids));
+    delete CS.teams['Brice'].mle;
+
+    CS.cfg.cap = keepCap; CS.auction = null; X.me = keepMe;
+  }
+
+  console.log('\n== the flip winner signs on HIS own lane ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap, ML = g('mleAmt')();
+    const logWas = (CS.log || []).slice();
+    const briceRoster = JSON.parse(JSON.stringify(CS.teams['Brice'].r));
+    X.me = '__comm__';
+    CS.cfg.cap = g('committed')('Osborn') + 20.00;             // Osborn has room
+    /* Push Brice up to the cap by raising a contract he already has rather than
+       adding a body — an extra player would take him past the ROSTER limit,
+       which drops his ceiling to zero and he could not bid at all. */
+    {
+      const cur = g('curSeason')();
+      const big = CS.teams['Brice'].r.find(x => x.y && x.y[cur] != null);
+      big.y[cur] += CS.cfg.cap - g('committed')('Brice');
+    }
+    ok('one club has room and the other has none',
+       g('capRoom')('Osborn') > ML && g('capRoom')('Brice') < 1,
+       g('capRoom')('Osborn') + '/' + g('capRoom')('Brice'));
+
+    CS.auction = {player:'James Harden', by:'Coulter', bid:ML, leader:'Osborn',
+                  bids:[{t:'Osborn', amt:ML, ts:1}], max:{}, status:'open'};
+    await g('placeBid')('Brice', ML, false, true);             // Brice levels on his pot
+    const tied = g('mleTied')().sort();
+    ok('they are tied', tied.join() === 'Brice,Osborn', JSON.stringify(tied));
+
+    /* The flip line used to be marked mle:true whoever won, which turned the
+       club paying out of ordinary cap room into a mid-level signing the moment
+       it won the toss — two seasons, and its whole exception drained for a
+       player it had the room for. */
+    const R = Math.random;
+    Math.random = () => tied.indexOf('Osborn') / tied.length;  // the cap-room club wins
+    await g('closeAuction')();
+    Math.random = R;
+    const p = CS.teams['Osborn'].r.find(x => x.n === 'James Harden');
+    ok('the cap-room winner signs ONE season',
+       p && Object.keys(p.y).length === 1, JSON.stringify(p && p.y));
+    ok('carries no mid-level stamp', p && p.mle === undefined, JSON.stringify(p && p.mle));
+    ok('and his exception is untouched', g('mleLeft')('Osborn') === ML, g('mleLeft')('Osborn'));
+    ok('the loser keeps his too', g('mleLeft')('Brice') === ML, g('mleLeft')('Brice'));
+
+    CS.teams['Osborn'].r = CS.teams['Osborn'].r.filter(x => x.n !== 'James Harden');
+    CS.teams['Brice'].r = briceRoster;   // the inflated contract goes back too
+    CS.log.length = 0; logWas.forEach(e => CS.log.push(e));
+    CS.cfg.cap = keepCap; CS.auction = null; X.me = keepMe;
+  }
+
+  console.log('\n== the declaration belongs to the club, not to a log entry ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap;
+    const ML = g('mleAmt')();
+    CS.cfg.cap = 400;                                 // both have room; both declare anyway
+    CS.auction = {player:'James Harden', by:'Coulter', bid:1.00, leader:'Coulter',
+                  bids:[{t:'Coulter', amt:1.00, ts:1}], max:{Coulter:1.00}, status:'open'};
+    X.me = 'Osborn';
+    /* Osborn declares and sets a MAX. The raise that answers it is written by
+       resolveProxies(), which used to mark its own entry from the money alone —
+       so his auto-raise landed unmarked and a rival on the exception could not
+       level it. */
+    await g('placeBid')('Osborn', ML, true, true);
+    ok('the lot remembers who declared', CS.auction.mleOn && CS.auction.mleOn.Osborn === true,
+       JSON.stringify(CS.auction.mleOn));
+    ok('and every entry of his carries it',
+       CS.auction.bids.filter(b => b.t === 'Osborn').every(b => b.mle === true),
+       JSON.stringify(CS.auction.bids));
+
+    X.me = 'Brice';
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Brice', CS.auction.bid, false, true);
+    ok('so a rival on the exception can still level it', ctx.__alerts.length === 0,
+       JSON.stringify(ctx.__alerts));
+    ok('and the lot is tied', g('mleTied')().length === 2, JSON.stringify(g('mleTied')()));
+
+    /* The record has to survive the poll, which is where it was being lost:
+       mergeSlice unions the two bid lists and sorts them, so the flag on
+       bids[0] is not a durable place to keep it. */
+    const merged = g('mergeSlice')('auction',
+      {...CS.auction, bids:CS.auction.bids.slice()},          // theirs
+      {player:'James Harden', by:'Coulter', bid:1.00, leader:'Coulter',
+       bids:[{t:'Coulter', amt:1.00, ts:1}], max:{}, status:'open'});   // a stale copy
+    ok('the merge carries the declaration', merged.mleOn && merged.mleOn.Osborn === true,
+       JSON.stringify(merged.mleOn));
+    /* Two clubs level: the EARLIER bid stays the leader rather than whichever
+       the union happened to put first. */
+    const two = g('mergeSlice')('auction',
+      {player:'X', by:'A', bid:5, leader:'A', status:'open',
+       bids:[{t:'B', amt:5, ts:'2026-01-01T00:00:09Z'}, {t:'A', amt:5, ts:'2026-01-01T00:00:01Z'}]},
+      {player:'X', by:'A', bid:5, leader:'A', status:'open',
+       bids:[{t:'A', amt:5, ts:'2026-01-01T00:00:01Z'}]});
+    ok('the earlier of two level bids leads', two.leader === 'A', two.leader);
+
+    CS.cfg.cap = keepCap; CS.auction = null; X.me = keepMe;
   }
 
   console.log('\n== the bid log keeps every step ==');

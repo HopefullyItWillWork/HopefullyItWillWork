@@ -721,10 +721,40 @@ every branch is clamped to it, so the $200.50 hard cap is still absolute.
 **Two clubs on the exception cannot separate themselves by a quarter** — the pot is
 the same size for both and neither may go past it — so a mid-level bid may
 **level** an existing one rather than raise it. `placeBid()` allows the equal bid
-only when both sides are on the exception; the lot then carries a tie, and
+only when **both sides are on the exception**; the lot then carries a tie, and
 `closeAuction()` flips a coin at the award — nothing in this app is random until a
 person presses a button — and writes the flip into the bid log. Only the winner's
 pot is debited.
+
+**Only the club doing the MATCHING has to be on the exception.** It cannot raise —
+the pot is the whole of its money — so a standing bid at or under the exception
+figure is levellable however the leader is paying for it, cap room or exception.
+`mleReal` is that test for the club bidding, and `placeBid()` has already refused
+an amount its own pot cannot cover.
+
+**The flip line carries the WINNER's lane, not a blanket `mle:true`.** Marking it
+outright turned the club paying out of ordinary cap room into a mid-level signing
+the moment it won the toss — two seasons, and its whole exception drained for a
+player it had the room for. A cap-room winner signs one season with no stamp and
+an untouched pot; the exception club signs two and pays.
+
+**A refusal whose remedy is past the club's own ceiling is not an answer.** "Bid
+must be at least $5.75" went to a club whose entire ceiling was $5.50. `placeBid()`
+says what it actually has, and points at the box when matching is the move it
+wants.
+
+**The declaration belongs to the club for the lot, not to a bid entry.** `a.mleOn`
+is that record. It used to live only on the bid, and levelling read `a.bids[0]` to
+find the standing one — but that is a *log line*, and `mergeSlice('auction')`
+unions the two clients' lists and sorts them, so with two clubs level the entry at
+index 0 is arbitrary; a proxy raise wrote its own entry with no declaration at all,
+which left a genuine mid-level leader unmarked and unlevellable. `mleOnFor()` is
+the durable answer, `resolveProxies()` marks a raise with the club's standing
+declaration, the merge carries `mleOn`, and `renameClub()` moves it.
+
+The merge sorts bids by **amount then the clock**, so two clubs level at the same
+figure keep the earlier one as leader instead of flipping on a poll that carried no
+new bid at all.
 
 **The tick is on the nomination form too.** A nomination opens with the
 nominator's own bid, so everything a bid can declare it can declare as well;
