@@ -721,10 +721,30 @@ every branch is clamped to it, so the $200.50 hard cap is still absolute.
 **Two clubs on the exception cannot separate themselves by a quarter** — the pot is
 the same size for both and neither may go past it — so a mid-level bid may
 **level** an existing one rather than raise it. `placeBid()` allows the equal bid
-only when both sides are on the exception; the lot then carries a tie, and
+only when **both sides are on the exception**; the lot then carries a tie, and
 `closeAuction()` flips a coin at the award — nothing in this app is random until a
 person presses a button — and writes the flip into the bid log. Only the winner's
 pot is debited.
+
+**A bid made out of ordinary cap room is not levellable, and that is the rule, not
+a bug.** A club with room outbids a club holding only the exception; the mid-level
+club simply loses. What *was* a bug is what it was told: "Bid must be at least
+$5.75" to a club whose entire ceiling is $5.50. A refusal whose remedy is past the
+club's own ceiling is not an answer — `placeBid()` now says what it has, and why
+matching is not open to it.
+
+**The declaration belongs to the club for the lot, not to a bid entry.** `a.mleOn`
+is that record. It used to live only on the bid, and levelling read `a.bids[0]` to
+find the standing one — but that is a *log line*, and `mergeSlice('auction')`
+unions the two clients' lists and sorts them, so with two clubs level the entry at
+index 0 is arbitrary; a proxy raise wrote its own entry with no declaration at all,
+which left a genuine mid-level leader unmarked and unlevellable. `mleOnFor()` is
+the durable answer, `resolveProxies()` marks a raise with the club's standing
+declaration, the merge carries `mleOn`, and `renameClub()` moves it.
+
+The merge sorts bids by **amount then the clock**, so two clubs level at the same
+figure keep the earlier one as leader instead of flipping on a poll that carried no
+new bid at all.
 
 **The tick is on the nomination form too.** A nomination opens with the
 nominator's own bid, so everything a bid can declare it can declare as well;

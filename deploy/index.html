@@ -1735,9 +1735,16 @@ function mergeSlice(k,theirs,mine){
     const seen=new Set(), bids=[];
     [...(mine.bids||[]),...(theirs.bids||[])].forEach(b=>{
       const id=b.t+'|'+b.amt; if(!seen.has(id)){seen.add(id);bids.push(b);}});
-    bids.sort((a,b)=>b.amt-a.amt);
+    /* Amount first, then the CLOCK. Sorting on amount alone left two clubs level
+       at the same figure in whichever order the union happened to produce, so
+       the leader — read off bids[0] — could flip on a poll that carried no new
+       bid at all. The earlier bid of two equal ones stands, which is what
+       levelling means. */
+    bids.sort((a,b)=>(b.amt-a.amt) || (new Date(a.ts||0)-new Date(b.ts||0)));
     return {...theirs,bids,bid:bids.length?bids[0].amt:theirs.bid,
-      leader:bids.length?bids[0].t:theirs.leader,max:{...(theirs.max||{}),...(mine.max||{})}};
+      leader:bids.length?bids[0].t:theirs.leader,
+      max:{...(theirs.max||{}),...(mine.max||{})},
+      mleOn:{...(theirs.mleOn||{}),...(mine.mleOn||{})}};
   }
   if(k==='trades'){
     const byId=new Map();
@@ -3461,6 +3468,7 @@ function renameClub(from,to){
     if(a.winner) a.winner=swap(a.winner);
     (a.bids||[]).forEach(b=>b.t=swap(b.t));
     if(a.max){ const m={}; Object.entries(a.max).forEach(([k,v])=>{m[swap(k)]=v;}); a.max=m; }
+    if(a.mleOn){ const m={}; Object.entries(a.mleOn).forEach(([k,v])=>{m[swap(k)]=v;}); a.mleOn=m; }
     if(a.match){ a.match.club=swap(a.match.club); a.match.winner=swap(a.match.winner); }
   }
   S.cfg.nomOrder=(S.cfg.nomOrder||[]).map(swap);
@@ -6075,6 +6083,20 @@ function capRoom(team){
 
    Bird and Early Bird cover their own player, so a club using one of those is
    in neither lane and spends nothing. */
+/* Which clubs have declared themselves on the exception for this lot.
+
+   The declaration used to live only on the bid entry, and the levelling rule
+   read `a.bids[0]` to find out whether the standing bid was one. That is a LOG
+   line, and its position is decided by `mergeSlice('auction')`, which unions the
+   two clients' lists and sorts them by amount alone — so with two clubs level at
+   the same figure, which entry sits at index 0 is arbitrary, and a proxy raise
+   writes its own entry with no declaration at all. Either way the second GM was
+   told to bid a quarter more.
+
+   `a.mleOn` is the durable record: it rides the auction slice, survives the
+   merge and every proxy raise, and is what the levelling rule and the tie now
+   ask. Pure. */
+const mleOnFor=team=>{const a=A(); return !!(a&&a.mleOn&&a.mleOn[team]);};
 function mleLane(team,name,price,declared){
   const R=rightsOf(team,name);
   if(R.club===team&&R.bird) return false;
@@ -6192,9 +6214,10 @@ function resolveProxies(){
     a.bid=want; a.leader=t1;
     const last=a.bids[0];
     if(!last||last.t!==t1||last.amt!==want){
-      /* A proxy raise is not a declaration, so it is a mid-level bid only when
-         cap room cannot reach it. */
-      a.bids.unshift({t:t1,amt:want,ts:now(),mle:mleLane(t1,a.player,want,false)});}
+      /* A proxy raise carries the club's own standing declaration — it is his
+         bid, made for him. Without this his auto-raise landed unmarked and a
+         rival on the exception could not level it. */
+      a.bids.unshift({t:t1,amt:want,ts:now(),mle:mleLane(t1,a.player,want,mleOnFor(t1))});}
     break;
   }
 }
@@ -6204,9 +6227,10 @@ function resolveProxies(){
    settled by a coin flip when the commissioner awards. Pure. */
 function mleTied(){
   const a=A(); if(!a||!a.bids||!a.bids.length) return [];
-  const top={};
-  a.bids.forEach(b=>{ if(top[b.t]==null) top[b.t]={amt:b.amt,mle:!!b.mle}; });
-  const at=Object.entries(top).filter(([t,b])=>Math.abs(b.amt-a.bid)<0.001&&b.mle).map(([t])=>t);
+  const best={};
+  a.bids.forEach(b=>{ if(best[b.t]==null||b.amt>best[b.t].amt) best[b.t]={amt:b.amt,mle:!!b.mle}; });
+  const at=Object.keys(best).filter(t=>Math.abs(best[t].amt-a.bid)<0.001
+    && (best[t].mle||mleOnFor(t)));
   return at.length>1?at:[];
 }
 async function placeBid(team,amt,isMax,isMle){
@@ -6223,6 +6247,10 @@ async function placeBid(team,amt,isMax,isMle){
   /* A bid is on the exception when he declares it, or when his cap room cannot
      reach it and the exception is the only lane left. Either way the WHOLE bid
      is what the pot would pay, so that is what has to fit inside it. */
+  /* An explicit bid states his intent for the whole lot: ticking it on keeps it
+     on through later proxy raises, unticking it takes it off again. */
+  a.mleOn=a.mleOn||{};
+  if(isMle) a.mleOn[team]=true; else delete a.mleOn[team];
   const mleReal = mleLane(team,a.player,amt,!!isMle);
   if(mleReal && mleCost(amt)>mleLeft(team)+0.001)
     return alert(`${money(amt)} on the mid-level exception, and ${team} has `
@@ -6253,9 +6281,27 @@ async function placeBid(team,amt,isMax,isMle){
        two GMs who both ticked the box and both bid the exception in full could
        not level each other if either had room. That is the case the rule exists
        for. */
-    const levelling = mleReal && standing && standing.mle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
+    /* The club to level with is the LEADER, not whichever entry the merge left
+       at the top of the log. Both records are consulted so a lot bid before this
+       shipped still levels. */
+    const leaderOnMle = !!(a.leader&&(mleOnFor(a.leader)
+      || (a.bids||[]).some(b=>b.t===a.leader&&Math.abs(b.amt-a.bid)<0.001&&b.mle)));
+    const levelling = mleReal && leaderOnMle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
     if(a.leader===team&&!levelling) return alert(`${team} already holds the high bid at ${money(a.bid)}. You cannot bid against yourself.`);
-    if(!levelling && amt<a.bid+0.25-0.001 && a.leader) return alert(`Bid must be at least ${money(a.bid+0.25)}.`);
+    if(!levelling && amt<a.bid+0.25-0.001 && a.leader){
+      /* Telling a club to bid a quarter more than it is allowed to bid is not an
+         answer. When the raise is past his ceiling, say what is actually true:
+         he is out of money, and why he may not simply match instead. */
+      const need=a.bid+0.25;
+      if(need>cw.ceil+0.001) return alert(
+        `${team} cannot go higher on ${a.player}.\n\nThe next bid is ${money(need)} and `
+        +`${money(cw.ceil)} is all it has.`
+        +(mleReal&&!leaderOnMle
+          ? `\n\nMatching ${money(a.bid)} would need ${htmlEsc(a.leader)} to be on its mid-level `
+            +`exception too — its bid is ordinary cap room, so there is nothing to level.`
+          : ''));
+      return alert(`Bid must be at least ${money(need)}.`);
+    }
     if(levelling){
       a.bids.unshift({t:team,amt,ts:now(),mle:true});
     }else{
@@ -6483,7 +6529,8 @@ async function nominate(name,team,open,max,isMle){
     return alert(`Opening at ${money(at)} on the mid-level exception, and ${team} has `
       +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
   S.auction={player:name,by:team,bid:at,leader:team,
-    bids:[{t:team,amt:at,ts:now(),mle:mleReal}],max:{},status:'open',ts:now()};
+    bids:[{t:team,amt:at,ts:now(),mle:mleReal}],max:{},
+    mleOn:isMle?{[team]:true}:{},status:'open',ts:now()};
   /* A nominator who already knows his ceiling should not have to sit on the
      tab to defend the lot. The max is his own, checked against the same
      ceiling any bid is, and silently dropped rather than refused if it is
@@ -6534,7 +6581,7 @@ async function awardTo(team,note){
      the WHOLE contract, which is what makes the exception a per-player limit
      rather than a top-up. */
   const won=(a.bids||[]).find(b=>b.t===team&&Math.abs(b.amt-price)<0.001);
-  const mle=mleLane(team,a.player,price,!!(won&&won.mle));
+  const mle=mleLane(team,a.player,price,mleOnFor(team)||!!(won&&won.mle));
   const need=mle?mleCost(price):0;
   a.status='closed'; a.winner=team; a.price=price; a.match=null;
   await signPlayer(a.player,team,price,mle?2:1,{force:true,mle:mle?{amt:need}:null});
