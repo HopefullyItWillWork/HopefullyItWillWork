@@ -726,12 +726,22 @@ only when **both sides are on the exception**; the lot then carries a tie, and
 person presses a button — and writes the flip into the bid log. Only the winner's
 pot is debited.
 
-**A bid made out of ordinary cap room is not levellable, and that is the rule, not
-a bug.** A club with room outbids a club holding only the exception; the mid-level
-club simply loses. What *was* a bug is what it was told: "Bid must be at least
-$5.75" to a club whose entire ceiling is $5.50. A refusal whose remedy is past the
-club's own ceiling is not an answer — `placeBid()` now says what it has, and why
-matching is not open to it.
+**Only the club doing the MATCHING has to be on the exception.** It cannot raise —
+the pot is the whole of its money — so a standing bid at or under the exception
+figure is levellable however the leader is paying for it, cap room or exception.
+`mleReal` is that test for the club bidding, and `placeBid()` has already refused
+an amount its own pot cannot cover.
+
+**The flip line carries the WINNER's lane, not a blanket `mle:true`.** Marking it
+outright turned the club paying out of ordinary cap room into a mid-level signing
+the moment it won the toss — two seasons, and its whole exception drained for a
+player it had the room for. A cap-room winner signs one season with no stamp and
+an untouched pot; the exception club signs two and pays.
+
+**A refusal whose remedy is past the club's own ceiling is not an answer.** "Bid
+must be at least $5.75" went to a club whose entire ceiling was $5.50. `placeBid()`
+says what it actually has, and points at the box when matching is the move it
+wants.
 
 **The declaration belongs to the club for the lot, not to a bid entry.** `a.mleOn`
 is that record. It used to live only on the bid, and levelling read `a.bids[0]` to

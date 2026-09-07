@@ -6229,9 +6229,12 @@ function mleTied(){
   const a=A(); if(!a||!a.bids||!a.bids.length) return [];
   const best={};
   a.bids.forEach(b=>{ if(best[b.t]==null||b.amt>best[b.t].amt) best[b.t]={amt:b.amt,mle:!!b.mle}; });
-  const at=Object.keys(best).filter(t=>Math.abs(best[t].amt-a.bid)<0.001
-    && (best[t].mle||mleOnFor(t)));
-  return at.length>1?at:[];
+  const at=Object.keys(best).filter(t=>Math.abs(best[t].amt-a.bid)<0.001);
+  /* Every club level at the price is in the flip, but only a mid-level bid can
+     have produced a level pair in the first place — so at least one of them has
+     to be on the exception, or this is not a tie, it is one club bidding. */
+  const anyMle=at.some(t=>best[t].mle||mleOnFor(t));
+  return (at.length>1&&anyMle)?at:[];
 }
 async function placeBid(team,amt,isMax,isMle){
   const a=A(); if(!a||a.status!=='open') return alert('Nothing is on the block.');
@@ -6281,12 +6284,17 @@ async function placeBid(team,amt,isMax,isMle){
        two GMs who both ticked the box and both bid the exception in full could
        not level each other if either had room. That is the case the rule exists
        for. */
-    /* The club to level with is the LEADER, not whichever entry the merge left
-       at the top of the log. Both records are consulted so a lot bid before this
-       shipped still levels. */
+    /* Only the club doing the MATCHING has to be on the exception. It cannot
+       raise — the pot is the whole of its money — so a standing bid at or under
+       the exception figure is levellable however the leader is paying for it,
+       out of cap room or out of his own exception. The lot then carries a tie
+       and the commissioner flips.
+
+       `mleReal` is that test for the club bidding, and `placeBid()` has already
+       refused an amount its pot cannot cover, so nothing more is needed here. */
     const leaderOnMle = !!(a.leader&&(mleOnFor(a.leader)
       || (a.bids||[]).some(b=>b.t===a.leader&&Math.abs(b.amt-a.bid)<0.001&&b.mle)));
-    const levelling = mleReal && leaderOnMle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
+    const levelling = mleReal && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
     if(a.leader===team&&!levelling) return alert(`${team} already holds the high bid at ${money(a.bid)}. You cannot bid against yourself.`);
     if(!levelling && amt<a.bid+0.25-0.001 && a.leader){
       /* Telling a club to bid a quarter more than it is allowed to bid is not an
@@ -6296,9 +6304,9 @@ async function placeBid(team,amt,isMax,isMle){
       if(need>cw.ceil+0.001) return alert(
         `${team} cannot go higher on ${a.player}.\n\nThe next bid is ${money(need)} and `
         +`${money(cw.ceil)} is all it has.`
-        +(mleReal&&!leaderOnMle
-          ? `\n\nMatching ${money(a.bid)} would need ${htmlEsc(a.leader)} to be on its mid-level `
-            +`exception too — its bid is ordinary cap room, so there is nothing to level.`
+        +(!mleReal&&mleLeft(team)>0
+          ? `\n\nTo match ${money(a.bid)} instead of raising, bid it on your mid-level exception `
+            +`— tick the box above.`
           : ''));
       return alert(`Bid must be at least ${money(need)}.`);
     }
@@ -6603,7 +6611,13 @@ async function closeAuction(){
       +`\n\nNeither can raise, so this is a coin flip. Flip now?`)) return;
     winner=tied[Math.floor(Math.random()*tied.length)];
     a.leader=winner;
-    a.bids.unshift({t:winner,amt:a.bid,ts:now(),mle:true,flip:tied.length});
+    /* The flip line is the WINNER's bid, so it carries his own lane. Marking it
+       `mle:true` outright made the club that had been paying out of ordinary cap
+       room into a mid-level signing the moment it won the toss — two seasons,
+       and its whole exception drained for a player it had the room for. */
+    const wonMle=mleOnFor(winner)
+      || (a.bids||[]).some(b=>b.t===winner&&Math.abs(b.amt-a.bid)<0.001&&b.mle);
+    a.bids.unshift({t:winner,amt:a.bid,ts:now(),mle:wonMle,flip:tied.length});
     alert(`Coin flip: ${winner} wins ${a.player} at ${money(a.bid)}.`);
   }
   const own=rightsOf(null,a.player), price=a.bid;
