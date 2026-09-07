@@ -248,6 +248,119 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        card.includes((g('clubTotals')(team, who).PTS/GC).toFixed(2)));
   }
 
+  console.log('\n== the mid-level exception is a pot, not a coupon ==');
+  {
+    const CS = g('S'), keepMe = X.me, T = 'Osborn';
+    ok('a club that never touched it has the full amount',
+       g('mleLeft')(T) === g('mleAmt')(), g('mleLeft')(T));
+    ok('the amount is the commissioner\'s, defaulting to the rulebook figure',
+       g('mleAmt')() === g('MLEDEF'));
+    CS.cfg.mle = 6.00;
+    ok('...and follows him when he changes it', g('mleAmt')() === 6.00);
+    CS.teams[T].mle = false;                       // the shape a league stored before this carries
+    ok('the old spent flag reads as nothing left', g('mleLeft')(T) === 0);
+    CS.teams[T].mle = 2.25;
+    ok('a balance is what is left', g('mleLeft')(T) === 2.25);
+    ok('and what has gone', g('mleSpent')(T) === 3.75);
+    delete CS.teams[T].mle; delete CS.cfg.mle;
+
+    // Only the money above cap room spends it, and Bird covers its own player.
+    const room = g('capRoom')(T);
+    ok('a price inside cap room needs none of it',
+       g('mleNeed')(T, 'Nobody At All', Math.max(0, room)) === 0);
+    ok('...and the money above it does',
+       Math.abs(g('mleNeed')(T, 'Nobody At All', Math.max(0, room) + 2) - 2) < 0.001,
+       g('mleNeed')(T, 'Nobody At All', Math.max(0, room) + 2));
+    ok('usesMle says the same thing', g('usesMle')(T, 'Nobody At All', Math.max(0, room) + 2) === true);
+    X.me = keepMe;
+  }
+
+  console.log('\n== the hard cap still beats the exception ==');
+  {
+    const CS = g('S'), T = 'Osborn';
+    const hard = CS.cfg.tax - g('committed')(T);
+    ok('no ceiling anywhere exceeds what is left under the hard cap',
+       g('TEAMS')().every(t => g('bidCeiling')(t, 'Nobody At All')
+         <= CS.cfg.tax - g('committed')(t) + 0.001));
+    ok('and signBlock still refuses a price past it',
+       /hard cap/.test(g('signBlock')(T, 'Nobody At All', hard + 5) || ''),
+       g('signBlock')(T, 'Nobody At All', hard + 5));
+  }
+
+  console.log('\n== the ceiling says WHICH wall it is ==');
+  {
+    const T = 'Osborn', w = g('ceilWhy')(T, 'Nobody At All');
+    ok('it carries the number and a reason', typeof w.ceil === 'number' && !!w.why, JSON.stringify(w));
+    ok('the reason names a real limit',
+       /salary cap|hard cap|mid-level|no room|minimum/.test(w.why), w.why);
+    ok('and never calls the hard cap a luxury tax', !/luxury/i.test(w.why), w.why);
+  }
+
+  console.log('\n== two clubs level on the exception ==');
+  {
+    const CS = g('S'), keepMe = X.me;
+    CS.auction = {player:'Nobody At All', by:'Osborn', bid:3.00, leader:'Osborn',
+                  bids:[{t:'Osborn', amt:3.00, ts:1, mle:true}], max:{}, status:'open'};
+    ok('one club alone is not a tie', g('mleTied')().length === 0);
+    CS.auction.bids.unshift({t:'Brice', amt:3.00, ts:2, mle:true});
+    ok('two clubs level on declared MLE bids are', g('mleTied')().sort().join() === 'Brice,Osborn',
+       JSON.stringify(g('mleTied')()));
+    CS.auction.bids[0].mle = false;
+    ok('a level bid that is not on the exception is not a tie', g('mleTied')().length === 0);
+    CS.auction = null; X.me = keepMe;
+  }
+
+  console.log('\n== the bid log keeps every step ==');
+  {
+    const CS = g('S'), keepMe = X.me;
+    // A leads at 4.25 holding a max of 5. B's max of 4.50 loses -- but B bid it,
+    // and without B's entry the log read as A bidding against himself.
+    CS.auction = {player:'Nobody At All', by:'Osborn', bid:4.25, leader:'Osborn',
+                  bids:[{t:'Osborn', amt:4.25, ts:1}], max:{Osborn:5.00}, status:'open'};
+    X.me = 'Brice';
+    await g('placeBid')('Brice', 4.50, true);
+    const log = CS.auction.bids;
+    ok('the losing max is on the record', log.some(b => b.t === 'Brice'),
+       JSON.stringify(log.map(b => b.t + '@' + b.amt)));
+    ok('...and the winner answers it above', log[0].t === 'Osborn',
+       JSON.stringify(log.map(b => b.t + '@' + b.amt)));
+    ok('so no club appears twice in a row',
+       !log.some((b, i) => i > 0 && log[i - 1].t === b.t),
+       JSON.stringify(log.map(b => b.t + '@' + b.amt)));
+    ok('nothing is labelled automatic any more', log.every(b => b.auto === undefined));
+    CS.auction = null; X.me = keepMe;
+  }
+
+  console.log('\n== salary matching is the commissioner\'s switch ==');
+  {
+    const CS = g('S');
+    ok('a league that never set it has matching OFF', g('matchOn')() === false);
+    CS.cfg.match = true;
+    ok('...and on once he does', g('matchOn')() === true);
+    delete CS.cfg.match;
+    ok('deleting the key is off again', g('matchOn')() === false);
+  }
+
+  console.log('\n== the commissioner can add a player the sheet missed ==');
+  {
+    const CS = g('S');
+    CS.cfg.addl = [];
+    ok('a blank name is refused', /Type a player name/.test(g('addlError')('', 'G') || ''));
+    ok('somebody already in RATER is refused',
+       /already in the player list/.test(g('addlError')('Kevin Durant', 'F') || ''));
+    ok('a new name is allowed', g('addlError')('Test Newcomer', 'G') === null);
+    CS.cfg.addl = [{n:'Test Newcomer', p:'G'}];
+    ok('he is not added twice', /already been added/.test(g('addlError')('Test Newcomer', 'G') || ''));
+    const row = g('addlPlayers')().find(p => p.n === 'Test Newcomer');
+    ok('he carries no box score, like a rookie',
+       !!row && row.g === null && row.s === null && row.tot === null, JSON.stringify(row));
+    ok('hasStats agrees', g('hasStats')(row) === false);
+    ok('and he is in the free agent pool',
+       g('faPool')().some(p => p.n === 'Test Newcomer'));
+    CS.cfg.addl = [];
+    ok('removing him takes him back out', !g('faPool')().some(p => p.n === 'Test Newcomer'));
+  }
+
   console.log('\n== the league names itself ==');
   {
     const CS = g('S'), keepName = CS.cfg.league;

@@ -25,7 +25,7 @@
   --tto-b:#1D2E47;--tto-t:#7FB0E8; --tro-b:#1B3A2A;--tro-t:#6FC28E;
   --tpo-b:#40300F;--tpo-t:#E8A93F; --tbi-b:#3A2E17;--tbi-t:#E0A340;
   --teb-b:#2E2A17;--teb-t:#C9B463; --trf-b:#41231E;--trf-t:#E5806B;
-  --tcu-b:#3A1E1A;--tcu-t:#D4715C;
+  --tcu-b:#3A1E1A;--tcu-t:#D4715C; --tbl-b:#4A3410;--tbl-t:#F0B85A;
   --bnr:linear-gradient(170deg,#1C2432,#141B25);
   --shadow:none;
 }
@@ -39,7 +39,7 @@
   --okbg:#E9F4ED; --okln:#B4D8C2; --oktx:#1F6D45;
   --wnbg:#FBEDE9; --wnln:#E5BDB1; --wntx:#8E2C18;
   --tto-b:#DCE8F7;--tto-t:#1D5A94; --tro-b:#DCF0E4;--tro-t:#1B6B3C;
-  --tpo-b:#F7E9CE;--tpo-t:#8A5A06; --tbi-b:#F6E8CC;--tbi-t:#8A5A06;
+  --tpo-b:#F7E9CE;--tpo-t:#8A5A06; --tbi-b:#F6E8CC;--tbi-t:#8A5A06; --tbl-b:#FBE7BE;--tbl-t:#6E4304;
   --teb-b:#F2EDD6;--teb-t:#75651B; --trf-b:#FBE1DB;--trf-t:#9A3018;
   --tcu-b:#F7E2DC;--tcu-t:#93321C;
   --bnr:linear-gradient(170deg,#FFFFFF,#F1F4F8);
@@ -146,7 +146,7 @@ tbody tr.iscut td:first-child{text-decoration:line-through;text-decoration-color
 .exp{color:var(--dim)}
 .tag{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.09em;padding:1.5px 5px;border-radius:2px;margin-left:6px;vertical-align:1px;font-weight:500}
 .t-to{background:var(--tto-b);color:var(--tto-t)}.t-ro{background:var(--tro-b);color:var(--tro-t)}.t-po{background:var(--tpo-b);color:var(--tpo-t)}
-.t-blk{background:var(--amber);color:var(--ink);font-weight:700}
+.t-blk{background:var(--tbl-b);color:var(--tbl-t);font-weight:700}
 .act.on{border-color:var(--amber);color:var(--amber)}
 .t-bird{background:var(--tbi-b);color:var(--tbi-t)}.t-eb{background:var(--teb-b);color:var(--teb-t)}
 .t-rfa{background:var(--trf-b);color:var(--trf-t)}.t-cut{background:var(--tcu-b);color:var(--tcu-t)}
@@ -179,7 +179,8 @@ text-transform:uppercase;padding:3px 8px;border-radius:2px;cursor:pointer;margin
   padding:8px 10px;color:var(--steel);font-size:12.5px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
-input,select{width:100%;background:var(--well);border:1px solid var(--line);color:var(--chalk);font-family:var(--body);font-size:14px;padding:9px 10px;border-radius:2px}
+input,select,textarea{width:100%;background:var(--well);border:1px solid var(--line);color:var(--chalk);font-family:var(--body);font-size:14px;padding:9px 10px;border-radius:2px}
+textarea{resize:vertical;line-height:1.5}
 input.mono{font-family:var(--mono)}
 input:focus,select:focus{outline:none;border-color:var(--amber)}
 .btn{background:var(--amber);color:var(--panel);border:0;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:.01em;padding:10px 20px;border-radius:2px;cursor:pointer;transition:filter .15s;white-space:nowrap}
@@ -702,6 +703,15 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 /* The board's row for the player on the block, shown in the bid panel on My
    Team. Deliberately quiet: it is a note the GM wrote, not a rule the app is
    enforcing, so it never looks like the ceiling boxes above it. */
+#apnList .bid{grid-template-columns:1fr 90px 110px auto}
+.mlebox{display:flex;gap:9px;align-items:flex-start;margin-top:11px;padding:9px 11px;border:1px solid var(--tbi-b);
+  border-radius:2px;background:var(--panel2);font-size:12px;line-height:1.45;color:var(--steel)}
+.mlebox input{width:auto;flex:none;margin-top:2px}
+/* The global input rule is width:100%, which as a flex item made the checkbox
+   claim the whole row and squeezed the sentence beside it to one word per
+   line — the same fault the lineup name column has bitten us with. */
+.mlebox>span{flex:1;min-width:0;text-transform:none;letter-spacing:0;font-family:var(--body)}
+.mlebox b{color:var(--chalk)}
 .stratnote{border:1px solid var(--line);border-left:2px solid var(--space);border-radius:2px;
   padding:8px 11px;margin-top:11px;background:var(--panel2)}
 .stratnote.past{border-left-color:var(--tax)}
@@ -856,6 +866,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   <section class="view" id="v-auction" role="tabpanel" hidden>
     <h2>Auction room</h2>
     <div id="auctionMain"></div>
+    <div id="bidBox"></div>
     <div class="filters" id="nomWho"></div>
     <div id="nomBox"></div>
 
@@ -1202,12 +1213,50 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <div><label for="sLeague">League name</label><input id="sLeague" maxlength="60"
         placeholder="League Ledger" autocomplete="off"></div>
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
-      <div><label for="sTax">Luxury tax / hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
+      <div><label for="sTax">Hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
       <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
       <div><label for="sMin">Minimum contract</label><input id="sMin" class="mono" type="number" step="0.25" min="0.25"></div>
       <div><label for="sDeadline">Trade deadline</label><input id="sDeadline" class="mono" placeholder="2027-02-05" autocomplete="off"></div>
+      <div><label for="sMle">Mid-level exception</label><input id="sMle" class="mono" type="number" step="0.25" min="0"></div>
+      <div><label for="sMatch">Trade salary matching</label><select id="sMatch">
+        <option value="">Off &#8212; any trade under the hard cap</option>
+        <option value="1">On &#8212; enforce the 150% / +$5.00 / 125% bands</option></select></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
+    <p class="note">The <b>mid-level exception</b> is what a club over the salary cap may still spend, and it
+      splits across as many players as it covers &#8212; each club's remaining balance shows on its own page.
+      A signing that uses any of it runs <b>two seasons</b>. It never beats the hard cap.
+      <b>Salary matching</b> is off, so a trade goes through on the hard cap and the roster limit alone;
+      switch it on to enforce the rulebook's outgoing-salary bands as well.</p>
+    <h2 class="sub">Email the league</h2>
+    <p class="note">One message to every club that has an address on file. It goes out from the league's own
+      address; addresses are never typed here and never leave the rosters slice. Plain text &#8212; blank lines
+      start a new paragraph. <b>Only the commissioner login can send this</b>, and it counts against the daily
+      send ceiling, so a note that would breach it sends to nobody rather than to half the league.</p>
+    <div class="form" style="grid-template-columns:1fr">
+      <div><label for="bcSubj">Subject</label><input id="bcSubj" maxlength="160" placeholder="e.g. The auction opens Sunday at 7" autocomplete="off"></div>
+      <div><label for="bcBody">Message</label><textarea id="bcBody" rows="6" maxlength="4000"
+        placeholder="Write to the league&#8230;"></textarea></div>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:10px;align-items:center">
+      <button class="btn" id="bcSend">Send to the league</button>
+      <span class="fcount" id="bcNote"></span>
+    </div>
+
+    <h2 class="sub">Add a player to the pool</h2>
+    <p class="note">The player list is a transcription of last season and it is a snapshot &#8212; a man signed
+      since, a call-up, or somebody the sheet simply missed has no row, and so cannot be nominated, drafted or
+      signed. Add him here and he joins the free agent pool. <b>He carries no statistics</b>, the same as an
+      undrafted rookie: nothing here invents numbers for a player nobody has any for.</p>
+    <div class="form f4">
+      <div><label for="apnName">Player name</label><input id="apnName" maxlength="60" placeholder="e.g. Jaylen Wells" autocomplete="off"></div>
+      <div><label for="apnPos">Position</label><select id="apnPos">
+        <option value="">&#8212;</option><option>G</option><option>F</option><option>C</option>
+        <option>G, F</option><option>F, C</option><option>C, F</option><option>F, G</option><option>G, C</option></select></div>
+      <div></div><button class="btn" id="apnAdd">Add player</button>
+    </div>
+    <div class="log" id="apnList"></div>
+
     <h2 class="sub">Clubs</h2>
     <p class="note">Add a club to the league. It starts empty, with no PIN &#8212; the first person to
       sign in as it claims it. Nine clubs is the league as it stands; the cap, the tax and the
@@ -2690,7 +2739,7 @@ function drawDetail(){
       <div class="capcell"><dt>Salary cap</dt><dd>${money(cap)}</dd></div>
       <div class="capcell"><dt>Salary spent</dt><dd class="amb">${money(s)}</dd></div>
       <div class="capcell"><dt>Cap space</dt><dd class="${cap-s>=0?'good':'bad'}">${money(cap-s)}</dd></div>
-      <div class="capcell"><dt>Luxury tax</dt><dd>${money(tax)}</dd></div>
+      <div class="capcell"><dt>Hard cap</dt><dd>${money(tax)}</dd></div>
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
       <div class="capcell"><dt>Spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
     </dl>
@@ -3195,7 +3244,11 @@ function drawAdmin(){
       await commit({kind:'trade',team:`${from} / ${to}`,detail:`Commissioner moved ${n} to ${to}`});
     };
   }
+  drawAddl();
+  wireBroadcast();
   if($('sLeague')) $('sLeague').value=S.cfg.league||'';
+  if($('sMle')) $('sMle').value=mleAmt();
+  if($('sMatch')) $('sMatch').value=matchOn()?'1':'';
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
   if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
   if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
@@ -3654,6 +3707,40 @@ const FALABEL={g:'Games',PTS:'Points',TRB:'Rebounds',AST:'Assists',P3:'Threes',S
    Rows are shaped like a RATER row so every caller reads them the same way. A
    player with no box score on file — a rookie, today — carries g, s and tot as
    null, and the tables show him as unrated rather than crashing on p.s. */
+/* ---- players the commissioner adds ---------------------------------------
+   RATER is a hand-transcribed table of 390 players and it is a snapshot: a man
+   who signed after it was written, a two-way call-up, an overseas signing, or
+   simply somebody the sheet missed has no row and so cannot be nominated,
+   drafted or signed. `S.cfg.addl` is the commissioner's own list of extras.
+
+   They carry NO box score, exactly like an undrafted rookie — `g`, `s` and
+   `tot` are null and `hasStats()` is what every table already asks — so no
+   screen has to change and nothing invents numbers for a player nobody has
+   statistics for. When the nightly feed lands and he turns up in RATER, the
+   RATER row wins and the extra is ignored.
+
+   Pure, and matched through canon() on both sides like everything else. */
+const addlList=()=>Array.isArray(S.cfg&&S.cfg.addl)?S.cfg.addl:[];
+function addlPlayers(){
+  const known=new Set(RATER.map(p=>canon(p.n)));
+  const seen=new Set();
+  return addlList().filter(a=>{
+    const c=canon(a.n);
+    if(!c||known.has(c)||seen.has(c)) return false;
+    seen.add(c); return true;
+  }).map(a=>({n:a.n,p:a.p||'',t:'FA',g:null,s:null,tot:null,added:true}));
+}
+/* Why this player cannot be added, or null. */
+function addlError(name,pos){
+  const n=nameClean(name);
+  if(!n) return 'Type a player name.';
+  if(n.length>60) return 'A player name is at most 60 characters.';
+  const c=canon(n);
+  if(RATER.some(p=>canon(p.n)===c)) return `${n} is already in the player list.`;
+  if(addlList().some(a=>canon(a.n)===c)) return `${n} has already been added.`;
+  if(TEAMS().some(t=>S.teams[t].r.some(p=>canon(p.n)===c))) return `${n} is already on a roster.`;
+  return null;
+}
 function faPool(){
   const signed=new Set();
   TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut&&contracted(p)) signed.add(canon(p.n)); }));
@@ -3664,6 +3751,11 @@ function faPool(){
     if(signed.has(c)||seen.has(c)) return;
     seen.add(c);
     out.push({n:r.n,p:r.p,t:'FA',g:null,s:null,tot:null,rookie:true});
+  });
+  addlPlayers().forEach(r=>{
+    const c=canon(r.n);
+    if(signed.has(c)||seen.has(c)) return;
+    seen.add(c); out.push(r);
   });
   return out;
 }
@@ -3873,7 +3965,8 @@ function drawMe(){
       <div class="capcell"><dt>Game slots used</dt><dd>${Math.round(F.own)} / ${S.cfg.gamecap||920}</dd></div>
       ${seasonLive()?'':`<div class="capcell"><dt>Avg historical place</dt><dd class="${avgPlace<=3.5?'good':avgPlace>=6.5?'bad':''}">${avgPlace.toFixed(1)}</dd></div>
       <div class="capcell"><dt>Categories at a winning level</dt><dd class="${beat>=4?'good':beat<=1?'bad':''}">${beat} of 9</dd></div>
-      <div class="capcell"><dt>Mid-level</dt><dd>${S.teams[T].mle===false?'spent':money(5.50)}</dd></div>`}
+      <div class="capcell"><dt>Mid-level left</dt><dd>${mleLeft(T)>0?money(mleLeft(T)):'spent'}${
+        mleSpent(T)>0&&mleLeft(T)>0?`<span class="sub2"> of ${money(mleAmt())}</span>`:''}</dd></div>`}
       ${seasonLive()?`<div class="capcell"><dt>Injured reserve</dt><dd>${irCount(T)} / ${S.cfg.ir??2}</dd></div>`:''}
     </dl>
     ${(()=>{
@@ -3928,19 +4021,31 @@ function drawMe(){
   if($('labGo')) $('labGo').onclick=()=>goTab('v-me');
   drawBidPanel(); drawFilters(); drawFAList();
 }
-function drawBidPanel(){
+/* ---- bidding lives on the AUCTION tab ---------------------------------
+   The controls used to sit on My Team, two tabs from the bid history, the money
+   left and the player on the block. A GM bidding was reading one screen and
+   typing into another. `bidControls()` renders them into #bidBox on the auction
+   tab; My Team keeps what it was always the right home for — what the player
+   would do to YOUR club — and says where the bidding is.
+
+   One function draws it and one wires it, because the auction poll rebuilds
+   this panel every four seconds and a handler bound to a thrown-away node is
+   the oldest bug in this file. */
+function bidControls(){
+  const box=$('bidBox'); if(!box) return;
   const a=A();
-  if(!a||a.status!=='open'){
-    $('bidPanel').innerHTML='<div class="empty">Nobody is on the block right now.</div>'; return;
-  }
   const me2=meTeam();
-  const ceil=bidCeiling(me2,a.player), notes=restrictionNote(me2,a.player);
+  if(!a||a.status!=='open'||!me2||isComm()&&!meTeam()){ box.innerHTML=''; return; }
+  const cw=ceilWhy(me2,a.player), ceil=cw.ceil, notes=restrictionNote(me2,a.player);
   const mine=a.leader===me2, myMax=(a.max&&a.max[me2])||0;
-  $('bidPanel').innerHTML=`<div class="block">
-    <div class="pn">${a.player}</div>
-    <div class="meta">nominated by ${a.by}, ${a.bids.length} bid${a.bids.length===1?'':'s'} so far</div>
-    <div class="bidnow"><span class="amt2">${money(a.bid)}</span>
-      <span class="lead" style="color:${mine?'var(--space)':'var(--steel)'}">${mine?'you lead':a.leader}</span></div>
+  const tied=mleTied(), ml=mleLeft(me2);
+  /* A declared mid-level bid is only offerable when the exception is what the
+     money would actually come from, so the box appears when he has some left
+     and the next quarter is already above his cap room. */
+  const room=Math.max(0,capRoom(me2));
+  const canMle = ml>0 && mleNeed(me2,a.player,a.bid+0.25)>0.001;
+  box.innerHTML=`<div class="block">
+    <div class="meta">nominated by ${htmlEsc(a.by)}, ${a.bids.length} bid${a.bids.length===1?'':'s'} so far</div>
     <div class="bidrow">
       <button class="step" id="bDn">&#8722;</button>
       <button class="step" id="bUp">+</button>
@@ -3949,25 +4054,124 @@ function drawBidPanel(){
       <button class="btn" id="bGo" ${ceil<a.bid+0.25?'disabled':''}>Bid</button>
     </div>
     <div class="bidrow" style="grid-template-columns:1fr auto">
-      <div><label for="bMax">Max bid (auto-bids for you up to this)</label>
+      <div><label for="bMax">Max bid (bids for you, up to this)</label>
         <input id="bMax" class="mono" type="number" step="0.25" min="1" value="${myMax||''}" placeholder="optional"></div>
       <button class="btn ghost" id="bMaxGo">Set max</button>
     </div>
+    ${canMle?`<label class="mlebox"><input type="checkbox" id="bMle">
+      <span>Use my mid-level exception &#8212; ${money(ml)} left.
+      <b>Signs him for two seasons</b>, and another club on its own exception may level your bid
+      rather than raise it, which the commissioner settles with a coin flip.</span></label>`:''}
+    ${tied.length>1?`<div class="warnbox"><b>Level at ${money(a.bid)}:</b> ${htmlEsc(tied.join(' and '))}.
+      Neither can raise on the exception, so the commissioner flips for him.</div>`:''}
     ${ceil<a.bid+0.25
-      ? `<div class="warnbox">You cannot go higher on ${a.player}. Your ceiling is ${money(ceil)}.</div>`
-      : `<div class="okbox">You may bid up to ${money(ceil)} on this player.</div>`}
+      ? `<div class="warnbox"><b>You cannot go higher on ${htmlEsc(a.player)}.</b> ${cw.why}</div>`
+      : `<div class="okbox"><b>You may bid up to ${money(ceil)}.</b> ${cw.why}</div>`}
     ${notes.length?`<div class="warnbox">${notes.join('<br>')}</div>`:''}
+    ${stratBidNote(a.player,a.bid)}
+  </div>`;
+  const amt=$('bAmt'), mleOn=()=>!!($('bMle')&&$('bMle').checked);
+  $('bUp').onclick=()=>amt.value=(parseFloat(amt.value||a.bid)+0.25).toFixed(2);
+  $('bDn').onclick=()=>amt.value=Math.max(a.bid+0.25,parseFloat(amt.value||0)-0.25).toFixed(2);
+  $('bGo').onclick=()=>placeBid(me2,parseFloat(amt.value),false,mleOn());
+  $('bMaxGo').onclick=()=>{const v=parseFloat($('bMax').value);
+    if(!(v>=1))return alert('Enter a max bid of at least $1.00.');placeBid(me2,v,true,mleOn());};
+}
+/* My Team's half: what he would do to your club, and where to go to bid. */
+function drawBidPanel(){
+  const a=A();
+  if(!a||a.status!=='open'){
+    $('bidPanel').innerHTML='<div class="empty">Nobody is on the block right now.</div>'; return;
+  }
+  const me2=meTeam(), mine=a.leader===me2;
+  $('bidPanel').innerHTML=`<div class="block">
+    <div class="pn">${htmlEsc(a.player)}</div>
+    <div class="meta">nominated by ${htmlEsc(a.by)}, ${a.bids.length} bid${a.bids.length===1?'':'s'} so far</div>
+    <div class="bidnow"><span class="amt2">${money(a.bid)}</span>
+      <span class="lead" style="color:${mine?'var(--space)':'var(--steel)'}">${mine?'you lead':htmlEsc(a.leader||'')}</span></div>
+    <p class="note" style="margin-top:11px">This is what he would do to your club at ${money(a.bid)}.
+      <b>Bidding is on the Auction tab</b>, with the bid history and every club's money left.</p>
+    <button class="btn" id="goBid">Go to the auction</button>
     ${stratBidNote(a.player,a.bid)}
   </div>
   <div style="margin-top:14px">${impactCard(me2,a.player,`at ${money(a.bid)}`)}</div>`;
-  const amt=$('bAmt');
-  $('bUp').onclick=()=>amt.value=(parseFloat(amt.value||a.bid)+0.25).toFixed(2);
-  $('bDn').onclick=()=>amt.value=Math.max(a.bid+0.25,parseFloat(amt.value||0)-0.25).toFixed(2);
-  $('bGo').onclick=()=>placeBid(me2,parseFloat(amt.value),false);
-  $('bMaxGo').onclick=()=>{const v=parseFloat($('bMax').value);
-    if(!(v>=1))return alert('Enter a max bid of at least $1.00.');placeBid(me2,v,true);};
+  if($('goBid')) $('goBid').onclick=()=>goTab('v-auction');
 }
 
+
+/* ---- the commissioner's own additions to the player list ----------------
+   Written to `S.cfg.addl`, which rides the SETTINGS slice: it is league-wide
+   reference data written rarely by one person, which is exactly what that slice
+   is for, and it keeps the extras out of the payload the auction polls. */
+function drawAddl(){
+  const box=$('apnList'); if(!box) return;
+  const rows=addlList();
+  box.innerHTML=rows.length
+    ? rows.map((a,i)=>{
+        const signed=liveClub(a.n);
+        return `<div class="bid"><div class="who2">${htmlEsc(a.n)}</div>
+          <div style="color:var(--steel);font-family:var(--mono);font-size:11px">${htmlEsc(a.p||'\u2014')}</div>
+          <div style="color:var(--dim);font-size:11px">${signed?'on '+htmlEsc(signed):'free agent'}</div>
+          <div><button class="act" data-apx="${i}">Remove</button></div></div>`;}).join('')
+    : '<div class="empty">Nobody added. The pool is the transcribed player list plus the rookie class.</div>';
+  box.querySelectorAll('[data-apx]').forEach(b=>b.onclick=()=>removeAddl(+b.dataset.apx));
+  if($('apnAdd')) $('apnAdd').onclick=addAddl;
+}
+async function addAddl(){
+  if(!hasComm()) return alert('Only the commissioner can add a player.');
+  const n=nameClean($('apnName').value), pos=$('apnPos').value||'';
+  const err=addlError(n,pos);
+  if(err) return alert(err);
+  S.cfg.addl=addlList().concat([{n,p:pos}]);
+  $('apnName').value='';
+  await commit({kind:'edit',detail:`Added ${n} to the player pool${pos?` (${pos})`:''}`},['settings']);
+}
+async function removeAddl(i){
+  if(!hasComm()) return alert('Only the commissioner can do that.');
+  const row=addlList()[i]; if(!row) return;
+  /* A player already on a roster keeps his contract either way — this list is
+     only how he became available — but say so rather than let it look like a
+     release. */
+  const on=liveClub(row.n);
+  if(!confirm(`Remove ${row.n} from the player pool?`
+    +(on?`\n\n${on} carries him, and that contract is NOT touched. He simply stops appearing as an added player.`
+        :'')))return;
+  S.cfg.addl=addlList().filter((x,j)=>j!==i);
+  await commit({kind:'edit',detail:`Removed ${row.n} from the player pool`},['settings']);
+}
+/* ---- the commissioner's league-wide note --------------------------------
+   Mail is a nudge and never the mechanism, so this is the one place in the app
+   where a send IS the whole action — which is why it says plainly who it
+   reached and who it did not, rather than a bare "sent". */
+function wireBroadcast(){
+  const btn=$('bcSend'); if(!btn) return;
+  const note=$('bcNote');
+  const addrs=TEAMS().filter(t=>S.teams[t].email);
+  if(note) note.textContent=addrs.length
+    ? `${addrs.length} club${addrs.length===1?'':'s'} of ${TEAMS().length} have an address on file`
+    : 'No club has an address on file yet — nothing would be sent.';
+  btn.disabled=!addrs.length;
+  btn.onclick=async()=>{
+    if(!isComm()) return alert('Only the commissioner login can email the league.');
+    const subject=($('bcSubj').value||'').trim(), body=($('bcBody').value||'').trim();
+    if(!subject) return $('bcSubj').focus();
+    if(!body) return $('bcBody').focus();
+    if(!confirm(`Send "${subject}" to ${addrs.length} club${addrs.length===1?'':'s'}?`
+      +'\n\nThis leaves the app and cannot be taken back.')) return;
+    btn.disabled=true; if(note) note.textContent='Sending\u2026';
+    const r=await notify({kind:'all',subject,body});
+    btn.disabled=false;
+    if(r&&r.ok){
+      $('bcSubj').value=''; $('bcBody').value='';
+      const failed=(r.failed||[]).length;
+      if(note) note.textContent=`Sent to ${r.sent} club${r.sent===1?'':'s'}`
+        +(failed?` \u2014 ${failed} did not go out: ${(r.failed||[]).join(', ')}`:'');
+      await commit({kind:'edit',detail:`Emailed the league: ${subject} (${r.sent} sent)`},['log']);
+    }else{
+      if(note) note.textContent='Not sent \u2014 '+((r&&r.reason)||'the mail service is not configured');
+    }
+  };
+}
 
 /* The players a club paid to release and therefore cannot buy back. Worth its
    own panel rather than a surprise the first time a GM bids: he has to know
@@ -4373,7 +4577,7 @@ function drawAuction(){
       S.auction=null;await commit(null);};
     $('bidLog').innerHTML=a.bids.map((b,i)=>`<div class="bid ${i===0?'win':''}">
       <div class="t" style="font-family:var(--mono);font-size:10px;color:var(--dim)">${fmt(b.ts)}</div>
-      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:11px">${b.auto?'automatic':''}</div>
+      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:11px">${b.mle?'MLE':''}</div>
       <div class="amt3">${money(b.amt)}</div></div>`).join('');
   }
   else if(!a||a.status!=='open'){
@@ -4404,7 +4608,7 @@ function drawAuction(){
       S.auction=null;await commit(null);};
     $('bidLog').innerHTML=a.bids.map((b,i)=>`<div class="bid ${i===0?'win':''}">
       <div class="t" style="font-family:var(--mono);font-size:10px;color:var(--dim)">${fmt(b.ts)}</div>
-      <div class="who2">${b.t}</div><div style="color:var(--dim);font-size:11px">${b.auto?'automatic':''}</div>
+      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:11px">${b.mle?'MLE':''}</div>
       <div class="amt3">${money(b.amt)}</div></div>`).join('');
   }
   const clock=nomOnClock(), ordered=nomOrder().length>0;
@@ -4421,13 +4625,17 @@ function drawAuction(){
       <div><label for="nomP">Nominate a player</label><input id="nomP" data-list="falist2" placeholder="Player name" autocomplete="off">
         <datalist id="falist2">${faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('')}</datalist></div>
       <div><label for="nomO">Opening bid</label><input id="nomO" class="mono" type="number" step="0.25" min="1" value="1.00"></div>
-      <div></div><button class="btn" id="nomGo">Put on the block</button></div>`
+      <div><label for="nomM">Max bid <span style="color:var(--dim)">optional</span></label>
+        <input id="nomM" class="mono" type="number" step="0.25" min="1" placeholder="bids for you"></div>
+      <button class="btn" id="nomGo">Put on the block</button></div>`
     : !me ? '<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>'
       : isComm() ? ''
       : nomFull(me) ? `<p class="note" style="margin-top:14px">${me} carries ${S.cfg.roster} players and cannot nominate.</p>`
       : (ordered&&clock&&clock.team!==me) ? `<p class="note" style="margin-top:14px">Waiting on ${htmlEsc(clock.team)} to nominate.</p>`
       : '';
-  if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1);
+  if($('nomGo'))$('nomGo').onclick=()=>nominate($('nomP').value.trim(),me,parseFloat($('nomO').value)||1,
+    parseFloat(($('nomM')&&$('nomM').value)||'')||0);
+  bidControls();
   drawAuctRoster();
   drawBarred();
   drawStrategy();
@@ -5733,6 +5941,42 @@ function rightsOf(team,name){
   }
   return {club:null,bird:'',opt:'',rfa:false};
 }
+/* ---- the mid-level exception ----------------------------------------------
+   It used to be one coupon: `S.teams[t].mle === false` meant spent, anything
+   else meant a whole $5.50 available. The league splits it across more than one
+   player, so what has to be tracked is the money LEFT, not a yes/no.
+
+   `S.teams[t].mle` is therefore a number of dollars remaining. The legacy
+   `false` reads as nothing left and a missing value as the full amount, so a
+   league stored before this needs no migration. `S.cfg.mle` is the amount the
+   commissioner sets; 5.50 is the rulebook figure and the default.
+
+   The MLE lets a club past the SOFT cap only. The hard cap is still absolute —
+   `bidCeiling()` computes `hard` first and every branch is clamped to it. */
+const MLEDEF=5.50;
+const mleAmt=()=>{const v=Number(S.cfg.mle); return v>0?Math.round(v*4)/4:MLEDEF;};
+function mleLeft(team){
+  const c=S.teams[team]; if(!c) return 0;
+  if(c.mle===false) return 0;                       // the old spent flag
+  if(typeof c.mle==='number') return Math.max(0,Math.round(c.mle*4)/4);
+  return mleAmt();                                  // never touched it
+}
+const mleSpent=team=>Math.max(0,mleAmt()-mleLeft(team));
+/* Cap room, the number every exception is measured against: what a club may
+   commit before the soft cap, holding back a minimum for each empty seat. */
+function capRoom(team){
+  const sp=S.cfg.roster-headcount(team);
+  return S.cfg.cap-committed(team)-Math.max(0,sp-1)*1.00;
+}
+/* How much of this price sits above the club's cap room, and so has to come out
+   of the mid-level. Bird and Early Bird cover their own player, so a club using
+   one of those is not spending the MLE on him. */
+function mleNeed(team,name,price){
+  const R=rightsOf(team,name);
+  if(R.club===team&&R.bird) return 0;
+  return Math.max(0, Math.round((price-Math.max(0,capRoom(team)))*4)/4);
+}
+const usesMle=(team,name,price)=>mleNeed(team,name,price)>0.001;
 function bidCeiling(team,name){
   const cr0=cutRestriction(team,name);
   if(cr0&&cr0.hard) return 0;
@@ -5747,8 +5991,38 @@ function bidCeiling(team,name){
   if(R.club===team&&R.bird==='Yes') return Math.max(1,hard);
   if(R.club===team&&R.bird) return Math.max(1,Math.min(hard,Math.max(space,0)+7.00));
   if(space>=1) return Math.max(1,Math.min(hard,space));
-  if(S.teams[team].mle!==false) return Math.max(1,Math.min(hard,5.50));
+  const ml=mleLeft(team);
+  if(ml>0) return Math.max(1,Math.min(hard,Math.max(space,0)+ml));
   return hard>=1?1:0;
+}
+/* The ceiling AND the one-sentence reason it is where it is. The bid panel used
+   to say only "you may bid up to $X", which left a GM guessing whether the wall
+   was the soft cap, the hard cap or his own roster. Pure. */
+function ceilWhy(team,name){
+  const ceil=bidCeiling(team,name);
+  const cr=cutRestriction(team,name);
+  if(cr&&cr.hard) return {ceil,why:cr.why};
+  if(cr&&cr.minOnly) return {ceil,why:cr.why};
+  const sp=S.cfg.roster-headcount(team);
+  if(sp<=0) return {ceil,why:`${team} carries ${S.cfg.roster} players and has no room.`};
+  const hard=S.cfg.tax-committed(team)-Math.max(0,sp-1)*1.00;
+  const space=capRoom(team), R=rightsOf(team,name), ml=mleLeft(team);
+  if(R.club===team&&R.bird==='Yes')
+    return {ceil,why:`Bird rights on ${name}, so the ${money(S.cfg.cap)} salary cap does not bind — `
+      +`${money(ceil)} is what is left under the ${money(S.cfg.tax)} hard cap.`};
+  if(ceil>=hard-0.001)
+    return {ceil,why:`${money(ceil)} is what ${team} has left under the ${money(S.cfg.tax)} hard cap. Nothing beats the hard cap.`};
+  if(R.club===team&&R.bird)
+    return {ceil,why:`Early Bird on ${name} — ${money(space>0?space:0)} of cap room plus ${money(7)} over the `
+      +`${money(S.cfg.cap)} salary cap.`};
+  if(space>=1&&ceil<=space+0.001)
+    return {ceil,why:`${money(ceil)} is ${team}'s room under the ${money(S.cfg.cap)} salary cap.`};
+  if(ml>0) return {ceil,why:space>=1
+    ? `${money(space)} of room under the ${money(S.cfg.cap)} salary cap, plus ${money(ml)} of mid-level exception `
+      +`left. Anything above the cap room spends the exception and signs him for two seasons.`
+    : `${team} is over the ${money(S.cfg.cap)} salary cap, so this is the ${money(ml)} of mid-level exception `
+      +`it has left. Using it signs him for two seasons.`};
+  return {ceil,why:`${team} is over the ${money(S.cfg.cap)} salary cap with no exception left — minimum deals only.`};
 }
 /* Why a club may NOT put this contract on its books, in one sentence, or null if
    it may. signPlayer() enforces the same rules and alerts as it goes; this says
@@ -5785,9 +6059,10 @@ function restrictionNote(team,name){
   else if(R.club===team&&R.bird) out.push('Early Bird &#8212; you may go up to $7.00 over the cap.');
   const sp=S.cfg.roster-headcount(team);
   const space=S.cfg.cap-committed(team)-Math.max(0,sp-1);
-  if(space<1&&!(R.club===team&&R.bird)) out.push(S.teams[team].mle!==false
-    ? 'Over the cap &#8212; limited to the $5.50 mid-level exception or minimum deals.'
-    : 'Over the cap and the mid-level is spent &#8212; minimum deals only.');
+  if(space<1&&!(R.club===team&&R.bird)) out.push(mleLeft(team)>0
+    ? `Over the salary cap &#8212; limited to the ${money(mleLeft(team))} of mid-level exception left, or minimum deals. `
+      +'A mid-level signing is two seasons.'
+    : 'Over the salary cap and the mid-level is spent &#8212; minimum deals only.');
   if(sp<=0) out.push('Roster is full.');
   return out;
 }
@@ -5807,29 +6082,67 @@ function resolveProxies(){
     if(want<=a.bid && a.leader) break;
     a.bid=want; a.leader=t1;
     const last=a.bids[0];
-    if(!last||last.t!==t1||last.amt!==want){a.bids.unshift({t:t1,amt:want,ts:now(),auto:true});}
+    if(!last||last.t!==t1||last.amt!==want){a.bids.unshift({t:t1,amt:want,ts:now(),mle:usesMle(t1,a.player,want)});}
     break;
   }
 }
-async function placeBid(team,amt,isMax){
+/* The clubs level with the standing bid on a declared mid-level bid. Two clubs
+   whose only money left is the exception cannot outbid each other by a quarter,
+   so the rules let the second one MATCH rather than raise, and the tie is
+   settled by a coin flip when the commissioner awards. Pure. */
+function mleTied(){
+  const a=A(); if(!a||!a.bids||!a.bids.length) return [];
+  const top={};
+  a.bids.forEach(b=>{ if(top[b.t]==null) top[b.t]={amt:b.amt,mle:!!b.mle}; });
+  const at=Object.entries(top).filter(([t,b])=>Math.abs(b.amt-a.bid)<0.001&&b.mle).map(([t])=>t);
+  return at.length>1?at:[];
+}
+async function placeBid(team,amt,isMax,isMle){
   const a=A(); if(!a||a.status!=='open') return alert('Nothing is on the block.');
   amt=Math.round(amt*4)/4;
   /* A club barred from signing him is barred from bidding on him — a bid it
      could not honour is not a bid, it is a way of running the price up. */
   const cr=cutRestriction(team,a.player);
   if(cr&&cr.hard) return alert(cr.why);
-  const ceil=bidCeiling(team,a.player);
-  if(amt>ceil+0.001) return alert((cr&&cr.why?cr.why+'\n\n':'')
-    +`${team} may bid at most ${money(ceil)} on ${a.player} under the cap rules.`);
+  const cw=ceilWhy(team,a.player);
+  if(amt>cw.ceil+0.001) return alert(`${team} may bid at most ${money(cw.ceil)} on ${a.player}.\n\n${
+    String(cw.why).replace(/&#8212;/g,'\u2014')}`);
+  /* A declared mid-level bid has to be one the exception can actually cover. */
+  if(isMle){
+    const need=mleNeed(team,a.player,amt);
+    if(need<=0.001) return alert(`${team} has cap room for ${money(amt)} — no exception is needed.`);
+    if(need>mleLeft(team)+0.001)
+      return alert(`${money(amt)} would need ${money(need)} of mid-level exception and ${team} has `
+        +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
+  }
   if(isMax){
     a.max=a.max||{}; a.max[team]=amt;
-    if(amt>a.bid||!a.leader) resolveProxies();
-  }else{
-    if(a.leader===team) return alert(`${team} already holds the high bid at ${money(a.bid)}. You cannot bid against yourself.`);
-    if(amt<a.bid+0.25-0.001&&a.leader) return alert(`Bid must be at least ${money(a.bid+0.25)}.`);
-    a.bid=amt; a.leader=team; a.bids.unshift({t:team,amt,ts:now()});
-    a.max=a.max||{}; if((a.max[team]||0)<amt) a.max[team]=amt;
+    /* He has bid, not merely written a number down: if his max beats the
+       standing price, record him at the price it takes before the rival's own
+       max answers. That entry is what was missing — the log jumped straight to
+       the rival's counter and read as the rival bidding twice in a row. */
+    if(!a.leader || (team!==a.leader && amt>=a.bid+0.25-0.001)){
+      const step=Math.min(amt, a.leader ? a.bid+0.25 : Math.max(1,a.bid));
+      a.bid=Math.round(step*4)/4; a.leader=team;
+      a.bids.unshift({t:team,amt:a.bid,ts:now(),mle:!!isMle});
+    }
     resolveProxies();
+  }else{
+    const standing=a.bids[0];
+    /* Two clubs down to their exception cannot separate themselves by a
+       quarter, so a declared mid-level bid may LEVEL an existing one instead of
+       raising it. The lot then carries a tie and the commissioner flips for it
+       at the award. */
+    const levelling = isMle && standing && standing.mle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
+    if(a.leader===team&&!levelling) return alert(`${team} already holds the high bid at ${money(a.bid)}. You cannot bid against yourself.`);
+    if(!levelling && amt<a.bid+0.25-0.001 && a.leader) return alert(`Bid must be at least ${money(a.bid+0.25)}.`);
+    if(levelling){
+      a.bids.unshift({t:team,amt,ts:now(),mle:true});
+    }else{
+      a.bid=amt; a.leader=team; a.bids.unshift({t:team,amt,ts:now(),mle:!!isMle});
+      a.max=a.max||{}; if((a.max[team]||0)<amt) a.max[team]=amt;
+      resolveProxies();
+    }
   }
   await commit(null,['auction']);
 }
@@ -6029,7 +6342,7 @@ async function saveNomOrder(list){
   await commit({kind:'edit',
     detail:`Auction nomination order set — ${S.cfg.nomOrder.join(', ')||'cleared'}`},['settings']);
 }
-async function nominate(name,team,open){
+async function nominate(name,team,open,max){
   if(!name) return;
   if(!canNominate(team)){
     const c=nomOnClock();
@@ -6040,9 +6353,21 @@ async function nominate(name,team,open){
      him cannot put him up either — it would hold a bid it could not honour. */
   const nb=signBlock(team,name,Math.round((open||1)*4)/4);
   if(nb) return alert(`${team} cannot nominate ${name}.\n\n${nb}`);
-  S.auction={player:name,by:team,bid:Math.round((open||1)*4)/4,leader:team,
-    bids:[{t:team,amt:Math.round((open||1)*4)/4,ts:now()}],max:{},status:'open',ts:now()};
-  await commit({kind:'sign',team,detail:`Nominated ${name} at ${money(open||1)}`},['auction']);
+  const at=Math.round((open||1)*4)/4;
+  S.auction={player:name,by:team,bid:at,leader:team,
+    bids:[{t:team,amt:at,ts:now(),mle:usesMle(team,name,at)}],max:{},status:'open',ts:now()};
+  /* A nominator who already knows his ceiling should not have to sit on the
+     tab to defend the lot. The max is his own, checked against the same
+     ceiling any bid is, and silently dropped rather than refused if it is
+     below the opening bid — the opening bid IS a bid of that much. */
+  const mx=Math.round((max||0)*4)/4;
+  if(mx>=at){
+    const ceil=bidCeiling(team,name);
+    if(mx>ceil+0.001) return alert(`${team} may bid at most ${money(ceil)} on ${name}, so that max cannot be set.`);
+    S.auction.max[team]=mx;
+  }
+  await commit({kind:'sign',team,detail:`Nominated ${name} at ${money(at)}`
+    +(mx>=at?` (max ${money(mx)})`:'')},['auction']);
 }
 /* ---- awarding ----
    Awarding is the commissioner's, not the room's. The GM who nominated a player
@@ -6075,15 +6400,35 @@ async function awardTo(team,note){
   const price=a.price!=null?a.price:a.bid;
   const bad=signBlock(team,a.player,price);
   if(bad) return alert(bad);
+  /* Whether the mid-level is being spent is a fact about the money, not about
+     which box a GM ticked: any part of the price above his cap room that no
+     Bird right covers comes out of the exception. That is what makes it two
+     seasons, and what is debited from the pot. */
+  const need=mleNeed(team,a.player,price), mle=need>0.001;
   a.status='closed'; a.winner=team; a.price=price; a.match=null;
-  await signPlayer(a.player,team,price,1,{force:true});
-  await commit({kind:'sign',team,detail:`Won ${a.player} at ${money(price)}${note||''}`});
+  await signPlayer(a.player,team,price,mle?2:1,{force:true});
+  if(mle) S.teams[team].mle=Math.max(0,Math.round((mleLeft(team)-need)*4)/4);
+  await commit({kind:'sign',team,detail:`Won ${a.player} at ${money(price)}${note||''}`
+    +(mle?` \u2014 ${money(need)} of the mid-level, two seasons`:'')});
 }
 async function closeAuction(){
   const a=A(); if(!a||a.status!=='open') return;
   if(!hasComm()) return alert('Only the commissioner can award a player.');
   if(!a.leader) return alert('Nobody has bid on '+a.player+'.');
-  const own=rightsOf(null,a.player), price=a.bid, winner=a.leader;
+  /* Two clubs level on the exception: neither can raise, so the rulebook says
+     flip. It happens here rather than the moment they tie, because nothing in
+     this app is random until a person presses a button — and the flip is
+     written into the bid log so the room can see what it landed on. */
+  let winner=a.leader; const tied=mleTied();
+  if(tied.length>1){
+    if(!confirm(`${tied.join(' and ')} are level at ${money(a.bid)} on the mid-level exception.`
+      +`\n\nNeither can raise, so this is a coin flip. Flip now?`)) return;
+    winner=tied[Math.floor(Math.random()*tied.length)];
+    a.leader=winner;
+    a.bids.unshift({t:winner,amt:a.bid,ts:now(),mle:true,flip:tied.length});
+    alert(`Coin flip: ${winner} wins ${a.player} at ${money(a.bid)}.`);
+  }
+  const own=rightsOf(null,a.player), price=a.bid;
   const bad=signBlock(winner,a.player,price);
   if(bad) return alert(`${winner} cannot be awarded ${a.player}.\n\n${bad}`);
   if(own.rfa && own.club && own.club!==winner){
@@ -6200,6 +6545,12 @@ function tradeSides(){
   return {a,b,pa,pb,ka:selPicks(a,selPA),kb:selPicks(b,selPB),
     outA:pa.reduce((s,p)=>s+salOf(p),0),outB:pb.reduce((s,p)=>s+salOf(p),0)};
 }
+/* Salary matching is now a switch rather than a law. The league traded it away:
+   any deal a club can carry under the HARD cap goes through, which is the one
+   limit the rulebook never lets anything beat. `S.cfg.match` turns the old
+   rule back on for a commissioner who wants it, and is off unless he says so —
+   a missing key therefore means off, so nothing has to be migrated. */
+const matchOn=()=>S.cfg.match===true;
 function validateTrade(){
   const {a,b,pa,pb,ka,kb,outA,outB}=tradeSides();
   const {cap,tax,roster}=S.cfg;
@@ -6212,8 +6563,8 @@ function validateTrade(){
     const before=committed(t), after=before-out+inc;
     const overCap=before>cap||after>cap;
     const lim=maxIncoming(out);
-    const s={before,after,out,inc,lim,overCap,capOk:true,taxOk:true,rosterOk:true};
-    if(overCap&&inc>lim+0.001){s.capOk=false;
+    const s={before,after,out,inc,lim,overCap,capOk:true,taxOk:true,rosterOk:true,matching:matchOn()};
+    if(matchOn()&&overCap&&inc>lim+0.001){s.capOk=false;
       res.fails.push(`${t} sends ${money(out)} so may take back at most ${money(lim)} — this brings back ${money(inc)}.`);}
     if(after>tax+0.001){s.taxOk=false;
       res.fails.push(`${t} would sit at ${money(after)}, past the ${money(tax)} hard cap.`);}
@@ -6461,7 +6812,8 @@ function drawTrade(){
   else $('verdict').innerHTML=v.ok
     ? `<div class="vd ok"><h5>Legal trade</h5>${v.a} sends ${money(v.outA)}${
         v.ka.length?` and ${v.ka.length} pick${v.ka.length===1?'':'s'}`:''}, ${v.b} sends ${money(v.outB)}${
-        v.kb.length?` and ${v.kb.length} pick${v.kb.length===1?'':'s'}`:''}. Both clubs clear salary matching, the hard cap, and roster limits.</div>`
+        v.kb.length?` and ${v.kb.length} pick${v.kb.length===1?'':'s'}`:''}. Both clubs clear ${
+        matchOn()?'salary matching, ':''}the hard cap and the roster limit.</div>`
     : `<div class="vd no"><h5>Not permitted</h5><ul>${v.fails.map(f=>`<li>${f}</li>`).join('')}</ul></div>`;
   /* A GM may build any trade he likes — the machine is for working out what a
      deal between two rivals would do as much as one of his own — but he may only
@@ -6493,7 +6845,7 @@ function tradeText(v){
   return `${v.a} sends:\n${L(v.a,v.pa,v.ka)}\n\n${v.b} sends:\n${L(v.b,v.pb,v.kb)}\n\n`
    +`${v.a}: ${money(v.sides[v.a].before)} -> ${money(v.sides[v.a].after)}\n`
    +`${v.b}: ${money(v.sides[v.b].before)} -> ${money(v.sides[v.b].after)}\n\n`
-   +(v.ok?'This offer satisfies salary matching and the hard cap.':'WARNING: this offer is not currently legal.');
+   +(v.ok?`This offer satisfies ${matchOn()?'salary matching and ':''}the hard cap.`:'WARNING: this offer is not currently legal.');
 }
 function recheckTrade(tr){
   const {cap,tax,roster}=S.cfg, fails=[];
@@ -7771,6 +8123,8 @@ $('saveCfg').onclick=async()=>{
   const dl=($('sDeadline').value||'').trim();
   if(dl&&!/^\d{4}-\d{2}-\d{2}$/.test(dl))
     return alert('The trade deadline reads as YYYY-MM-DD, or leave it blank.');
+  const mlv=$('sMle')?parseFloat($('sMle').value):NaN;
+  if($('sMle')&&!(mlv>=0)) return alert('The mid-level exception reads as a number, $0.00 or more.');
   const ln=$('sLeague')?nameClean($('sLeague').value):null;
   const lerr=leagueNameError(ln);
   if(lerr) return alert(lerr);
@@ -7781,8 +8135,11 @@ $('saveCfg').onclick=async()=>{
   const mn=parseFloat($('sMin').value);
   if(mn>0) S.cfg.minSal=Math.round(mn*4)/4;
   S.cfg.deadline=dl;
+  if(mlv>=0) S.cfg.mle=Math.round(mlv*4)/4;
+  if($('sMatch')) S.cfg.match=$('sMatch').value==='1';
   await commit({kind:'edit',detail:`League settings \u2014 ${leagueName()}, cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
-    +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}`});
+    +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}, `
+    +`mid-level ${money(mleAmt())}, salary matching ${matchOn()?'on':'off'}`});
 };
 $('exportBtn').onclick=()=>{
   const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
