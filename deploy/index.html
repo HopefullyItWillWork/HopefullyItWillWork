@@ -4031,19 +4031,38 @@ function drawMe(){
    One function draws it and one wires it, because the auction poll rebuilds
    this panel every four seconds and a handler bound to a thrown-away node is
    the oldest bug in this file. */
+/* What the GM has typed but not yet sent. The auction poll rebuilds this panel
+   every four seconds, which threw away his half-typed bid, his max and — the
+   reported fault — the mid-level tick, so a bid sent a moment later went in
+   undeclared. Same shape as the strategy board's answer: remember, rebuild,
+   put it back. Keyed to the lot, so a new player starts clean. */
+let BIDUI={player:'',amt:'',max:'',mle:false};
+function bidRemember(){
+  const a=A(); if(!a||BIDUI.player!==a.player) return;
+  if($('bAmt')) BIDUI.amt=$('bAmt').value;
+  if($('bMax')) BIDUI.max=$('bMax').value;
+  if($('bMle')) BIDUI.mle=!!$('bMle').checked;
+}
 function bidControls(){
   const box=$('bidBox'); if(!box) return;
   const a=A();
   const me2=meTeam();
-  if(!a||a.status!=='open'||!me2||isComm()&&!meTeam()){ box.innerHTML=''; return; }
+  if(!a||a.status!=='open'||!me2||isComm()&&!meTeam()){ box.innerHTML=''; BIDUI={player:'',amt:'',max:'',mle:false}; return; }
+  bidRemember();
+  const fresh=BIDUI.player!==a.player;
+  if(fresh) BIDUI={player:a.player,amt:'',max:'',mle:false};
+  const focused=document.activeElement&&document.activeElement.id;
   const cw=ceilWhy(me2,a.player), ceil=cw.ceil, notes=restrictionNote(me2,a.player);
   const mine=a.leader===me2, myMax=(a.max&&a.max[me2])||0;
   const tied=mleTied(), ml=mleLeft(me2);
-  /* A declared mid-level bid is only offerable when the exception is what the
-     money would actually come from, so the box appears when he has some left
-     and the next quarter is already above his cap room. */
-  const room=Math.max(0,capRoom(me2));
-  const canMle = ml>0 && mleNeed(me2,a.player,a.bid+0.25)>0.001;
+  /* The box used to appear only when the NEXT QUARTER was already above his cap
+     room — so in a normal offseason, where every club has room, nobody could
+     ever tick it. It is a declaration about a bid he has not made yet, so it
+     belongs on screen whenever he has an exception to declare. Bird rights are
+     the one exclusion: they cover their own player, so the exception can never
+     be what the money comes from and the box would be a lie. */
+  const room=Math.max(0,capRoom(me2)), Rme=rightsOf(me2,a.player);
+  const canMle = ml>0 && !(Rme.club===me2&&Rme.bird);
   box.innerHTML=`<div class="block">
     <div class="meta">nominated by ${htmlEsc(a.by)}, ${a.bids.length} bid${a.bids.length===1?'':'s'} so far</div>
     <div class="bidrow">
@@ -4058,10 +4077,12 @@ function bidControls(){
         <input id="bMax" class="mono" type="number" step="0.25" min="1" value="${myMax||''}" placeholder="optional"></div>
       <button class="btn ghost" id="bMaxGo">Set max</button>
     </div>
-    ${canMle?`<label class="mlebox"><input type="checkbox" id="bMle">
+    ${canMle?`<label class="mlebox"><input type="checkbox" id="bMle"${BIDUI.mle?' checked':''}>
       <span>Use my mid-level exception &#8212; ${money(ml)} left.
-      <b>Signs him for two seasons</b>, and another club on its own exception may level your bid
-      rather than raise it, which the commissioner settles with a coin flip.</span></label>`:''}
+      ${room>0?`Your first ${money(room)} of cap room is spent before any of it is,
+        so this only bites above ${money(room)}.`:'You are over the salary cap, so every dollar comes out of it.'}
+      A bid it pays any part of <b>signs him for two seasons</b>, and another club on its own exception
+      may level your bid rather than raise it, which the commissioner settles with a coin flip.</span></label>`:''}
     ${tied.length>1?`<div class="warnbox"><b>Level at ${money(a.bid)}:</b> ${htmlEsc(tied.join(' and '))}.
       Neither can raise on the exception, so the commissioner flips for him.</div>`:''}
     ${ceil<a.bid+0.25
@@ -4071,6 +4092,16 @@ function bidControls(){
     ${stratBidNote(a.player,a.bid)}
   </div>`;
   const amt=$('bAmt'), mleOn=()=>!!($('bMle')&&$('bMle').checked);
+  /* Put back what he was in the middle of. A typed bid the price has overtaken
+     is replaced by the new minimum rather than left below it. */
+  if(!fresh){
+    const typed=parseFloat(BIDUI.amt);
+    if(typed>=a.bid+0.25-0.001) amt.value=BIDUI.amt;
+    if(BIDUI.max!=='' && $('bMax')) $('bMax').value=BIDUI.max;
+    if(focused&&$(focused)&&typeof $(focused).focus==='function') $(focused).focus();
+  }
+  ['bAmt','bMax','bMle'].forEach(id=>{ const el=$(id); if(el) el.oninput=bidRemember; });
+  if($('bMle')) $('bMle').onchange=bidRemember;
   $('bUp').onclick=()=>amt.value=(parseFloat(amt.value||a.bid)+0.25).toFixed(2);
   $('bDn').onclick=()=>amt.value=Math.max(a.bid+0.25,parseFloat(amt.value||0)-0.25).toFixed(2);
   $('bGo').onclick=()=>placeBid(me2,parseFloat(amt.value),false,mleOn());
@@ -6108,9 +6139,13 @@ async function placeBid(team,amt,isMax,isMle){
   if(amt>cw.ceil+0.001) return alert(`${team} may bid at most ${money(cw.ceil)} on ${a.player}.\n\n${
     String(cw.why).replace(/&#8212;/g,'\u2014')}`);
   /* A declared mid-level bid has to be one the exception can actually cover. */
+  const mleReal = !!isMle && mleNeed(team,a.player,amt)>0.001;
   if(isMle){
     const need=mleNeed(team,a.player,amt);
-    if(need<=0.001) return alert(`${team} has cap room for ${money(amt)} — no exception is needed.`);
+    /* Ticking it at a price his cap room covers is not a mistake to refuse —
+       it is a declaration about a bid he has not had to make yet. The money
+       decides whether the exception is actually spent, so the flag simply does
+       not apply at this price and the bid goes in as an ordinary one. */
     if(need>mleLeft(team)+0.001)
       return alert(`${money(amt)} would need ${money(need)} of mid-level exception and ${team} has `
         +`${mleLeft(team)>0?'only '+money(mleLeft(team)):'none'} left.`);
@@ -6124,7 +6159,7 @@ async function placeBid(team,amt,isMax,isMle){
     if(!a.leader || (team!==a.leader && amt>=a.bid+0.25-0.001)){
       const step=Math.min(amt, a.leader ? a.bid+0.25 : Math.max(1,a.bid));
       a.bid=Math.round(step*4)/4; a.leader=team;
-      a.bids.unshift({t:team,amt:a.bid,ts:now(),mle:!!isMle});
+      a.bids.unshift({t:team,amt:a.bid,ts:now(),mle:!!isMle&&mleNeed(team,a.player,a.bid)>0.001});
     }
     resolveProxies();
   }else{
@@ -6133,13 +6168,13 @@ async function placeBid(team,amt,isMax,isMle){
        quarter, so a declared mid-level bid may LEVEL an existing one instead of
        raising it. The lot then carries a tie and the commissioner flips for it
        at the award. */
-    const levelling = isMle && standing && standing.mle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
+    const levelling = mleReal && standing && standing.mle && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
     if(a.leader===team&&!levelling) return alert(`${team} already holds the high bid at ${money(a.bid)}. You cannot bid against yourself.`);
     if(!levelling && amt<a.bid+0.25-0.001 && a.leader) return alert(`Bid must be at least ${money(a.bid+0.25)}.`);
     if(levelling){
       a.bids.unshift({t:team,amt,ts:now(),mle:true});
     }else{
-      a.bid=amt; a.leader=team; a.bids.unshift({t:team,amt,ts:now(),mle:!!isMle});
+      a.bid=amt; a.leader=team; a.bids.unshift({t:team,amt,ts:now(),mle:mleReal});
       a.max=a.max||{}; if((a.max[team]||0)<amt) a.max[team]=amt;
       resolveProxies();
     }
