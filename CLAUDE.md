@@ -692,6 +692,21 @@ allows the equal bid only in that case; the lot then carries a tie, and
 `closeAuction()` flips a coin at the award — nothing in this app is random until a
 person presses a button — and writes the flip into the bid log.
 
+**The exception EXTENDS cap room, it does not replace it.** `bidCeiling()` reads
+`space + mleLeft` whenever there is any left, so a club with $9.00 of room and
+$5.50 of exception has a $14.50 ceiling. It used to reach the MLE branch only once
+room was already under $1.00, which capped that club at $9.00 and made the
+exception unusable to anyone not already over the cap — the other face of "the MLE
+button does nothing".
+
+**The tick is on the nomination form too.** A nomination opens with the
+nominator's own bid, so everything a bid can declare it can declare as well;
+`nominate()` marks the opening bid `mle` on the same test `placeBid()` uses
+(declared **and** paid for by the exception). It used to mark it from the money
+alone, so an over-the-cap nominator declared nothing and still opened a lot a
+rival could level. `NOMUI` remembers that form across the poll exactly as `BIDUI`
+does the bid panel, and is cleared once the nomination lands.
+
 **The tick is a declaration about a bid not yet made, so it is on screen whenever
 the club has an exception to declare** — `ml>0` and no Bird right of its own on
 that player, which would cover him instead. It first shipped gated on the *next

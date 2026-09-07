@@ -275,6 +275,21 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     X.me = keepMe;
   }
 
+  console.log('\n== cap room and the exception add up ==');
+  {
+    const T = 'Osborn', room = g('capRoom')(T), ml = g('mleLeft')(T);
+    ok('the club has both', room > 1 && ml > 0, room + '/' + ml);
+    // The exception EXTENDS cap room rather than replacing it. The ceiling used
+    // to reach the MLE only once room was under $1.00, so a club with room
+    // could not use the exception at all.
+    ok('the ceiling is room plus exception',
+       Math.abs(g('bidCeiling')(T, 'Nobody At All') - (room + ml)) < 0.001,
+       g('bidCeiling')(T, 'Nobody At All') + ' vs ' + (room + ml));
+    ok('and the reason says so',
+       /plus the .* of mid-level/.test(g('ceilWhy')(T, 'Nobody At All').why),
+       g('ceilWhy')(T, 'Nobody At All').why);
+  }
+
   console.log('\n== the hard cap still beats the exception ==');
   {
     const CS = g('S'), T = 'Osborn';
@@ -345,6 +360,60 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        JSON.stringify(CS.auction.bids[0]));
     ok('and nothing was refused', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
     CS.cfg.cap = keepCap; CS.auction = null; X.me = keepMe;
+  }
+
+  console.log('\n== the nomination form declares the exception too ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepCap = CS.cfg.cap, keepOrder = CS.cfg.nomOrder;
+    X.me = 'Osborn'; CS.auction = null; CS.cfg.nomOrder = [];
+    /* Every nomination writes a log line, and nomCount() reads the log to work
+       out where the snake is — so a test that nominates has to put the log back
+       or it moves the clock for the ones after it. commit() PREPENDS, so this
+       keeps the whole array rather than trimming the end, which would have
+       dropped the oldest entries and kept mine. */
+    const logWas = (CS.log || []).slice();
+    g('drawAuction')();
+    ok('the box is on the nomination form', !!document.getElementById('nomMle'));
+
+    // The poll rebuilds this box as well, and a GM picking a player out of the
+    // combobox is exactly who it interrupts.
+    document.getElementById('nomP').value = 'James Harden';
+    document.getElementById('nomP').oninput();
+    document.getElementById('nomO').value = '4.00';
+    document.getElementById('nomO').oninput();
+    document.getElementById('nomMle').checked = true;
+    document.getElementById('nomMle').onchange();
+    g('drawAuction')();                                   // the poll
+    ok('the player survives it', document.getElementById('nomP').value === 'James Harden');
+    ok('the opening bid survives it', document.getElementById('nomO').value === '4.00');
+    ok('and so does the tick', document.getElementById('nomMle').checked === true);
+
+    // Declared AND paid for by the exception, the same test a bid gets.
+    CS.cfg.cap = g('committed')('Osborn') + 1.00;
+    ctx.__alerts.length = 0;
+    await g('nominate')('James Harden', 'Osborn', 4.00, 0, true);
+    ok('an over-the-cap nomination opens on the exception',
+       CS.auction.bids[0].mle === true, JSON.stringify(CS.auction.bids[0]));
+    ok('nothing was refused', ctx.__alerts.length === 0, JSON.stringify(ctx.__alerts));
+    ok('and the form is cleared for the next one', g('NOMUI').p === '', JSON.stringify(g('NOMUI')));
+
+    // Undeclared, it is an ordinary opening bid a rival may not level.
+    CS.auction = null;
+    await g('nominate')('James Harden', 'Osborn', 4.00, 0, false);
+    ok('undeclared, the same money is not a mid-level bid',
+       CS.auction.bids[0].mle === false, JSON.stringify(CS.auction.bids[0]));
+
+    // More than the pot holds is refused before anything is written.
+    CS.auction = null; ctx.__alerts.length = 0;
+    CS.teams['Osborn'].mle = 0.50;
+    await g('nominate')('James Harden', 'Osborn', 4.00, 0, true);
+    ok('a nomination past the exception is refused',
+       /more than Osborn may commit|mid-level exception/.test(ctx.__alerts[0] || ''),
+       JSON.stringify(ctx.__alerts));
+    ok('...and nothing was put on the block', CS.auction === null);
+    delete CS.teams['Osborn'].mle;
+    CS.log.length = 0; logWas.forEach(e => CS.log.push(e));
+    CS.cfg.cap = keepCap; CS.cfg.nomOrder = keepOrder; CS.auction = null; X.me = keepMe;
   }
 
   console.log('\n== two clubs level on the exception ==');
