@@ -341,6 +341,35 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('deleting the key is off again', g('matchOn')() === false);
   }
 
+  console.log('\n== a lopsided trade goes through with matching off ==');
+  {
+    const CS = g('S'), keepMe = X.me;
+    // Osborn sends Norman Powell ($1.00) for Coulter's Devin Booker ($28.75):
+    // nowhere near the bands, comfortably under the hard cap.
+    document.getElementById('tA').value = 'Osborn';
+    document.getElementById('tB').value = 'Coulter';
+    X.selA.clear(); X.selB.clear();
+    X.selA.add('Norman Powell'); X.selB.add('Devin Booker');
+    delete CS.cfg.match;
+    const off = g('validateTrade')();
+    ok('with matching off the deal is legal', off.ok === true, JSON.stringify(off.fails));
+    CS.cfg.match = true;
+    const on = g('validateTrade')();
+    ok('...and switching matching on refuses it', on.ok === false);
+    ok('and says why in the rulebook\'s own terms',
+       /may take back at most/.test((on.fails || []).join(' ')), JSON.stringify(on.fails));
+    delete CS.cfg.match;
+    // The hard cap is never optional, matching or not.
+    const keepTax = CS.cfg.tax;
+    CS.cfg.tax = g('committed')('Osborn') + 1;
+    const hard = g('validateTrade')();
+    ok('the hard cap still refuses, with matching off', hard.ok === false,
+       JSON.stringify(hard.fails));
+    ok('...naming the hard cap', /hard cap/.test((hard.fails || []).join(' ')));
+    CS.cfg.tax = keepTax;
+    X.selA.clear(); X.selB.clear(); X.me = keepMe;
+  }
+
   console.log('\n== the commissioner can add a player the sheet missed ==');
   {
     const CS = g('S');
