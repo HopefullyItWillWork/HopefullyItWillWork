@@ -1578,6 +1578,87 @@ at all. They now carry the rate and the makes and attempts.
 `RAWKEY` exists because `RCATS` names a category the way the league says it and
 `s` keys it the way the box score does: **REB is `TRB` and TO is `TOV`**.
 
+## The rater computes its own ratings now
+
+`z`, `tot` and `rk` on a `RATER` row were computed once, offline, on per-game
+numbers against the whole pool. Two controls on that tab need them computed
+again, so `raterScore(pool,opts)` is the arithmetic, in the app:
+
+| | |
+|---|---|
+| `raterScore(pool,opts)` | **pure**; scores, ranks and **copies**. `opts` is `{basis,cats,minG,minMp}` |
+| `raterVal(p,c,basis)` / `raterPair(p,c,basis)` | the number, or the made/attempted pair, a category is scored from |
+| `raterMin(p)` / `raterHasMin()` | per-game minutes, when the data carries them |
+| `RMING` | 15 games — under it a player is listed but not rated |
+
+It reproduces the shipped table to within 0.04 of a z-score, which is the
+rounding in `s` (stored to one decimal) and not a difference in method: a
+counting category is `(x - mean) / sd` across the rated pool, turnovers are that
+negated, and a rate is `(his rate - the pool's rate) * his attempts` then
+z-scored like anything else. `tests/test.js` asserts the drift stays small — if
+that assertion ever fails the **formula** has changed, not the data.
+
+**Nothing in the engine mutates a `RATER` row, and that is load-bearing.**
+`p.tot` and `p.rk` are read by the strategy board, the Players tab, the player
+card and the what-if lab. An engine that wrote its answer back would silently
+re-rank all four, which is exactly what the dynamic rater must never do. Every
+caller gets fresh objects; there is a test that serialises `RATER` before and
+after and compares.
+
+### Per game or season totals
+`RBASIS` picks what every z-score is computed from. `s` is per game throughout,
+so a total is that times games played (`rScale()`), and for a rate both the makes
+and the attempts scale — which leaves the percentage alone and multiplies its
+weight. That is the point: **on totals, durability is volume.** Shai
+Gilgeous-Alexander passes Jokic on 68 games to 65, which is the 920-game cap
+showing up in the ranking rather than in a footnote.
+
+`raterRaw(p,c,basis)` renders the line under each z-score at the same basis, and
+deliberately does **not** call `toLocaleString()` — that follows the browser's
+locale, so a season total would read `2,115` here and `2.115` in Berlin, and
+`tableToCSV()` would carry the second straight out as a decimal.
+
+### The dynamic rater
+`RDYN` is one GM's scratch version: a games floor, a minutes floor and which of
+the nine categories count. **The pool it is handed IS the field it z-scores
+against**, so raising the games floor re-scores the survivors rather than merely
+hiding the rest — that is what makes it an *adjusted* rater and not a filtered
+one.
+
+**The display filters must never re-baseline.** Search, club and position filter
+what is shown and nothing else: filter to one club and a z-score against fifteen
+team-mates would say a club's fourth-best guard is average, which is true of
+nothing. Only the dynamic rater's own filters define the field, and that
+difference is the whole reason it is a separate mode rather than three more
+boxes in the filter row.
+
+`RBASIS` and `RDYN` are module-level and deliberately **not** in `S.cfg`: they
+are one GM's way of reading a table, not a league setting, so they are never
+committed, merged, polled or carried to another browser. Off, the dynamic
+filters are not merely ignored — they are not in the options object at all.
+
+**It is marked as different in four places at once**, because a screen that
+silently re-ranks the league looks exactly like a screen that is broken: its own
+colour token (`--dyn`, deliberately none of amber/tax/space, which already mean
+edited/over-a-limit/room), a badge on the panel, a banner naming the field it is
+scored against, and a rank column headed `DYN#` rather than `#`.
+
+**The panel is built once and then only synced.** `drawRater()` runs on every
+render and a category checkbox calls it from its own change handler — rewriting
+`#rDynBox`'s `innerHTML` from in there removes the node that fired the event and
+Chromium throws `NotFoundError` mid-draw, leaving the table half written. Same
+fault the bid panel had, same answer: `syncDynBox()` touches only what changed,
+and never overwrites a field the GM is typing in. The banner is a separate
+element and never an ancestor of a control, so that one is rewritten freely.
+
+The last category cannot be switched off — a rating that is the sum of nothing
+is zero for everybody, and 383 identical zeroes is not a punt build.
+
+A minutes floor with no `MP` in the data rates **nobody** rather than silently
+matching everybody, and the field is disabled with "no minutes on file" so a GM
+cannot get there by accident. The transcribed 2025-26 set has no minutes column.
+
+
 `clubTotals()` and `tradeCats()` keep the sums the rate was computed from, as
 `raw`. `standings()` ranks by `PCATS` keys only, so the extra key is invisible
 to it; `fullTotals()` already returned them as `agg`. That is what lets the

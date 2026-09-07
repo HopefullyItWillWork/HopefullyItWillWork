@@ -19,6 +19,10 @@
   --line:#232E3C; --line2:rgba(35,46,60,.55);
   --chalk:#EDEAE3; --steel:#7C8B9E; --dim:#637182;
   --amber:#E0A340; --amber2:#B9832F; --tax:#D9614A; --tax2:#9A3F2E; --space:#55A67A;
+  /* The dynamic rater's own colour. Deliberately none of the three above:
+     amber means "edited", tax means "over a limit" and space means "room", and
+     a GM's private what-if field is not any of those. */
+  --dyn:#6E8FD6; --dyn2:#3E5C93;
   --sel:#1B291E; --mast:rgba(13,18,25,.95);
   --okbg:#132018; --okln:#26482F; --oktx:#9FD3B2;
   --wnbg:#1E1614; --wnln:#4A2822; --wntx:#D4A196;
@@ -35,6 +39,7 @@
   --line:#D3DAE3; --line2:rgba(211,218,227,.75);
   --chalk:#111923; --steel:#56657A; --dim:#6F7C90;
   --amber:#9A6008; --amber2:#C08A2A; --tax:#A8341F; --tax2:#C4553D; --space:#1F6D45;
+  --dyn:#2F4E86; --dyn2:#6E8FD6;
   --sel:#E8F2EA; --mast:rgba(238,241,245,.95);
   --okbg:#E9F4ED; --okln:#B4D8C2; --oktx:#1F6D45;
   --wnbg:#FBEDE9; --wnln:#E5BDB1; --wntx:#8E2C18;
@@ -547,6 +552,44 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
 .z{display:inline-block;min-width:42px;padding:2px 5px;border-radius:2px;font-family:var(--mono);font-size:11.5px}
 .rating{font-weight:700;font-family:var(--mono);font-size:13px}
 .unrated{color:var(--dim);font-style:italic}
+/* ---- the dynamic rater ----
+   A GM scoring the league against his own field is looking at something that is
+   NOT the league's rating, and every part of this says so: its own colour, a
+   badge on the heading, a banner naming the field, and a rank column headed DYN#
+   rather than #. It has been worth the noise — a screen that silently re-ranks
+   the league looks exactly like a screen that is broken. */
+.dynwrap{border-left:3px solid var(--dyn);background:var(--panel);padding:0 0 0 13px;margin-top:4px}
+.dynbadge{display:inline-block;vertical-align:middle;margin-left:9px;padding:3px 8px;border-radius:2px;
+  background:var(--dyn);color:#fff;font-family:var(--disp);font-weight:600;font-size:10px;
+  letter-spacing:.14em;text-transform:uppercase}
+.dynbanner{border:1px solid var(--dyn2);border-left:3px solid var(--dyn);background:var(--well);
+  border-radius:3px;padding:9px 12px;margin:10px 0;font-size:12.5px;color:var(--steel);line-height:1.5}
+.dynbanner b{color:var(--dyn2);font-weight:600}
+.dynbanner .dynmono{font-family:var(--mono);font-size:11.5px;color:var(--chalk)}
+.dynbox{border:1px solid var(--line);border-left:3px solid var(--dyn);background:var(--panel);
+  border-radius:3px;padding:13px 14px;margin:10px 0}
+.dynbox h5{font-family:var(--disp);font-weight:600;font-size:11.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dyn2);margin-bottom:9px}
+.dynrow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:11px}
+.dynfield{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dynfield label{font-size:11px;letter-spacing:.05em;color:var(--steel)}
+.dynfield input{width:110px}
+.dynfield .hint{font-size:10.5px;color:var(--dim);font-family:var(--mono)}
+/* One line of nine, wrapping. Each is a real checkbox with a real hit area —
+   punting a category is the commonest thing a GM does to this screen. */
+.dyncats{display:flex;flex-wrap:wrap;gap:6px}
+.dyncats label{display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--line2);
+  border-radius:2px;background:var(--well);font-family:var(--mono);font-size:11.5px;
+  color:var(--steel);cursor:pointer;user-select:none}
+.dyncats label.on{border-color:var(--dyn);color:var(--chalk);background:var(--panel2)}
+/* The global input{width:100%} makes a flex-item checkbox eat the row — the same
+   fault the MLE tick shipped with. */
+.dyncats input,.dyntog input{width:auto;flex:none;margin:0}
+.dyntog{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--dyn2);
+  border-radius:2px;background:var(--well);font-size:13px;color:var(--steel);cursor:pointer;user-select:none}
+.dyntog.on{background:var(--dyn);border-color:var(--dyn);color:#fff}
+[data-theme=light] .dyntog.on{color:#fff}
+.dyntog span{flex:1;min-width:0}
 .heat{display:inline-block;min-width:30px;padding:3px 7px;border-radius:2px;font-family:var(--mono);font-size:12px;font-weight:500}
 .chart{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 12px 10px}
 .chart svg{width:100%;height:auto;display:block}
@@ -1093,20 +1136,31 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <h2>Player rater &#8212; 2025&#8211;26</h2>
     <p class="note">What each player actually produced last season, scored the way this league counts. Every category is a
       z-score against the pool of rostered players; shooting percentages are weighted by attempts, so a big volume of bad
-      free throws hurts more than a handful does. Add the nine columns and you get the rating. Players under 15 games are listed but unrated. Switch the header
-      toggle to <b>2026&#8211;27 aggregate</b> to score the same way against next season's projections instead. The club column is
+      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated. Switch the header
+      toggle to <b>2026&#8211;27 aggregate</b> to score the same way against next season's projections instead.
+      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
+      player passes a better one who played less, which is the 920-game cap showing up.
+      <b>Dynamic rater</b> is your own scratch version: set a games or minutes floor and choose which categories count,
+      and the whole field is re-scored against what is left. It is scored against the players who clear your filters,
+      not the league, so it is marked in blue throughout and stays on this tab &#8212; nothing it says reaches the
+      strategy board, the auction or anyone else. The club column is
       where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
       including the men playing out the last year of a deal. This is a record of last season, not a projection.</p>
     <div class="filters">
       <input id="rSearch" placeholder="Search players" autocomplete="off">
       <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
       <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
+      <select id="rBasis" title="Score per-game averages or season totals">
+        <option value="pg">Per game</option><option value="tot">Season totals</option></select>
+      <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
       <span class="fcount" id="rCount"></span>
       <button class="btn ghost" id="expRater">Export CSV</button>
     </div>
-    <div class="scroller" data-cap="1" data-pin2="1"><table id="raterTbl">
+    <div id="rDynBox" hidden></div>
+    <div id="rDynBanner" hidden></div>
+    <div class="scroller" id="rScroll" data-cap="1" data-pin2="1"><table id="raterTbl">
       <thead><tr>
-        <th class="l">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
+        <th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
         <th class="hide2" data-k="g">G</th>
         <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3P</th><th data-k="REB">REB</th>
         <th data-k="AST">AST</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th>
@@ -8083,13 +8137,118 @@ const RCATS=["FG","FT","P3","REB","AST","STL","BLK","TO","PTS"];
 /* RCATS names a category the way the league says it; `s` keys it the way the box
    score does, and two of them disagree — REB is TRB and TO is TOV. */
 const RAWKEY={P3:'P3',REB:'TRB',AST:'AST',STL:'STL',BLK:'BLK',TO:'TOV',PTS:'PTS'};
-/* The line a z-score was computed from, for the cell under it. */
-function raterRaw(p,c){
-  if(!p||!p.s) return '\u2014';
-  if(c==='FG') return `${pctText(shotPct(p.s.FG,p.s.FGA))} \u00b7 ${madeAtt(p.s.FG,p.s.FGA)}`;
-  if(c==='FT') return `${pctText(shotPct(p.s.FT,p.s.FTA))} \u00b7 ${madeAtt(p.s.FT,p.s.FTA)}`;
+/* The two rates, and the made/attempted pair each is scored from. */
+const RSHOOT={FG:['FG','FGA'],FT:['FT','FTA']};
+/* Turnovers are the one category where fewer is better. */
+const RDOWN={TO:1};
+/* Under this many games a player is listed but not rated. A handful of games is
+   not a season: let three good nights z-score against the field and a man who
+   played twice tops the league. The dynamic rater can raise it, never lower it
+   past the point where that stops being true. */
+const RMING=15;
+
+/* ---- the rater's scoring engine ----
+   The `z`, `tot` and `rk` on a RATER row were computed once, offline, against
+   the whole pool on per-game numbers. Both of this tab's controls — the
+   totals/per-game basis and the dynamic rater — need them computed again on a
+   different basis or against a different field, so the arithmetic has to live
+   here rather than be frozen into the data.
+
+   It reproduces the shipped figures. A counting category is (x - mean) / sd
+   across the rated pool; turnovers are that negated; and a rate is scored as
+   (his rate - the pool's rate) * his attempts — which is what "weighted by
+   attempts" means, and is why a high volume of bad free throws hurts
+   proportionally — then z-scored like anything else. The rating is the sum.
+
+   NOTHING HERE MUTATES A RATER ROW. Every caller gets fresh objects carrying
+   their own z/tot/rk, because `p.tot` and `p.rk` are read by the strategy
+   board, the Players tab, the player card and the what-if lab. Writing a
+   dynamic rating back onto the row would silently re-rank all four — which is
+   exactly what the dynamic rater must never do. */
+const rMean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+function rSd(a,m){
+  if(a.length<2) return 0;
+  return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/a.length);
+}
+/* Per-game minutes, when the box score carries them. The transcribed 2025-26
+   set has no MP column at all, so this is null throughout it and the minutes
+   filter says so rather than quietly matching nobody. */
+const raterMin=p=>(p&&p.s&&p.s.MP!=null&&p.s.MP!=='')?+p.s.MP:null;
+const raterHasMin=()=>RATER.some(p=>raterMin(p)!=null);
+/* What a basis multiplies a per-game number by. `s` is per game throughout, so
+   season totals are that times the games he played. */
+const rScale=(p,basis)=>basis==='tot'?(+p.g||0):1;
+/* The number a counting category is scored from, at this basis. */
+function raterVal(p,c,basis){
+  if(!p||!p.s||RSHOOT[c]) return null;
   const v=p.s[RAWKEY[c]];
-  return v==null?'\u2014':(+v).toFixed(1);
+  return v==null?null:v*rScale(p,basis);
+}
+/* The made/attempted pair a rate is scored from, at this basis. Scaling both by
+   games leaves the percentage alone and multiplies the volume, which is the
+   whole point of the totals basis: on a rate, durability is volume. */
+function raterPair(p,c,basis){
+  const k=RSHOOT[c]; if(!k||!p||!p.s) return null;
+  const m=p.s[k[0]], a=p.s[k[1]];
+  if(m==null||a==null) return null;
+  const f=rScale(p,basis);
+  return [m*f,a*f];
+}
+/* Pure. Takes a pool and returns it scored, ranked and copied.
+   opts: {basis:'pg'|'tot', cats:[...], minG, minMp}
+   The pool it is handed IS the field it z-scores against — that is what makes
+   the dynamic rater an adjusted rater rather than a filtered one. */
+function raterScore(pool,opts){
+  const o=opts||{};
+  const basis=o.basis==='tot'?'tot':'pg';
+  const cats=(Array.isArray(o.cats)&&o.cats.length)?RCATS.filter(c=>o.cats.includes(c)):RCATS.slice();
+  const minG=o.minG==null?RMING:+o.minG;
+  const minMp=(o.minMp==null||o.minMp==='')?null:+o.minMp;
+  const src=(pool||[]).filter(p=>p&&p.s);
+  const rated=src.filter(p=>(+p.g||0)>=minG
+    &&(minMp==null||(raterMin(p)!=null&&raterMin(p)>=minMp)));
+  const inPool=new Set(rated);
+  const zs={};
+  cats.forEach(c=>{
+    let vals;
+    if(RSHOOT[c]){
+      let tm=0,ta=0;
+      rated.forEach(p=>{const q=raterPair(p,c,basis); if(q){tm+=q[0];ta+=q[1];}});
+      const lg=ta>0?tm/ta:0;
+      vals=rated.map(p=>{const q=raterPair(p,c,basis);
+        return (q&&q[1]>0)?(q[0]/q[1]-lg)*q[1]:0;});
+    } else {
+      vals=rated.map(p=>raterVal(p,c,basis)||0);
+    }
+    const m=rMean(vals), sd=rSd(vals,m), sign=RDOWN[c]?-1:1;
+    const out={};
+    rated.forEach((p,i)=>{out[p.n]=sd>0?sign*(vals[i]-m)/sd:0;});
+    zs[c]=out;
+  });
+  const rows=rated.map(p=>{
+    const z={}; let tot=0;
+    cats.forEach(c=>{const v=zs[c][p.n]||0; z[c]=+v.toFixed(2); tot+=v;});
+    return {...p,z,tot:+tot.toFixed(2),rk:0};
+  });
+  rows.sort((a,b)=>b.tot-a.tot||cmp(a.n,b.n,false));
+  rows.forEach((p,i)=>{p.rk=i+1;});
+  const unrated=src.filter(p=>!inPool.has(p)).map(p=>({...p,z:null,tot:null,rk:null}));
+  return {rows,unrated,cats,basis,minG,minMp,pool:rated.length};
+}
+/* The line a z-score was computed from, for the cell under it. */
+function raterRaw(p,c,basis){
+  if(!p||!p.s) return '\u2014';
+  /* No toLocaleString here: it follows the browser's locale, so a season total
+     reads 2,115 here and 2.115 in Berlin — and the CSV scraper would carry that
+     straight out as a decimal. A ledger prints the same digits everywhere. */
+  const num=v=>basis==='tot'?String(Math.round(v)):(+v).toFixed(1);
+  if(RSHOOT[c]){
+    const q=raterPair(p,c,basis);
+    if(!q) return '\u2014';
+    return `${pctText(shotPct(q[0],q[1]))} \u00b7 ${madeAtt(q[0],q[1])}`;
+  }
+  const v=raterVal(p,c,basis);
+  return v==null?'\u2014':num(v);
 }
 function zColor(v){
   if(v==null) return '';
@@ -8105,24 +8264,168 @@ function zColor(v){
 const raterClub=n=>isFreeAgent(n)
   ? `<span style="color:var(--dim)">${htmlEsc(ownerLabel(n))}</span>`
   : htmlEsc(ownerOf(n));
+/* ---- what the rater is currently scoring ----
+   Both of these are module-level and are deliberately NOT in S.cfg: they are one
+   GM's way of reading the table, not a league setting, so they are never
+   committed, never merged, never polled and never reach another browser. The
+   dynamic rater in particular must not leave this tab. */
+let RBASIS='pg';
+const dynDefaults=()=>({on:false,minG:RMING,minMp:'',cats:RCATS.slice()});
+let RDYN=dynDefaults();
+const raterBasis=()=>RBASIS==='tot'?'tot':'pg';
+const raterDynOn=()=>!!RDYN.on;
+/* Is the dynamic rater actually saying anything different from the league's own
+   field? Toggling it on and changing nothing should not claim to be an
+   adjustment. */
+const dynActive=()=>raterDynOn()&&(RDYN.minG!==RMING||RDYN.minMp!==''||RDYN.cats.length!==RCATS.length);
+/* The one place the engine's options are assembled. Off, the dynamic filters are
+   not merely ignored — they are not in the object at all. */
+function raterOpts(){
+  return raterDynOn()
+    ? {basis:raterBasis(),cats:RDYN.cats,minG:RDYN.minG,minMp:RDYN.minMp}
+    : {basis:raterBasis()};
+}
+const BASISLBL=()=>raterBasis()==='tot'?'season totals':'per-game averages';
+function dynSummary(R){
+  const bits=[];
+  if(RDYN.minG!==RMING) bits.push(`${RDYN.minG}+ games`);
+  if(RDYN.minMp!=='') bits.push(`${RDYN.minMp}+ minutes a game`);
+  if(RDYN.cats.length!==RCATS.length)
+    bits.push(RDYN.cats.length?`${RDYN.cats.length} of 9 categories (${RDYN.cats.join(', ')})`:'no categories');
+  return bits;
+}
+function drawDynBox(R){
+  const box=$('rDynBox'), ban=$('rDynBanner'), tog=$('rDynTog'), scr=$('rScroll');
+  const on=raterDynOn();
+  box.hidden=!on; ban.hidden=!on;
+  if(tog) tog.classList.toggle('on',on);
+  if(scr) scr.classList.toggle('dynwrap',on);
+  const head=$('rRkHead'); if(head) head.textContent=on?'DYN#':'#';
+  if(!on){ box.innerHTML=''; box.removeAttribute('data-built'); return; }
+  const hasMp=raterHasMin();
+  /* ---- build the panel ONCE ----
+     drawRater() runs on every render, and a category checkbox calls it from its
+     own change handler. Rewriting this box's innerHTML from inside that handler
+     removes the very node that fired the event — Chromium throws NotFoundError
+     mid-draw and the redraw dies with the table half written. It is the same
+     fault the bid panel had, and the same answer: build the controls once, then
+     touch only what changed. It keeps a half-typed games floor on screen too. */
+  const shape='mp'+(hasMp?1:0);
+  if(box.getAttribute('data-built')===shape){ syncDynBox(); drawDynBanner(R); return; }
+  box.setAttribute('data-built',shape);
+  box.innerHTML=`<div class="dynbox">
+    <h5>Dynamic rater &#8212; your own field</h5>
+    <div class="dynrow">
+      <div class="dynfield"><label for="dMinG">Minimum games</label>
+        <input id="dMinG" type="number" min="0" max="82" step="1" value="${RDYN.minG}">
+        <span class="hint">league default ${RMING}</span></div>
+      <div class="dynfield"><label for="dMinMp">Minimum minutes a game</label>
+        <input id="dMinMp" type="number" min="0" max="48" step="0.5" value="${htmlEsc(String(RDYN.minMp))}"${hasMp?'':' disabled'}>
+        <span class="hint">${hasMp?'blank for no floor':'no minutes on file'}</span></div>
+      <div class="dynfield"><label>&nbsp;</label>
+        <button class="btn ghost" id="dReset">Reset</button></div>
+    </div>
+    <div class="dynfield" style="margin-bottom:7px"><label>Categories that count towards the rating</label></div>
+    <div class="dyncats">${RCATS.map(c=>{
+      const on2=RDYN.cats.includes(c);
+      return `<label class="${on2?'on':''}"><input type="checkbox" data-dcat="${c}"${on2?' checked':''}>${c}</label>`;
+    }).join('')}</div>
+  </div>`;
+  /* Handlers are bound here, once, because the markup above is written once. */
+  $('dMinG').onchange=e=>{
+    const v=Math.max(0,Math.min(82,Math.round(+e.target.value||0)));
+    RDYN.minG=v; drawRater();
+  };
+  if(hasMp) $('dMinMp').onchange=e=>{
+    const raw=String(e.target.value).trim();
+    RDYN.minMp=raw===''?'':Math.max(0,Math.min(48,+raw||0));
+    drawRater();
+  };
+  $('dReset').onclick=()=>{ const on2=RDYN.on; RDYN=dynDefaults(); RDYN.on=on2; drawRater(); };
+  box.querySelectorAll('[data-dcat]').forEach(cb=>{
+    cb.onchange=()=>{
+      const c=cb.getAttribute('data-dcat');
+      /* The last category cannot be turned off: a rating that is the sum of
+         nothing is zero for everybody, and a table of 383 identical zeroes is
+         not a punt build, it is a broken screen. Put the tick back rather than
+         redrawing the box the click came from. */
+      if(!cb.checked&&RDYN.cats.length<=1){ cb.checked=true; return; }
+      RDYN.cats=cb.checked?RCATS.filter(x=>x===c||RDYN.cats.includes(x))
+                          :RDYN.cats.filter(x=>x!==c);
+      drawRater();
+    };
+  });
+  syncDynBox();
+  drawDynBanner(R);
+}
+/* The banner is its own element and never an ancestor of a control, so unlike
+   the box it is safe to rewrite from inside a change handler. */
+function drawDynBanner(R){
+  const ban=$('rDynBanner'); if(!ban||ban.hidden) return;
+  const bits=dynSummary(R);
+  ban.innerHTML=`<div class="dynbanner">
+    <b>This is not the league's rating.</b> Every z-score below is recomputed against
+    <span class="dynmono">${R.pool}</span> players
+    ${bits.length?`(${htmlEsc(bits.join(' · '))})`:'— the whole rated field'}
+    on <span class="dynmono">${BASISLBL()}</span>.
+    A player is only ahead of the field you have drawn here, so these numbers mean nothing off this
+    tab — and nothing on it is saved, shared or carried anywhere else in the app.</div>`;
+}
+/* Reflect the state onto controls that already exist, without replacing them. */
+function syncDynBox(){
+  const box=$('rDynBox'); if(!box||box.hidden) return;
+  box.querySelectorAll('[data-dcat]').forEach(cb=>{
+    const on=RDYN.cats.includes(cb.getAttribute('data-dcat'));
+    cb.checked=on;
+    const lab=cb.closest?cb.closest('label'):null;
+    if(lab) lab.classList.toggle('on',on);
+  });
+  const g0=$('dMinG');
+  /* Never overwrite a field the GM is typing in. */
+  if(g0&&document.activeElement!==g0) g0.value=RDYN.minG;
+  const m0=$('dMinMp');
+  if(m0&&document.activeElement!==m0) m0.value=String(RDYN.minMp);
+}
+/* Why a player is listed but carries no rating. */
+function unratedWhy(p,R){
+  if((+p.g||0)<R.minG) return `under ${R.minG} games &#8212; not rated`;
+  if(R.minMp!=null&&raterMin(p)==null) return 'no minutes on file &#8212; not rated';
+  if(R.minMp!=null) return `under ${R.minMp} minutes a game &#8212; not rated`;
+  return 'not rated';
+}
 function drawRater(){
   const q=$('rSearch').value.trim().toLowerCase(), tf=$('rTeam').value, pf=$('rPos').value;
+  const basis=raterBasis();
+  /* Score the WHOLE pool, then filter what is shown. The search, club and
+     position boxes must never re-baseline: filter to one club and a z-score
+     against fifteen team-mates says a club's fourth-best guard is average, which
+     is true of nothing. The dynamic rater's own filters DO define the field, and
+     that difference is the entire reason it is a separate mode. */
+  const R=raterScore(RATER,raterOpts());
+  drawDynBox(R);
+  const all=R.rows.concat(R.unrated);
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
      means nobody has committed salary for next season. */
-  let rows=RATER.filter(p=>(!q||p.n.toLowerCase().includes(q))
+  let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))
     &&(!tf||(tf==='FA'?isFreeAgent(p.n):liveClub(p.n)===tf))
     &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
   const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
-  $('rCount').textContent=`${rows.length} of ${RATER.length} players`;
+  $('rCount').textContent=`${rows.length} of ${RATER.length} players`
+    +(raterDynOn()?` · scored against ${R.pool}`:'');
+  const span=RCATS.length;
   $('raterBody').innerHTML=rows.map(p=>{
     const oc=raterClub(p.n);
     if(!p.z) return `<tr><td class="l">&#8212;</td><td>${p.n}</td><td class="l hide">${oc}</td>
-      <td class="hide2">${p.g}</td><td colspan="9" class="unrated" style="text-align:center">under 15 games &#8212; not rated</td>
+      <td class="hide2">${p.g}</td><td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>
       <td class="unrated">&#8212;</td></tr>`;
     return `<tr><td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
       ${RCATS.map(c=>{
+        /* A category the GM has switched off keeps its column — the row would
+           otherwise change width under him — but shows the number with no
+           z-score, because it is not contributing to the rating any more. */
+        if(p.z[c]==null) return `<td class="zshot unrated">&#8212;<small>${raterRaw(p,c,basis)}</small></td>`;
         const z=`<span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span>`;
         /* Every column carries the number the z-score was computed FROM. A
            z-score says how far ahead of the field a player is; it does not say
@@ -8133,7 +8436,7 @@ function drawRater(){
            said FG% and the value under it was a z-score, so the rate itself was
            never on this screen at all. They carry the rate and the makes and
            attempts, because the league weights them by attempts. */
-        return `<td class="zshot">${z}<small>${raterRaw(p,c)}</small></td>`;
+        return `<td class="zshot">${z}<small>${raterRaw(p,c,basis)}</small></td>`;
       }).join('')}
       <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
   }).join('');
@@ -8141,6 +8444,8 @@ function drawRater(){
 }
 redraw.rater=drawRater;
 ['rSearch','rTeam','rPos'].forEach(id=>$(id).oninput=drawRater);
+if($('rBasis')) $('rBasis').onchange=e=>{ RBASIS=e.target.value==='tot'?'tot':'pg'; drawRater(); };
+if($('rDyn')) $('rDyn').onchange=e=>{ RDYN.on=!!e.target.checked; drawRater(); };
 
 /* ================= TEAM CATEGORY PROFILE ================= */
 function drawProfile(){
