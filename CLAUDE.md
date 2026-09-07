@@ -745,6 +745,17 @@ under his club, and listing him twice would give the commissioner two rows for
 one player. Duplicate *contract* rows are left visible on purpose: the sheet
 really does carry Poeltl on two rosters, and hiding that would hide the problem.
 
+**The league's own name** is `S.cfg.league`, the first field in League settings.
+`leagueName()` is what every screen asks — the cleaned value, or `LEAGUEDEF`
+("League Ledger") when it is blank, because a league that never set one is still
+called something. `render()` writes it into `#brand` and `document.title` on
+every draw rather than once at boot: it is a settings-slice value, so a rename
+made in one browser arrives in the others on the poll. `leagueNameError()` is the
+check the save runs (blank is fine, at most `LEAGUEMAX` characters, needs a
+letter or a number) and `normCfg()` collapses the whitespace and caps the length
+on the way in. The `<title>` in the file stays "League Ledger" — it is the name
+the page carries until the first render.
+
 **Adding a club** is on the same tab. A new club joins with an empty roster and
 no PIN, so the first person to sign in as it claims it. Nothing else is
 league-wide — the cap, the tax and the 920-game limit are all per club.

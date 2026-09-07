@@ -725,7 +725,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 <body>
 <header class="mast" id="mast">
   <div class="mast-in">
-    <div class="brand">League Ledger</div>
+    <div class="brand" id="brand">League Ledger</div>
     <div class="season" id="seasonL">2026&#8211;27</div>
     <span class="chip" id="netChip" title="League data status"></span>
   <div class="who" id="whoBar"></div>
@@ -1199,6 +1199,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="warn" id="birdWarn" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
+      <div><label for="sLeague">League name</label><input id="sLeague" maxlength="60"
+        placeholder="League Ledger" autocomplete="off"></div>
       <div><label for="sCap">Salary cap</label><input id="sCap" class="mono" type="number" step="0.25"></div>
       <div><label for="sTax">Luxury tax / hard cap</label><input id="sTax" class="mono" type="number" step="0.25"></div>
       <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
@@ -1727,9 +1729,27 @@ function mergeSlice(k,theirs,mine){
    all, and an empty list is a real answer — nobody has it. So the seed is only
    applied when the key is MISSING, never when it is present and empty, or
    revoking the last deputy would silently re-grant him on the next load. */
+/* What this league calls itself. It is one commissioner setting, so it rides
+   the settings slice and arrives in every other browser on the poll like the cap
+   does. Blank means the default rather than an empty masthead — a league that
+   never set one is still called something. */
+const LEAGUEDEF='League Ledger';
+const LEAGUEMAX=60;
+function leagueName(){ return nameClean(S.cfg.league)||LEAGUEDEF; }
+/* Why this name cannot be recorded, or null. Blank is allowed and means the
+   default; beyond a length and "has a character in it" the app does not
+   second-guess what a league calls itself. */
+function leagueNameError(v){
+  const n=nameClean(v);
+  if(!n) return null;
+  if(n.length>LEAGUEMAX) return `A league name is at most ${LEAGUEMAX} characters.`;
+  if(!/[A-Za-z0-9]/.test(n)) return 'A league name needs a letter or a number in it.';
+  return null;
+}
 function normCfg(c){
   if(!c||typeof c!=='object') return c;
   if(!Array.isArray(c.deputies)) c.deputies=DEPUTY_SEED.slice();
+  if(c.league!=null) c.league=nameClean(c.league).slice(0,LEAGUEMAX);
   /* One season style. The seed wrote an en dash and a roll computes a hyphen, so
      without this the header changed punctuation the first time the league moved
      — and, worse, a hand-typed season would not match the keys on a contract. */
@@ -1845,7 +1865,7 @@ function fresh(){
      reserve — so 15 active plus 1 IR slot is the rulebook's "16 men, and only if
      one of them is hurt". The offseason has no IR at all, which makes the same
      number mean 15 flat. */
-  return {cfg:{cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,
+  return {cfg:{league:LEAGUEDEF,cap:165.00,tax:200.50,roster:15,season:'2026\u201327',commPin:'0000',gamecap:920,
     phase:'offseason',ir:1,minSal:1.00,deadline:'',nomOrder:[],
     deputies:DEPUTY_SEED.slice()},teams:t,log:[]};
 }
@@ -3175,6 +3195,7 @@ function drawAdmin(){
       await commit({kind:'trade',team:`${from} / ${to}`,detail:`Commissioner moved ${n} to ${to}`});
     };
   }
+  if($('sLeague')) $('sLeague').value=S.cfg.league||'';
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
   if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
   if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
@@ -3551,6 +3572,12 @@ function render(){
   if(typeof netChip==='function') netChip();
   if(typeof markMore==='function') markMore();
   if(typeof markPhaseTabs==='function') markPhaseTabs();
+  /* The masthead and the browser tab both carry the league's own name. It can
+     be changed in another browser and reach this one on the poll, so it is
+     written on every render rather than once at boot. */
+  const LN=leagueName();
+  if($('brand')) $('brand').textContent=LN;
+  if(document.title!==LN) document.title=LN;
   $('seasonL').textContent=S.cfg.season;
   /* A club can be renamed in another tab and arrive here on the poll, so
      anything holding a club NAME has to be re-checked against S.teams rather
@@ -7740,13 +7767,17 @@ $('saveCfg').onclick=async()=>{
   const dl=($('sDeadline').value||'').trim();
   if(dl&&!/^\d{4}-\d{2}-\d{2}$/.test(dl))
     return alert('The trade deadline reads as YYYY-MM-DD, or leave it blank.');
+  const ln=$('sLeague')?nameClean($('sLeague').value):null;
+  const lerr=leagueNameError(ln);
+  if(lerr) return alert(lerr);
+  if(ln!=null) S.cfg.league=ln;
   S.cfg.cap=parseFloat($('sCap').value)||S.cfg.cap;
   S.cfg.tax=parseFloat($('sTax').value)||S.cfg.tax;
   S.cfg.roster=parseInt($('sRoster').value)||S.cfg.roster;
   const mn=parseFloat($('sMin').value);
   if(mn>0) S.cfg.minSal=Math.round(mn*4)/4;
   S.cfg.deadline=dl;
-  await commit({kind:'edit',detail:`League settings \u2014 cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
+  await commit({kind:'edit',detail:`League settings \u2014 ${leagueName()}, cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
     +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}`});
 };
 $('exportBtn').onclick=()=>{

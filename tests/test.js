@@ -230,6 +230,35 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction = null; X.me = keepMe; X.STRAT = keepStrat;
   }
 
+  console.log('\n== the league names itself ==');
+  {
+    const CS = g('S'), keepName = CS.cfg.league;
+    ok('a league that never set one is still called something',
+       (delete CS.cfg.league, g('leagueName')()) === g('LEAGUEDEF'), g('leagueName')());
+    CS.cfg.league = '   ';
+    ok('and so is one that blanked it', g('leagueName')() === g('LEAGUEDEF'));
+    CS.cfg.league = 'The Grimsby Nine';
+    ok('otherwise it is what the commissioner typed', g('leagueName')() === 'The Grimsby Nine');
+    g('render')();
+    ok('the masthead carries it',
+       document.getElementById('brand').textContent === 'The Grimsby Nine',
+       document.getElementById('brand').textContent);
+    ok('and so does the browser tab', document.title === 'The Grimsby Nine', document.title);
+    // normCfg is what a settings slice arriving on the poll goes through.
+    const c = g('normCfg')({league:'  The   Grimsby  Nine  ', deputies:[], season:'2026-27'});
+    ok('normCfg collapses the whitespace', c.league === 'The Grimsby Nine', JSON.stringify(c.league));
+    ok('and caps the length',
+       g('normCfg')({league:'x'.repeat(200), deputies:[]}).league.length === g('LEAGUEMAX'));
+    // The check the save runs.
+    ok('blank is allowed and means the default', g('leagueNameError')('') === null);
+    ok('so is an ordinary name', g('leagueNameError')('The Grimsby Nine') === null);
+    ok('too long is not', /at most/.test(g('leagueNameError')('x'.repeat(61)) || ''),
+       g('leagueNameError')('x'.repeat(61)));
+    ok('and neither is punctuation on its own',
+       /letter or a number/.test(g('leagueNameError')('---') || ''));
+    CS.cfg.league = keepName; g('render')();
+  }
+
   console.log('\n== free agents are in the commissioner list ==');
   X.me = '__comm__';
   document.getElementById('apQ').value = '';
