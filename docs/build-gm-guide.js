@@ -246,21 +246,19 @@ add(note('Nightly stat accrual is not built yet',
   +'each player are his per-game line, not tonight’s box score, and the screen says so. Setting '
   +'your lineup does not move the standings today.'));
 
-add(H2('3.4 On the block — how you bid at auction'));
-add(P(['This is the part people hunt for. During the offseason auction, ',
-  ['the bidding happens here on My Team',1],', not on the Auction tab. The Auction tab is the '
-  +'room — who is up, the bid history, what everyone has left. The box below is where you bid.']));
-add(shot('bid-panel.jpg','The bid box, and what the player would do to your categories.'));
-add(NUM(['Use ',['−',1],' and ',['+',1],' to move your bid in 25-cent steps, then press ',['Bid',1],'.']));
-add(NUM([['Max bid',1],' is a proxy: type the most you would go and the app bids for you, one step '
-  +'at a time, only as far as it needs to. It never bids past the runner-up.']));
-add(NUM(['The green line tells you the most you may bid on this player under the cap rules. If it '
-  +'says you may not bid at all, the reason is a cap, roster or release rule — the app will '
-  +'spell it out.']));
-add(NUM(['Below the box, the card shows what he would do to each of your nine categories, and the '
-  +'roto points it would be worth. Green is better, red is worse.']));
-add(note('You cannot bid against yourself',
-  'If you already hold the high bid the app will say so rather than take your money twice.'));
+add(H2('3.4 On the block — what he would do to your club'));
+add(P(['When a player is up for auction, this panel answers the question My Team is the right '
+  +'place to answer: ',['what would he do to my nine categories, at the price it is at now',1],'. '
+  +'Green is better, red is worse, and it shows the roto points the change would be worth.']));
+add(shot('bid-panel.jpg','What the player on the block would do to your categories.'));
+add(note('You bid on the Auction tab, not here',
+  'The controls used to sit on this page, two tabs away from the bid history, the money left and '
+  +'the player himself — so a GM bidding was reading one screen and typing into another. They now '
+  +'sit under the player on the Auction tab. This panel keeps the part that is about YOUR club, '
+  +'and there is a button here that takes you straight across.'));
+add(P(['If you have written the player onto your strategy board, this panel also shows the row you '
+  +'wrote — where you ranked him, the priority, your max and your comment — and turns it red once '
+  +'the bidding reaches or passes the figure you set. See 4.']));
 
 add(H2('3.5 What-if roster'));
 add(shot('what-if-roster.jpg','A sandbox on top of your club. Nothing here touches the league.'));
@@ -288,9 +286,20 @@ add(note('In the offseason there is no Sign button, and that is deliberate',
 add(new Paragraph({children:[new PageBreak()]}));
 add(H1('4. Auction'));
 add(P([['Offseason only.',1],' The auction room: who is on the block, what the bidding has done, '
-  +'what every club has left to spend, and your own private target board. Remember that you place '
-  +'your bids on My Team — see 3.4.']));
+  +'what every club has left to spend, and your own private target board. ',
+  ['This is also where you bid',1],' — the controls sit under the player, beside the bid history '
+  +'and the money left, so everything you need is on one screen. My Team keeps the panel showing '
+  +'what he would do to your club (3.4).']));
 add(shot('auction.jpg','The auction room.'));
+
+add(H2('The commissioner opens the auction'));
+add(P(['Nobody can nominate or bid until he does. Until then the tab is open to read — the free '
+  +'agent class, the barred list, your own board — but there is no nomination form and no bid '
+  +'box, and the panel says so.']));
+add(note('That means you can prepare whenever you like',
+  'Fill in your projections and write your whole strategy board days early. None of it places a '
+  +'bid, and nothing you do before the room opens can start the auction by accident. That is the '
+  +'point of the switch.'));
 
 add(H2('Nominating'));
 add(P(['The order is a ',['snake',1],'. The commissioner sets round one; round two runs backwards, '
@@ -300,7 +309,40 @@ add(BULLET(['Only the club on the clock may put a player up. When it is your tur
   +'type a name, set an opening bid, and press ',['Put on the block',1],'.']));
 add(BULLET(['A club already carrying 15 players is skipped rather than waited on — it cannot '
   +'sign anybody, so blocking the room on it would stall the auction.']));
-add(BULLET(['You cannot nominate a player you would not be allowed to sign.']));
+add(BULLET(['You cannot nominate a player you would not be allowed to sign. A nomination opens '
+  +'with your own bid, so a club that could not honour the contract cannot put him up.']));
+add(BULLET(['The form also takes an optional ',['max bid',1],', so a nominator who already knows '
+  +'his ceiling does not have to sit on the tab defending the lot — and the mid-level tick, '
+  +'because an opening bid is a bid like any other.']));
+
+add(H2('Bidding'));
+add(shot('bid-box.jpg','The bid controls sit under the player, on this tab.'));
+add(NUM(['Move your bid in 25-cent steps and press ',['Bid',1],'.']));
+add(NUM([['Max bid',1],' is a proxy: type the most you would go and the app bids for you, one step '
+  +'at a time, only as far as it needs to. It never bids past the runner-up. Every step it takes '
+  +'for you is written into the bid history under your club, so nobody has to guess who moved.']));
+add(NUM(['The line above the box tells you the most you may bid on this player ',
+  ['and which wall it is',1],' — the salary cap, the hard cap, your exception, a release bar or a '
+  +'full roster. If you may not bid at all it says why.']));
+add(note('You cannot bid against yourself',
+  'If you already hold the high bid the app says so rather than take your money twice.'));
+
+add(H2('Bidding on your mid-level exception'));
+add(P(['The exception lets you go over the ',['salary cap',1],' for a player — not over the hard '
+  +'cap, which nothing beats. It is a pot, not a coupon: the commissioner sets the figure, and it '
+  +'splits across as many players as it covers, so what matters is what you have left.']));
+add(P(['There is a tick box on both the bid form and the nomination form. Tick it and:']));
+add(BULLET([['The whole contract comes out of the pot',1],', not just the part above your cap '
+  +'room. So a $5.50 exception buys a $5.50 player — you cannot add it to $20.00 of cap room and '
+  +'pay $25.50.']));
+add(BULLET(['It ',['signs him for two seasons',1],', flat.']));
+add(BULLET(['The signing is stamped with the offseason that paid for it, so the ledger still '
+  +'answers "why is he on the books over the cap" a year later.']));
+add(note('Two clubs on the exception is a coin flip, not a bidding war',
+  'Neither of you can go past the same pot, so a mid-level bid may LEVEL a standing bid rather ' +
+  'than raise it — you match the price instead of adding a quarter. The lot then carries a tie, ' +
+  'and the commissioner flips a coin at the award and writes the result into the bid history. ' +
+  'Only the winner\u2019s pot is charged.'));
 
 add(H2('Who wins him'));
 add(P(['When the bidding is done ',['the commissioner awards the player',1],'. GMs do not close '
@@ -313,7 +355,13 @@ add(shot('auction-strategy.jpg','Private to you.'));
 add(P(['Rank the players you want, flag how badly you want each one, and note the most you would '
   +'go. ',['That max is a planning figure only',1],' — it places no bid, sets no automatic bid '
   +'and binds nothing. The board is stored under your sign-in and follows you between your phone '
-  +'and your laptop. No other GM, and not the commissioner, can read it.']));
+  +'and your laptop, encrypted with a key derived from your club PIN — a league-mate who goes '
+  +'looking at the raw data gets scrambled text.']));
+add(note('Be realistic about how private that is',
+  'The PINs themselves live in the league data, and anyone who views the page source can read ' +
+  'them. Treat your board as "nobody will stumble across it" — the same honour system the whole ' +
+  'site runs on — rather than as a vault. If a max bid would genuinely cost you to have read, ' +
+  'keep that one in your head.','warn'));
 add(P('Each row is tagged with the club that holds the player and what it holds him with — '
   +'Bird, Early Bird or restricted — so you can rank him against the right you would be '
   +'bidding into.'));
@@ -340,6 +388,25 @@ add(shot('player-rater.jpg','The rater. Click any heading to sort; click any nam
 add(P(['The rating is a nine-category z-score against the whole pool, with FG% and FT% weighted by '
   +'attempts — so a high volume of bad free throws hurts you proportionally, which is how it '
   +'actually works in a roto league. Positive is above the pool average.']));
+add(P(['The pool is ',['every player who appeared in 2025\u201326',1],' — no games or minutes '
+  +'cutoff — so the man who played nine games in March is in here too. Under 15 games he is '
+  +'listed but not rated: a handful of games is not a season.']));
+
+add(H2('Three switches, and they stack'));
+add(table(['Switch','What it does'],[
+  ['Stats shown (header)','Ranks the field on 2025\u201326 actuals, the 2026\u201327 aggregate, or your own projections. The heading names whichever one you are looking at.'],
+  ['Per game / Season totals','Changes what every z-score is computed from. On totals, a durable player passes a better one who played less \u2014 which is the 920-game cap showing up in the ranking.'],
+  ['Dynamic rater','Your own scratch field: set a games or minutes floor, or switch categories off, and the whole field is re-scored against what is left.']
+],[2600,7480]));
+add(SPACER());
+add(note('The dynamic rater is marked in blue on purpose',
+  'It is scored against the players who clear YOUR filters, not against the league, so it is not ' +
+  'the league\u2019s rating and it says so \u2014 blue rails, a banner naming the field, and a ' +
+  'DYN# rank column. Nothing it says leaves that tab: it never reaches the strategy board, the ' +
+  'auction, or anybody else\u2019s screen.'));
+add(P(['Switching categories off is how you plan a ',['punt build',1],'. Turn off the two you are '
+  +'conceding and the table re-ranks on the seven you actually intend to win.']));
+
 add(P('Click any player name, anywhere in the app, to open his card:'));
 add(shot('player-card.jpg','The player card, reachable from every table.'));
 add(P(['The card shows his line, his rating, who holds him, and lets you type your own projection '
@@ -374,6 +441,10 @@ add(note('Trades are re-checked when they are accepted',
   'Rosters move between an offer being made and answered, so the app validates salary matching, '
   +'the hard cap, the roster limit and every pick again at the moment of acceptance. An offer that '
   +'was legal on Monday can be refused on Wednesday, and it will tell you why.','warn'));
+add(note('Salary matching is off unless the commissioner turns it on',
+  'By default a deal needs only the hard cap and the roster limit \u2014 the two rules nothing ' +
+  'beats. If the commissioner switches matching on, the old bands apply to a club over the cap, ' +
+  'and the builder will tell you which one you are in.'));
 add(P(['You can trade the ',['rights',1],' you hold to an expiring player — Bird, Early Bird or '
   +'restricted — and the rights travel with him. Those players move $0, so they do not touch '
   +'salary matching. You can also trade rookie draft picks, this year’s and future ones, and '
@@ -434,8 +505,12 @@ add(shot('my-projections.jpg','Your own numbers, for every player you care to ed
 add(P(['Edit any player’s line and the whole app will use your number wherever you have the '
   +'header set to ',['My projections',1],'. Everything you have changed is marked in amber so you '
   +'can always tell your guess from the record.']));
-add(P('Your projections are yours alone — no other GM and not the commissioner can see them — '
-  +'and, like your notes and your auction board, they follow you between devices.'));
+add(P(['Like your notes and your auction board, your projections follow you between devices — '
+  +'type them on your phone and they are on your laptop — and they go up encrypted under a key '
+  +'derived from your club PIN, so a league-mate reading the raw data gets scrambled text. ',
+  ['The same honesty applies as to the strategy board',1],': PINs live in the league data and can '
+  +'be read by anyone who views the page source, so this stops someone reading your work by '
+  +'accident, not someone determined to.']));
 
 /* ======================= 13. TEAM TRENDS ======================= */
 add(H1('13. Team trends'));

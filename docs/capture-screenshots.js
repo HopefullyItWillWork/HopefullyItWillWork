@@ -104,11 +104,21 @@ const FULLTAB=[
             {t:'Coulter',amt:4.5,ts:Date.now()-70000},{t:'Brice',amt:3,ts:Date.now()-95000}],
       max:{},status:'open',ts:Date.now()-120000});
     const c=JSON.parse(JSON.stringify(fresh().cfg)); c.phase='offseason';
-    c.nomOrder=TEAMS().slice(); applySlice('settings',c); render();});
+    c.nomOrder=TEAMS().slice();
+    /* The auction room is shut until the commissioner opens it, and a shut room
+       draws no bid controls at all — so a capture that skipped this would
+       photograph an empty box and the guide would show GMs a screen they cannot
+       act on. */
+    c.auction={open:true,closed:false};
+    applySlice('settings',c); render();});
   await lot();
+  /* Two different panels now, and they are not interchangeable: My Team keeps
+     what the player would do to YOUR club, and the bidding controls live on the
+     auction tab beside the bid history. */
   await pg.evaluate(()=>goTab('v-me')); await pg.waitForTimeout(500);
   await grab('#bidPanel','bid-panel',900);
   await pg.evaluate(()=>goTab('v-auction')); await pg.waitForTimeout(400);
+  await grab('#bidBox','bid-box',900);
   await grab('#stratWrap','auction-strategy',1100);
   await pg.evaluate(()=>applySlice('auction',null));
 
