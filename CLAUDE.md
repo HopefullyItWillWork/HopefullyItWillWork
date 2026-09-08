@@ -548,6 +548,46 @@ been established (a commissioner or deputy awarding, or the rights holder
 declining and so sending the player to somebody else's club) and the contract has
 already been checked.
 
+### The auction room has to be opened before anything can happen
+The rookie draft always had this — nothing is on the clock until the
+commissioner opens it — and the auction had nothing at all. From the moment the
+offseason began, any GM could put a player on the block and the bidding was
+under way: days early, by accident, and with no way to say "not yet". The two
+are the same problem and now carry the same lock.
+
+| | |
+|---|---|
+| `S.cfg.auction` | `{open, closed}` — **settings**, like `S.cfg.draft`: commissioner input, written rarely, last write wins |
+| `aucOpen()` | may anybody nominate or bid |
+| `aucClosed()` | over, as against not started — a GM waiting for the auction and one who missed it are asking different questions |
+| `aucShutWhy()` | the one sentence every refusal prints |
+| `setAucRoom(open,closed)` | the single writer; logged |
+
+`nominate()` and `placeBid()` both check it **first**, before any of the rules
+about *who* may act — those answer a different question. The screens do not draw
+a control that would refuse: with the room shut the nomination form is not
+rendered at all, `bidControls()` empties `#bidBox`, and the panel says which of
+the two states it is in. A dead control invites a click.
+
+**`closeAuction()` is not this.** It awards the player on the block and always
+has; the room switch is `setAucRoom()`. Do not merge them — awarding stays
+available with the room shut so a lot in progress can always be finished.
+
+**Closing with a player on the block is refused**, because bidding would stop
+while the lot sat there unresolved. Award him or cancel the lot first.
+
+**A missing key means shut — with one exception.** A league that has never seen
+this switch reads as shut, which is the entire point of it; but an auction
+already mid-lot must not freeze the first time this ships, so a live
+`open`/`match` lot reads as open. That is `aucOpen()`'s fallback and it is why
+nothing had to be migrated in `normCfg()`.
+
+**Opening either one now confirms**, and the confirmation says what actually
+becomes possible — how many clubs can nominate and who is on the clock, or how
+many picks go live and whose pick it is. The draft's Open was the one switch on
+that page that took no confirmation, which is exactly how a draft starts three
+days early.
+
 ### The auction nominates on a snake
 `S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
 backwards, round three forwards again, so the club at each end nominates twice in

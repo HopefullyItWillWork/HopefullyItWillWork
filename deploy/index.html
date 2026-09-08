@@ -1418,6 +1418,17 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
     <textarea id="tipBox" rows="6" placeholder="DEN 19:00&#10;LAL 22:30" style="width:100%;background:var(--panel);color:var(--chalk);border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--mono);font-size:13px;line-height:1.6"></textarea>
 
+    <h2 class="sub">Auction room</h2>
+    <p class="note">Nobody may nominate or bid until this is open. The rookie draft has always worked
+      this way and the auction now matches it &#8212; an offseason with the room unlocked meant any GM
+      could put a player on the block days early, by accident, and the bidding was under way before
+      anyone noticed. Opening and closing are both logged.</p>
+    <div id="aucState"></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn" id="asOpen">Open the auction</button>
+      <button class="btn danger" id="asClose">Close the auction</button>
+    </div>
+
     <h2 class="sub">Rookie draft input</h2>
     <p class="note">The order and the money are settled before anyone is on the clock, so both are
       entered here. Set a club against each slot &#8212; no. 1 is the club that finished last &#8212;
@@ -4136,7 +4147,7 @@ function bidControls(){
   const box=$('bidBox'); if(!box) return;
   const a=A();
   const me2=meTeam();
-  if(!a||a.status!=='open'||!me2||isComm()&&!meTeam()){ box.innerHTML=''; BIDUI={player:'',amt:'',max:'',mle:false}; return; }
+  if(!aucOpen()||!a||a.status!=='open'||!me2||isComm()&&!meTeam()){ box.innerHTML=''; BIDUI={player:'',amt:'',max:'',mle:false}; return; }
   bidRemember();
   const fresh=BIDUI.player!==a.player;
   if(fresh) BIDUI={player:a.player,amt:'',max:'',mle:false};
@@ -4734,8 +4745,13 @@ function drawAuction(){
   }
   const clock=nomOnClock(), ordered=nomOrder().length>0;
   const myTurn=me&&!isComm()&&canNominate(me)&&!nomFull(me);
-  const can=me&&!isComm()&&(!a||(a.status!=='open'&&a.status!=='match'))&&myTurn;
-  if($('nomWho')) $('nomWho').innerHTML = !ordered
+  /* A shut room beats every other reason: there is no clock, no turn and no
+     form. A control that renders and then refuses is worse than no control. */
+  const roomOpen=aucOpen();
+  const can=roomOpen&&me&&!isComm()&&(!a||(a.status!=='open'&&a.status!=='match'))&&myTurn;
+  if($('nomWho')) $('nomWho').innerHTML = !roomOpen
+    ? `<span class="pill bad">${aucClosed()?'Auction closed':'Auction not open yet'}</span>`
+    : !ordered
     ? '<span class="fcount">No nomination order set &#8212; anyone may nominate.</span>'
     : clock
       ? `<span class="pill ${clock.team===me?'good':''}">On the clock: ${htmlEsc(clock.team)}</span>
@@ -4761,7 +4777,9 @@ function drawAuction(){
         and it may sit above the ${money(S.cfg.cap)} salary cap. It is not added to your cap room.
         It <b>signs him for two seasons</b>, and another club on its own exception may level it rather
         than raise, which the commissioner settles with a coin flip.</span></label>`:''}`
-    : !me ? '<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>'
+    : !roomOpen ? `<div class="warnbox" style="margin-top:14px">${aucShutWhy()}${
+          hasComm()?' You open it on the Commissioner tab.':''}</div>`
+      : !me ? '<p class="note" style="margin-top:14px">Sign in to nominate or bid.</p>'
       : isComm() ? ''
       : nomFull(me) ? `<p class="note" style="margin-top:14px">${me} carries ${S.cfg.roster} players and cannot nominate.</p>`
       : (ordered&&clock&&clock.team!==me) ? `<p class="note" style="margin-top:14px">Waiting on ${htmlEsc(clock.team)} to nominate.</p>`
@@ -6253,6 +6271,37 @@ function restrictionNote(team,name){
   return out;
 }
 function A(){ return S.auction||null; }
+
+/* ---- the auction room has to be opened before anyone can do anything ----
+   The rookie draft has always had this: nothing is on the clock until the
+   commissioner opens it. The auction had no such switch, so from the moment the
+   offseason began any GM could nominate a player and start the bidding — days
+   early, by accident, and irreversibly as far as the room was concerned. The
+   two are the same problem and now carry the same lock.
+
+   It rides `settings`: commissioner input, written rarely, last write wins,
+   exactly like `S.cfg.draft`. */
+const aucCfg=()=>{const c=S.cfg&&S.cfg.auction; return (c&&typeof c==='object')?c:{};};
+function aucOpen(){
+  const c=aucCfg();
+  if(typeof c.open==='boolean') return c.open;
+  /* The switch has never been set on this league. A room already mid-lot must
+     not freeze the first time this ships, so a live lot reads as open; anything
+     else starts shut, which is the entire point of the switch. */
+  const a=A();
+  return !!(a&&(a.status==='open'||a.status==='match'));
+}
+const aucClosed=()=>!!aucCfg().closed;
+/* The one sentence every refusal prints, so a GM is never left guessing whether
+   he is barred or the app is broken. */
+const aucShutWhy=()=>aucClosed()
+  ? 'The auction is over — the commissioner has closed it.'
+  : 'The auction has not opened yet. The commissioner opens it when the league is ready to bid.';
+async function setAucRoom(open,closed){
+  if(!hasComm()) return;
+  S.cfg.auction={...aucCfg(),open:!!open,closed:!!closed};
+  await commit({kind:'edit',detail:`Auction room ${open?'opened':(closed?'closed':'shut')}`},['settings']);
+}
 function resolveProxies(){
   const a=A(); if(!a) return;
   for(let i=0;i<40;i++){
@@ -6292,6 +6341,7 @@ function mleTied(){
   return (at.length>1&&anyMle)?at:[];
 }
 async function placeBid(team,amt,isMax,isMle){
+  if(!aucOpen()) return alert(aucShutWhy());
   const a=A(); if(!a||a.status!=='open') return alert('Nothing is on the block.');
   amt=Math.round(amt*4)/4;
   /* A club barred from signing him is barred from bidding on him — a bid it
@@ -6573,6 +6623,9 @@ async function saveNomOrder(list){
 }
 async function nominate(name,team,open,max,isMle){
   if(!name) return;
+  /* The room gate comes first. Every other refusal below is about WHO may
+     nominate; this one is about whether anybody may. */
+  if(!aucOpen()) return alert(aucShutWhy());
   if(!canNominate(team)){
     const c=nomOnClock();
     return alert(c ? `It is ${c.team}'s nomination.` : 'Every club is full — there is nobody left to nominate for.');
@@ -7579,6 +7632,13 @@ function drawDraftAdmin(){
   $('dsOpen').onclick=async()=>{
     if(!draftBoard().length) return alert('Set the order first.');
     if(draftBoard().some(r=>r.sal==null)) return alert('Every pick needs a salary before the draft opens.');
+    /* Opening puts nine clubs on the clock at once. It was the one switch on
+       this page that took no confirmation, which is exactly how a draft starts
+       three days early. */
+    const b=draftBoard();
+    if(!confirm(`Open the ${d.year} rookie draft?\n\n`
+      +`${b.length} picks go live and ${b[0].holder||b[0].from} is on the clock immediately. `
+      +`Every GM can make his pick from this moment.\n\nYou can close it again from here.`)) return;
     await saveDraftSetup({open:true,closed:false});
   };
   $('dsClose').onclick=async()=>{
@@ -7587,6 +7647,41 @@ function drawDraftAdmin(){
   };
   $('dsOpen').disabled=d.open;
   $('dsClose').disabled=!d.open;
+  drawAucAdmin();
+}
+/* ---- the auction room switch ---- */
+function drawAucAdmin(){
+  const box=$('aucState'); if(!box) return;
+  const open=aucOpen(), a=A(), live=!!(a&&(a.status==='open'||a.status==='match'));
+  box.innerHTML = open
+    ? `<div class="okbox" style="margin:0">The auction is <b>open</b>. Clubs may nominate and bid.${
+        live?` ${htmlEsc(a.player)} is on the block.`:''}</div>`
+    : `<div class="warnbox" style="margin:0">The auction is <b>${aucClosed()?'closed':'not open'}</b>.
+        Nobody can nominate or bid.${aucClosed()?'':' Open it when the league is ready.'}</div>`;
+  const ob=$('asOpen'), cb=$('asClose');
+  if(ob){
+    ob.disabled=open;
+    ob.onclick=async()=>{
+      const n=nomOrder().length;
+      if(!confirm('Open the auction?\n\n'
+        +(n?`${n} clubs can nominate on the snake, starting with ${nomOnClock()?nomOnClock().team:'the first club'}. `
+           :'No nomination order is set, so any club may nominate. ')
+        +'Every GM can put a player on the block and bid from this moment.\n\nYou can close it again from here.')) return;
+      await setAucRoom(true,false);
+    };
+  }
+  if(cb){
+    cb.disabled=!open;
+    cb.onclick=async()=>{
+      /* Shutting the room with a player on the block would strand him: bidding
+         stops but the lot is still there. Award or cancel him first. */
+      if(live) return alert(`${a.player} is still on the block.\n\n`
+        +'Award him or cancel the lot before closing the auction.');
+      if(!confirm('Close the auction?\n\nNo club will be able to nominate or bid. '
+        +'Everything already signed stays signed.\n\nYou can re-open it from here.')) return;
+      await setAucRoom(false,true);
+    };
+  }
 }
 
 

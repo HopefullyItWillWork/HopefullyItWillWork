@@ -10,6 +10,12 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   await new Promise(r=>setTimeout(r, 300));      // let the bootstrap IIFE settle
   if(!g('S')) { console.log('FATAL: state never initialised'); process.exit(1); }
 
+  /* The auction room is shut until the commissioner opens it, which is the
+     whole point of the gate below. Most of this suite predates it and exercises
+     nominating and bidding directly, so the room is opened here as setup — the
+     gate itself is tested in its own block, which shuts it again and restores. */
+  g('S').cfg.auction = {open:true, closed:false};
+
   console.log('\n== the script actually ran ==');
   ok('S.teams populated', Object.keys(g('S').teams).length === 9, Object.keys(g('S').teams).length);
   ok('RATER loaded', g('RATER').length > 300, g('RATER').length);
@@ -4137,6 +4143,66 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        `${g('ratings')()['Nikola Jokic']} vs ${R.find(p=>p.n==='Nikola Jokic').tot}`);
     ok('...and the pool is RATER itself, unmutated',
        g('raterPool')().length === R.length);
+  }
+
+  console.log('\n== the auction room has to be opened first ==');
+  {
+    const CS = g('S'), keepAuc = CS.cfg.auction, keepMe = X.me, keepLot = CS.auction;
+    const keepAlerts = ctx.__alerts.length;
+    const logWas = (CS.log || []).slice();
+
+    /* A league that has never seen this switch: shut, unless a lot is already
+       live — an auction under way must not freeze the first time this ships. */
+    delete CS.cfg.auction; CS.auction = null;
+    ok('a league that never set it starts shut', g('aucOpen')() === false);
+    CS.auction = {player:'Test Man', by:'Osborn', bid:1, leader:'Osborn', bids:[], max:{}, status:'open', ts:new Date().toISOString()};
+    ok('...but a lot already on the block reads as open', g('aucOpen')() === true);
+    CS.auction = null;
+
+    /* Shut: nobody may do anything. */
+    CS.cfg.auction = {open:false, closed:false};
+    X.me = 'Osborn';
+    ctx.__alerts.length = 0;
+    await g('nominate')('James Harden', 'Osborn', 1);
+    ok('a shut room refuses a nomination', CS.auction == null, JSON.stringify(CS.auction));
+    ok('...and says why, without blaming the GM',
+       /has not opened yet/.test(ctx.__alerts[0] || ''), ctx.__alerts[0]);
+
+    ctx.__alerts.length = 0;
+    await g('placeBid')('Osborn', 2);
+    ok('a shut room refuses a bid', /has not opened yet/.test(ctx.__alerts[0] || ''), ctx.__alerts[0]);
+
+    /* The screen must SAY it, not draw a form that refuses. */
+    g('drawAuction')();
+    /* Assert the MARKUP, not getElementById: the stub caches elements by id, so
+       a node the new innerHTML no longer declares is still handed back. Verified
+       in Chromium too, where the input really is gone. */
+    ok('the nomination form is not drawn at all',
+       !/id="nomP"/.test(document.getElementById('nomBox').innerHTML || ''),
+       document.getElementById('nomBox').innerHTML.slice(0,80));
+    ok('...and the panel says the room is shut',
+       /not open/i.test(document.getElementById('nomWho').innerHTML || ''),
+       document.getElementById('nomWho').innerHTML);
+
+    /* Closed reads differently from not-yet-open — a GM waiting for the auction
+       and a GM who missed it are asking different questions. */
+    CS.cfg.auction = {open:false, closed:true};
+    ok('a closed room says so', /closed/i.test(g('aucShutWhy')()), g('aucShutWhy')());
+    ok('...and is still shut', g('aucOpen')() === false);
+
+    /* Open: everything works again. */
+    CS.cfg.auction = {open:true, closed:false};
+    ctx.__alerts.length = 0;
+    CS.cfg.nomOrder = [];
+    await g('nominate')('James Harden', 'Osborn', 1);
+    ok('an open room lets a nomination through', CS.auction && CS.auction.player === 'James Harden',
+       JSON.stringify(ctx.__alerts));
+    g('drawAuction')();
+    ok('...and the form comes back', !!document.getElementById('nomWho'));
+
+    CS.auction = keepLot; CS.cfg.auction = keepAuc; X.me = keepMe;
+    CS.log.length = 0; logWas.forEach(e => CS.log.push(e));
+    ctx.__alerts.length = keepAlerts;
   }
 
   console.log('\n== no stray alerts ==');
