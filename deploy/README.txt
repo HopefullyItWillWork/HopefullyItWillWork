@@ -4,10 +4,18 @@ Drag this WHOLE FOLDER onto the Production deploys box in Netlify.
 Not index.html on its own - the folder, so the function goes with it.
 You must be LOGGED IN, or Netlify skips the build and the function is never created.
 
-  index.html                    the site
-  netlify/functions/state.mjs   shared storage, backed by Netlify Blobs
-  package.json                  installs @netlify/blobs
-  netlify.toml                  build settings
+  index.html                       the site
+  netlify/functions/state.mjs      shared storage, backed by Netlify Blobs
+  netlify/functions/notify.mjs     outgoing mail - trade nudges, league broadcast
+  netlify/functions/daily.mjs      SCHEDULED - the daily digest
+  netlify/functions/schedule.mjs   NBA tip-off times, cached once a day
+  netlify/functions/lib/           shared helpers - NOT endpoints, on purpose
+  package.json                     installs @netlify/blobs
+  netlify.toml                     build settings
+
+Nothing under lib/ becomes an endpoint. Netlify turns every TOP-LEVEL file in
+the functions directory into its own function, and a subdirectory only becomes
+one if it holds a file named after it.
 
 STORAGE LAYOUT
 League data is split across five independent Blobs keys, so writes to one
@@ -22,7 +30,43 @@ never clobber another:
 Bidding touches only the auction key. The log is appended rather than rewritten,
 so two GMs recording moves at the same instant both survive.
 
-Per-GM projections are NOT stored here. They stay in each GM's own browser.
+A GM'S OWN WORK
+Three things belong to one GM: his notes, his projections and his auction
+strategy board. They used to live only in his browser. They do not any more -
+work typed on a phone that the laptop cannot see is work done twice, so all
+three now ride their own Blobs keys and follow him between devices:
+
+  notes-<club>   proj-<club>   strat-<club>
+
+They go up ENCRYPTED, under a key derived from the club's PIN, because
+/api/state has no authentication. A league-mate who fetches proj-Osborn gets
+ciphertext.
+
+Do not sell this as real confidentiality. It stops someone reading another GM's
+work; it does not stop someone who digs the PIN out of the rosters key first.
+Same honour system as the rest of the site.
+
+The commissioner login has no club and so no PIN to derive a key from. His own
+notes and projections stay on the device - there is nothing to sync them to.
+
+MAIL (optional - nothing is sent until it is configured)
+Set these in Netlify under Site configuration, Environment variables:
+
+  RESEND_API_KEY    required. With no key, every send returns
+                    {ok:false, reason:"not configured"} and the app carries on.
+                    That is deliberate: a fresh deploy never mails anyone.
+  MAIL_FROM         required, e.g. League Ledger <commissioner@yourdomain>
+                    The domain has to be verified with Resend first.
+  SITE_URL          optional, links back into the app
+  LEAGUE_TZ         optional, defaults to America/New_York
+  MAIL_DAILY_CAP    optional, defaults to 100 sends a day
+
+The daily digest is a SCHEDULED function, and scheduled functions only run on a
+git-connected deploy. A drag-and-drop upload schedules nothing.
+
+Addresses live in the rosters key, which means they carry exactly the same
+exposure as the PINs: anyone who can reach /api/state can read them. The
+Commissioner tab says so in a banner. Do not describe them as private.
 
 CHECK IT WORKED
 Open the site and look at the status chip in the header:
