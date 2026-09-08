@@ -567,8 +567,8 @@ add(table(['Rule','How it works'],[
   ['Bird rights','Three completed seasons with one club. It does not matter how he arrived — free agency, the rookie draft or the auction all start the clock. The rights travel with him in a trade; any other change of club starts the clock again.'],
   ['Early Bird','Signed mid-season before the deadline and finished the year with you. Worth $7.00 over the cap.'],
   ['Restricted free agents','Only players who finished the last year of a team, player or rookie option. Their club sits out the bidding, then chooses whether to match.'],
-  ['Mid-level exception','Once a year. $5.50 over the cap, $3.25 under. Consumed when used.'],
-  ['Trade matching','Over the cap, what you can take back is limited by what you send: 150% of outgoing up to $9.75; outgoing + $5.00 from $10.00 to $19.50; 125% from $19.75 up.'],
+  ['Mid-level exception','$5.50 over the salary cap, and never over the hard cap. It is a pot, not a coupon: it splits across as many players as it covers, so what matters is what you have left. The whole contract comes out of it, and it signs him for two seasons.'],
+  ['Trade matching','OFF unless the commissioner turns it on, in which case a deal needs only the hard cap and the roster limit. Switched on, what you can take back is limited by what you send: 150% of outgoing up to $9.75; outgoing + $5.00 from $10.00 to $19.50; 125% from $19.75 up.'],
   ['Cutting — in season','His salary stays on your cap until the season ends, then clears. It never carries into the next year.'],
   ['Cutting — offseason','Salary comes off immediately and the remaining years are voided.'],
   ['Buying back a man you cut','If you released him above the minimum, you cannot sign him back for the rest of that season or the offseason that follows. Every other club may.'],
@@ -580,8 +580,14 @@ add(new Paragraph({children:[new PageBreak()]}));
 add(H1('19. Things that catch people out'));
 const gotcha=(q,a)=>{ add(H3(q)); add(P(a)); };
 gotcha('I cannot find where to bid.',
-  'Bids are placed on My Team, under “On the block”. The Auction tab is the room — who is up, the '
-  +'bid history, what everyone has left, and your private board.');
+  'On the Auction tab, under the player. The controls used to be on My Team and moved, because '
+  +'bidding two tabs away from the bid history and the money left meant reading one screen and '
+  +'typing into another. My Team keeps the panel showing what he would do to YOUR club, with a '
+  +'button across to the room.');
+gotcha('There is no bid box and no nomination form at all.',
+  'The commissioner has not opened the auction yet, or he has closed it. The panel says which. '
+  +'Everything else on the tab still works, so you can read the free agent class and write your '
+  +'strategy board while you wait.');
 gotcha('A tab has disappeared.',
   'Auction, Free agent classes and Rookie draft are offseason-only. Quick sign is in-season only. '
   +'The app hides what does not apply.');
