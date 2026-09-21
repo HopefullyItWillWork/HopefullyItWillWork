@@ -14,7 +14,8 @@
 
      AI_API_KEY    required. Nothing is sent without it.
      AI_BASE_URL   optional, defaults to Groq's free tier.
-     AI_MODEL      optional, defaults to a model on that tier.
+     AI_MODEL      optional, defaults to a model on that tier — see AIDEF below
+                   on why that default has a shelf life.
      AI_DAILY_CAP  optional. See the note on AIDEF.cap below — the default is
                    sized to the free tier's TOKEN ceiling, not picked for
                    comfort, and it has to move when the model does.
@@ -25,26 +26,35 @@
    and the caller carries on, which is the same deliberate default the mail
    functions take: a fresh deploy answers nobody until someone sets the key. */
 
-/* The default cap is arithmetic, not a round number, and it is the one value
-   here that does not survive a change of model.
+/* A DEFAULT MODEL NAME GOES STALE, and this one already did once: the first
+   version of this file defaulted to llama-3.3-70b-versatile, which Groq
+   decommissioned for free-tier accounts on 2026-08-16. The endpoint answers a
+   retired name with a 404, which is why askAI() says so in as many words rather
+   than passing the bare status on — "model 404" sent the first person who hit
+   it to go and read this file.
 
-   A question costs the static prompt (~890 tokens) plus aiContext() (~1,110 on
-   this league) plus the answer (up to 700), so about 2,700 on a first question
-   and nearer 3,500 once a few turns of history are riding along. The default
-   model's free tier allows 100,000 tokens a DAY, which is a little under thirty
-   questions — and that token ceiling binds long before its 1,000-requests-a-day
-   limit does, so counting requests is only ever an approximation of the thing
-   that actually runs out.
+   So the name below is a default, not a fact about the world. When it stops
+   working, check the provider's deprecation page, set AI_MODEL to whatever it
+   names as the migration, and move this line to match. Nothing else changes.
 
-   30 is therefore what keeps this ceiling biting before the provider's, which
-   is the whole point of having one: a runaway fails here as a soft {ok:false}
-   the app already handles, rather than as a rejection from the model. Raise
-   AI_DAILY_CAP whenever the model's token budget goes up — a provider with a
-   bigger allowance is the reason to move it, not a busy afternoon. */
+   The cap is arithmetic, and it is the one value here that does not survive a
+   change of model. A question costs the static prompt (~890 tokens) plus
+   aiContext() (~1,110 on this league) plus the answer (up to 700): about 2,700
+   on a first question, nearer 3,500 once a few turns of history ride along.
+   This model's free tier allows 200,000 tokens a DAY, which is a little under
+   sixty of those — and that token ceiling binds long before its
+   requests-a-day limit does, so counting requests only ever approximates the
+   thing that actually runs out.
+
+   55 therefore keeps this ceiling biting before the provider's, which is the
+   whole point of having one: a runaway fails here as a soft {ok:false} the app
+   already handles, rather than as a rejection from the model. Move it with the
+   model's token budget — a bigger allowance is the reason to raise it, not a
+   busy afternoon. */
 export const AIDEF = {
   base: "https://api.groq.com/openai/v1",
-  model: "llama-3.3-70b-versatile",
-  cap: 30,
+  model: "openai/gpt-oss-120b",
+  cap: 55,
   maxTokens: 700,
 };
 
@@ -181,6 +191,13 @@ export async function askAI({ context, messages }) {
       const detail = (await r.text()).slice(0, 300);
       if (r.status === 429) return { ok: false, reason: "the model is rate limited — try again in a minute", detail };
       if (r.status === 401 || r.status === 403) return { ok: false, reason: "the model rejected the key", detail };
+      /* A 404 from a /chat/completions endpoint is almost never a missing URL —
+         it is the model name, and on a provider that retires models it is the
+         failure this app is most likely to meet twice. Saying which name was
+         asked for is the difference between a one-variable fix and an
+         afternoon: the reason names it, so the screen does too. */
+      if (r.status === 404) return { ok: false, detail,
+        reason: `no model called "${aiModel()}" — it may have been retired. Set AI_MODEL to one the provider still serves.` };
       return { ok: false, reason: `model ${r.status}`, detail };
     }
     const out = replyOf(await r.json());

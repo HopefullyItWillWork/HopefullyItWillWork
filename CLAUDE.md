@@ -1474,19 +1474,29 @@ base URL, the model and the key are environment variables in Netlify:
 | `AI_API_KEY` | required | nothing is sent without it |
 | `AI_BASE_URL` | optional | defaults to Groq's free tier |
 | `AI_MODEL` | optional | defaults to a model on that tier |
-| `AI_DAILY_CAP` | optional | defaults to **30** — see below |
+| `AI_DAILY_CAP` | optional | defaults to **55** — see below |
 | `AI_MAX_TOKENS` | optional | defaults to 700 |
 
-**The default cap is arithmetic, and it is the one value here that does not
-survive a change of model.** A question costs the static prompt (~890 tokens)
-plus `aiContext()` (~1,110 on this league) plus the answer (up to 700) — about
-2,700 on a first question, nearer 3,500 with a few turns of history. The default
-model's free tier allows 100,000 tokens a **day**, which is a little under
-thirty questions, and that token ceiling binds long before its
-1,000-requests-a-day limit does. So counting requests only ever approximates the
-thing that actually runs out, and 30 is what keeps our ceiling biting before the
-provider's. Raise `AI_DAILY_CAP` when the model's token budget goes up, not
-because an afternoon was busy.
+**A default model name goes stale, and this one already did.** The first version
+of `lib/ai.mjs` defaulted to `llama-3.3-70b-versatile`, which Groq decommissioned
+for free-tier accounts on 2026-08-16 — so the first question anyone asked came
+back `model 404`. The name in `AIDEF` is a default, not a fact about the world:
+when it stops working, read the provider's deprecation page, set `AI_MODEL` to
+whatever it names as the migration, and move that line to match. `askAI()` now
+answers a 404 by naming the model it asked for and pointing at `AI_MODEL`,
+because a bare status code sent the first person who hit it to go and read the
+source.
+
+**The default cap is arithmetic, and it is the other value that does not survive
+a change of model.** A question costs the static prompt (~890 tokens) plus
+`aiContext()` (~1,110 on this league) plus the answer (up to 700) — about 2,700
+on a first question, nearer 3,500 with a few turns of history. The current
+default model's free tier allows 200,000 tokens a **day**, a little under sixty
+of those, and that token ceiling binds long before the requests-a-day limit
+does. So counting requests only ever approximates the thing that actually runs
+out, and 55 is what keeps our ceiling biting before the provider's. Move
+`AI_DAILY_CAP` with the model's token budget, not because an afternoon was
+busy.
 
 Switching from Groq to Gemini, OpenRouter or DeepSeek is those variables and a
 redeploy. Nothing in `ai.mjs`, `lib/ai.mjs` or the app is edited. The one

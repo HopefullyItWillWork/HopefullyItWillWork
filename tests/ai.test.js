@@ -7,7 +7,7 @@
    is the only place the league's rules exist for it, and the clamping, which is
    what stops one request becoming a large bill. */
 import { SYSTEM, AIDEF, chatBody, clampTurns, replyOf, aiConfigured, aiBase,
-         aiModel, aiCap, aiMaxTokens, askUrl, CTXMAX, ASKMAX, TURNS }
+         aiModel, aiCap, aiMaxTokens, askUrl, askAI, CTXMAX, ASKMAX, TURNS }
   from '../deploy/netlify/functions/lib/ai.mjs';
 
 let fails = 0, ran = 0;
@@ -98,6 +98,59 @@ ok('an empty choices array is a reason, not a throw', replyOf({choices:[]}).ok =
 ok('junk is a reason, not a throw', replyOf(null).ok === false);
 ok('a reasoning model\'s empty content does not read as success',
    replyOf({choices:[{message:{content:null, reasoning:'thinking'}}]}).ok === false);
+
+console.log('\n== a failed call comes back soft, and a 404 names the model ==');
+/* askAI() is one fetch, so it is stubbed rather than mocked at length. What is
+   worth asserting is the mapping: every failure is a soft {ok:false} the app
+   already handles — no path may throw — and the 404 says which name was asked
+   for. A provider that retires models makes that the failure this app is most
+   likely to meet twice, and "model 404" on its own sends the reader to the
+   source instead of to one environment variable. */
+{
+  const realFetch = globalThis.fetch;
+  const stub = (status, body) => { globalThis.fetch = async () => ({
+    ok: status === 200, status,
+    text: async () => 'upstream said so',
+    json: async () => body,
+  }); };
+  const ask = () => askAI({context:'x', messages:[{role:'user',content:'what is my cap room?'}]});
+
+  process.env.AI_API_KEY = 'test-key';
+  process.env.AI_MODEL = 'a-retired-model';
+
+  stub(404);
+  let r = await ask();
+  ok('a 404 does not throw', r.ok === false);
+  ok('...and names the model that was asked for', r.reason.includes('a-retired-model'), r.reason);
+  ok('...and says what to do about it', /AI_MODEL/.test(r.reason), r.reason);
+
+  stub(429);
+  r = await ask();
+  ok('a 429 reads as rate limiting', /rate limited/.test(r.reason), r.reason);
+
+  stub(401);
+  r = await ask();
+  ok('a 401 reads as a key problem', /rejected the key/.test(r.reason), r.reason);
+
+  stub(500);
+  r = await ask();
+  ok('anything else still comes back soft', r.ok === false && /model 500/.test(r.reason), r.reason);
+
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  r = await ask();
+  ok('a thrown fetch is a reason, never an exception', r.ok === false && /offline/.test(r.reason), r.reason);
+
+  stub(200, {choices:[{message:{content:'$9.00'},finish_reason:'stop'}]});
+  r = await ask();
+  ok('a good call carries the reply and the model', r.ok === true && r.reply === '$9.00' && r.model === 'a-retired-model', JSON.stringify(r));
+
+  delete process.env.AI_API_KEY;
+  r = await ask();
+  ok('and with no key nothing is sent at all', r.ok === false && r.reason === 'not configured', r.reason);
+
+  globalThis.fetch = realFetch;
+  process.env.AI_API_KEY = 'test-key';
+}
 
 console.log('\n'+(fails? fails+' of '+ran+' FAILED' : 'all '+ran+' passed'));
 process.exit(fails?1:0);
