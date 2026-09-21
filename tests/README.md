@@ -8,6 +8,7 @@ node tests/test.js                  # the app, against the working tree's deploy
 node tests/test.js path/to/old.html # any other build, to check a test is not vacuous
 node tests/smoke.js                 # renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js             # the mail functions' pure logic
+node tests/ai.test.js               # the assistant's system prompt and clamping
 ```
 
 - `dom.js` — a DOM stub with enough behaviour to execute the real script: ids are
@@ -25,5 +26,10 @@ node tests/mail.test.js             # the mail functions' pure logic
   module imports nothing, so this needs no Netlify runtime and no `@netlify/blobs`
   installed. It covers the timezone bucketing, which is the part of the mail code
   most likely to be quietly wrong.
+- `ai.test.js` — imports `deploy/netlify/functions/lib/ai.mjs`, which also imports
+  nothing. It covers the system prompt (the only place the league's rules exist
+  for the model, and four of them have been implemented wrong here at least once)
+  and the clamping that keeps one request from becoming a large bill. The
+  app-side half, `aiContext()`, is asserted in `test.js` with the rest of the app.
 
 If you add a test, check it fails against the previous build before trusting it.

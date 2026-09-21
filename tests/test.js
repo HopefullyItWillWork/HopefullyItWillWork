@@ -4205,6 +4205,196 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__alerts.length = keepAlerts;
   }
 
+  /* ================= THE LEAGUE ASSISTANT =================
+     aiContext() is the whole of the customisation: the model knows nothing
+     about this league, so what it is handed IS the answer quality. It is pure
+     apart from reading S, which is what lets all of this be asserted here
+     rather than discovered in a wrong answer during an auction. */
+  {
+    console.log('\n== aiContext: it builds, for every club, in both phases ==');
+    const AC = g('aiContext'), CS = g('S'), T = g('TEAMS')();
+    const before = JSON.stringify(CS);
+
+    let threw = null, empty = [];
+    ['offseason','season'].forEach(ph => {
+      const was = CS.cfg.phase; CS.cfg.phase = ph;
+      T.forEach(t => {
+        try { const s = AC(t); if(!s || s.length < 200) empty.push(ph+'/'+t+' ('+(s||'').length+')'); }
+        catch(e){ threw = threw || (ph+'/'+t+': '+e.message); }
+      });
+      CS.cfg.phase = was;
+    });
+    ok('never throws', !threw, threw||'');
+    ok('never trivially short', !empty.length, empty.join(', '));
+
+    ok('reading S does not mutate it', JSON.stringify(CS) === before);
+
+    const t0 = T[0], ctx0 = AC(t0);
+    console.log('\n== aiContext: it says which club is asking, and what the rules are ==');
+    ok('names the asking club', ctx0.includes('THE CLUB ASKING: '+t0), ctx0.slice(0,80));
+    ok('carries the soft cap', ctx0.includes(g('money')(CS.cfg.cap)));
+    ok('carries the hard cap', ctx0.includes(g('money')(CS.cfg.tax)));
+    ok('calls the hard cap absolute, never a luxury tax', /hard cap .*absolute/.test(ctx0) && !/luxury/i.test(ctx0));
+    ok('carries the mid-level figure', ctx0.includes(g('money')(g('mleAmt')())));
+    ok('carries the game cap', ctx0.includes(String(CS.cfg.gamecap||920)));
+    ok('names the season the league is on', ctx0.includes(g('curSeason')()));
+
+    console.log('\n== aiContext: the numbers are the ledger\'s own, not a second opinion ==');
+    ok('payroll is committed()', ctx0.includes('Payroll '+g('money')(g('committed')(t0))));
+    ok('cap room is capRoom()', ctx0.includes('Cap room '+g('money')(g('capRoom')(t0))));
+    ok('mid-level left is mleLeft()', ctx0.includes('mid-level left '+g('money')(g('mleLeft')(t0))));
+    ok('seats filled is headcount()', ctx0.includes(g('headcount')(t0)+' of '+CS.cfg.roster+' active seats'));
+
+    console.log('\n== aiContext: every contract on the club is in it ==');
+    const missing = CS.teams[t0].r.filter(g('contracted')).filter(p => !ctx0.includes(p.n));
+    ok('no signed player is dropped', !missing.length, missing.map(p=>p.n).join(', '));
+
+    console.log('\n== aiContext: an expiring deal reads as a free agent for next season ==');
+    {
+      /* The one test the whole pool definition turns on: a man sitting on a
+         roster today with nothing owed next season is available, and the
+         assistant must not describe him as under contract. */
+      const club = T.find(t => CS.teams[t].r.some(p => g('contracted')(p) && g('salOff')(p,1)==null));
+      if(club){
+        const p = CS.teams[club].r.find(x => g('contracted')(x) && g('salOff')(x,1)==null);
+        const s = AC(club);
+        ok('his line says expiring', new RegExp(p.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^\\n]*expiring').test(s), p.n);
+        ok('and he is named as a free agent for next season',
+           new RegExp('free agents for '+g('seasonNext')(g('curSeason')())+'[^\\n]*'+p.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(s), p.n);
+      } else ok('(no expiring deal in the seed to test)', true);
+    }
+
+    console.log('\n== aiContext: Bird rights are the EARNED answer, never the label ==');
+    {
+      /* 63 seed rows are labelled Yes on under three seasons. birdRight() is
+         the predicate every caller must use, and this one is a caller. */
+      const bad = g('birdMismatch')().find(m => m.said && !m.got && g('contracted')(m.p));
+      if(bad){
+        const line = AC(bad.t).split('\n').find(l => l.includes(bad.p.n)) || '';
+        ok('a label of Yes on under three seasons is not reported as Bird',
+           !!line && !/Bird/.test(line), bad.p.n+' ('+bad.said+'/'+bad.got+'): '+line.trim());
+        ok('...and birdRight() is what the line was built from', g('birdRight')(bad.p) === bad.got);
+      } else ok('(no mismatch in the seed to test)', true);
+    }
+
+    console.log('\n== aiContext: a release bar is carried, and says it binds only this club ==');
+    {
+      const club = T.find(t => g('unsignableFor')(t).length);
+      if(club){
+        const bar = g('unsignableFor')(club)[0], s = AC(club);
+        ok('the barred player is named', s.includes(bar.n), bar.n);
+        ok('and the other eight are told they may sign him', /Every other club may sign them freely/.test(s));
+      } else ok('(no release bar in the seed to test)', true);
+    }
+
+    console.log('\n== aiContext: the auction, and only the state it is actually in ==');
+    {
+      const keepAuc = CS.cfg.auction, keepLot = CS.auction, keepPh = CS.cfg.phase;
+      CS.cfg.phase = 'offseason';
+
+      CS.cfg.auction = {open:false, closed:false}; CS.auction = null;
+      ok('a shut room says so', /AUCTION: not open yet/.test(AC(t0)));
+      CS.cfg.auction = {open:false, closed:true};
+      ok('a closed room reads differently', /AUCTION: over/.test(AC(t0)));
+
+      CS.cfg.auction = {open:true, closed:false};
+      CS.auction = {player:'Kevin Durant', by:t0, bid:4.25, leader:t0,
+                    bids:[{t:t0,amt:4.25,ts:new Date().toISOString()}], max:{}, mleOn:{},
+                    status:'open', ts:new Date().toISOString()};
+      const s = AC(t0);
+      ok('an open lot names the player', s.includes('On the block: Kevin Durant'), s.split('\n').find(l=>/On the block/.test(l)));
+      ok('...at the standing bid', s.includes(g('money')(4.25)));
+      ok('...and the asking club is given its own ceiling', s.includes(g('money')(g('bidCeiling')(t0,'Kevin Durant'))));
+      ok('...with the one sentence saying which wall it is',
+         s.includes(g('ceilWhy')(t0,'Kevin Durant').why), s.split('\n').find(l=>/may bid up to/.test(l)));
+
+      /* In season there is no auction at all, and the block must not imply one. */
+      CS.cfg.phase = 'season';
+      ok('the season carries no auction block', !/AUCTION:/.test(AC(t0)));
+
+      CS.cfg.phase = keepPh; CS.cfg.auction = keepAuc; CS.auction = keepLot;
+    }
+
+    console.log('\n== aiContext: it sends one club\'s view, and nobody\'s secrets ==');
+    {
+      /* The context leaves the app and reaches a third party. What is in it is
+         the club's own ledger plus what the Contracts tab already shows
+         everybody — never a PIN, an address, or a league-mate's private work. */
+      const leaked = [];
+      T.forEach(t => {
+        const s = AC(t);
+        T.forEach(o => {
+          const pin = (CS.teams[o]||{}).pin, mail = (CS.teams[o]||{}).email;
+          if(pin && String(pin).length>=3 && s.includes(String(pin))) leaked.push(t+' leaks '+o+' PIN');
+          if(mail && s.includes(String(mail))) leaked.push(t+' leaks '+o+' email');
+        });
+        if(CS.cfg.commPin && String(CS.cfg.commPin).length>=3 && s.includes(String(CS.cfg.commPin)))
+          leaked.push(t+' leaks the commissioner PIN');
+      });
+      ok('no PIN or address in any club\'s context', !leaked.length, leaked.join(', '));
+      ok('no strategy board or notes', !/strat-|notes-|proj-/.test(AC(t0)));
+    }
+
+    console.log('\n== aiContext: it is bounded ==');
+    ok('never longer than the server will take', AC(t0).length <= g('AICTXMAX'));
+    ok('and comfortably so on this league', AC(t0).length < g('AICTXMAX')/2, AC(t0).length);
+
+    console.log('\n== aiContext: signed out and the commissioner both fall back to a real club ==');
+    {
+      const keepMe = X.me;
+      X.me = null;
+      ok('signed out still builds', (AC()||'').includes('THE CLUB ASKING'));
+      X.me = '__comm__';
+      ok('the commissioner still builds', (AC()||'').includes('THE CLUB ASKING'));
+      X.me = keepMe;
+    }
+
+    console.log('\n== the assistant panel is not drawn unless a model answers ==');
+    {
+      /* A control that renders, binds its handler and then refuses is worse
+         than one that is not there — the same argument the shut auction room
+         makes. The probe is false in this harness, which has no network. */
+      const keepUp = X.AIUP;
+      X.AIUP = false; g('drawAI')();
+      const wrap = document.getElementById('aiWrap');
+      ok('unconfigured: the block is hidden', !!wrap && wrap.hidden === true);
+      X.AIUP = true; g('drawAI')();
+      ok('configured: the block is shown', !!wrap && wrap.hidden === false);
+      X.AIUP = keepUp; g('drawAI')();
+    }
+
+    console.log('\n== asking refuses what it cannot do ==');
+    {
+      const keepMe = X.me, keepChat = X.AICHAT, keepUp = X.AIUP;
+      X.AICHAT = [];
+      X.me = null; ctx.__alerts.length = 0;
+      await g('askLedger')('what is my cap room?');
+      ok('signed out is told to sign in', /sign in/i.test(ctx.__alerts.join('|')), ctx.__alerts.join('|'));
+      ok('...and nothing is added to the transcript', X.AICHAT.length===0, X.AICHAT.length);
+
+      X.me = T[0]; X.AIUP = false; ctx.__alerts.length = 0;
+      await g('askLedger')('what is my cap room?');
+      ok('with no model configured it says so', /no assistant/i.test(ctx.__alerts.join('|')), ctx.__alerts.join('|'));
+
+      ctx.__alerts.length = 0;
+      X.AIUP = true;
+      await g('askLedger')('x'.repeat(g('AIMAX')+1));
+      ok('an over-long question is refused', /keep it under/i.test(ctx.__alerts.join('|')), ctx.__alerts.join('|'));
+
+      /* The harness has no network, so the fetch throws. The failure belongs in
+         the transcript under the question it failed on, not in a toast that
+         scrolls away — and the question itself must survive. */
+      ctx.__alerts.length = 0; X.AICHAT = [];
+      await g('askLedger')('what is my cap room?');
+      ok('offline: the question is kept', X.AICHAT.length===2 && X.AICHAT[0].role==='user', JSON.stringify(X.AICHAT));
+      ok('...and the failure is shown as the answer',
+         X.AICHAT.length===2 && X.AICHAT[1].role==='assistant' && !!X.AICHAT[1].err, JSON.stringify(X.AICHAT[1]));
+      ok('...and nothing alerted', ctx.__alerts.length===0, ctx.__alerts.join('|'));
+
+      X.me = keepMe; X.AICHAT = keepChat; X.AIUP = keepUp; g('drawAI')();
+    }
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

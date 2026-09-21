@@ -24,6 +24,8 @@ deploy/
     lib/league.mjs              blobs + Resend + the send ceiling
     lib/format.mjs              pure formatting and date logic (no imports)
     schedule.mjs                GET /api/schedule — NBA tip-off times, cached daily
+    ai.mjs                      POST /api/ai — the league assistant
+    lib/ai.mjs                  provider config, the system prompt, request shaping
 netlify.toml                    git-build config: base = "deploy"
 tests/                          the DOM stub and the assertions
 ```
@@ -1286,6 +1288,7 @@ node tests/smoke.js       renders every view in BOTH season phases, as signed-ou
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
 node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
+node tests/ai.test.js     the assistant's system prompt and clamping, same bargain
 ```
 
 If you are checking that code *parses* rather than *runs*, you are testing the
@@ -1423,6 +1426,96 @@ place in the app where a league-mate types text that everyone else renders.
 **My notes** is the opposite of the chat: nobody else can read it. It rides the
 encrypted club-private store described above, so it follows the GM between
 devices while a league-mate who fetches the key gets ciphertext.
+
+## The league assistant
+
+A GM types a question and gets an answer about **his own club**, read off the
+live ledger. It shares the Chat & notes tab, under the chat and above the notes.
+
+The model knows nothing about this league, so everything that makes an answer
+worth having is what it is handed. That arrives in two halves, and the split is
+the design:
+
+| | |
+|---|---|
+| the **rules** | static text, `SYSTEM` in `lib/ai.mjs` — true of this league whatever today's rosters look like, so it never has to be rebuilt and a provider that caches a system prompt can cache it |
+| the **ledger** | `aiContext(team)` in `index.html`, rebuilt on every question |
+
+**The context is built in the app, not on the server, and that is the whole
+architectural decision here.** Every cap rule in this league is already
+implemented in `index.html` — `capRoom()`, `mleLeft()`, `bidCeiling()`,
+`ceilWhy()`, `contracted()`, `birdRight()` — against a copy of the state
+`normCfg()` and `normRosters()` have already migrated. Rebuilding any of it in a
+Netlify function would be a second implementation of the rulebook to keep in
+step with the first, and the two would drift the first time a rule changed. The
+server holds the key, the ceiling and the limits on size; the app holds the
+answers. `ceilWhy()` in particular goes in verbatim, so the assistant cannot
+contradict the sentence the bid panel is printing on the next tab.
+
+`aiContext()` is plain text rather than JSON — cheaper in tokens, reads back the
+way a GM would say it, and a stray quote in a club name cannot break it. On this
+league it runs about 4.3KB: the cap figures, the asking club's roster with what
+is true of each deal, its room and release bars, the auction with that club's own
+ceiling on the lot, one line per club, the top `AIFA` available players, and the
+projected category points. It is capped at `AICTXMAX`.
+
+**It carries one club's view and nobody's secrets.** No PIN, no address, no
+league-mate's notes, projections or strategy board; the other clubs appear only
+as the payroll and cap room the Contracts tab already shows everybody. There is
+a test asserting that for every club, because this is the one thing in the app
+that sends league data to a third party.
+
+### The provider is configuration, not code
+Every provider worth using speaks the OpenAI `/chat/completions` shape, so the
+base URL, the model and the key are environment variables in Netlify:
+
+| Variable | | |
+|---|---|---|
+| `AI_API_KEY` | required | nothing is sent without it |
+| `AI_BASE_URL` | optional | defaults to Groq's free tier |
+| `AI_MODEL` | optional | defaults to a model on that tier |
+| `AI_DAILY_CAP` | optional | defaults to **200** answers a day for the whole league |
+| `AI_MAX_TOKENS` | optional | defaults to 700 |
+
+Switching from Groq to Gemini, OpenRouter or DeepSeek is those variables and a
+redeploy. Nothing in `ai.mjs`, `lib/ai.mjs` or the app is edited. `AIDEF` holds
+the defaults and `aiCap()`/`aiMaxTokens()` fall back on anything that is not a
+positive number — a `0` read literally would answer nobody.
+
+**With no key set, `/api/ai` returns `{ok:false, reason:"not configured"}`,**
+exactly like the mail functions, and a fresh deploy answers nobody. The client's
+`aiProbe()` is one `GET /api/ai` at boot, which reports only whether a key is
+set and what the model is called; if it is not, **`drawAI()` hides the whole
+block** rather than drawing a control that renders, binds its handler and then
+refuses. Same argument the shut auction room makes.
+
+### What guards it
+The endpoint takes a club name and its PIN and looks both up in the rosters
+slice, exactly as `/api/notify` does, and it is the same honour-system bar: it
+stops accidents, not a league-mate who reads the source. **Nothing here writes
+league state**, so the worst a borrowed PIN buys is somebody else's share of the
+daily ceiling and a paragraph about a database that is already world-readable.
+The real control is `underCap()` in `ai.mjs`, counted in the `aicount` blob key
+the way `mailcount` counts sends — a cost control, not a security control.
+
+`clampTurns()` narrows every role to `user` or `assistant`, so a message
+claiming to be a `system` turn cannot get in that way, and caps each message at
+`ASKMAX` and the conversation at `TURNS`.
+
+### Its limits, and where they are written down
+It is **advisory**: it reads the ledger and cannot change it. The panel says so,
+the system prompt says so, and the commissioner and the rulebook both beat it.
+The transcript is in memory — it is gone on reload and does not ride any slice.
+
+**Do not let it imply the nightly stats feed exists.** The projected category
+points in the context say in the line above them that no games have been
+counted, for the same reason the digest email leaves a marked slot.
+
+`lib/ai.mjs` imports **nothing**, like `lib/format.mjs` and for the same reason:
+`tests/ai.test.js` runs it under plain node with no Netlify runtime and no
+`@netlify/blobs` installed. The blob-backed ceiling lives in the endpoint beside
+it, which is the only part that needs a store. Put new pure logic there rather
+than in the endpoint.
 
 ## Auth
 

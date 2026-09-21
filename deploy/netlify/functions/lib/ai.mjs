@@ -1,0 +1,173 @@
+/* The league assistant's pure half — provider configuration, the system prompt
+   and the request/response shaping.
+
+   It imports NOTHING, exactly like lib/format.mjs and for the same reason: all
+   of this is testable under plain node with no Netlify runtime and no
+   @netlify/blobs installed. The blob-backed spend ceiling lives in the endpoint
+   beside it, because that is the only part that needs a store.
+
+   Every provider worth using speaks the OpenAI /chat/completions shape — Groq,
+   Google's OpenAI-compatible endpoint, OpenRouter, DeepSeek, Anthropic's compat
+   layer — so the base URL, the model and the key are configuration rather than
+   code. Changing provider is three environment variables in Netlify and a
+   redeploy; nothing in this file or the app has to be edited.
+
+     AI_API_KEY    required. Nothing is sent without it.
+     AI_BASE_URL   optional, defaults to Groq's free tier.
+     AI_MODEL      optional, defaults to a model on that tier.
+     AI_DAILY_CAP  optional, defaults to 200 answers a day for the whole league.
+     AI_MAX_TOKENS optional, defaults to 700 — long enough for a real answer,
+                   short enough that a runaway costs a paragraph and not a book.
+
+   With no key configured every call returns {ok:false, reason:"not configured"}
+   and the caller carries on, which is the same deliberate default the mail
+   functions take: a fresh deploy answers nobody until someone sets the key. */
+
+export const AIDEF = {
+  base: "https://api.groq.com/openai/v1",
+  model: "llama-3.3-70b-versatile",
+  cap: 200,
+  maxTokens: 700,
+};
+
+const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
+
+export const aiConfigured = () => !!process.env.AI_API_KEY;
+export const aiBase = () => String(process.env.AI_BASE_URL || AIDEF.base).replace(/\/+$/, "");
+export const aiModel = () => String(process.env.AI_MODEL || AIDEF.model);
+export const aiCap = () => num(process.env.AI_DAILY_CAP, AIDEF.cap);
+export const aiMaxTokens = () => num(process.env.AI_MAX_TOKENS, AIDEF.maxTokens);
+export const askUrl = () => aiBase() + "/chat/completions";
+
+/* What the endpoint will accept. The context is built by the app, not here —
+   see aiContext() in index.html — because every cap rule in this league is
+   already implemented there and a second implementation on the server would be
+   a second set of answers to keep in step. These are the ceilings that stop a
+   caller turning one request into a large bill. */
+export const CTXMAX = 24000;   // characters of league context
+export const ASKMAX = 2000;    // characters in any one message
+export const TURNS = 8;        // how much of the conversation goes back
+
+/* The league's identity and the rules that are easy to get wrong. Level one of
+   the customisation: everything here is true of this league whatever today's
+   rosters look like, so it is static text. What changes daily arrives as the
+   context block instead. */
+export const SYSTEM = `You are the assistant for a nine-team NBA fantasy dynasty league, built into its
+contract and cap ledger. You answer a general manager's questions about his own club, the
+league's rules, and what a move would cost him.
+
+How this league works. Read these carefully — several are unusual and getting one wrong
+gives a GM advice that will be refused by the ledger when he tries to act on it.
+
+- The salary cap is SOFT. A club may exceed it only through Bird rights, Early Bird rights,
+  the mid-level exception, or minimum contracts.
+- The luxury tax figure is a HARD cap. Nothing beats it — not Bird rights, not the
+  exception, not anything. If a move would cross it, the answer is no.
+- Bird rights are EARNED, not written down: three completed seasons with one club. They let
+  the club exceed the soft cap to re-sign its own player, and they travel with him in a
+  trade. Any other change of club starts the clock again.
+- Early Bird is a mid-season signing made before the trade deadline who finished the year on
+  the roster. It is worth a fixed amount over the cap and has nothing to do with three years.
+- The mid-level exception is a LANE, not a top-up. A club signs a player out of its cap room
+  OR out of the exception, never out of both added together: a club twenty dollars under the
+  cap cannot pay twenty-five and a half by adding the exception to its room. The exception
+  caps that one contract, may be spent above the salary cap, is a pot that splits across as
+  many players as it covers, and a signing made on it runs two seasons.
+- A contract is money owed against a NAMED season. A season with nothing owed is simply
+  absent, so a player owed nothing next season is a free agent this offseason even though he
+  is sitting on a roster today. Treat him as available.
+- The league caps each club at 920 total player-games a season. This matters more than it
+  looks: past the cap the marginal games are discarded, so a player's per-game rate is worth
+  far more than his availability.
+- A club that releases a player above the minimum cannot sign him back for the rest of that
+  season and the following offseason. No other club is restricted — a released player is
+  freely available to the other eight.
+- In the offseason a club adds players by winning them at auction or drafting them, not by
+  signing free agents directly. In season a GM signs from the free agent list, one year at
+  the minimum, with Early Bird rights before the deadline and no rights after it.
+- Salary matching on trades is a switch the commissioner sets and is off by default. With it
+  off a trade needs only the hard cap and the roster limit.
+- The roster limit counts ACTIVE players. The injured reserve is separate, and there is no
+  injured reserve in the offseason.
+
+How to answer.
+
+- The LEAGUE CONTEXT block below is the live ledger, generated from the league database this
+  minute. Prefer it over anything you think you remember. If it does not contain what the
+  question needs, say so plainly rather than guessing a number.
+- Never invent a salary, a contract year, a cap figure or a rating. A wrong number here gets
+  acted on.
+- Money is written like $5.25. Bids move in quarters.
+- Be brief and concrete. A GM asking what he can afford wants the figure and the one sentence
+  saying which wall it is, not an essay.
+- You are advisory. You cannot make a bid, a trade, a signing or any other change — the GM
+  does that in the app. Say so if you are asked to act.
+- The commissioner is the referee for anything ambiguous, and the rulebook beats you.`;
+
+/* The conversation that goes back to the provider: the most recent turns, each
+   clamped, roles narrowed to the two the app ever sends. Pure. */
+export function clampTurns(list, turns = TURNS, max = ASKMAX) {
+  const arr = Array.isArray(list) ? list : [];
+  return arr
+    .filter((m) => m && typeof m.content === "string" && m.content.trim())
+    .map((m) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content).trim().slice(0, max),
+    }))
+    .slice(-Math.max(1, turns));
+}
+
+/* The request body. The league context rides as its own system message rather
+   than being glued onto SYSTEM, so a provider that caches the static prompt can
+   still do so while the volatile half changes every question. Pure. */
+export function chatBody({ context, messages, model, maxTokens } = {}) {
+  const ctx = String(context || "").slice(0, CTXMAX).trim();
+  return {
+    model: model || aiModel(),
+    max_tokens: maxTokens || aiMaxTokens(),
+    temperature: 0.2,
+    messages: [
+      { role: "system", content: SYSTEM },
+      ...(ctx ? [{ role: "system", content: "LEAGUE CONTEXT — the live ledger:\n\n" + ctx }] : []),
+      ...clampTurns(messages),
+    ],
+  };
+}
+
+/* Providers agree on the shape and disagree at the edges — a reasoning model
+   returns its answer beside a `reasoning` field, and an empty choices array is
+   what a content filter looks like. Pure. */
+export function replyOf(j) {
+  const c = j && Array.isArray(j.choices) ? j.choices[0] : null;
+  const m = c && c.message;
+  const text = m && typeof m.content === "string" ? m.content.trim() : "";
+  if (text) return { ok: true, reply: text, finish: (c && c.finish_reason) || "" };
+  if (c && c.finish_reason === "length") return { ok: false, reason: "the answer was cut off — ask something narrower" };
+  return { ok: false, reason: "the model returned nothing" };
+}
+
+/* The one call out. Every failure comes back soft, exactly as sendMail() does:
+   the app shows the reason and carries on, and no path assumes this works. */
+export async function askAI({ context, messages }) {
+  if (!aiConfigured()) return { ok: false, reason: "not configured" };
+  try {
+    const r = await fetch(askUrl(), {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${process.env.AI_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(chatBody({ context, messages })),
+    });
+    if (!r.ok) {
+      const detail = (await r.text()).slice(0, 300);
+      if (r.status === 429) return { ok: false, reason: "the model is rate limited — try again in a minute", detail };
+      if (r.status === 401 || r.status === 403) return { ok: false, reason: "the model rejected the key", detail };
+      return { ok: false, reason: `model ${r.status}`, detail };
+    }
+    const out = replyOf(await r.json());
+    return out.ok ? { ...out, model: aiModel() } : out;
+  } catch (err) {
+    return { ok: false, reason: String((err && err.message) || err) };
+  }
+}
