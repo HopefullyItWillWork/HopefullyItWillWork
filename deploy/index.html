@@ -8283,7 +8283,14 @@ function wireChat(){
    panel is not drawn at all — a control that renders and then refuses is worse
    than one that is not there, which is the argument the shut auction room
    makes. */
-const AIMAX=1000, AITURNS=8, AICTXMAX=24000, AIFA=25, AISHOW=40;
+/* AICTXMAX mirrors CTXMAX in lib/ai.mjs and is a BUDGET the app spends, not a
+   slice() applied at the end. The provider's real constraint is tokens a
+   MINUTE — 8,000 on the default free tier, counting the reserved answer — and a
+   single request over it is refused outright with 413. The context trebled in
+   one afternoon and started failing, which is what these numbers are a response
+   to: trim on purpose, and drop the least important section whole rather than
+   letting a slice cut a roster off mid-row. */
+const AIMAX=1000, AITURNS=4, AICTXMAX=12000, AIFA=15, AISHOW=40;
 const AIAPI='/api/ai';
 let AICHAT=[], AIBUSY=false, AIUP=null, AIMODEL='';
 
@@ -8350,6 +8357,11 @@ function aiContext(team,ask){
         :((me&&me!=='__comm__'&&S.teams[me])?me:(S.teams[activeTeam]?activeTeam:T[0]));
   if(!t) return '';
   const L=[], cur=curSeason(), nxt=seasonNext(cur), live=seasonLive();
+  /* Who and what the question is about, worked out once: the roster section
+     below and the impact blocks at the foot both read it. */
+  let POOLHEAD='';
+  const NAMED=aiNamesIn(ask||'');
+  const CLUBS=new Set([t,...aiClubsIn(ask,NAMED)]);
 
   L.push(`LEAGUE: ${leagueName()} — ${cur} ${live?'season, being played':'offseason, being built'}`);
   L.push(`Salary cap ${money(S.cfg.cap)} (soft) · hard cap ${money(S.cfg.tax)} (absolute) · `
@@ -8414,6 +8426,25 @@ function aiContext(team,ask){
     L.push('  '+aiPad(x.t,14)+' '+aiPad(money(x.pay),9)+' '+aiPad(money(x.room),9)
       +' '+aiPad(Math.max(0,x.spots),3)+' '+money(x.ml)));
   L.push('');
+  /* Every club's rights, on every question, and deliberately NOT inside the
+     roster sheets below — those only arrive when the question names somebody,
+     and "who am I bidding against a Bird right on" names nobody at all. It is
+     one short line a club and it is what the auction turns on. */
+  {
+    const rl=[];
+    T.forEach(x=>{
+      const fa=(S.teams[x].r||[]).filter(p=>!contracted(p));
+      if(fa.length) rl.push('  '+aiPad(x,14)+' '
+        +fa.map(p=>`${p.n} (${aiRightKind(p)}${p.o?', restricted':''})`).join(', '));
+    });
+    if(rl.length){
+      L.push('RIGHTS AT AUCTION BY CLUB — each club\'s own free agents, and what it holds '
+        +'on them. A club may exceed the SOFT cap to keep one of these; nobody may use a '
+        +'right on anybody else\'s player:');
+      rl.forEach(x=>L.push(x));
+      L.push('');
+    }
+  }
 
   /* EVERY OTHER CLUB'S ROSTER.
 
@@ -8426,21 +8457,29 @@ function aiContext(team,ask){
      They are the compact rows: nine clubs at the asking club's width would
      roughly treble the context, and what a trade turns on is the money, the
      term and the rights rather than the trade-block flag. */
-  L.push('EVERY OTHER CLUB\'S ROSTER — name, ' + cur + ' salary, then the deal:');
-  T.filter(x=>x!==t).forEach(x=>{
-    const rr=(S.teams[x].r||[]).filter(contracted)
-      .slice().sort((a,b)=>(salNow(b)||0)-(salNow(a)||0));
-    L.push(`${x}${gmName(x)?` (${gmName(x)})`:''} — ${rr.length} under contract, `
-      +`${money(committed(x))} committed, ${money(capRoom(x))} of cap room:`);
-    rr.forEach(p=>L.push(aiRosterLineShort(p)));
-    if(!rr.length) L.push('  (nobody under contract)');
-    /* Its own free agents too, in one line: a rival needs to know who it would
-       be bidding against a Bird right on, and who it can be outbid for. */
-    const fa=(S.teams[x].r||[]).filter(p=>!contracted(p));
-    if(fa.length) L.push('  rights at auction: '
-      +fa.map(p=>`${p.n} (${aiRightKind(p)}${p.o?', restricted':''})`).join(', '));
-  });
-  L.push('');
+  const shown=T.filter(x=>x!==t&&CLUBS.has(x)), hidden=T.filter(x=>x!==t&&!CLUBS.has(x));
+  if(shown.length){
+    L.push('ROSTERS OF THE CLUBS THIS QUESTION TOUCHES — name, '+cur+' salary, then the deal:');
+    shown.forEach(x=>{
+      const rr=(S.teams[x].r||[]).filter(contracted)
+        .slice().sort((a,b)=>(salNow(b)||0)-(salNow(a)||0));
+      L.push(`${x}${gmName(x)?` (${gmName(x)})`:''} — ${rr.length} under contract, `
+        +`${money(committed(x))} committed, ${money(capRoom(x))} of cap room:`);
+      rr.forEach(p=>L.push(aiRosterLineShort(p)));
+      if(!rr.length) L.push('  (nobody under contract)');
+    });
+    L.push('');
+  }
+  if(hidden.length){
+    /* Said out loud, because a model that cannot see a sheet must not conclude
+       the player does not exist — which is exactly what it did before any of
+       these rosters were carried at all. */
+    L.push(`The full sheets for ${hidden.join(', ')} are not in this block. They exist; `
+      +`they are summarised above. If the GM asks about one of those clubs or a player on `
+      +`it, say so and ask him to name the club or the player, and the next question will `
+      +`carry that roster.`);
+    L.push('');
+  }
 
   /* The pool, best first. A player in the last year of a deal is a free agent
      for next season even though he is on a roster today — faPool() is the one
@@ -8448,7 +8487,8 @@ function aiContext(team,ask){
   const pool=faPool().map(p=>({n:p.n,p:p.p,rk:rtg(p.n)}))
     .filter(x=>x.rk!=null).sort((a,b)=>b.rk-a.rk).slice(0,AIFA);
   if(pool.length){
-    L.push(`BEST ${pool.length} AVAILABLE, by ${projSrcLabel()} — rating, then the per-game line:`);
+    POOLHEAD=`BEST ${pool.length} AVAILABLE, by ${projSrcLabel()} — rating, then the per-game line:`;
+    L.push(POOLHEAD);
     pool.forEach((x,i)=>{
       const s=pstat(x.n), g=s&&s.s;
       const line=g?`${(g.PTS||0).toFixed(1)}p ${(g.TRB||0).toFixed(1)}r ${(g.AST||0).toFixed(1)}a `
@@ -8472,14 +8512,34 @@ function aiContext(team,ask){
 
   /* Last, and last on purpose: the most specific thing in the block, for the
      player the conversation is actually about. */
-  aiNamesIn(ask||'').forEach(n=>{
+  NAMED.forEach(n=>{
     let pl=''; try{ pl=aiProjLines(n); }catch(e){}
     if(pl){ L.push(''); L.push(pl); }
     let blk=''; try{ blk=aiImpactOf(t,n); }catch(e){}
     if(blk){ L.push(''); L.push(blk); }
   });
 
-  return L.join('\n').slice(0,AICTXMAX);
+  /* SPEND THE BUDGET, do not truncate it. A slice() at AICTXMAX cuts whatever
+     happens to be last — here, the impact block for the very player the
+     question is about. So the pool is thinned first, then dropped, because it
+     is the one section that is browsable in the app anyway; everything else is
+     either the answer or the rules. */
+  let out=L.join('\n');
+  if(out.length>AICTXMAX){
+    const cut=L.indexOf(POOLHEAD);
+    if(cut>=0){
+      for(let keep=Math.floor(AIFA/2);keep>=0&&out.length>AICTXMAX;keep-=3){
+        const trimmed=L.slice(0,cut).concat(
+          keep>0?[POOLHEAD.replace(/^BEST \d+/,'BEST '+keep)].concat(L.slice(cut+1,cut+1+keep)):[],
+          L.slice(cut+1+AIFA));
+        out=trimmed.join('\n');
+      }
+    }
+  }
+  /* A last resort that should now never fire, and is kept because the server
+     enforces the same number and a request refused with 413 is worse than a
+     context missing its tail. */
+  return out.length>AICTXMAX ? out.slice(0,AICTXMAX) : out;
 }
 
 /* ---- never make the model do arithmetic the ledger already does ----
@@ -8676,6 +8736,31 @@ function aiProjLines(name){
   if(m) L.push('  this GM\'s own     '+line(m,m.g!=null?m.g:base.g));
   L.push(`  (the app is currently using ${projSrcLabel()} for every other number in this block)`);
   return L.join('\n');
+}
+
+/* WHICH CLUBS THIS QUESTION IS ABOUT.
+
+   Nine full rosters is half the context and most questions need none of them —
+   but "can I trade Anthony Davis for Trae Young" needs exactly one, and
+   without it the assistant says the ledger holds nothing about the man. So the
+   sheets are fetched for the clubs the question actually touches: the asking
+   club always, whoever holds a player it names, and any club named outright.
+   Everything else keeps its summary line, which is what the payroll questions
+   were using anyway.
+
+   Pure. A club is matched on its own name through comboNorm(), so punctuation
+   and case in "N. Daman" do not have to be typed exactly. */
+function aiClubsIn(text,names){
+  const hay=' '+comboNorm(text||'')+' ';
+  const out=new Set();
+  TEAMS().forEach(x=>{ const k=comboNorm(x); if(k&&hay.includes(' '+k+' ')) out.add(x); });
+  (names||[]).forEach(n=>{
+    /* Whoever carries him today, signed or expiring — both matter to a trade. */
+    const lc=(typeof liveClub==='function')?liveClub(n):null;
+    if(lc) out.add(lc);
+    const R=rightsOf(null,n); if(R&&R.club) out.add(R.club);
+  });
+  return [...out];
 }
 
 const aiPlace=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');

@@ -1529,6 +1529,39 @@ so he can compare without leaving the tab. It carries the aggregate's own games
 here.** `PROJ` holds the signed-in club's and nothing else; a rival's live
 encrypted under his own PIN, which this browser cannot read and never loads.
 
+### The request has to fit the provider's per-MINUTE budget
+This is the constraint that actually binds on a free tier, and it is not the
+daily one. The default model allows **8,000 tokens a minute**, counting the
+reserved completion, and a single request over that is refused outright with
+**413** rather than queued. The context trebled in one afternoon — every club's
+roster, the auction rights, the projection blocks — and the next trade question
+came back `model 413`.
+
+So the budget is spent deliberately: ~890 on the static prompt, up to 3,000 on
+the context, ~600 on four turns of history and 600 reserved for the answer —
+about 5,100, which leaves room for the *next* question rather than spending the
+whole minute on this one. `CTXMAX` went 24,000 characters to **12,000**,
+`TURNS` 8 to 4, `AI_MAX_TOKENS` 700 to 600.
+
+**`AICTXMAX` is a budget the app spends, not a `slice()` at the end.**
+`aiContext()` trims the **pool** when it runs long — thinning it, then dropping
+it — because that is the one section browsable in the app anyway. A blind slice
+cuts whatever happens to be last, which is the impact block for the very player
+the question is about. `askAI()` answers a 413 by saying the request outgrew the
+tier rather than relaying the status, the same lesson the 404 taught.
+
+### Only the rosters a question touches
+Nine full sheets is half the context and most questions need none of them — but
+"can I trade Anthony Davis for Trae Young" needs exactly one, and without it the
+assistant says the ledger holds nothing about the man. `aiClubsIn(ask, names)`
+decides: the asking club always, whoever holds a player the question names, and
+any club named outright. The rest keep their summary line.
+
+**A sheet that did not come is reported as absent**, with a line saying those
+clubs exist, are summarised above, and that naming one brings its roster next
+time. A model that cannot see a roster must not conclude the player does not
+exist — which is exactly what it did before any of these rosters were carried.
+
 ### Every club's roster, not just the asker's
 It carried only the payroll summary for the other eight, and a GM asking whether
 he could trade for Trae Young was told the ledger held nothing about him — no
@@ -1536,7 +1569,8 @@ salary, no club, no contract. Half this app is trades, so half the questions
 were unanswerable for want of the other eight sheets. They go in as
 `aiRosterLineShort()`: the money, the term and the rights, which are what a
 trade turns on. Nine clubs at the asking club's full width is the difference
-between a context that fits and one that does not.
+between a context that fits and one that does not — and nine at *any* width
+turned out to be the difference too, which is what the section above is about.
 
 It carries one club's view and nobody's secrets.** No PIN, no address, no
 league-mate's notes, projections or strategy board; the other clubs appear only
@@ -1554,7 +1588,7 @@ base URL, the model and the key are environment variables in Netlify:
 | `AI_BASE_URL` | optional | defaults to Groq's free tier |
 | `AI_MODEL` | optional | defaults to a model on that tier |
 | `AI_DAILY_CAP` | optional | defaults to **30** — see below |
-| `AI_MAX_TOKENS` | optional | defaults to 700 |
+| `AI_MAX_TOKENS` | optional | defaults to 600 |
 
 **A default model name goes stale, and this one already did.** The first version
 of `lib/ai.mjs` defaulted to `llama-3.3-70b-versatile`, which Groq decommissioned
@@ -1568,7 +1602,7 @@ source.
 
 **The default cap is arithmetic, and it moves with two things rather than one:**
 the model's token budget and the size of `aiContext()`. A question costs the
-static prompt (~890 tokens) plus the context (~3,630 on this league) plus the
+static prompt (~890 tokens) plus the context (up to 3,000, budgeted) plus the
 answer (up to 700) — about 4,400 on a first question, nearer 5,200 with a few
 turns of history. The current default model's free tier allows 200,000 tokens a
 **day**, a little over thirty of those, and that token ceiling binds long before

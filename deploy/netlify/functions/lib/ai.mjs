@@ -19,7 +19,7 @@
      AI_DAILY_CAP  optional. See the note on AIDEF.cap below — the default is
                    sized to the free tier's TOKEN ceiling, not picked for
                    comfort, and it has to move when the model does.
-     AI_MAX_TOKENS optional, defaults to 700 — long enough for a real answer,
+     AI_MAX_TOKENS optional, defaults to 600 — long enough for a real answer,
                    short enough that a runaway costs a paragraph and not a book.
 
    With no key configured every call returns {ok:false, reason:"not configured"}
@@ -56,7 +56,7 @@ export const AIDEF = {
   base: "https://api.groq.com/openai/v1",
   model: "openai/gpt-oss-120b",
   cap: 30,
-  maxTokens: 700,
+  maxTokens: 600,
 };
 
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
@@ -73,9 +73,24 @@ export const askUrl = () => aiBase() + "/chat/completions";
    already implemented there and a second implementation on the server would be
    a second set of answers to keep in step. These are the ceilings that stop a
    caller turning one request into a large bill. */
-export const CTXMAX = 24000;   // characters of league context
+/* THE REQUEST HAS TO FIT IN THE PROVIDER'S PER-MINUTE BUDGET, and on a free
+   tier that is the binding constraint rather than the day's tokens. The default
+   model allows 8,000 tokens a minute, counting the reserved completion, and a
+   single request over that is refused with 413 rather than queued.
+
+   So the budget is spent deliberately: ~890 on the static prompt, up to 3,000
+   on the league context, ~600 on four turns of history and 600 reserved for the
+   answer — about 5,100, which leaves room for the next question rather than
+   spending the whole minute on this one.
+
+   CTXMAX went 24,000 characters -> 12,000 when the context trebled in a day and
+   started failing. It is a ceiling on aiContext()'s own budgeting, not a
+   suggestion: the app trims to fit BEFORE sending, because a context clipped
+   mid-sentence by a slice() is worse than one that dropped its least important
+   section on purpose. */
+export const CTXMAX = 12000;   // characters of league context (~3,000 tokens)
 export const ASKMAX = 2000;    // characters in any one message
-export const TURNS = 8;        // how much of the conversation goes back
+export const TURNS = 4;        // how much of the conversation goes back
 
 /* The league's identity and the rules that are easy to get wrong. Level one of
    the customisation: everything here is true of this league whatever today's
@@ -207,6 +222,15 @@ export async function askAI({ context, messages }) {
          afternoon: the reason names it, so the screen does too. */
       if (r.status === 404) return { ok: false, detail,
         reason: `no model called "${aiModel()}" — it may have been retired. Set AI_MODEL to one the provider still serves.` };
+      /* 413 is not a rate limit and not a bug: the request itself is bigger
+         than the provider will serve in one go. On a free tier that ceiling is
+         usually tokens-per-MINUTE, so it also fires when two questions land in
+         the same minute. Either way the remedy is fewer tokens per question or
+         a tier with more of them, and saying so beats "model 413". */
+      if (r.status === 413) return { ok: false, detail,
+        reason: "that request was larger than the model will take in one go — "
+          + "the league context plus the conversation has outgrown this tier's per-minute budget. "
+          + "Wait a minute and ask again, or move AI_MODEL/AI_BASE_URL to a model with more headroom." };
       return { ok: false, reason: `model ${r.status}`, detail };
     }
     const out = replyOf(await r.json());

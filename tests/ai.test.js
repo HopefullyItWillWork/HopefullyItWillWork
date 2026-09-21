@@ -70,6 +70,12 @@ ok('the context is capped',
    chatBody({context:'y'.repeat(CTXMAX+5000), messages:[{role:'user',content:'hi'}]})
      .messages[1].content.length <= CTXMAX + 40);
 ok('the answer length is capped', body.max_tokens === AIDEF.maxTokens);
+/* The whole request has to fit the provider's per-minute budget, so these are
+   not arbitrary: 890 of prompt + 3,000 of context + 4 turns + 600 reserved is
+   about 5,100 against the default tier ceiling of 8,000. */
+ok('the context budget leaves room for the rest of the request', CTXMAX <= 12000, CTXMAX);
+ok('the history is short enough to be affordable', TURNS <= 4, TURNS);
+ok('the reserved answer is not the biggest thing in the request', AIDEF.maxTokens <= 600);
 ok('temperature is low — this is a ledger, not a brainstorm', body.temperature <= 0.3);
 
 console.log('\n== the system prompt states the rules that are easy to get wrong ==');
@@ -137,6 +143,13 @@ console.log('\n== a failed call comes back soft, and a 404 names the model ==');
   stub(401);
   r = await ask();
   ok('a 401 reads as a key problem', /rejected the key/.test(r.reason), r.reason);
+
+  stub(413);
+  r = await ask();
+  ok('a 413 is explained as a size problem, not relayed as a status',
+     r.ok === false && /larger than the model will take/.test(r.reason), r.reason);
+  ok('...and names the per-minute budget as the usual cause',
+     /per-minute budget/.test(r.reason), r.reason);
 
   stub(500);
   r = await ask();

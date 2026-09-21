@@ -4349,8 +4349,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
       ctx.setProjMode('agg');
       const worst = AC(t0, 'compare Nikola Joki\u0107 with Trae Young and Kevin Durant for me');
       ctx.setProjMode(keep === 'agg' ? 'agg' : 'act');
-      ok('the worst realistic case still has headroom',
-         worst.length < g('AICTXMAX') * 0.85, worst.length + ' of ' + g('AICTXMAX'));
+      ok('the worst realistic case fits the budget',
+         worst.length <= g('AICTXMAX'), worst.length + ' of ' + g('AICTXMAX'));
+      /* And when it has to trim, it drops the POOL rather than cutting whatever
+         happens to be last — which is the impact block for the very player the
+         question is about. */
+      ok('the player asked about still has his block at the foot',
+         worst.includes('IMPACT ON ' + t0 + ' OF ADDING'), worst.slice(-120));
     }
 
     console.log('\n== aiContext: signed out and the commissioner both fall back to a real club ==');
@@ -4439,16 +4444,29 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('...with its rank in each', /ranked \d+(st|nd|rd|th) of \d+/.test(s));
     ok('...and the turnover rank says which end is good', /FEWEST turnovers/.test(s));
 
-    /* The gap that made a trade question unanswerable: a man on somebody
-       else's books was simply not in the context. */
+    /* The gap that made a trade question unanswerable was that a man on
+       somebody else's books was not in the context at all. Carrying all nine
+       sheets on every question fixed that and then broke the request: nine
+       rosters is half the context, and the provider refused the whole thing
+       with 413. So the sheets come for the clubs a question actually touches. */
     const other = g('TEAMS')().find(x => x !== t && CS.teams[x].r.some(g('contracted')));
     const them = CS.teams[other].r.filter(g('contracted'));
-    const gone = them.filter(p => !s.includes(p.n));
-    ok('every other club\'s contracts are in it', !gone.length,
-       other + ' missing: ' + gone.map(p=>p.n).join(', '));
-    ok('...under their own club\'s heading', s.includes(other + ' — ') || s.includes(other + ' ('), other);
+    const asked = AC(t, 'can I trade for ' + them[0].n + '?');
+    ok('naming a player brings his club\'s sheet', them.every(p => asked.includes(p.n)),
+       other + ' missing: ' + them.filter(p => !asked.includes(p.n)).map(p=>p.n).join(', '));
     ok('...with the salary a trade turns on',
-       s.includes(g('money')(g('salNow')(them[0]))), them[0].n);
+       asked.includes(g('money')(g('salNow')(them[0]))), them[0].n);
+    ok('naming the club by name brings it too',
+       AC(t, 'what does ' + other + ' have on its books?').includes(them[0].n), other);
+
+    /* A sheet that did NOT come must be reported as absent rather than silently
+       missing: a model that cannot see a roster must not conclude the player
+       does not exist, which is the fault this whole section is about. */
+    const bare = AC(t, 'what is my cap room?');
+    ok('a question touching nobody carries no other sheet',
+       !bare.includes('ROSTERS OF THE CLUBS THIS QUESTION TOUCHES'), 'sheets sent anyway');
+    ok('...and says the missing sheets exist', /full sheets for[^\n]*are not in this block/.test(bare));
+    ok('...and says how to get one', /ask him to name the club or the player/.test(bare));
 
     /* It is one club's view of a league, not nine clubs' private work: the
        secrets test above still has to hold now that every roster is in. */
@@ -4466,8 +4484,11 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const without = AC(t);
     ok('naming a player adds his impact block', withAsk.includes('IMPACT ON '+t+' OF ADDING Victor Wembanyama'));
     ok('naming nobody adds none', !without.includes('IMPACT ON '), without.slice(-80));
-    ok('...and the rest of the context is unchanged either way',
-       without === withAsk.slice(0, without.length), 'prefix differs');
+    /* Naming a player adds his impact block AND pulls in his club's sheet, so
+       the two are no longer prefixes of each other. What must hold is that the
+       parts that do not depend on the question are identical. */
+    ok('the parts that do not depend on the question are identical',
+       without.split('EVERY CLUB')[0] === withAsk.split('EVERY CLUB')[0], 'header differs');
     ok('it is still inside the server\'s limit', withAsk.length <= g('AICTXMAX'), withAsk.length);
   }
 
@@ -4502,12 +4523,19 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
       ok('that ceiling really is above plain cap room',
          cw.ceil > g('capRoom')(t) + 0.001, `ceil ${cw.ceil} vs room ${g('capRoom')(t)}`);
 
+      /* Rights ride the summary block, which is in EVERY context, not the
+         roster sheets, which only arrive when a question names somebody: "who
+         am I bidding against a Bird right on" names nobody at all. Carrying
+         them only with the sheets was a regression these two caught. */
       const rival = g('TEAMS')().find(x => x !== t && CS.teams[x].r.some(p => !g('contracted')(p)));
       if(rival){
-        const rs = AC(rival);
-        ok('a rival is told which rights the other clubs carry', /rights at auction:/.test(rs));
-        ok('...including this club\'s', new RegExp('rights at auction:[^\\n]*'
-           + bird.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(rs), bird.n);
+        const rs = AC(rival, 'what is my cap room?');
+        ok('a rival is told which rights every club carries, unprompted',
+           /RIGHTS AT AUCTION BY CLUB/.test(rs));
+        ok('...including this club\'s', new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
+           + '[^\\n]*' + bird.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(rs), bird.n);
+        ok('...and that a right covers only its own player',
+           /nobody may use a right on anybody else/.test(rs));
       } else ok('(no rival holds a free agent to test)', true);
 
       const held = s.split('\n').filter(l => /\[[^\]]+: (Bird|Early Bird|restricted|expiring)\]/.test(l));
