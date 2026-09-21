@@ -1489,7 +1489,40 @@ provider's. Raise `AI_DAILY_CAP` when the model's token budget goes up, not
 because an afternoon was busy.
 
 Switching from Groq to Gemini, OpenRouter or DeepSeek is those variables and a
-redeploy. Nothing in `ai.mjs`, `lib/ai.mjs` or the app is edited. `AIDEF` holds
+redeploy. Nothing in `ai.mjs`, `lib/ai.mjs` or the app is edited. The one
+compatibility gap worth knowing: `chatBody()` sends `max_tokens` and a
+temperature, and OpenAI's reasoning models want `max_completion_tokens` and
+refuse any temperature but the default. Every other provider in that list takes
+the body as it stands.
+
+### The key is scoped per deploy context, and the quota is not
+`AI_API_KEY` decides visibility rather than behaviour: the function bundles into
+every deploy, and `aiProbe()` asks `GET /api/ai` whether *that* deploy has a key.
+So a key scoped to production alone leaves the panel hidden on deploy previews,
+which is the right default — **a preview URL is public**, it is posted into the
+pull request by the Netlify bot, and Netlify's own default when adding a variable
+is to give it to every context.
+
+Two things make that more than a tidiness preference.
+
+**The blob store is site-wide.** `lib/league.mjs` opens it with
+`getStore({name:'league-ledger'})`, not `getDeployStore()`, so every deploy
+context shares one store — which is exactly why a healthy preview reads
+"shared · N transactions" against the live rosters. It also means a preview
+shares production's `aicount`, so answers spent on a preview come out of the
+league's own daily budget.
+
+**A second key does not buy a second budget.** Groq's limits are per
+organisation, not per key, so every key on the account draws from the same
+tokens a day. A second key is worth having for rotation — swap `AI_API_KEY` to
+it and revoke the old one, no downtime and no code change — and worth pointing
+at a preview so that context can be revoked on its own, but it isolates nothing.
+Genuine isolation means a different provider in the preview context, not a
+second account.
+
+Nothing an assistant does can damage the league, which is what makes testing
+against the live store on a preview safe: `/api/ai` reads `rosters` and
+`settings` and writes only its own counter. `AIDEF` holds
 the defaults and `aiCap()`/`aiMaxTokens()` fall back on anything that is not a
 positive number — a `0` read literally would answer nobody.
 
