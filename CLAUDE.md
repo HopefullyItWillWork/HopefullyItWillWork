@@ -1430,7 +1430,8 @@ devices while a league-mate who fetches the key gets ciphertext.
 ## The league assistant
 
 A GM types a question and gets an answer about **his own club**, read off the
-live ledger. It shares the Chat & notes tab, under the chat and above the notes.
+live ledger. It shares the Chat & notes tab, under the chat and above the notes,
+headed "Ask the AI Overlords".
 
 The model knows nothing about this league, so everything that makes an answer
 worth having is what it is handed. That arrives in two halves, and the split is
@@ -1459,7 +1460,85 @@ is true of each deal, its room and release bars, the auction with that club's ow
 ceiling on the lot, one line per club, the top `AIFA` available players, and the
 projected category points. It is capped at `AICTXMAX`.
 
-**It carries one club's view and nobody's secrets.** No PIN, no address, no
+**### What it computes for the model, rather than letting the model compute
+**Never make the model do arithmetic the ledger already does.** Asked what a
+player would do to a club's projected stats, the assistant answered that it
+lacked "the league's exact formula" and offered his per-game line instead. It
+was right to refuse — the prompt tells it never to invent a number — but the
+refusal was unnecessary: `impact()` had computed exactly that answer all along
+and it was simply not in the context.
+
+So `aiContext()` carries the asking club's nine category totals and ranks on
+every question (`aiClubCats()`), and an `impact()` block for any player the
+conversation is about (`aiImpactOf()`), which says in as many words that the
+numbers are the app's and are not to be re-derived. Turnovers are annotated as
+inverted, for the same reason `catGood()` exists.
+
+`aiNamesIn(ask)` decides who the conversation is about, and it is handed the
+**recent turns rather than the last message** — "what impact would *he* have"
+names nobody at all, and the man was named in the answer before it. It matches
+full names, and a surname only when that surname belongs to exactly one player,
+which throws out Green, White, Brown, Young, Smith, Jones, Allen, Walker,
+Carter and Love. `AINAMESTOP` catches what survives uniqueness and is still an
+ordinary word (Small, Hunter, Reed, Hart, Bane). **A matched full name is
+blanked out of the haystack before surnames are looked for**, or "trade Anthony
+Davis for Trae Young" hands back Cole Anthony as well.
+
+### Rights are what a club takes INTO the auction
+Every roster section filters on `contracted()`, which is right for a payroll and
+wrong for this: **a club's own free agents are owed nothing in the season being
+built, so not one of them was in the context.** Asked who he held Bird rights
+on, a GM was told about his *signed* players — men he cannot bid on because he
+already has them — and then told that Bird rights do not apply at auction.
+
+They are the opposite of not applying. `bidCeiling()` returns the whole of a
+club's room under the **hard** cap when it bids on its own Bird player, because
+the soft cap does not bind a club re-signing its own. For N. Daman that is
+$69.75 on Karl-Anthony Towns against $34.25 of cap room — the difference between
+winning the lot and not bidding.
+
+`aiRightsAtAuction()` is that block: the club's own free agents, the right held
+on each, and `ceilWhy()` — the app's own ceiling and its own one-sentence
+reason, the same pair the bid panel prints. Every other club gets a one-line
+`rights at auction:` summary, because a rival needs to know whose Bird right he
+would be bidding against, and `aiHoldNote()` tags each pool row with the club
+holding him. The system prompt carries the rule too, stated as the thing most
+easily got backwards, because the model asserted the opposite of the code.
+
+### Three projection sources, and the block says which one it is on
+Everything in the context already follows the header toggle, and for free: it
+all goes through `pstat()`, so on `agg` the pool lines, the ratings,
+`clubTotals()`, `standings()` and therefore `impact()` are computed from the
+2026-27 aggregate, and on `mine` from that GM's own edits. Nothing had to be
+plumbed.
+
+What was missing is that it never **said** so. `aiSourceNote()` leads the
+context with which of the three it is on, because an unlabelled per-game line is
+a different claim under each — the same fault `projSrcHead()` and
+`projSrcLabel()` exist to stop on every table in the app, and the same rule: a
+block fed by `pstat()` may not leave its source unnamed. On the aggregate it
+also repeats that the shooting **volume** is projected and the percentages are
+mostly last season's.
+
+`aiProjLines(name)` then gives all three sources for the players the
+conversation is about — actual, aggregate, and this GM's own where he has one —
+so he can compare without leaving the tab. It carries the aggregate's own games
+(Jokic at 72 rather than 65), which the 920-game cap makes load-bearing.
+
+**"Only that manager's projections" is a property of the store, not a filter
+here.** `PROJ` holds the signed-in club's and nothing else; a rival's live
+encrypted under his own PIN, which this browser cannot read and never loads.
+
+### Every club's roster, not just the asker's
+It carried only the payroll summary for the other eight, and a GM asking whether
+he could trade for Trae Young was told the ledger held nothing about him — no
+salary, no club, no contract. Half this app is trades, so half the questions
+were unanswerable for want of the other eight sheets. They go in as
+`aiRosterLineShort()`: the money, the term and the rights, which are what a
+trade turns on. Nine clubs at the asking club's full width is the difference
+between a context that fits and one that does not.
+
+It carries one club's view and nobody's secrets.** No PIN, no address, no
 league-mate's notes, projections or strategy board; the other clubs appear only
 as the payroll and cap room the Contracts tab already shows everybody. There is
 a test asserting that for every club, because this is the one thing in the app
@@ -1474,7 +1553,7 @@ base URL, the model and the key are environment variables in Netlify:
 | `AI_API_KEY` | required | nothing is sent without it |
 | `AI_BASE_URL` | optional | defaults to Groq's free tier |
 | `AI_MODEL` | optional | defaults to a model on that tier |
-| `AI_DAILY_CAP` | optional | defaults to **55** — see below |
+| `AI_DAILY_CAP` | optional | defaults to **30** — see below |
 | `AI_MAX_TOKENS` | optional | defaults to 700 |
 
 **A default model name goes stale, and this one already did.** The first version
@@ -1487,16 +1566,17 @@ answers a 404 by naming the model it asked for and pointing at `AI_MODEL`,
 because a bare status code sent the first person who hit it to go and read the
 source.
 
-**The default cap is arithmetic, and it is the other value that does not survive
-a change of model.** A question costs the static prompt (~890 tokens) plus
-`aiContext()` (~1,110 on this league) plus the answer (up to 700) — about 2,700
-on a first question, nearer 3,500 with a few turns of history. The current
-default model's free tier allows 200,000 tokens a **day**, a little under sixty
-of those, and that token ceiling binds long before the requests-a-day limit
-does. So counting requests only ever approximates the thing that actually runs
-out, and 55 is what keeps our ceiling biting before the provider's. Move
-`AI_DAILY_CAP` with the model's token budget, not because an afternoon was
-busy.
+**The default cap is arithmetic, and it moves with two things rather than one:**
+the model's token budget and the size of `aiContext()`. A question costs the
+static prompt (~890 tokens) plus the context (~3,630 on this league) plus the
+answer (up to 700) — about 4,400 on a first question, nearer 5,200 with a few
+turns of history. The current default model's free tier allows 200,000 tokens a
+**day**, a little over thirty of those, and that token ceiling binds long before
+the requests-a-day limit does. So counting requests only ever approximates the
+thing that actually runs out, and 30 is what keeps our ceiling biting before the
+provider's. Recompute `AI_DAILY_CAP` when the model's allowance changes **or
+when `aiContext()` grows** — it has already trebled once, when the other eight
+clubs' rosters went in.
 
 Switching from Groq to Gemini, OpenRouter or DeepSeek is those variables and a
 redeploy. Nothing in `ai.mjs`, `lib/ai.mjs` or the app is edited. The one

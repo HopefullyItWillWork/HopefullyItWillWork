@@ -4337,7 +4337,21 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
     console.log('\n== aiContext: it is bounded ==');
     ok('never longer than the server will take', AC(t0).length <= g('AICTXMAX'));
-    ok('and comfortably so on this league', AC(t0).length < g('AICTXMAX')/2, AC(t0).length);
+    /* The canary. Every block added to the context takes questions off the
+       daily budget — see AIDEF.cap — so what is worth asserting is not a tidy
+       fraction but that the WORST realistic case still has headroom: three
+       players named, on the source that carries the most. This has already
+       been tightened once, when every club's roster, the auction rights and
+       the projection blocks went in. If it fails, decide whether the new block
+       earns its tokens before raising it. */
+    {
+      const keep = g('PROJSRC');
+      ctx.setProjMode('agg');
+      const worst = AC(t0, 'compare Nikola Joki\u0107 with Trae Young and Kevin Durant for me');
+      ctx.setProjMode(keep === 'agg' ? 'agg' : 'act');
+      ok('the worst realistic case still has headroom',
+         worst.length < g('AICTXMAX') * 0.85, worst.length + ' of ' + g('AICTXMAX'));
+    }
 
     console.log('\n== aiContext: signed out and the commissioner both fall back to a real club ==');
     {
@@ -4349,7 +4363,222 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
       X.me = keepMe;
     }
 
-    console.log('\n== the assistant panel is not drawn unless a model answers ==');
+    console.log('\n== aiNamesIn: who is the conversation actually about ==');
+  {
+    const NI = g('aiNamesIn');
+    ok('a full name is found', NI('what about Victor Wembanyama?').includes('Victor Wembanyama'));
+    ok('a bare surname is found when it is unique',
+       NI('how good is Wembanyama').includes('Victor Wembanyama'), JSON.stringify(NI('how good is Wembanyama')));
+    /* The question this exists for: the man is named in the turn BEFORE, and
+       the GM writes "he". Reading only the last message finds nobody. */
+    ok('it reads the recent turns, not just the last message',
+       NI('The top player available is Victor Wembanyama. \n What impact would he have?')[0] === 'Victor Wembanyama');
+    ok('accents do not matter', NI('is jokic available').includes('Nikola Jokić')
+       || NI('is jokic available').includes('Nikola Jokic'), JSON.stringify(NI('is jokic available')));
+    ok('trailing punctuation does not matter', NI('what about Wembanyama?').length === 1);
+
+    /* An ordinary basketball question must match nobody. Every one of these
+       words is a real surname in the pool. */
+    const plain = NI('what is my cap room, and can I afford a good young small forward '
+      + 'to green-light a trade with a smith or a jones this year?');
+    ok('an ordinary question matches nobody', plain.length === 0, JSON.stringify(plain));
+    ok('an empty ask matches nobody', NI('').length === 0);
+    ok('junk matches nobody', NI(null).length === 0);
+
+    /* "Anthony Davis" contains Cole Anthony's whole surname. Blanking the
+       matched full name out of the haystack is what stops him coming back. */
+    const trade = NI('I want to trade anthony davis for trae young, would this work?');
+    ok('a full name is not double-counted as somebody else\'s surname',
+       !trade.includes('Cole Anthony'), JSON.stringify(trade));
+    ok('...and both men actually asked about are found',
+       trade.includes('Anthony Davis') && trade.includes('Trae Young'), JSON.stringify(trade));
+    ok('never more than AIIMPACT players', NI('Nikola Jokić Trae Young Kevin Durant '
+       + 'Joel Embiid James Harden Jalen Brunson').length <= g('AIIMPACT'));
+  }
+
+  console.log('\n== the impact block is the app\'s arithmetic, not the model\'s ==');
+  {
+    const t = 'N. Daman', name = 'Victor Wembanyama';
+    const blk = g('aiImpactOf')(t, name), I = g('impact')(t, name);
+    ok('it names the club and the player', blk.includes(t) && blk.includes(name));
+    ok('the category points are impact()\'s own',
+       blk.includes(`${I.before.pts[t]} → ${I.after.pts[t]}`), blk.split('\n')[1]);
+    ok('...and so is the delta', blk.includes(`(${I.dPts>=0?'+':''}${I.dPts})`), I.dPts);
+    ok('it tells the model not to re-derive them', /do not re-derive/i.test(blk));
+
+    /* Every one of the nine, with the before and after the app computed. */
+    const missing = g('PCATS').filter(([k]) => {
+      const isP = (k==='FG'||k==='FT');
+      const v = isP ? g('pctText')(I.after.tot[t][k]) : String(Math.round(I.after.tot[t][k]));
+      return !blk.includes(v);
+    });
+    ok('all nine categories carry their computed after-value', !missing.length,
+       missing.map(x=>x[1]).join(', '));
+
+    /* Turnovers invert. Left unsaid, "1345 from 1191" reads as a gain — which
+       is exactly what catGood() exists to prevent everywhere else. */
+    const tovLine = blk.split('\n').find(l => l.trim().startsWith('TO '));
+    ok('the turnover row says which direction is good', /worse|better/.test(tovLine||''), tovLine);
+
+    /* A rookie has no box score, so there is nothing to project and the block
+       must say so rather than printing a row of zeroes that reads as "adds
+       nothing". */
+    const rook = (g('undraftedRookies')()[0]||{}).n;
+    if(rook){
+      const rb = g('aiImpactOf')(t, rook);
+      ok('a player with no stats is reported, not projected as zero',
+         /no stats on file/.test(rb) && !/Category points/.test(rb), rb.slice(0,90));
+    } else ok('(no undrafted rookie to test)', true);
+  }
+
+  console.log('\n== the context carries the club\'s own categories, and every club\'s roster ==');
+  {
+    const t = 'N. Daman', s = AC(t), st = g('standings')();
+    ok('the asking club\'s category totals are in it',
+       s.includes(`${t}'s PROJECTED CATEGORY TOTALS`), s.slice(0,60));
+    ok('...with its rank in each', /ranked \d+(st|nd|rd|th) of \d+/.test(s));
+    ok('...and the turnover rank says which end is good', /FEWEST turnovers/.test(s));
+
+    /* The gap that made a trade question unanswerable: a man on somebody
+       else's books was simply not in the context. */
+    const other = g('TEAMS')().find(x => x !== t && CS.teams[x].r.some(g('contracted')));
+    const them = CS.teams[other].r.filter(g('contracted'));
+    const gone = them.filter(p => !s.includes(p.n));
+    ok('every other club\'s contracts are in it', !gone.length,
+       other + ' missing: ' + gone.map(p=>p.n).join(', '));
+    ok('...under their own club\'s heading', s.includes(other + ' — ') || s.includes(other + ' ('), other);
+    ok('...with the salary a trade turns on',
+       s.includes(g('money')(g('salNow')(them[0]))), them[0].n);
+
+    /* It is one club's view of a league, not nine clubs' private work: the
+       secrets test above still has to hold now that every roster is in. */
+    const leaked = g('TEAMS')().filter(o => {
+      const pin = (CS.teams[o]||{}).pin;
+      return pin && String(pin).length >= 3 && s.includes(String(pin));
+    });
+    ok('and still no PIN of any club', !leaked.length, leaked.join(', '));
+  }
+
+  console.log('\n== the ask reaches the context, and a question without one still builds ==');
+  {
+    const t = 'N. Daman';
+    const withAsk = AC(t, 'what would Victor Wembanyama do for me?');
+    const without = AC(t);
+    ok('naming a player adds his impact block', withAsk.includes('IMPACT ON '+t+' OF ADDING Victor Wembanyama'));
+    ok('naming nobody adds none', !without.includes('IMPACT ON '), without.slice(-80));
+    ok('...and the rest of the context is unchanged either way',
+       without === withAsk.slice(0, without.length), 'prefix differs');
+    ok('it is still inside the server\'s limit', withAsk.length <= g('AICTXMAX'), withAsk.length);
+  }
+
+  console.log('\n== the rights a club takes INTO the auction ==');
+  {
+    /* The gap that made "who do I have Bird rights on" answer with the club's
+       SIGNED players: every roster section filters on contracted(), which is
+       right for a payroll and wrong here — a club's own free agents are owed
+       nothing in the season being built, so none of them were in the context
+       at all. */
+    const t = g('TEAMS')().find(x => (CS.teams[x].r||[]).some(p => !g('contracted')(p)
+      && g('birdRight')(p) === 'Yes'));
+    if(!t){ ok('(no club holds Bird rights on a free agent in the seed)', true); }
+    else {
+      const own = CS.teams[t].r.filter(p => !g('contracted')(p));
+      const bird = own.find(p => g('birdRight')(p) === 'Yes');
+      const s = AC(t);
+
+      ok('a club\'s own free agents are in its context', own.every(p => s.includes(p.n)),
+         own.filter(p => !s.includes(p.n)).map(p=>p.n).join(', '));
+      ok('...and are named as going to the auction', /so they go to the auction/.test(s));
+      ok('a Bird right on one of them is reported as Bird',
+         new RegExp(bird.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^\\n]*Bird rights').test(s), bird.n);
+
+      /* The number that matters: bidCeiling() gives a club the whole of its
+         room under the HARD cap for its own Bird player, not its cap room.
+         That is the difference between winning a lot and not bidding. */
+      const cw = g('ceilWhy')(t, bird.n);
+      ok('...with the app\'s own ceiling, not cap room',
+         s.includes(`${t} may bid up to ${g('money')(cw.ceil)}`), g('money')(cw.ceil));
+      ok('...and the app\'s own one-sentence reason', s.includes(cw.why), cw.why.slice(0,60));
+      ok('that ceiling really is above plain cap room',
+         cw.ceil > g('capRoom')(t) + 0.001, `ceil ${cw.ceil} vs room ${g('capRoom')(t)}`);
+
+      const rival = g('TEAMS')().find(x => x !== t && CS.teams[x].r.some(p => !g('contracted')(p)));
+      if(rival){
+        const rs = AC(rival);
+        ok('a rival is told which rights the other clubs carry', /rights at auction:/.test(rs));
+        ok('...including this club\'s', new RegExp('rights at auction:[^\\n]*'
+           + bird.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(rs), bird.n);
+      } else ok('(no rival holds a free agent to test)', true);
+
+      const held = s.split('\n').filter(l => /\[[^\]]+: (Bird|Early Bird|restricted|expiring)\]/.test(l));
+      ok('pool rows carry the club that holds them', held.length > 0, held.length + ' rows');
+    }
+  }
+
+  console.log('\n== every number says which of the three sources it is on ==');
+  {
+    /* Everything in the context already follows the header toggle, because it
+       all goes through pstat(). What was missing is that it never SAID so, and
+       an unlabelled per-game line is a different claim under each source —
+       the exact fault projSrcHead() exists to stop on every table in the app. */
+    const t = 'N. Daman', keep = g('PROJSRC'), keepU = g('useProj');
+    const seen = {};
+    ['act','agg','mine'].forEach(src => {
+      ctx.setProjMode(src);
+      const s = AC(t, 'what about Nikola Jokic?');
+      seen[src] = s;
+      ok(`${src}: the context names its source`,
+         s.includes('NUMBERS BELOW ARE ON: ' + g('projSrcLabel')()),
+         (s.split('\n').find(l=>/NUMBERS BELOW/.test(l))||'').slice(0,70));
+    });
+    ok('the aggregate says it is not last season', /NOT from what happened last season/.test(seen.agg));
+    ok('...and does not claim its percentages are projected',
+       /do not call the[\s\S]{0,40}percentages projected/.test(seen.agg));
+    ok('my projections are named as this GM\'s alone',
+       /no other club's projections are readable from here/.test(seen.mine));
+    ok('actuals are named as the record, not a projection',
+       /the record of what happened, not a projection/.test(seen.act));
+    ok('the three contexts really differ', seen.act !== seen.agg && seen.agg !== seen.mine);
+
+    /* And the club totals move with the source, which is the whole point of
+       saying which source it is. */
+    ctx.setProjMode('act');  const a = g('standings')().tot[t].PTS;
+    ctx.setProjMode('agg');  const b = g('standings')().tot[t].PTS;
+    ok('club totals really are computed on the chosen source', Math.round(a) !== Math.round(b),
+       `act ${Math.round(a)} vs agg ${Math.round(b)}`);
+
+    ctx.setProjMode(keep === 'agg' ? 'agg' : keep === 'mine' && keepU ? 'mine' : 'act');
+    if(!keepU) ctx.setProjMode('act');
+  }
+
+  console.log('\n== all three sources for the player being asked about ==');
+  {
+    const t = 'N. Daman', name = 'Nikola Jokić';
+    const s = AC(t, 'what do the projections say about Nikola Jokic?');
+    const blk = g('aiProjLines')('Nikola Jokic');
+    ok('the block is in the context', s.includes('every source the app holds for him'));
+    ok('it carries the 2025-26 actual', /2025-26 actual\s+\d+g/.test(blk), blk.split('\n')[1]);
+    ok('...and the 2026-27 aggregate', /2026-27 aggregate\s+\d+g/.test(blk), blk.split('\n')[2]);
+    /* The aggregate carries its own games — Jokic at 72 rather than 65 — and
+       that matters under the 920-game cap, so the games have to be in it. */
+    const c = ctx.canon('Nikola Jokic');
+    ok('...at the aggregate\'s own games, not last season\'s',
+       blk.includes(g('AGG')[c].g + 'g') && g('AGG')[c].g !== g('RIDX')[c].g,
+       `agg ${g('AGG')[c].g}g vs actual ${g('RIDX')[c].g}g`);
+    ok('shooting shows the rate AND the volume it came from',
+       /FG \d+\.\d%\s+\d+\.\d/.test(blk), (blk.split('\n')[1]||'').slice(-40));
+    ok('it says which source the rest of the block is using', /currently using/.test(blk));
+
+    /* A GM with no projections of his own gets two lines, not an empty third. */
+    ok('no third line when this GM has projected nobody',
+       Object.keys(g('PROJ')).length ? true : !/this GM's own/.test(blk), blk);
+
+    /* A player with no RATER row at all has nothing to show and must not throw. */
+    ok('an unknown player yields nothing rather than throwing',
+       g('aiProjLines')('Nobody At All') === '');
+  }
+
+  console.log('\n== the assistant panel is not drawn unless a model answers ==');
     {
       /* A control that renders, binds its handler and then refuses is worse
          than one that is not there — the same argument the shut auction room

@@ -37,24 +37,25 @@
    working, check the provider's deprecation page, set AI_MODEL to whatever it
    names as the migration, and move this line to match. Nothing else changes.
 
-   The cap is arithmetic, and it is the one value here that does not survive a
-   change of model. A question costs the static prompt (~890 tokens) plus
-   aiContext() (~1,110 on this league) plus the answer (up to 700): about 2,700
-   on a first question, nearer 3,500 once a few turns of history ride along.
-   This model's free tier allows 200,000 tokens a DAY, which is a little under
-   sixty of those — and that token ceiling binds long before its
+   The cap is arithmetic, and it moves with TWO things rather than one: the
+   model's token budget and the size of aiContext(). A question costs the static
+   prompt (~890 tokens) plus the context (~2,825 on this league, once every
+   club's roster and the impact blocks are in it) plus the answer (up to 700):
+   about 5,200 on a first question, nearer 6,000 once a few turns of history
+   ride along. This model's free tier allows 200,000 tokens a DAY, which is a
+   little over thirty of those — and that token ceiling binds long before the
    requests-a-day limit does, so counting requests only ever approximates the
    thing that actually runs out.
 
-   55 therefore keeps this ceiling biting before the provider's, which is the
+   30 therefore keeps this ceiling biting before the provider's, which is the
    whole point of having one: a runaway fails here as a soft {ok:false} the app
-   already handles, rather than as a rejection from the model. Move it with the
-   model's token budget — a bigger allowance is the reason to raise it, not a
-   busy afternoon. */
+   already handles, rather than as a rejection from the model. Recompute it when
+   the model's allowance changes OR when aiContext() grows — it has trebled
+   once already, and every block added to it moves this number down. */
 export const AIDEF = {
   base: "https://api.groq.com/openai/v1",
   model: "openai/gpt-oss-120b",
-  cap: 55,
+  cap: 30,
   maxTokens: 700,
 };
 
@@ -96,6 +97,14 @@ gives a GM advice that will be refused by the ledger when he tries to act on it.
   trade. Any other change of club starts the clock again.
 - Early Bird is a mid-season signing made before the trade deadline who finished the year on
   the roster. It is worth a fixed amount over the cap and has nothing to do with three years.
+- RIGHTS APPLY AT THE AUCTION, and this is the single thing most easily got backwards. A
+  club's own expiring player goes into the auction like anybody else, and the club holding
+  Bird rights on him may bid all the way to the hard cap for him — the soft cap does not
+  bind a club re-signing its own. Early Bird works the same way for a smaller amount. So a
+  club with little cap room can still outbid the room for a man it already holds. The right
+  is specific to that player and does nothing on any other lot. When the context gives a
+  club's own free agents and a ceiling for each, those ceilings are the app's and are already
+  correct — quote them, and never tell a GM that rights do not apply to bidding.
 - The mid-level exception is a LANE, not a top-up. A club signs a player out of its cap room
   OR out of the exception, never out of both added together: a club twenty dollars under the
   cap cannot pay twenty-five and a half by adding the exception to its room. The exception

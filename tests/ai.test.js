@@ -86,6 +86,12 @@ ok('the 920-game cap is in it', /920 total player-games/.test(SYSTEM));
 ok('the release bar restricts only the releasing club', /No other club is restricted/i.test(SYSTEM));
 ok('it is told the context beats its memory', /Prefer it over anything you think you remember/i.test(SYSTEM));
 ok('it is told not to invent a number', /Never invent a salary/i.test(SYSTEM));
+ok('rights are stated to apply AT THE AUCTION, which the model got backwards',
+   /RIGHTS APPLY AT THE AUCTION/.test(SYSTEM));
+ok('...all the way to the hard cap for a club\'s own player',
+   /may bid all the way to the hard cap/i.test(SYSTEM));
+ok('...and it is told never to say otherwise',
+   /never tell a GM that rights do not apply to bidding/i.test(SYSTEM));
 ok('it is told it cannot act', /You are advisory/i.test(SYSTEM));
 ok('...and that the rulebook beats it', /the rulebook beats you/i.test(SYSTEM));
 
