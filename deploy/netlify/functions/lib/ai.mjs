@@ -15,7 +15,9 @@
      AI_API_KEY    required. Nothing is sent without it.
      AI_BASE_URL   optional, defaults to Groq's free tier.
      AI_MODEL      optional, defaults to a model on that tier.
-     AI_DAILY_CAP  optional, defaults to 200 answers a day for the whole league.
+     AI_DAILY_CAP  optional. See the note on AIDEF.cap below — the default is
+                   sized to the free tier's TOKEN ceiling, not picked for
+                   comfort, and it has to move when the model does.
      AI_MAX_TOKENS optional, defaults to 700 — long enough for a real answer,
                    short enough that a runaway costs a paragraph and not a book.
 
@@ -23,10 +25,26 @@
    and the caller carries on, which is the same deliberate default the mail
    functions take: a fresh deploy answers nobody until someone sets the key. */
 
+/* The default cap is arithmetic, not a round number, and it is the one value
+   here that does not survive a change of model.
+
+   A question costs the static prompt (~890 tokens) plus aiContext() (~1,110 on
+   this league) plus the answer (up to 700), so about 2,700 on a first question
+   and nearer 3,500 once a few turns of history are riding along. The default
+   model's free tier allows 100,000 tokens a DAY, which is a little under thirty
+   questions — and that token ceiling binds long before its 1,000-requests-a-day
+   limit does, so counting requests is only ever an approximation of the thing
+   that actually runs out.
+
+   30 is therefore what keeps this ceiling biting before the provider's, which
+   is the whole point of having one: a runaway fails here as a soft {ok:false}
+   the app already handles, rather than as a rejection from the model. Raise
+   AI_DAILY_CAP whenever the model's token budget goes up — a provider with a
+   bigger allowance is the reason to move it, not a busy afternoon. */
 export const AIDEF = {
   base: "https://api.groq.com/openai/v1",
   model: "llama-3.3-70b-versatile",
-  cap: 200,
+  cap: 30,
   maxTokens: 700,
 };
 

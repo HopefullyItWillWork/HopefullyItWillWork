@@ -26,11 +26,14 @@ const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: H });
 
 /* A ceiling on answers a day for the whole league, counted in its own blob key
-   exactly as the mail counter is. Nine GMs asking a dozen questions each is a
-   hundred; the default of 200 leaves room for a busy auction night and still
-   sits under every free tier's daily limit, so a runaway fails here with a soft
-   {ok:false} the app already handles rather than as a rejection from the
-   provider. Counts reset daily. */
+   exactly as the mail counter is, and for the same reason: /api/ai has no real
+   authentication, so this is a cost control rather than a security one. A
+   script that finds the endpoint can spend a day's answers; it cannot spend
+   more than that, and on a free tier it cannot spend money at all.
+
+   AIDEF.cap in lib/ai.mjs says how the default figure is arrived at — it is
+   sized to the model's daily TOKEN budget and has to be raised by hand when a
+   bigger one is configured. Counts reset daily. */
 async function underCap(s) {
   const today = new Date().toISOString().slice(0, 10);
   const cur = await read(s, "aicount");

@@ -1474,8 +1474,19 @@ base URL, the model and the key are environment variables in Netlify:
 | `AI_API_KEY` | required | nothing is sent without it |
 | `AI_BASE_URL` | optional | defaults to Groq's free tier |
 | `AI_MODEL` | optional | defaults to a model on that tier |
-| `AI_DAILY_CAP` | optional | defaults to **200** answers a day for the whole league |
+| `AI_DAILY_CAP` | optional | defaults to **30** — see below |
 | `AI_MAX_TOKENS` | optional | defaults to 700 |
+
+**The default cap is arithmetic, and it is the one value here that does not
+survive a change of model.** A question costs the static prompt (~890 tokens)
+plus `aiContext()` (~1,110 on this league) plus the answer (up to 700) — about
+2,700 on a first question, nearer 3,500 with a few turns of history. The default
+model's free tier allows 100,000 tokens a **day**, which is a little under
+thirty questions, and that token ceiling binds long before its
+1,000-requests-a-day limit does. So counting requests only ever approximates the
+thing that actually runs out, and 30 is what keeps our ceiling biting before the
+provider's. Raise `AI_DAILY_CAP` when the model's token budget goes up, not
+because an afternoon was busy.
 
 Switching from Groq to Gemini, OpenRouter or DeepSeek is those variables and a
 redeploy. Nothing in `ai.mjs`, `lib/ai.mjs` or the app is edited. `AIDEF` holds
