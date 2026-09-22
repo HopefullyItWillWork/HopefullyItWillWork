@@ -1283,7 +1283,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 927 assertions against the real functions
+node tests/test.js        the app: 1222 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1454,13 +1454,21 @@ answers. `ceilWhy()` in particular goes in verbatim, so the assistant cannot
 contradict the sentence the bid panel is printing on the next tab.
 
 `aiContext()` is plain text rather than JSON — cheaper in tokens, reads back the
-way a GM would say it, and a stray quote in a club name cannot break it. On this
-league it runs about 4.3KB: the cap figures, the asking club's roster with what
-is true of each deal, its room and release bars, the auction with that club's own
-ceiling on the lot, one line per club, the top `AIFA` available players, and the
-projected category points. It is capped at `AICTXMAX`.
+way a GM would say it, and a stray quote in a club name cannot break it. It
+carries the cap figures and which projection source they are on, the asking
+club's roster with what is true of each deal, its room, release bars and the
+rights it takes into the auction, that club's nine category totals, the live lot
+with its own ceiling, one line per club plus every club's auction rights, the top
+`AIFA` available, the projected category points, and — for the players the
+question is actually about — all three projection sources and an `impact()`
+block.
 
-**### What it computes for the model, rather than letting the model compute
+It runs about **2,025 tokens** with no player named and **2,974** worst case, and
+`AICTXMAX` is a budget it spends rather than a limit it is cut to. See "The
+request has to fit the provider's per-MINUTE budget" below for why those are the
+numbers.
+
+### What it computes for the model, rather than letting the model compute
 **Never make the model do arithmetic the ledger already does.** Asked what a
 player would do to a club's projected stats, the assistant answered that it
 lacked "the league's exact formula" and offered his per-game line instead. It
@@ -1572,11 +1580,12 @@ trade turns on. Nine clubs at the asking club's full width is the difference
 between a context that fits and one that does not — and nine at *any* width
 turned out to be the difference too, which is what the section above is about.
 
-It carries one club's view and nobody's secrets.** No PIN, no address, no
-league-mate's notes, projections or strategy board; the other clubs appear only
-as the payroll and cap room the Contracts tab already shows everybody. There is
-a test asserting that for every club, because this is the one thing in the app
-that sends league data to a third party.
+### It carries one club's view and nobody's secrets
+No PIN, no address, no league-mate's notes, projections or strategy board. A club
+whose sheet is not pulled in appears only as the payroll and cap room the
+Contracts tab already shows everybody. There is a test asserting that for every
+club, because this is the one thing in the app that sends league data to a third
+party.
 
 ### The provider is configuration, not code
 Every provider worth using speaks the OpenAI `/chat/completions` shape, so the
@@ -1603,7 +1612,7 @@ source.
 **The default cap is arithmetic, and it moves with two things rather than one:**
 the model's token budget and the size of `aiContext()`. A question costs the
 static prompt (~890 tokens) plus the context (up to 3,000, budgeted) plus the
-answer (up to 700) — about 4,400 on a first question, nearer 5,200 with a few
+answer (up to 600) — about 4,500 on a first question, nearer 5,100 with the four
 turns of history. The current default model's free tier allows 200,000 tokens a
 **day**, a little over thirty of those, and that token ceiling binds long before
 the requests-a-day limit does. So counting requests only ever approximates the
