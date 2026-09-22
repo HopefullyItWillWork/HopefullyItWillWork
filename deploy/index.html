@@ -1011,6 +1011,24 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note">Enter posts, shift+Enter starts a new line. 600 characters.</p>
     <div class="chatlog" id="chatLog"></div>
 
+    <div id="aiWrap" hidden>
+      <h2 class="sub">Ask the AI Overlords <span class="fcount" id="aiWho"></span></h2>
+      <p class="note">A question about your own club, answered against the live ledger &#8212; your
+        cap room, your contracts, what a bid would cost you, or a rule you are not sure of. Your
+        roster, your room and the public auction are sent to the model with the question; your
+        PINs, addresses, notes and strategy board are not, and neither is any other club&#8217;s
+        private work. It is advisory: it can read the ledger, it cannot change it, and the
+        commissioner and the rulebook both beat it. Check anything that matters before you act
+        on it.</p>
+      <div class="chatbox">
+        <textarea id="aiIn" rows="2" maxlength="1000" placeholder="Ask about your club"></textarea>
+        <button class="btn" id="aiGo">Ask</button>
+      </div>
+      <p class="note">Enter asks, shift+Enter starts a new line.
+        <button class="btn ghost" id="aiClear" hidden>Clear this conversation</button></p>
+      <div class="chatlog" id="aiLog" style="max-height:46vh;overflow:auto"></div>
+    </div>
+
     <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span>
       <span class="fcount" id="notesWho"></span></h2>
     <p class="note">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
@@ -3754,7 +3772,7 @@ function render(){
         : list.find(t=>t!==$('tA').value);
     }
   }
-  drawDraft();drawLineup();drawChat();drawBlock();drawTradeLists();drawTrade();drawOffers();
+  drawDraft();drawLineup();drawChat();drawAI();drawBlock();drawTradeLists();drawTrade();drawOffers();
   drawRater();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
   exportBtn('expRater','player-rater.csv','raterTbl');
   exportBtn('expLabPool','player-pool.csv','labPoolTbl');
@@ -5695,6 +5713,9 @@ function goTab(id){
   if(id==='v-chat'&&typeof loadChat==='function'){
     loadChat(true).then(()=>drawChat());
     if(typeof refreshNotes==='function') refreshNotes();
+    /* The assistant shares this tab. Its probe is cached after the first call,
+       so this only does anything on a boot that raced the tab being opened. */
+    if(typeof aiProbe==='function') aiProbe().then(()=>drawAI());
   }
   if(id==='v-proj'&&typeof refreshProj==='function') refreshProj();
   window.scrollTo&&window.scrollTo(0,0);
@@ -8228,6 +8249,658 @@ function wireChat(){
   };
 }
 
+/* ================= THE LEAGUE ASSISTANT =================
+   A GM asks a question in plain English and gets an answer about HIS club.
+
+   The model itself knows nothing about this league, so everything that makes an
+   answer worth having is what we hand it. That arrives in two halves and the
+   split is deliberate:
+
+     - The RULES are static text and live on the server, in lib/ai.mjs. They are
+       true of this league whatever today's rosters look like, so they never
+       have to be rebuilt and a provider that caches a system prompt can cache
+       them.
+     - The LEDGER is `aiContext()` below, rebuilt on every question. It is what
+       turns "can I afford him?" from a plausible answer into a real one.
+
+   The context is built HERE rather than on the server, and that is the whole
+   architectural decision in this feature. Every cap rule in this league is
+   already implemented in this file — capRoom(), mleLeft(), bidCeiling(),
+   contracted(), birdRight() — against a copy of the state that normCfg() and
+   normRosters() have already migrated. Rebuilding any of it in a Netlify
+   function would be a second implementation of the rulebook to keep in step
+   with the first, and the two would drift the first time a rule changed. The
+   server holds the key, the ceiling and the limits on size; the app holds the
+   answers.
+
+   It reads nothing it should not. The context is one club's own view — his
+   roster, his room, the public auction, and the other clubs' payrolls, which
+   the Contracts tab already shows everybody. No PINs, no addresses, no
+   league-mate's private notes or strategy board.
+
+   Everything here is soft, like the mail. With no AI_API_KEY set the endpoint
+   answers {ok:false, reason:"not configured"}, aiProbe() reads false and the
+   panel is not drawn at all — a control that renders and then refuses is worse
+   than one that is not there, which is the argument the shut auction room
+   makes. */
+/* AICTXMAX mirrors CTXMAX in lib/ai.mjs and is a BUDGET the app spends, not a
+   slice() applied at the end. The provider's real constraint is tokens a
+   MINUTE — 8,000 on the default free tier, counting the reserved answer — and a
+   single request over it is refused outright with 413. The context trebled in
+   one afternoon and started failing, which is what these numbers are a response
+   to: trim on purpose, and drop the least important section whole rather than
+   letting a slice cut a roster off mid-row. */
+const AIMAX=1000, AITURNS=4, AICTXMAX=12000, AIFA=15, AISHOW=40;
+const AIAPI='/api/ai';
+let AICHAT=[], AIBUSY=false, AIUP=null, AIMODEL='';
+
+/* Is there a model behind the endpoint at all? One GET at boot, cached: it
+   answers nothing about the league and needs no PIN. Offline — the test
+   harness, a drag-and-drop deploy with no function bundled — reads false. */
+async function aiProbe(){
+  if(AIUP!==null) return AIUP;
+  try{
+    const r=await fetch(AIAPI,{cache:'no-store'});
+    if(!r.ok){ AIUP=false; return AIUP; }
+    const j=await r.json();
+    AIUP=!!j.configured; AIMODEL=String(j.model||'');
+  }catch(e){ AIUP=false; }
+  return AIUP;
+}
+
+/* ---- the ledger, as the model sees it ----
+   Plain text, not JSON: it is cheaper in tokens, it reads back in an answer the
+   way a GM would say it, and a stray quote in a club name cannot break it.
+   Pure apart from reading S — hand it a club and it returns the same string for
+   the same league, which is what makes it testable. */
+const aiNum=v=>v==null?'—':money(v);
+const aiPad=(s,n)=>String(s==null?'':s).padEnd(n).slice(0,n);
+
+function aiRosterLine(p){
+  const nx=salOff(p,1), yl=yrsLeft(p), br=birdRight(p);
+  const bits=[];
+  if(nx!=null) bits.push('next '+money(nx)); else bits.push('expiring');
+  if(yl>0) bits.push(yl+(yl===1?' season':' seasons')+' left');
+  if(br==='Yes') bits.push('Bird'); else if(br) bits.push('Early Bird');
+  if(p.o) bits.push('option '+p.o);
+  if(mleStamp(p)) bits.push('signed on the mid-level');
+  if(onIR(p)) bits.push('injured reserve');
+  if(p.blk) bits.push('on the trade block');
+  return '  '+aiPad(p.n,24)+' '+aiPad(p.p||'',5)+' '+aiPad(aiNum(salNow(p)),8)+' '+bits.join(', ');
+}
+
+/* Another club's man, compact. The asking club gets aiRosterLine()'s full
+   detail; eight more clubs at that width is the difference between a context
+   that fits and one that does not, so these keep what a TRADE turns on — the
+   money, the term and the rights, which travel with him — and drop the rest. */
+function aiRosterLineShort(p){
+  const nx=salOff(p,1), yl=yrsLeft(p), br=birdRight(p);
+  const bits=[nx!=null?'next '+money(nx):'expiring'];
+  if(yl>0) bits.push(yl+'yr');
+  if(br==='Yes') bits.push('Bird'); else if(br) bits.push('Early Bird');
+  if(p.o) bits.push('opt '+p.o);
+  if(p.blk) bits.push('on the block');
+  if(onIR(p)) bits.push('IR');
+  return '  '+aiPad(p.n,24)+' '+aiPad(aiNum(salNow(p)),8)+' '+bits.join(', ');
+}
+
+function aiClubSummary(t){
+  const room=capRoom(t), spots=S.cfg.roster-headcount(t), dead=deadSalary(t);
+  return {t, pay:committed(t), room, spots, ml:mleLeft(t), dead,
+          hard:S.cfg.tax-committed(t)};
+}
+
+function aiContext(team,ask){
+  if(!S||!S.teams) return '';
+  const T=TEAMS();
+  const t=(team&&S.teams[team])?team
+        :((me&&me!=='__comm__'&&S.teams[me])?me:(S.teams[activeTeam]?activeTeam:T[0]));
+  if(!t) return '';
+  const L=[], cur=curSeason(), nxt=seasonNext(cur), live=seasonLive();
+  /* Who and what the question is about, worked out once: the roster section
+     below and the impact blocks at the foot both read it. */
+  let POOLHEAD='';
+  const NAMED=aiNamesIn(ask||'');
+  const CLUBS=new Set([t,...aiClubsIn(ask,NAMED)]);
+
+  L.push(`LEAGUE: ${leagueName()} — ${cur} ${live?'season, being played':'offseason, being built'}`);
+  L.push(`Salary cap ${money(S.cfg.cap)} (soft) · hard cap ${money(S.cfg.tax)} (absolute) · `
+    +`minimum ${money(minSal())} · mid-level exception ${money(mleAmt())}`);
+  L.push(`Roster limit ${S.cfg.roster} active${live?` plus ${S.cfg.ir||1} injured reserve`:' (no injured reserve in the offseason)'}`
+    +` · ${S.cfg.gamecap||920} player-games a season · Bird rights at ${birdYears()} completed seasons`);
+  L.push(`Trade salary matching is ${matchOn()?'ON':'off'}.`
+    +(live&&S.cfg.deadline?` Trade deadline ${S.cfg.deadline}, ${deadlinePassed()?'already passed':'still ahead'}.`:''));
+  L.push('');
+  /* Before any number: which of the three sources every one of them is on. */
+  try{ L.push(aiSourceNote()); L.push(''); }catch(e){}
+
+  /* His own club first and in most detail — it is the one he is asking about. */
+  const c=aiClubSummary(t), who=gmName(t);
+  L.push(`THE CLUB ASKING: ${t}${who?` (${who})`:''}`);
+  L.push(`Payroll ${money(c.pay)} committed for ${cur}`+(c.dead>0?`, of which ${money(c.dead)} is dead money from releases`:''));
+  L.push(`Cap room ${money(c.room)} · under the hard cap ${money(c.hard)} · mid-level left ${money(c.ml)}`);
+  L.push(`${headcount(t)} of ${S.cfg.roster} active seats filled, ${Math.max(0,c.spots)} open`);
+  const bars=unsignableFor(t);
+  if(bars.length) L.push(`${t} may NOT re-sign, having released them above the minimum this cycle: `
+    +bars.map(b=>`${b.n} (${money(b.s)})`).join(', ')+'. Every other club may sign them freely.');
+  L.push(`ROSTER — name, position, ${cur} salary, then what else is true of the deal:`);
+  const r=(S.teams[t].r||[]).filter(contracted)
+    .slice().sort((a,b)=>(salNow(b)||0)-(salNow(a)||0));
+  r.forEach(p=>L.push(aiRosterLine(p)));
+  if(!r.length) L.push('  (nobody under contract)');
+  const exp=(S.teams[t].r||[]).filter(p=>contracted(p)&&salOff(p,1)==null);
+  if(exp.length) L.push(`Expiring after ${cur}, so free agents for ${nxt} unless re-signed: `
+    +exp.map(p=>p.n).join(', '));
+  L.push('');
+  /* The men he can bid on and nobody else can bid on as cheaply. */
+  try{ const ra=aiRightsAtAuction(t); if(ra){ L.push(ra); L.push(''); } }catch(e){}
+  /* His nine categories, on every question. "What would that do to my stats"
+     is not answerable without a baseline, and standings() is a call the
+     league-wide points line at the foot of this was making anyway. */
+  try{ const cc=aiClubCats(t); if(cc){ L.push(cc); L.push(''); } }catch(e){}
+
+  /* The auction, when there is one. A GM asking what he can bid is asking about
+     this lot, and ceilWhy() is the app's own answer to that question — the same
+     sentence the bid panel prints, so the assistant cannot contradict it. */
+  if(!live){
+    const a=A();
+    if(aucClosed()) L.push('AUCTION: over — the commissioner has closed it.');
+    else if(!aucOpen()) L.push('AUCTION: not open yet. Nobody may nominate or bid.');
+    else {
+      L.push('AUCTION: open.');
+      if(a&&a.player&&(a.status==='open'||a.status==='match')){
+        L.push(`On the block: ${a.player} at ${money(a.bid)} to ${a.leader||'nobody'}`
+          +(a.status==='match'?' — awarded, waiting on the rights holder to match.':'.'));
+        try{ const cw=ceilWhy(t,a.player);
+          L.push(`${t} may bid up to ${money(cw.ceil)}. ${cw.why}`); }catch(e){}
+      } else L.push('Nothing is on the block.');
+      const oc=nomOnClock();
+      if(oc) L.push(`Nominating next: ${oc.team} (round ${oc.round})`
+        +(oc.team===t?' — that is this club.':''));
+    }
+    L.push('');
+  }
+
+  L.push('EVERY CLUB — payroll, cap room, open seats, mid-level left:');
+  T.map(aiClubSummary).sort((a,b)=>b.pay-a.pay).forEach(x=>
+    L.push('  '+aiPad(x.t,14)+' '+aiPad(money(x.pay),9)+' '+aiPad(money(x.room),9)
+      +' '+aiPad(Math.max(0,x.spots),3)+' '+money(x.ml)));
+  L.push('');
+  /* Every club's rights, on every question, and deliberately NOT inside the
+     roster sheets below — those only arrive when the question names somebody,
+     and "who am I bidding against a Bird right on" names nobody at all. It is
+     one short line a club and it is what the auction turns on. */
+  {
+    const rl=[];
+    T.forEach(x=>{
+      const fa=(S.teams[x].r||[]).filter(p=>!contracted(p));
+      if(fa.length) rl.push('  '+aiPad(x,14)+' '
+        +fa.map(p=>`${p.n} (${aiRightKind(p)}${p.o?', restricted':''})`).join(', '));
+    });
+    if(rl.length){
+      L.push('RIGHTS AT AUCTION BY CLUB — each club\'s own free agents, and what it holds '
+        +'on them. A club may exceed the SOFT cap to keep one of these; nobody may use a '
+        +'right on anybody else\'s player:');
+      rl.forEach(x=>L.push(x));
+      L.push('');
+    }
+  }
+
+  /* EVERY OTHER CLUB'S ROSTER.
+
+     It carried only the payroll summary above, and a GM asking whether he could
+     trade for Trae Young was told the ledger held nothing about him — no
+     salary, no club, no contract — because a man on somebody else's books was
+     simply not in it. Half this app is trades, so half the questions were
+     unanswerable for want of the other eight sheets.
+
+     They are the compact rows: nine clubs at the asking club's width would
+     roughly treble the context, and what a trade turns on is the money, the
+     term and the rights rather than the trade-block flag. */
+  const shown=T.filter(x=>x!==t&&CLUBS.has(x)), hidden=T.filter(x=>x!==t&&!CLUBS.has(x));
+  if(shown.length){
+    L.push('ROSTERS OF THE CLUBS THIS QUESTION TOUCHES — name, '+cur+' salary, then the deal:');
+    shown.forEach(x=>{
+      const rr=(S.teams[x].r||[]).filter(contracted)
+        .slice().sort((a,b)=>(salNow(b)||0)-(salNow(a)||0));
+      L.push(`${x}${gmName(x)?` (${gmName(x)})`:''} — ${rr.length} under contract, `
+        +`${money(committed(x))} committed, ${money(capRoom(x))} of cap room:`);
+      rr.forEach(p=>L.push(aiRosterLineShort(p)));
+      if(!rr.length) L.push('  (nobody under contract)');
+    });
+    L.push('');
+  }
+  if(hidden.length){
+    /* Said out loud, because a model that cannot see a sheet must not conclude
+       the player does not exist — which is exactly what it did before any of
+       these rosters were carried at all. */
+    L.push(`The full sheets for ${hidden.join(', ')} are not in this block. They exist; `
+      +`they are summarised above. If the GM asks about one of those clubs or a player on `
+      +`it, say so and ask him to name the club or the player, and the next question will `
+      +`carry that roster.`);
+    L.push('');
+  }
+
+  /* The pool, best first. A player in the last year of a deal is a free agent
+     for next season even though he is on a roster today — faPool() is the one
+     definition of that and every screen in the app agrees with it. */
+  const pool=faPool().map(p=>({n:p.n,p:p.p,rk:rtg(p.n)}))
+    .filter(x=>x.rk!=null).sort((a,b)=>b.rk-a.rk).slice(0,AIFA);
+  if(pool.length){
+    POOLHEAD=`BEST ${pool.length} AVAILABLE, by ${projSrcLabel()} — rating, then the per-game line:`;
+    L.push(POOLHEAD);
+    pool.forEach((x,i)=>{
+      const s=pstat(x.n), g=s&&s.s;
+      const line=g?`${(g.PTS||0).toFixed(1)}p ${(g.TRB||0).toFixed(1)}r ${(g.AST||0).toFixed(1)}a `
+        +`${(g.P3||0).toFixed(1)}tp ${pctText(shotPct(g.FG,g.FGA))}fg ${pctText(shotPct(g.FT,g.FTA))}ft`
+        :'no stats on file';
+      L.push('  '+aiPad(i+1,3)+aiPad(x.n,24)+' '+aiPad(x.p||'',5)+' '+aiPad(x.rk.toFixed(2),7)
+        +' '+line+aiHoldNote(x.n));
+    });
+    L.push('');
+  }
+
+  /* Where the league would finish on what is signed today. It is a projection
+     off the rosters, not a record of games played, and it says so — the nightly
+     stats feed is not built and the model must not imply that it is. */
+  try{
+    const st=standings(), ord=T.slice().sort((a,b)=>st.pts[b]-st.pts[a]);
+    L.push('PROJECTED CATEGORY POINTS from the rosters as they stand '
+      +'(no games have been counted — the nightly stats feed is not built):');
+    L.push('  '+ord.map(x=>`${x} ${st.pts[x]}`).join(' · '));
+  }catch(e){}
+
+  /* Last, and last on purpose: the most specific thing in the block, for the
+     player the conversation is actually about. */
+  NAMED.forEach(n=>{
+    let pl=''; try{ pl=aiProjLines(n); }catch(e){}
+    if(pl){ L.push(''); L.push(pl); }
+    let blk=''; try{ blk=aiImpactOf(t,n); }catch(e){}
+    if(blk){ L.push(''); L.push(blk); }
+  });
+
+  /* SPEND THE BUDGET, do not truncate it. A slice() at AICTXMAX cuts whatever
+     happens to be last — here, the impact block for the very player the
+     question is about. So the pool is thinned first, then dropped, because it
+     is the one section that is browsable in the app anyway; everything else is
+     either the answer or the rules. */
+  let out=L.join('\n');
+  if(out.length>AICTXMAX){
+    const cut=L.indexOf(POOLHEAD);
+    if(cut>=0){
+      for(let keep=Math.floor(AIFA/2);keep>=0&&out.length>AICTXMAX;keep-=3){
+        const trimmed=L.slice(0,cut).concat(
+          keep>0?[POOLHEAD.replace(/^BEST \d+/,'BEST '+keep)].concat(L.slice(cut+1,cut+1+keep)):[],
+          L.slice(cut+1+AIFA));
+        out=trimmed.join('\n');
+      }
+    }
+  }
+  /* A last resort that should now never fire, and is kept because the server
+     enforces the same number and a request refused with 413 is worse than a
+     context missing its tail. */
+  return out.length>AICTXMAX ? out.slice(0,AICTXMAX) : out;
+}
+
+/* ---- never make the model do arithmetic the ledger already does ----
+   Asked what a player would do to a club's projected stats, the assistant
+   answered that it did not have "the league's exact formula" and offered the
+   man's per-game line instead. It was right to refuse — the system prompt tells
+   it never to invent a number — but the refusal was unnecessary: `impact()` has
+   computed exactly that answer since long before any of this, and it was simply
+   not in the context.
+
+   That is the same rule `ceilWhy()` follows. The ledger computes and the model
+   explains; a model deriving category points from per-game lines would get it
+   right most of the time, and nobody would know which answer was the exception.
+
+   So the context carries the club's own category totals on every question, and
+   an impact block for any player the conversation is actually about. Three
+   `impact()` calls cost about 4ms against `aiContext()`'s own 36, so this is
+   noise. */
+const AIIMPACT=3;
+/* A question is matched against the player pool by full name, and by surname
+   only when that surname belongs to exactly one player. That rule alone throws
+   out Green, White, Brown, Young, Smith, Jones, Allen, Walker, Carter and Love,
+   which are the ones a basketball question is most likely to contain by
+   accident — every one of them is shared by two or more players.
+
+   These are what survive uniqueness and are still ordinary words: a GM asking
+   about "a small forward" or "the best available hunter of rebounds" must not
+   have Javon Small or De'Andre Hunter read into his question. A false match
+   costs a dozen lines of context and a confusing answer rather than a wrong
+   number, but the point of the pool is to answer the question that was asked. */
+const AINAMESTOP=new Set(['hart','bane','hunter','reed','small','sharp','strong',
+  'king','bell','rice','moon','star','noble','wise','quick','swift','fields','banks']);
+
+/* Every player who could be asked about — the rated pool, the rookies and the
+   commissioner's extras — in the one shape this needs. */
+function aiNameIndex(){
+  const out=[], seen=new Set();
+  const add=n=>{ const c=canon(n); if(!c||seen.has(c)) return; seen.add(c);
+    out.push({n:c,k:comboNorm(c)}); };
+  RATER.forEach(p=>add(p.n));
+  undraftedRookies().forEach(r=>add(r.n));
+  addlPlayers().forEach(r=>add(r.n));
+  return out;
+}
+
+/* Which players is this conversation about? Pure.
+
+   It is handed the recent turns rather than the last message, and that is
+   load-bearing: "what impact would HE have on my projected stats" names nobody
+   at all — the man was named in the answer before it. Reading only what the GM
+   just typed would find nothing on exactly the question this exists for.
+
+   Most recent mention first, full names ahead of surnames, capped at AIIMPACT.
+   Both sides go through comboNorm(), so "jokic" finds Jokić and a question
+   ending in a question mark still matches. */
+function aiNamesIn(text){
+  let hay=' '+comboNorm(text)+' ';
+  if(hay.trim().length<3) return [];
+  const idx=aiNameIndex(), sur={};
+  const surOf=k=>{ const p=k.split(' '); return p[p.length-1]; };
+  idx.forEach(x=>{ const s=surOf(x.k); sur[s]=(sur[s]||0)+1; });
+  const full=[], last=[];
+  /* Full names first, and each one is BLANKED OUT of the haystack as it is
+     found. Without that, "trade Anthony Davis for Trae Young" hands back Cole
+     Anthony as well: his surname is unique, so it passes every other test, and
+     it is sitting inside a name already matched. Blanking also stops two
+     overlapping full names both matching. */
+  idx.forEach(x=>{
+    const at=hay.lastIndexOf(' '+x.k+' ');
+    if(at<0) return;
+    full.push({n:x.n,at});
+    hay = hay.slice(0,at+1) + ' '.repeat(x.k.length) + hay.slice(at+1+x.k.length);
+  });
+  idx.forEach(x=>{
+    if(full.some(f=>f.n===x.n)) return;
+    const s=surOf(x.k);
+    if(s.length<4||sur[s]!==1||AINAMESTOP.has(s)) return;
+    const at=hay.lastIndexOf(' '+s+' ');
+    if(at>=0) last.push({n:x.n,at});
+  });
+  const out=[], seen=new Set();
+  [...full.sort((a,b)=>b.at-a.at), ...last.sort((a,b)=>b.at-a.at)].forEach(x=>{
+    if(seen.has(x.n)) return; seen.add(x.n); out.push(x.n);
+  });
+  return out.slice(0,AIIMPACT);
+}
+
+/* ---- the rights a club takes INTO the auction ----
+   The roster sections filter on contracted(), which is right for a payroll and
+   wrong for this: a club's own expiring men are not owed anything in the season
+   being built, so every one of them was missing from the context entirely. Ask
+   the assistant who you hold Bird rights on and it read the tags on your SIGNED
+   players — men you cannot bid on because you already have them — and then said
+   Bird rights do not apply at auction at all.
+
+   They are the opposite of not applying. bidCeiling() returns the whole of a
+   club's room under the HARD cap when it bids on its own Bird player, because
+   the soft cap does not bind a club re-signing its own. For N. Daman that is
+   the difference between $34.25 and $69.75 on Karl-Anthony Towns, which is the
+   difference between winning the lot and not bidding.
+
+   So the block is the club's own free agents, the right held on each, and
+   ceilWhy() — the app's own ceiling and its own one-sentence reason, the same
+   pair the bid panel prints. */
+const aiRightKind=(p)=>{
+  const b=birdRight(p);
+  return b==='Yes'?'Bird rights':b?'Early Bird':(p.o?'':'no rights');
+};
+function aiRightsAtAuction(t){
+  const own=(S.teams[t].r||[]).filter(p=>!contracted(p));
+  if(!own.length) return '';
+  const L=[`FREE AGENTS ${t} ALREADY HOLDS — men on its sheet owed nothing for ${curSeason()}, `
+    +`so they go to the auction. The right it holds is what lets it exceed the SOFT cap `
+    +`to keep one; it does not help on anybody else:`];
+  own.forEach(p=>{
+    const kind=aiRightKind(p), rfa=p.o?', restricted — it may match another club’s winning bid':'';
+    let cw=null; try{ cw=ceilWhy(t,p.n); }catch(e){}
+    L.push('  '+aiPad(p.n,24)+' '+aiPad(p.p||'',5)+' '+kind+rfa);
+    if(cw) L.push(`      ${t} may bid up to ${money(cw.ceil)}. ${cw.why}`);
+  });
+  return L.join('\n');
+}
+/* Who holds what on a player in the pool. rightsOf() matches through canon(),
+   so the roster's spelling and the box score's are the same man. */
+function aiHoldNote(name){
+  const R=rightsOf(null,name);
+  if(!R.club) return '';
+  const lab=R.rfa?'restricted':R.bird==='Yes'?'Bird':R.bird?'Early Bird':'expiring';
+  return `  [${R.club}: ${lab}]`;
+}
+
+/* ---- which numbers is the model looking at? ----
+   Every stat in this context already follows the header toggle, and for free:
+   it all goes through pstat(), so on `agg` the pool lines, the ratings,
+   clubTotals(), standings() and therefore impact() are all computed from the
+   2026-27 aggregate, and on `mine` from this GM's own edits. Nothing had to be
+   plumbed.
+
+   What was missing is that the context never SAID so. A per-game line reading
+   "27.7p" is a different claim depending on the switch, and a model told
+   nothing will call it last season — which is the fault projSrcHead() and
+   projSrcLabel() exist to stop on every table in the app. The same rule
+   applies here: a block fed by pstat() may not leave its source unnamed.
+
+   `mine` is one GM's own work and stays that way. PROJ holds the signed-in
+   club's projections and nothing else — a rival's live encrypted under his own
+   PIN, which this browser cannot read and never loads — so "only that
+   manager's" is a property of the store rather than a filter applied here. */
+function aiSourceNote(){
+  const L=[`NUMBERS BELOW ARE ON: ${projSrcLabel()}.`];
+  if(usingAgg())
+    L.push(`Every per-game line, rating, club total and impact figure in this block is `
+      +`computed from the 2026-27 aggregate projection, NOT from what happened last season. `
+      +`The aggregate covers ${Object.keys(AGG).length} of the ${RATER.length} rated players; `
+      +`anyone it does not cover falls back to his 2025-26 line. Its shooting VOLUME is `
+      +`projected but its percentages are mostly last season's, so do not call the `
+      +`percentages projected.`);
+  else if(usingMine())
+    L.push(`Every per-game line, rating, club total and impact figure in this block is `
+      +`computed from THIS GM's own projections over the 2025-26 baseline. They are his `
+      +`alone — no other club's projections are readable from here. Where he has not `
+      +`edited a player, the 2025-26 line stands.`);
+  else
+    L.push(`Every per-game line, rating, club total and impact figure in this block is `
+      +`2025-26 actuals — the record of what happened, not a projection. The GM can `
+      +`switch the app to the 2026-27 aggregate or to his own projections with the toggle `
+      +`in the header, and then these numbers change.`);
+  return L.join(' ');
+}
+
+/* All three sources for one player, side by side, whatever the toggle is set
+   to. It is what lets a GM ask "what do the projections say about him"
+   without leaving the tab, and it is bounded: only the players the
+   conversation is actually about, so at most AIIMPACT of them. */
+function aiProjLines(name){
+  const c=canon(name), base=RIDX[c];
+  if(!base) return '';
+  const line=(o,g)=>{
+    if(!o) return null;
+    const v=k=>o[k]!=null?o[k]:(base.s?base.s[k]:null);
+    const n=(k,d)=>{const x=v(k); return x==null?'—':(+x).toFixed(d==null?1:d);};
+    return `${g!=null?g+'g  ':''}${n('PTS')}p ${n('TRB')}r ${n('AST')}a ${n('P3')}tp `
+      +`${n('STL')}s ${n('BLK')}b ${n('TOV')}to  `
+      +`FG ${pctText(shotPct(v('FG'),v('FGA')))} ${madeAtt(v('FG'),v('FGA'))}  `
+      +`FT ${pctText(shotPct(v('FT'),v('FTA')))} ${madeAtt(v('FT'),v('FTA'))}`;
+  };
+  const L=[`${name} — every source the app holds for him:`];
+  L.push('  2025-26 actual   '+(base.s&&base.g?line(base.s,base.g):'no box score on file'));
+  const a=AGG[c];
+  L.push('  2026-27 aggregate '+(a?line(a,a.g):'not covered by the aggregate; his 2025-26 line stands'));
+  /* A rival's projections are encrypted under his own PIN and are not loaded
+     into this browser at all, so there is only ever one GM's here to show. */
+  const m=PROJ[c];
+  if(m) L.push('  this GM\'s own     '+line(m,m.g!=null?m.g:base.g));
+  L.push(`  (the app is currently using ${projSrcLabel()} for every other number in this block)`);
+  return L.join('\n');
+}
+
+/* WHICH CLUBS THIS QUESTION IS ABOUT.
+
+   Nine full rosters is half the context and most questions need none of them —
+   but "can I trade Anthony Davis for Trae Young" needs exactly one, and
+   without it the assistant says the ledger holds nothing about the man. So the
+   sheets are fetched for the clubs the question actually touches: the asking
+   club always, whoever holds a player it names, and any club named outright.
+   Everything else keeps its summary line, which is what the payroll questions
+   were using anyway.
+
+   Pure. A club is matched on its own name through comboNorm(), so punctuation
+   and case in "N. Daman" do not have to be typed exactly. */
+function aiClubsIn(text,names){
+  const hay=' '+comboNorm(text||'')+' ';
+  const out=new Set();
+  TEAMS().forEach(x=>{ const k=comboNorm(x); if(k&&hay.includes(' '+k+' ')) out.add(x); });
+  (names||[]).forEach(n=>{
+    /* Whoever carries him today, signed or expiring — both matter to a trade. */
+    const lc=(typeof liveClub==='function')?liveClub(n):null;
+    if(lc) out.add(lc);
+    const R=rightsOf(null,n); if(R&&R.club) out.add(R.club);
+  });
+  return [...out];
+}
+
+const aiPlace=n=>n+(n===1?'st':n===2?'nd':n===3?'rd':'th');
+const aiCatVal=(k,v)=>(k==='FG'||k==='FT')?pctText(v):String(Math.round(v));
+
+/* The club's own nine categories, on every question. "My projected stats" is
+   not answerable without them, and they are one standings() call the context
+   was already making for the league-wide points line. */
+function aiClubCats(team){
+  const st=standings(), t=st.tot[team];
+  if(!t) return '';
+  const L=[`${team}'s PROJECTED CATEGORY TOTALS from the rosters as they stand `
+    +`(no games have been counted — the nightly stats feed is not built):`];
+  PCATS.forEach(([k,lab])=>{
+    L.push('  '+aiPad(lab,4)+' '+aiPad(aiCatVal(k,t[k]),9)
+      +'ranked '+aiPlace(st.rk[team][k])+' of '+TEAMS().length
+      +(k==='TOV'?'  (1st means FEWEST turnovers, which is the good end)':''));
+  });
+  L.push(`  Category points ${st.pts[team]}`);
+  return L.join('\n');
+}
+
+/* What one player would do to that club, straight out of impact(). */
+function aiImpactOf(team,name){
+  const r=pstat(name);
+  if(!hasStats(r))
+    return `ADDING ${name} TO ${team}: he has no stats on file, so the app cannot project `
+      +`his impact. Say that rather than estimating one.`;
+  let I; try{ I=impact(team,name); }catch(e){ return ''; }
+  const b=I.before.pts[team], a=I.after.pts[team];
+  const L=[`IMPACT ON ${team} OF ADDING ${name} — computed by the app. Use these `
+    +`numbers as they stand; do not re-derive them from his per-game line:`];
+  L.push(`  Category points ${b} → ${a} (${I.dPts>=0?'+':''}${I.dPts}), `
+    +(I.dFin>0?`up ${I.dFin} place${I.dFin===1?'':'s'} in the standings`
+      :I.dFin<0?`down ${-I.dFin} place${I.dFin===-1?'':'s'}`
+      :'no change of finishing place'));
+  PCATS.forEach(([k,lab])=>{
+    const bv=I.before.tot[team][k], av=I.after.tot[team][k];
+    /* Turnovers invert: a club shedding them gains ground. Left unsaid, "1345
+       from 1191" reads as an improvement, which is what catGood() exists to
+       stop everywhere else in the app. */
+    const note = k!=='TOV' ? ''
+      : av>bv ? '  (more turnovers — worse)' : av<bv ? '  (fewer turnovers — better)' : '';
+    L.push('  '+aiPad(lab,4)+' '+aiPad(aiCatVal(k,bv),9)+'→ '+aiPad(aiCatVal(k,av),9)
+      +'rank '+aiPlace(I.before.rk[team][k])+' → '+aiPlace(I.after.rk[team][k])+note);
+  });
+  /* The categories are only half of it: he still has to fit on the books. */
+  const ob=signBlock(team,name,minSal());
+  if(ob) L.push(`  On the books: ${team} could not sign him even at the minimum — ${ob}`);
+  return L.join('\n');
+}
+
+/* ---- asking ----
+   The club's PIN goes with the question exactly as it does to /api/notify, and
+   is the same honour-system bar: it stops accidents, not a league-mate who
+   reads the source. Nothing here writes league state, so the worst a borrowed
+   PIN buys is somebody else's share of the daily ceiling. */
+async function askLedger(text){
+  const q=String(text||'').trim();
+  if(!q) return;
+  if(!me) return alert('Sign in to ask.');
+  if(q.length>AIMAX) return alert(`Keep it under ${AIMAX} characters — that one is ${q.length}.`);
+  if(AIBUSY) return;
+  if(!await aiProbe()) return alert('No assistant is configured for this league.');
+
+  AICHAT=[...AICHAT,{role:'user',content:q,ts:now()}];
+  AIBUSY=true; drawAI();
+
+  const pin = isComm() ? (S.cfg.commPin||'') : ((S.teams[me]||{}).pin||'');
+  let out={ok:false,reason:'offline'};
+  try{
+    const r=await fetch(AIAPI,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        club:isComm()?'__comm__':me, pin,
+        /* The recent turns, not just what he typed: "what would HE do for me"
+           names nobody, and the man was named in the answer before it. */
+        context:aiContext(isComm()?meTeam():me,
+          AICHAT.slice(-4).map(m=>m.content||'').join(' \n ')),
+        /* Only the turns, not the timestamps the screen draws. */
+        messages:AICHAT.slice(-AITURNS).map(m=>({role:m.role,content:m.content})),
+      })});
+    out = r.ok||r.status===200 ? await r.json() : {ok:false,reason:'http '+r.status};
+  }catch(e){ out={ok:false,reason:String(e&&e.message||e)}; }
+
+  AIBUSY=false;
+  /* A failure is shown in the transcript rather than as a toast that scrolls
+     away, because the question it failed on is sitting right above it. */
+  AICHAT=[...AICHAT, out.ok
+    ? {role:'assistant',content:out.reply,ts:now()}
+    : {role:'assistant',content:'',err:out.reason||'no answer',ts:now()}];
+  drawAI();
+}
+
+function aiMsgLine(m){
+  const mine=m.role==='user';
+  const body = m.err
+    ? `<span style="color:var(--tax)">Could not answer — ${htmlEsc(m.err)}</span>`
+    : htmlEsc(m.content);
+  return `<div class="msg${mine?' own':''}">
+    <div class="mh"><b>${mine?htmlEsc(isComm()?'Commissioner':me||'You'):'AI Overlords'}</b>
+      <span class="t">${fmt(m.ts)}</span></div>
+    <div class="mb">${body}</div></div>`;
+}
+
+function drawAI(){
+  const wrap=$('aiWrap'); if(!wrap) return;
+  /* Not configured, or no function bundled at all: the whole block goes away
+     rather than sitting there offering a control that cannot work. */
+  wrap.hidden = AIUP!==true;
+  if(AIUP!==true) return;
+  const box=$('aiLog');
+  if(box){
+    const shown=AICHAT.slice(-AISHOW);
+    box.innerHTML = shown.length ? shown.map(aiMsgLine).join('')
+      + (AIBUSY?`<div class="msg"><div class="mb" style="color:var(--dim)">Thinking…</div></div>`:'')
+      : `<div class="empty">Ask about your cap room, a contract, what a bid would cost you,
+         or a rule you are not sure of. It can read the ledger; it cannot change it.</div>`;
+    if(AICHAT.length) box.scrollTop=box.scrollHeight;
+  }
+  const go=$('aiGo'), inp=$('aiIn');
+  if(go){ go.disabled=!me||AIBUSY; go.textContent=AIBUSY?'Asking…':'Ask'; }
+  if(inp){ inp.disabled=!me||AIBUSY; inp.placeholder = me?'Ask about your club':'Sign in to ask'; }
+  if($('aiWho')) $('aiWho').textContent = me
+    ? `Reading ${isComm()?meTeam():me}'s ledger${AIMODEL?` · ${AIMODEL}`:''}`
+    : 'Signed out';
+  if($('aiClear')) $('aiClear').hidden = !AICHAT.length;
+}
+
+function wireAI(){
+  if($('aiGo')) $('aiGo').onclick=async()=>{
+    const v=$('aiIn').value;
+    $('aiIn').value='';
+    await askLedger(v);
+  };
+  if($('aiIn')) $('aiIn').onkeydown=e=>{
+    if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey){ e.preventDefault(); $('aiGo').onclick(); }
+  };
+  if($('aiClear')) $('aiClear').onclick=()=>{ AICHAT=[]; drawAI(); };
+}
+
 /* ================= PLAYER RATER (descriptive, 2025-26) ================= */
 const RCATS=["FG","FT","P3","REB","AST","STL","BLK","TO","PTS"];
 /* RCATS names a category the way the league says it; `s` keys it the way the box
@@ -8884,6 +9557,11 @@ function netChip(){
   await loadStrat();
   await loadNotes();
   wireChat();
+  wireAI();
+  /* One GET, and the panel stays hidden unless a model answers it. It is not
+     awaited: a provider that is slow to answer must not hold up the first
+     render, and drawAI() runs again the moment it does. */
+  aiProbe().then(()=>drawAI());
   comboAttachAll();
   if(seasonLive()) loadSchedule().then(()=>render());
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');

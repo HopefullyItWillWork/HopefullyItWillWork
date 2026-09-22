@@ -80,7 +80,13 @@ const EPILOGUE = ';globalThis.__X={' + [
   'render','clubNameError','moveClubLocals','drawSettings','clubPicks','takePick','draftCfg','committed','headcount',
   'BIRDYRS','leagueYear','birdYears','tenureOf','birdRight','birdMismatch','SEASON_TABS','renameClub',
   'clubSlug','DEPUTY_SEED','deputies','isDeputy','hasComm','canGrantComm','normCfg',
-  'signBlock','matchOffer','canAnswerMatch','awardTo','answerMatch','closeAuction','toggleDeputy'
+  'signBlock','matchOffer','canAnswerMatch','awardTo','answerMatch','closeAuction','toggleDeputy',
+  'aiContext','aiRosterLine','aiClubSummary','askLedger','drawAI','wireAI','aiProbe','aiPad',
+  'AICHAT','AIUP','AIBUSY','AIMODEL','AIMAX','AITURNS','AICTXMAX','AIFA',
+  'aiNamesIn','aiNameIndex','aiImpactOf','aiClubCats','aiRosterLineShort','impact',
+  'AIIMPACT','AINAMESTOP','PCATS','standings','pstat','comboNorm',
+  'aiRightsAtAuction','aiHoldNote','aiRightKind','aiSourceNote','aiProjLines',
+  'rightsOf','ceilWhy','capRoom','setProjMode','useProj','PROJ','AGG','RIDX','projSrcLabel'
 ].map(n=>'get '+n+'(){return '+n+'}, set '+n+'(v){'+n+'=v}').join(',') + '};';
 
 try { vm.runInContext(src + EPILOGUE, ctx, {filename:'index.html'}); }

@@ -4205,6 +4205,453 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__alerts.length = keepAlerts;
   }
 
+  /* ================= THE LEAGUE ASSISTANT =================
+     aiContext() is the whole of the customisation: the model knows nothing
+     about this league, so what it is handed IS the answer quality. It is pure
+     apart from reading S, which is what lets all of this be asserted here
+     rather than discovered in a wrong answer during an auction. */
+  {
+    console.log('\n== aiContext: it builds, for every club, in both phases ==');
+    const AC = g('aiContext'), CS = g('S'), T = g('TEAMS')();
+    const before = JSON.stringify(CS);
+
+    let threw = null, empty = [];
+    ['offseason','season'].forEach(ph => {
+      const was = CS.cfg.phase; CS.cfg.phase = ph;
+      T.forEach(t => {
+        try { const s = AC(t); if(!s || s.length < 200) empty.push(ph+'/'+t+' ('+(s||'').length+')'); }
+        catch(e){ threw = threw || (ph+'/'+t+': '+e.message); }
+      });
+      CS.cfg.phase = was;
+    });
+    ok('never throws', !threw, threw||'');
+    ok('never trivially short', !empty.length, empty.join(', '));
+
+    ok('reading S does not mutate it', JSON.stringify(CS) === before);
+
+    const t0 = T[0], ctx0 = AC(t0);
+    console.log('\n== aiContext: it says which club is asking, and what the rules are ==');
+    ok('names the asking club', ctx0.includes('THE CLUB ASKING: '+t0), ctx0.slice(0,80));
+    ok('carries the soft cap', ctx0.includes(g('money')(CS.cfg.cap)));
+    ok('carries the hard cap', ctx0.includes(g('money')(CS.cfg.tax)));
+    ok('calls the hard cap absolute, never a luxury tax', /hard cap .*absolute/.test(ctx0) && !/luxury/i.test(ctx0));
+    ok('carries the mid-level figure', ctx0.includes(g('money')(g('mleAmt')())));
+    ok('carries the game cap', ctx0.includes(String(CS.cfg.gamecap||920)));
+    ok('names the season the league is on', ctx0.includes(g('curSeason')()));
+
+    console.log('\n== aiContext: the numbers are the ledger\'s own, not a second opinion ==');
+    ok('payroll is committed()', ctx0.includes('Payroll '+g('money')(g('committed')(t0))));
+    ok('cap room is capRoom()', ctx0.includes('Cap room '+g('money')(g('capRoom')(t0))));
+    ok('mid-level left is mleLeft()', ctx0.includes('mid-level left '+g('money')(g('mleLeft')(t0))));
+    ok('seats filled is headcount()', ctx0.includes(g('headcount')(t0)+' of '+CS.cfg.roster+' active seats'));
+
+    console.log('\n== aiContext: every contract on the club is in it ==');
+    const missing = CS.teams[t0].r.filter(g('contracted')).filter(p => !ctx0.includes(p.n));
+    ok('no signed player is dropped', !missing.length, missing.map(p=>p.n).join(', '));
+
+    console.log('\n== aiContext: an expiring deal reads as a free agent for next season ==');
+    {
+      /* The one test the whole pool definition turns on: a man sitting on a
+         roster today with nothing owed next season is available, and the
+         assistant must not describe him as under contract. */
+      const club = T.find(t => CS.teams[t].r.some(p => g('contracted')(p) && g('salOff')(p,1)==null));
+      if(club){
+        const p = CS.teams[club].r.find(x => g('contracted')(x) && g('salOff')(x,1)==null);
+        const s = AC(club);
+        ok('his line says expiring', new RegExp(p.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^\\n]*expiring').test(s), p.n);
+        ok('and he is named as a free agent for next season',
+           new RegExp('free agents for '+g('seasonNext')(g('curSeason')())+'[^\\n]*'+p.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(s), p.n);
+      } else ok('(no expiring deal in the seed to test)', true);
+    }
+
+    console.log('\n== aiContext: Bird rights are the EARNED answer, never the label ==');
+    {
+      /* 63 seed rows are labelled Yes on under three seasons. birdRight() is
+         the predicate every caller must use, and this one is a caller. */
+      const bad = g('birdMismatch')().find(m => m.said && !m.got && g('contracted')(m.p));
+      if(bad){
+        const line = AC(bad.t).split('\n').find(l => l.includes(bad.p.n)) || '';
+        ok('a label of Yes on under three seasons is not reported as Bird',
+           !!line && !/Bird/.test(line), bad.p.n+' ('+bad.said+'/'+bad.got+'): '+line.trim());
+        ok('...and birdRight() is what the line was built from', g('birdRight')(bad.p) === bad.got);
+      } else ok('(no mismatch in the seed to test)', true);
+    }
+
+    console.log('\n== aiContext: a release bar is carried, and says it binds only this club ==');
+    {
+      const club = T.find(t => g('unsignableFor')(t).length);
+      if(club){
+        const bar = g('unsignableFor')(club)[0], s = AC(club);
+        ok('the barred player is named', s.includes(bar.n), bar.n);
+        ok('and the other eight are told they may sign him', /Every other club may sign them freely/.test(s));
+      } else ok('(no release bar in the seed to test)', true);
+    }
+
+    console.log('\n== aiContext: the auction, and only the state it is actually in ==');
+    {
+      const keepAuc = CS.cfg.auction, keepLot = CS.auction, keepPh = CS.cfg.phase;
+      CS.cfg.phase = 'offseason';
+
+      CS.cfg.auction = {open:false, closed:false}; CS.auction = null;
+      ok('a shut room says so', /AUCTION: not open yet/.test(AC(t0)));
+      CS.cfg.auction = {open:false, closed:true};
+      ok('a closed room reads differently', /AUCTION: over/.test(AC(t0)));
+
+      CS.cfg.auction = {open:true, closed:false};
+      CS.auction = {player:'Kevin Durant', by:t0, bid:4.25, leader:t0,
+                    bids:[{t:t0,amt:4.25,ts:new Date().toISOString()}], max:{}, mleOn:{},
+                    status:'open', ts:new Date().toISOString()};
+      const s = AC(t0);
+      ok('an open lot names the player', s.includes('On the block: Kevin Durant'), s.split('\n').find(l=>/On the block/.test(l)));
+      ok('...at the standing bid', s.includes(g('money')(4.25)));
+      ok('...and the asking club is given its own ceiling', s.includes(g('money')(g('bidCeiling')(t0,'Kevin Durant'))));
+      ok('...with the one sentence saying which wall it is',
+         s.includes(g('ceilWhy')(t0,'Kevin Durant').why), s.split('\n').find(l=>/may bid up to/.test(l)));
+
+      /* In season there is no auction at all, and the block must not imply one. */
+      CS.cfg.phase = 'season';
+      ok('the season carries no auction block', !/AUCTION:/.test(AC(t0)));
+
+      CS.cfg.phase = keepPh; CS.cfg.auction = keepAuc; CS.auction = keepLot;
+    }
+
+    console.log('\n== aiContext: it sends one club\'s view, and nobody\'s secrets ==');
+    {
+      /* The context leaves the app and reaches a third party. What is in it is
+         the club's own ledger plus what the Contracts tab already shows
+         everybody — never a PIN, an address, or a league-mate's private work. */
+      const leaked = [];
+      T.forEach(t => {
+        const s = AC(t);
+        T.forEach(o => {
+          const pin = (CS.teams[o]||{}).pin, mail = (CS.teams[o]||{}).email;
+          if(pin && String(pin).length>=3 && s.includes(String(pin))) leaked.push(t+' leaks '+o+' PIN');
+          if(mail && s.includes(String(mail))) leaked.push(t+' leaks '+o+' email');
+        });
+        if(CS.cfg.commPin && String(CS.cfg.commPin).length>=3 && s.includes(String(CS.cfg.commPin)))
+          leaked.push(t+' leaks the commissioner PIN');
+      });
+      ok('no PIN or address in any club\'s context', !leaked.length, leaked.join(', '));
+      ok('no strategy board or notes', !/strat-|notes-|proj-/.test(AC(t0)));
+    }
+
+    console.log('\n== aiContext: it is bounded ==');
+    ok('never longer than the server will take', AC(t0).length <= g('AICTXMAX'));
+    /* The canary. Every block added to the context takes questions off the
+       daily budget — see AIDEF.cap — so what is worth asserting is not a tidy
+       fraction but that the WORST realistic case still has headroom: three
+       players named, on the source that carries the most. This has already
+       been tightened once, when every club's roster, the auction rights and
+       the projection blocks went in. If it fails, decide whether the new block
+       earns its tokens before raising it. */
+    {
+      const keep = g('PROJSRC');
+      ctx.setProjMode('agg');
+      const worst = AC(t0, 'compare Nikola Joki\u0107 with Trae Young and Kevin Durant for me');
+      ctx.setProjMode(keep === 'agg' ? 'agg' : 'act');
+      ok('the worst realistic case fits the budget',
+         worst.length <= g('AICTXMAX'), worst.length + ' of ' + g('AICTXMAX'));
+      /* And when it has to trim, it drops the POOL rather than cutting whatever
+         happens to be last — which is the impact block for the very player the
+         question is about. */
+      ok('the player asked about still has his block at the foot',
+         worst.includes('IMPACT ON ' + t0 + ' OF ADDING'), worst.slice(-120));
+    }
+
+    console.log('\n== aiContext: signed out and the commissioner both fall back to a real club ==');
+    {
+      const keepMe = X.me;
+      X.me = null;
+      ok('signed out still builds', (AC()||'').includes('THE CLUB ASKING'));
+      X.me = '__comm__';
+      ok('the commissioner still builds', (AC()||'').includes('THE CLUB ASKING'));
+      X.me = keepMe;
+    }
+
+    console.log('\n== aiNamesIn: who is the conversation actually about ==');
+  {
+    const NI = g('aiNamesIn');
+    ok('a full name is found', NI('what about Victor Wembanyama?').includes('Victor Wembanyama'));
+    ok('a bare surname is found when it is unique',
+       NI('how good is Wembanyama').includes('Victor Wembanyama'), JSON.stringify(NI('how good is Wembanyama')));
+    /* The question this exists for: the man is named in the turn BEFORE, and
+       the GM writes "he". Reading only the last message finds nobody. */
+    ok('it reads the recent turns, not just the last message',
+       NI('The top player available is Victor Wembanyama. \n What impact would he have?')[0] === 'Victor Wembanyama');
+    ok('accents do not matter', NI('is jokic available').includes('Nikola Jokić')
+       || NI('is jokic available').includes('Nikola Jokic'), JSON.stringify(NI('is jokic available')));
+    ok('trailing punctuation does not matter', NI('what about Wembanyama?').length === 1);
+
+    /* An ordinary basketball question must match nobody. Every one of these
+       words is a real surname in the pool. */
+    const plain = NI('what is my cap room, and can I afford a good young small forward '
+      + 'to green-light a trade with a smith or a jones this year?');
+    ok('an ordinary question matches nobody', plain.length === 0, JSON.stringify(plain));
+    ok('an empty ask matches nobody', NI('').length === 0);
+    ok('junk matches nobody', NI(null).length === 0);
+
+    /* "Anthony Davis" contains Cole Anthony's whole surname. Blanking the
+       matched full name out of the haystack is what stops him coming back. */
+    const trade = NI('I want to trade anthony davis for trae young, would this work?');
+    ok('a full name is not double-counted as somebody else\'s surname',
+       !trade.includes('Cole Anthony'), JSON.stringify(trade));
+    ok('...and both men actually asked about are found',
+       trade.includes('Anthony Davis') && trade.includes('Trae Young'), JSON.stringify(trade));
+    ok('never more than AIIMPACT players', NI('Nikola Jokić Trae Young Kevin Durant '
+       + 'Joel Embiid James Harden Jalen Brunson').length <= g('AIIMPACT'));
+  }
+
+  console.log('\n== the impact block is the app\'s arithmetic, not the model\'s ==');
+  {
+    const t = 'N. Daman', name = 'Victor Wembanyama';
+    const blk = g('aiImpactOf')(t, name), I = g('impact')(t, name);
+    ok('it names the club and the player', blk.includes(t) && blk.includes(name));
+    ok('the category points are impact()\'s own',
+       blk.includes(`${I.before.pts[t]} → ${I.after.pts[t]}`), blk.split('\n')[1]);
+    ok('...and so is the delta', blk.includes(`(${I.dPts>=0?'+':''}${I.dPts})`), I.dPts);
+    ok('it tells the model not to re-derive them', /do not re-derive/i.test(blk));
+
+    /* Every one of the nine, with the before and after the app computed. */
+    const missing = g('PCATS').filter(([k]) => {
+      const isP = (k==='FG'||k==='FT');
+      const v = isP ? g('pctText')(I.after.tot[t][k]) : String(Math.round(I.after.tot[t][k]));
+      return !blk.includes(v);
+    });
+    ok('all nine categories carry their computed after-value', !missing.length,
+       missing.map(x=>x[1]).join(', '));
+
+    /* Turnovers invert. Left unsaid, "1345 from 1191" reads as a gain — which
+       is exactly what catGood() exists to prevent everywhere else. */
+    const tovLine = blk.split('\n').find(l => l.trim().startsWith('TO '));
+    ok('the turnover row says which direction is good', /worse|better/.test(tovLine||''), tovLine);
+
+    /* A rookie has no box score, so there is nothing to project and the block
+       must say so rather than printing a row of zeroes that reads as "adds
+       nothing". */
+    const rook = (g('undraftedRookies')()[0]||{}).n;
+    if(rook){
+      const rb = g('aiImpactOf')(t, rook);
+      ok('a player with no stats is reported, not projected as zero',
+         /no stats on file/.test(rb) && !/Category points/.test(rb), rb.slice(0,90));
+    } else ok('(no undrafted rookie to test)', true);
+  }
+
+  console.log('\n== the context carries the club\'s own categories, and every club\'s roster ==');
+  {
+    const t = 'N. Daman', s = AC(t), st = g('standings')();
+    ok('the asking club\'s category totals are in it',
+       s.includes(`${t}'s PROJECTED CATEGORY TOTALS`), s.slice(0,60));
+    ok('...with its rank in each', /ranked \d+(st|nd|rd|th) of \d+/.test(s));
+    ok('...and the turnover rank says which end is good', /FEWEST turnovers/.test(s));
+
+    /* The gap that made a trade question unanswerable was that a man on
+       somebody else's books was not in the context at all. Carrying all nine
+       sheets on every question fixed that and then broke the request: nine
+       rosters is half the context, and the provider refused the whole thing
+       with 413. So the sheets come for the clubs a question actually touches. */
+    const other = g('TEAMS')().find(x => x !== t && CS.teams[x].r.some(g('contracted')));
+    const them = CS.teams[other].r.filter(g('contracted'));
+    const asked = AC(t, 'can I trade for ' + them[0].n + '?');
+    ok('naming a player brings his club\'s sheet', them.every(p => asked.includes(p.n)),
+       other + ' missing: ' + them.filter(p => !asked.includes(p.n)).map(p=>p.n).join(', '));
+    ok('...with the salary a trade turns on',
+       asked.includes(g('money')(g('salNow')(them[0]))), them[0].n);
+    ok('naming the club by name brings it too',
+       AC(t, 'what does ' + other + ' have on its books?').includes(them[0].n), other);
+
+    /* A sheet that did NOT come must be reported as absent rather than silently
+       missing: a model that cannot see a roster must not conclude the player
+       does not exist, which is the fault this whole section is about. */
+    const bare = AC(t, 'what is my cap room?');
+    ok('a question touching nobody carries no other sheet',
+       !bare.includes('ROSTERS OF THE CLUBS THIS QUESTION TOUCHES'), 'sheets sent anyway');
+    ok('...and says the missing sheets exist', /full sheets for[^\n]*are not in this block/.test(bare));
+    ok('...and says how to get one', /ask him to name the club or the player/.test(bare));
+
+    /* It is one club's view of a league, not nine clubs' private work: the
+       secrets test above still has to hold now that every roster is in. */
+    const leaked = g('TEAMS')().filter(o => {
+      const pin = (CS.teams[o]||{}).pin;
+      return pin && String(pin).length >= 3 && s.includes(String(pin));
+    });
+    ok('and still no PIN of any club', !leaked.length, leaked.join(', '));
+  }
+
+  console.log('\n== the ask reaches the context, and a question without one still builds ==');
+  {
+    const t = 'N. Daman';
+    const withAsk = AC(t, 'what would Victor Wembanyama do for me?');
+    const without = AC(t);
+    ok('naming a player adds his impact block', withAsk.includes('IMPACT ON '+t+' OF ADDING Victor Wembanyama'));
+    ok('naming nobody adds none', !without.includes('IMPACT ON '), without.slice(-80));
+    /* Naming a player adds his impact block AND pulls in his club's sheet, so
+       the two are no longer prefixes of each other. What must hold is that the
+       parts that do not depend on the question are identical. */
+    ok('the parts that do not depend on the question are identical',
+       without.split('EVERY CLUB')[0] === withAsk.split('EVERY CLUB')[0], 'header differs');
+    ok('it is still inside the server\'s limit', withAsk.length <= g('AICTXMAX'), withAsk.length);
+  }
+
+  console.log('\n== the rights a club takes INTO the auction ==');
+  {
+    /* The gap that made "who do I have Bird rights on" answer with the club's
+       SIGNED players: every roster section filters on contracted(), which is
+       right for a payroll and wrong here — a club's own free agents are owed
+       nothing in the season being built, so none of them were in the context
+       at all. */
+    const t = g('TEAMS')().find(x => (CS.teams[x].r||[]).some(p => !g('contracted')(p)
+      && g('birdRight')(p) === 'Yes'));
+    if(!t){ ok('(no club holds Bird rights on a free agent in the seed)', true); }
+    else {
+      const own = CS.teams[t].r.filter(p => !g('contracted')(p));
+      const bird = own.find(p => g('birdRight')(p) === 'Yes');
+      const s = AC(t);
+
+      ok('a club\'s own free agents are in its context', own.every(p => s.includes(p.n)),
+         own.filter(p => !s.includes(p.n)).map(p=>p.n).join(', '));
+      ok('...and are named as going to the auction', /so they go to the auction/.test(s));
+      ok('a Bird right on one of them is reported as Bird',
+         new RegExp(bird.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^\\n]*Bird rights').test(s), bird.n);
+
+      /* The number that matters: bidCeiling() gives a club the whole of its
+         room under the HARD cap for its own Bird player, not its cap room.
+         That is the difference between winning a lot and not bidding. */
+      const cw = g('ceilWhy')(t, bird.n);
+      ok('...with the app\'s own ceiling, not cap room',
+         s.includes(`${t} may bid up to ${g('money')(cw.ceil)}`), g('money')(cw.ceil));
+      ok('...and the app\'s own one-sentence reason', s.includes(cw.why), cw.why.slice(0,60));
+      ok('that ceiling really is above plain cap room',
+         cw.ceil > g('capRoom')(t) + 0.001, `ceil ${cw.ceil} vs room ${g('capRoom')(t)}`);
+
+      /* Rights ride the summary block, which is in EVERY context, not the
+         roster sheets, which only arrive when a question names somebody: "who
+         am I bidding against a Bird right on" names nobody at all. Carrying
+         them only with the sheets was a regression these two caught. */
+      const rival = g('TEAMS')().find(x => x !== t && CS.teams[x].r.some(p => !g('contracted')(p)));
+      if(rival){
+        const rs = AC(rival, 'what is my cap room?');
+        ok('a rival is told which rights every club carries, unprompted',
+           /RIGHTS AT AUCTION BY CLUB/.test(rs));
+        ok('...including this club\'s', new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
+           + '[^\\n]*' + bird.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(rs), bird.n);
+        ok('...and that a right covers only its own player',
+           /nobody may use a right on anybody else/.test(rs));
+      } else ok('(no rival holds a free agent to test)', true);
+
+      const held = s.split('\n').filter(l => /\[[^\]]+: (Bird|Early Bird|restricted|expiring)\]/.test(l));
+      ok('pool rows carry the club that holds them', held.length > 0, held.length + ' rows');
+    }
+  }
+
+  console.log('\n== every number says which of the three sources it is on ==');
+  {
+    /* Everything in the context already follows the header toggle, because it
+       all goes through pstat(). What was missing is that it never SAID so, and
+       an unlabelled per-game line is a different claim under each source —
+       the exact fault projSrcHead() exists to stop on every table in the app. */
+    const t = 'N. Daman', keep = g('PROJSRC'), keepU = g('useProj');
+    const seen = {};
+    ['act','agg','mine'].forEach(src => {
+      ctx.setProjMode(src);
+      const s = AC(t, 'what about Nikola Jokic?');
+      seen[src] = s;
+      ok(`${src}: the context names its source`,
+         s.includes('NUMBERS BELOW ARE ON: ' + g('projSrcLabel')()),
+         (s.split('\n').find(l=>/NUMBERS BELOW/.test(l))||'').slice(0,70));
+    });
+    ok('the aggregate says it is not last season', /NOT from what happened last season/.test(seen.agg));
+    ok('...and does not claim its percentages are projected',
+       /do not call the[\s\S]{0,40}percentages projected/.test(seen.agg));
+    ok('my projections are named as this GM\'s alone',
+       /no other club's projections are readable from here/.test(seen.mine));
+    ok('actuals are named as the record, not a projection',
+       /the record of what happened, not a projection/.test(seen.act));
+    ok('the three contexts really differ', seen.act !== seen.agg && seen.agg !== seen.mine);
+
+    /* And the club totals move with the source, which is the whole point of
+       saying which source it is. */
+    ctx.setProjMode('act');  const a = g('standings')().tot[t].PTS;
+    ctx.setProjMode('agg');  const b = g('standings')().tot[t].PTS;
+    ok('club totals really are computed on the chosen source', Math.round(a) !== Math.round(b),
+       `act ${Math.round(a)} vs agg ${Math.round(b)}`);
+
+    ctx.setProjMode(keep === 'agg' ? 'agg' : keep === 'mine' && keepU ? 'mine' : 'act');
+    if(!keepU) ctx.setProjMode('act');
+  }
+
+  console.log('\n== all three sources for the player being asked about ==');
+  {
+    const t = 'N. Daman', name = 'Nikola Jokić';
+    const s = AC(t, 'what do the projections say about Nikola Jokic?');
+    const blk = g('aiProjLines')('Nikola Jokic');
+    ok('the block is in the context', s.includes('every source the app holds for him'));
+    ok('it carries the 2025-26 actual', /2025-26 actual\s+\d+g/.test(blk), blk.split('\n')[1]);
+    ok('...and the 2026-27 aggregate', /2026-27 aggregate\s+\d+g/.test(blk), blk.split('\n')[2]);
+    /* The aggregate carries its own games — Jokic at 72 rather than 65 — and
+       that matters under the 920-game cap, so the games have to be in it. */
+    const c = ctx.canon('Nikola Jokic');
+    ok('...at the aggregate\'s own games, not last season\'s',
+       blk.includes(g('AGG')[c].g + 'g') && g('AGG')[c].g !== g('RIDX')[c].g,
+       `agg ${g('AGG')[c].g}g vs actual ${g('RIDX')[c].g}g`);
+    ok('shooting shows the rate AND the volume it came from',
+       /FG \d+\.\d%\s+\d+\.\d/.test(blk), (blk.split('\n')[1]||'').slice(-40));
+    ok('it says which source the rest of the block is using', /currently using/.test(blk));
+
+    /* A GM with no projections of his own gets two lines, not an empty third. */
+    ok('no third line when this GM has projected nobody',
+       Object.keys(g('PROJ')).length ? true : !/this GM's own/.test(blk), blk);
+
+    /* A player with no RATER row at all has nothing to show and must not throw. */
+    ok('an unknown player yields nothing rather than throwing',
+       g('aiProjLines')('Nobody At All') === '');
+  }
+
+  console.log('\n== the assistant panel is not drawn unless a model answers ==');
+    {
+      /* A control that renders, binds its handler and then refuses is worse
+         than one that is not there — the same argument the shut auction room
+         makes. The probe is false in this harness, which has no network. */
+      const keepUp = X.AIUP;
+      X.AIUP = false; g('drawAI')();
+      const wrap = document.getElementById('aiWrap');
+      ok('unconfigured: the block is hidden', !!wrap && wrap.hidden === true);
+      X.AIUP = true; g('drawAI')();
+      ok('configured: the block is shown', !!wrap && wrap.hidden === false);
+      X.AIUP = keepUp; g('drawAI')();
+    }
+
+    console.log('\n== asking refuses what it cannot do ==');
+    {
+      const keepMe = X.me, keepChat = X.AICHAT, keepUp = X.AIUP;
+      X.AICHAT = [];
+      X.me = null; ctx.__alerts.length = 0;
+      await g('askLedger')('what is my cap room?');
+      ok('signed out is told to sign in', /sign in/i.test(ctx.__alerts.join('|')), ctx.__alerts.join('|'));
+      ok('...and nothing is added to the transcript', X.AICHAT.length===0, X.AICHAT.length);
+
+      X.me = T[0]; X.AIUP = false; ctx.__alerts.length = 0;
+      await g('askLedger')('what is my cap room?');
+      ok('with no model configured it says so', /no assistant/i.test(ctx.__alerts.join('|')), ctx.__alerts.join('|'));
+
+      ctx.__alerts.length = 0;
+      X.AIUP = true;
+      await g('askLedger')('x'.repeat(g('AIMAX')+1));
+      ok('an over-long question is refused', /keep it under/i.test(ctx.__alerts.join('|')), ctx.__alerts.join('|'));
+
+      /* The harness has no network, so the fetch throws. The failure belongs in
+         the transcript under the question it failed on, not in a toast that
+         scrolls away — and the question itself must survive. */
+      ctx.__alerts.length = 0; X.AICHAT = [];
+      await g('askLedger')('what is my cap room?');
+      ok('offline: the question is kept', X.AICHAT.length===2 && X.AICHAT[0].role==='user', JSON.stringify(X.AICHAT));
+      ok('...and the failure is shown as the answer',
+         X.AICHAT.length===2 && X.AICHAT[1].role==='assistant' && !!X.AICHAT[1].err, JSON.stringify(X.AICHAT[1]));
+      ok('...and nothing alerted', ctx.__alerts.length===0, ctx.__alerts.join('|'));
+
+      X.me = keepMe; X.AICHAT = keepChat; X.AIUP = keepUp; g('drawAI')();
+    }
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
