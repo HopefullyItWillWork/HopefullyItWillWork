@@ -850,6 +850,12 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
         a man from it when the club is full asks you which player to release.</p>
     </div>
 
+    <div id="lnWrap" hidden>
+      <h2>Last night <select id="lnDay" aria-label="Night" style="margin-left:auto;width:auto;flex:none"></select></h2>
+      <div id="lnHead"></div>
+      <div id="lnBody" style="margin-bottom:22px"></div>
+    </div>
+
     <h2>My roster <button class="btn ghost" id="expMine" style="margin-left:auto">Export CSV</button></h2>
     <div class="rosterwrap" id="meRoster"></div>
 
@@ -4183,6 +4189,7 @@ function drawMe(){
   $('meRoster').querySelectorAll('[data-mri]').forEach(b=>b.onclick=()=>toggleIR(T,+b.dataset.mri));
   $('meRoster').querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,+b.dataset.mrb));
   sortable('meRosTbl','mine','sal',true); redraw.mine=drawMe;
+  drawLastNight();
   if($('goTrades')) $('goTrades').onclick=()=>goTab('v-trade');
   if($('labGo')) $('labGo').onclick=()=>goTab('v-me');
   drawBidPanel(); drawFilters(); drawFAList();
@@ -8770,13 +8777,92 @@ async function loadDaily(force){
     }catch(e){ /* keep what we had */ }
   }
   DAILY=Object.keys(SCORE.days).length?SCORE.days:null;
-  drawTrend(); drawStandings();
+  drawTrend(); drawStandings(); drawLastNight();
   return SCORE;
 }
 /* Games counted so far this season, from the scored nights. */
 function gamesUsed(t){
   const row=SCORE.standings.find(r=>r.club===t);
   return row?row.tot.GP:0;
+}
+/* ================= LAST NIGHT =================
+   What a night actually did for the signed-in club, from the morning's scoring
+   (/api/score?day=) and the night's box scores (/api/stats?day=):
+     Counted     started, and inside the game cap
+     Over cap    started, but past 920 — discarded top-down by slot
+     Slot reused started in a slot someone else had already played in that night
+     Bench       on the roster today and played, but was not started
+   Any scored night can be picked. This is how a GM checks the scoring, and the
+   fastest way to compare a night with another platform. Bench rows read
+   today's roster, so a player traded since shows on his new club. */
+let LN={};                               // day -> {score, night}
+async function lnFetch(day){
+  if(LN[day]) return LN[day];
+  const get=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); return r.ok?await r.json():null; }catch(e){ return null; } };
+  const [sc,st]=await Promise.all([get('/api/score?day='+day), get('/api/stats?day='+day)]);
+  const v={score:sc&&sc.data, night:st&&st.data};
+  if(v.score) LN[day]=v;
+  return v;
+}
+async function drawLastNight(){
+  const wrap=$('lnWrap'); if(!wrap) return;
+  const T=me?meTeam():null, days=Object.keys(SCORE.days||{}).sort().reverse();
+  wrap.hidden=!T||!days.length;
+  if(wrap.hidden) return;
+  const sel=$('lnDay');
+  if(sel.dataset.days!==days.join()){
+    const keep=sel.value;
+    sel.innerHTML=days.map(d=>`<option>${d}</option>`).join('');
+    sel.value=days.includes(keep)?keep:days[0];
+    sel.dataset.days=days.join();
+    sel.onchange=()=>drawLastNight();
+  }
+  const day=sel.value;
+  const {score,night}=await lnFetch(day);
+  if(sel.value!==day) return;            // the GM picked another night while this loaded
+  const club=score&&score.clubs&&score.clubs[T];
+  if(!club){
+    $('lnHead').innerHTML=''; 
+    $('lnBody').innerHTML=`<div class="empty">${htmlEsc(T)} had nobody in a slot for ${htmlEsc(day)}.</div>`;
+    return;
+  }
+  const rows=[];
+  const add=(x,st)=>rows.push({slot:x.slot||'',n:x.n,t:x.t||'',s:x.s||{},st});
+  (club.counted||[]).forEach(x=>add(x,'Counted'));
+  (club.over||[]).forEach(x=>add(x,'Over cap'));
+  (club.reused||[]).forEach(x=>add(x,'Slot reused'));
+  /* Bench: on the roster today, played last night, credited to nobody here. */
+  const seen=new Set(rows.map(r=>nameKey(r.n)));
+  const played={};
+  Object.values((night&&night.players)||{}).forEach(p=>{ played[nameKey(p.n)]=p; });
+  S.teams[T].r.filter(contracted).forEach(p=>{
+    const c=canon(p.n), e=ESPNNAME[p.n]||ESPNNAME[c];
+    const hit=[p.n,c,e].filter(Boolean).map(nameKey).find(k=>played[k]&&!seen.has(k));
+    if(hit){ seen.add(hit); add({n:played[hit].n,t:played[hit].t,s:played[hit].s},'Bench'); }
+  });
+  const order=['Counted','Over cap','Slot reused','Bench'];
+  rows.sort((a,b)=>order.indexOf(a.st)-order.indexOf(b.st)||SLOTIDS.indexOf(a.slot)-SLOTIDS.indexOf(b.slot));
+  const t=club.totals||{};
+  const benchPts=rows.filter(r=>r.st==='Bench').reduce((a,r)=>a+(r.s.PTS||0),0);
+  $('lnHead').innerHTML=`<div class="dhead">
+    <span class="pill good">${t.GP||0} game${t.GP===1?'':'s'} counted</span>
+    ${club.over&&club.over.length?`<span class="pill bad">${club.over.length} over the cap</span>`:''}
+    ${club.reused&&club.reused.length?`<span class="pill bad">${club.reused.length} slot${club.reused.length===1?'':'s'} reused</span>`:''}
+    <span class="pill">${club.gpBefore+(t.GP||0)} / ${score.cap||920} after this night</span>
+    ${benchPts?`<span class="pill">${benchPts} points on the bench</span>`:''}</div>`;
+  const ma=(m,a)=>`${m||0}-${a||0}`;
+  const tag={Counted:'t-bird','Over cap':'t-blk','Slot reused':'t-blk',Bench:'t-cut'};
+  $('lnBody').innerHTML=`<div class="scroller" data-cap="1"><table id="lnTbl"><thead><tr>
+    <th class="l">Slot</th><th class="l">Player</th><th class="l">Tm</th><th>MIN</th><th>FG</th><th>FT</th>
+    <th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr class="${r.st==='Counted'?'':'iscut'}"><td class="l">${r.slot?htmlEsc(slotLabel(r.slot)):'\u2014'}</td>
+      <td class="l pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}<span class="tag ${tag[r.st]}">${r.st}</span></td>
+      <td class="l">${htmlEsc(r.t)}</td><td>${r.s.MP||0}</td><td>${ma(r.s.FG,r.s.FGA)}</td><td>${ma(r.s.FT,r.s.FTA)}</td>
+      <td>${r.s.P3||0}</td><td>${r.s.TRB||0}</td><td>${r.s.AST||0}</td><td>${r.s.STL||0}</td><td>${r.s.BLK||0}</td>
+      <td>${r.s.TOV||0}</td><td>${r.s.PTS||0}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td class="l" colspan="3">Counted</td><td></td><td>${ma(t.FG,t.FGA)}</td><td>${ma(t.FT,t.FTA)}</td>
+      <td>${t.P3||0}</td><td>${t.REB||0}</td><td>${t.AST||0}</td><td>${t.STL||0}</td><td>${t.BLK||0}</td>
+      <td>${t.TO||0}</td><td>${t.PTS||0}</td></tr></tfoot></table></div>`;
 }
 /* ---- standings from real results ---- */
 function drawStandings(){
