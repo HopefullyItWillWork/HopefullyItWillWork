@@ -392,6 +392,7 @@ border-radius:0 0 3px 3px;padding:14px 15px 16px;position:relative}
 .banner .nm{font-family:var(--disp);font-weight:700;font-size:19px;line-height:1.1;margin:7px 0 6px;letter-spacing:.02em}
 .banner .pt{font-family:var(--mono);font-size:11px;color:var(--steel)}
 .histnames{font-size:11px;color:var(--steel);margin-top:2px;font-weight:400}
+.rk{display:block;font-size:10px;color:var(--steel)}
 .banner .rings{position:absolute;top:12px;right:13px;font-size:13px;letter-spacing:-2px;color:var(--amber)}
 .twocol{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
 .twocol.wide{grid-template-columns:1.35fr 1fr}
@@ -1193,7 +1194,10 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   </section>
 
   <section class="view" id="v-trends" role="tabpanel" hidden>
-    <h2>Category profile &#8212; 2025&#8211;26 rosters</h2>
+    <h2>Standings</h2>
+    <p class="note" id="realStandNote"></p>
+    <div id="realStand"></div>
+    <h2 class="sub">Category profile &#8212; 2025&#8211;26 rosters</h2>
     <p class="note">How each club's rostered players performed per player-game, so rosters that lost time to injury still
       compare fairly. Green is a strength, red is a hole. Rating is the sum of the club's ten best player ratings.</p>
     <div class="scroller" data-cap="1"><table id="profTbl">
@@ -1946,7 +1950,7 @@ function startPolling(){
       // it — no point polling a room nobody has open.
       if(chatOn() && await loadChat()) drawChat();
       // The schedule is a once-a-day fetch: only when the league date rolls over.
-      if(seasonLive() && (SCHED.day!==dayKey()||NBAP.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers()]); render(); }
+      if(seasonLive() && (SCHED.day!==dayKey()||NBAP.day!==dayKey()||SCORE.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers(),loadDaily()]); render(); }
     }catch(e){}
   }, (A()&&(A().status==='open'||A().status==='match')) ? 4000 : 12000);
 }
@@ -8064,17 +8068,28 @@ function drawLineup(){
   const open=SLOTIDS.filter(id=>!lu.s[id]).length;
   const lockedN=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id])).length;
   const irMax=S.cfg.ir??1;
+  /* The game cap. Starters whose club plays tonight each use a game, counted
+     top-down in slot order once the morning scores this night; anything past
+     the cap is discarded. Nothing is blocked — the GM manages his own games —
+     but he is told, by name, who would not count. */
+  const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T), room=Math.max(0,cap-used);
+  const playing=SLOTIDS.filter(id=>lu.s[id]&&tipOf(lu.s[id]));
+  const lost=playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   $('luHead').innerHTML=`<div class="dhead"><h3>Tonight &#183; ${htmlEsc(dayKey())}</h3>
     <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
     <span class="pill">${bench.length} on the bench</span>
     <span class="pill">${ir.length} of ${irMax} on the IR</span>
     ${lockedN?`<span class="pill">${lockedN} locked</span>`:''}
+    <span class="pill ${used+playing.length>cap?'bad':''}" title="Games counted so far this season, out of the cap">${used} / ${cap} games</span>
     ${can?`<button class="btn ghost" id="luAuto" style="margin-left:auto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
-    <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night.
-      <b>That accrual is not built yet</b> &#8212; it needs the nightly stats feed, so the numbers below
-      are each man's per-game line, not tonight's box score, and nothing here moves the standings today.
-      The slots, the eligibility and the lock are real.</p>`;
+    ${lost.length?`<div class="warn"><b>Tonight would take ${htmlEsc(T)} past ${cap} games.</b>
+      You have ${room} game${room===1?'':'s'} left and ${playing.length} starters playing tonight. Games count
+      top-down \u2014 C, then G, F and UTIL \u2014 so these ${lost.length} would not count:
+      ${lost.map(htmlEsc).join(', ')}. Bench them, or reorder, to choose who uses the last games.</div>`:''}
+    <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night, scored the
+      next morning from the box scores and this lineup as it stood when his game tipped off. The numbers
+      below are each man's per-game line.</p>`;
 
   /* Lineup, bench and injured reserve are one table down the page rather than
      three boxes in two columns. They hold the same nine columns and a GM reads
@@ -8704,19 +8719,65 @@ function drawProfile(){
 }
 redraw.prof=drawProfile;
 
-/* ================= ROLLING 15-DAY CHART =================
-   Reads a daily feed written by the nightly job under storage key `daily2026`:
-     { "YYYY-MM-DD": { "<club>": {FG,FGA,FT,FTA,P3,REB,AST,STL,BLK,TO,PTS,GP}, ... }, ... }
-   Each entry is that club's totals for that date only. The chart sums a trailing
-   15-day window, so nothing else needs to be precomputed.                        */
+/* ================= REAL SCORES =================
+   /api/score serves the season as scored each morning (lib/scorerun.mjs):
+     days       { "YYYY-MM-DD": { "<club>": {FG,FGA,FT,FTA,P3,REB,AST,STL,BLK,TO,PTS,GP} } }
+                each club's COUNTED totals for that night only — starters, top-down
+                to the game cap
+     standings  [{ club, rank, pts, cat, tot, pct }] computed from those nights
+   The 15-day chart, the standings table and the lineup's game-cap warning all
+   read this one payload. It changes once a morning, so it is fetched at boot and
+   again when the day turns, not on every poll. */
 const PAL=['#E0A340','#55A67A','#7FB0E8','#C9553F','#C9B463','#9B7FD4','#5FC2B8','#E8896B','#8FA3B8'];
 let DAILY=null, hidden=new Set();
-async function loadDaily(){
-  try{
-    const r=window.storage?await window.storage.get('daily2026',true):null;
-    DAILY=r&&r.value?JSON.parse(r.value):null;
-  }catch(e){DAILY=null;}
-  drawTrend();
+let SCORE={day:'',days:{},standings:[],cap:920,ok:false};
+async function loadDaily(force){
+  const day=dayKey();
+  if(!force&&SCORE.day===day&&SCORE.ok){ drawTrend(); return SCORE; }
+  if(await probeAPI()){
+    try{
+      const r=await fetch('/api/score',{cache:'no-store'});
+      if(!r.ok) throw new Error('http '+r.status);
+      const j=await r.json();
+      SCORE={day,days:(j&&j.days)||{},standings:(j&&j.standings)||[],
+        cap:(j&&j.cap)||S.cfg.gamecap||920,ok:!!(j&&j.days),lastRun:j&&j.lastRun};
+    }catch(e){ /* keep what we had */ }
+  }
+  DAILY=Object.keys(SCORE.days).length?SCORE.days:null;
+  drawTrend(); drawStandings();
+  return SCORE;
+}
+/* Games counted so far this season, from the scored nights. */
+function gamesUsed(t){
+  const row=SCORE.standings.find(r=>r.club===t);
+  return row?row.tot.GP:0;
+}
+/* ---- standings from real results ---- */
+function drawStandings(){
+  const box=$('realStand'); if(!box) return;
+  const rows=SCORE.standings||[], cap=SCORE.cap||920;
+  const played=rows.some(r=>r.tot.GP>0);
+  $('realStandNote').textContent=played
+    ? `Through ${Object.keys(SCORE.days).sort().pop()} \u00b7 scored each morning from last night's box scores and each club's lineup at tip-off.`
+    : 'No games scored yet. The first night is scored the morning after opening night.';
+  if(!played){ box.innerHTML=''; return; }
+  const K=SORTS.stand||{col:'tot',desc:true};
+  const sv=(r,c)=>({rank:r.rank,club:r.club,gp:r.tot.GP,fg:r.pct.FG,ft:r.pct.FT,p3:r.tot.P3,reb:r.tot.REB,
+    ast:r.tot.AST,stl:r.tot.STL,blk:r.tot.BLK,to:r.tot.TO,pts:r.tot.PTS,tot:r.pts})[c];
+  const shown=rows.slice().sort((a,b)=>cmp(sv(a,K.col),sv(b,K.col),K.desc));
+  const pct=v=>v?v.toFixed(3).replace(/^0/,''):'\u2014';
+  const cell=(r,k,v)=>`<td>${v}<small class="rk">${r.cat[k]}</small></td>`;
+  box.innerHTML=`<div class="scroller" data-cap="1"><table id="standTbl"><thead><tr>
+      <th class="l" data-k="rank">#</th><th class="l" data-k="club">Club</th><th data-k="gp">Games</th>
+      <th data-k="fg">FG%</th><th data-k="ft">FT%</th><th data-k="p3">3P</th><th data-k="reb">REB</th>
+      <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
+      <th data-k="pts">PTS</th><th data-k="tot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr>
+      <td class="l">${r.rank}</td><td class="l">${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+      <td class="${r.tot.GP>=cap?'bad':''}">${r.tot.GP} / ${cap}</td>
+      ${cell(r,'FG%',pct(r.pct.FG))}${cell(r,'FT%',pct(r.pct.FT))}${cell(r,'P3',r.tot.P3)}${cell(r,'REB',r.tot.REB)}
+      ${cell(r,'AST',r.tot.AST)}${cell(r,'STL',r.tot.STL)}${cell(r,'BLK',r.tot.BLK)}${cell(r,'TO',r.tot.TO)}
+      ${cell(r,'PTS',r.tot.PTS)}<td class="rating">${r.pts}</td></tr>`).join('')}</tbody></table></div>`;
+  sortable('standTbl','stand','tot',true); redraw.stand=drawStandings;
 }
 function rolling(cat){
   const dates=Object.keys(DAILY).sort();
