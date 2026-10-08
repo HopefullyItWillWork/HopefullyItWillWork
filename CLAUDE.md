@@ -1982,23 +1982,55 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 
 ---
 
+## Nightly stats feed
+
+Box scores come from **ESPN's public site API** (free, no key):
+`site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=YYYYMMDD`
+for the night's games, then `summary?event=<id>` per game. **Not cdn.nba.com or
+stats.nba.com** — the NBA's CDN answers 403 to Netlify's servers, which is also
+why `/api/schedule` returns "no schedule available" and lineup locks never fire.
+Do not scrape Basketball-Reference: it prohibits it.
+
+- `lib/stats.mjs` — pure parsing and date logic, imports nothing
+  (`tests/stats.test.js`). Columns are read by key name, never position.
+- `lib/feed.mjs` — fetch, store, report. Shared by both functions below.
+- `stats-nightly.mjs` — scheduled hourly 09:15–13:15 UTC. The first run does the
+  work; later ones only re-check nights that were not final or did not fit the
+  ~22s budget (scheduled functions get about 30s).
+- `stats.mjs` — `GET /api/stats` (index and last run), `?day=YYYY-MM-DD` (one
+  night), `?test=YYYY-MM-DD` (fetch from ESPN without storing, any season type),
+  `POST ?run=1` (run now, throttled to once per 5 minutes).
+
+Every run re-reads **last night plus the five before it**, because the NBA
+corrects box scores for days afterwards. A night is rewritten only when it
+changed, and each correction is listed on that night in `daily-index`.
+
+One blob per night, `daily-YYYY-MM-DD` (state.mjs strips `/` from keys):
+`{date, games:{id:{final,home,away}}, players:{espnId:{n,t,s}}}`. `s` uses
+RATER's keys (`FG FGA FT FTA P3 TRB AST STL BLK TOV PTS MP`). Players who did
+not play have no row. Names are ESPN's spelling — route them through `canon()`.
+
+Regular season only by default. Set `STATS_TYPES=1,2` in Netlify's environment
+variables to let preseason in for testing.
+
+---
+
 ## Not yet built
 
-- The real rookie class. `ROOKIES` is placeholder data until the feed lands.
 - CSV import. Export is built; see the commissioner's player table above for what
   reading a file back in would have to get right.
 - Auto-advancing the auction. The snake says who is on the clock, but nothing
   times a nomination out or nudges a GM who has wandered off.
-- Nightly stats feed. The rolling-15-day chart is built and waiting on a
-  `daily/<date>` key per day. **Use the NBA's own stats endpoints**
-  (`stats.nba.com`, e.g. `leaguegamelog` / `boxscoretraditionalv2`) — free, no
-  key, one request a night for the whole league rather than a page per player.
-  They want a browser-ish `Referer` and `User-Agent` or they hang, which is fine
-  from a Netlify function. Do not scrape Basketball-Reference: it prohibits it,
-  and 570 page fetches will not finish inside the function timeout.
+- **Lineup snapshots.** Only each club's *current* lineup is stored (`lu`), so a
+  job reading it the next morning cannot tell who was in a slot at tip-off. Each
+  player's slot has to be recorded when his game locks before accrual can be right.
+- **The 15-day chart's loader.** `loadDaily()` reads `window.storage` key
+  `daily2026`, which only exists in the claude.ai artifact sandbox — on Netlify it
+  reads nothing. It needs club totals per night, so it comes after accrual.
 - **Daily stat accrual.** The lineup structure is built — slots, eligibility,
   bench, IR, lock — but nothing counts a night's box score against a started
-  player yet. That is the nightly feed's job. `startedOn(club)` is the hook.
+  player yet. The feed (above) supplies the box scores; `startedOn(club)` is the
+  hook for who started.
 - Optimising a lineup beyond `autoLineup()`'s "best available who fits, scarcest
   slot first". A real optimiser needs the daily feed and the schedule.
 - Multi-year weighted projections and historical comps.
