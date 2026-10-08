@@ -1217,9 +1217,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('empty', document.getElementById('tradeCats').innerHTML==='');
   await g('toggleBlock')('Osborn', oi);
 
-  console.log('\n== the rookie class is there and flagged as placeholder ==');
-  ok('ROOKIES loaded', g('ROOKIES').length >= 20, g('ROOKIES').length);
-  ok('and it says so', X.ROOKIES_PLACEHOLDER === true);
+  console.log('\n== the rookie class is the real 2026 first round ==');
+  ok('ROOKIES loaded', g('ROOKIES').length === 30, g('ROOKIES').length);
+  ok('and is not flagged as placeholder', X.ROOKIES_PLACEHOLDER === false);
 
   console.log('\n== the commissioner sets the order and the scale ==');
   X.me = '__comm__';

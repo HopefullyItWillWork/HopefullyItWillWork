@@ -710,6 +710,13 @@ roster. Worth $7.00 over the cap.
 player, or rookie option. Their club sits out the bidding, then decides whether
 to match. All cap rules apply to the match.
 
+**Declining a team option** is not a cut. In the offseason before the option year,
+`declineOption()` voids that year and clears `o`. The player stays on the roster
+as an expiring player: an **unrestricted** free agent whose club keeps any Bird
+rights. There is no release record, so no bar on signing him back. Releasing a
+player who has an option instead goes through the normal cut rules, and the Cut
+confirm says so.
+
 **Mid-level exception**: $5.50 over the cap by default, and the commissioner sets
 the figure (`S.cfg.mle`). It is **a pot, not a coupon** — it splits across as many
 players as it covers, so what is tracked is the money **left**.
@@ -1160,9 +1167,15 @@ carried on the offer (`givePk`/`getPk`) and written onto the record only when th
 trade executes. `recheckTrade()` rejects a pick the club no longer holds or has
 already used.
 
-**The rookie class is placeholder data** (`ROOKIES`, `ROOKIES_PLACEHOLDER`), and
-every screen that shows it says so. When the stats feed lands, replace the array
-wholesale — nothing in the draft code reads anything but `n` and `p`.
+**The rookie class is the 2026 NBA first round** (`ROOKIES`, 30 players, in draft
+order, positions folded to G/F/C). Each year, replace the array wholesale with the
+new first round — nothing in the draft code reads anything but `n` and `p`.
+`ROOKIES_PLACEHOLDER` is `false`; set it back to `true` only if the array ever holds
+made-up names again, which turns the warning banners back on.
+
+The draft year that makes picks tradeable is live data (`S.cfg.draft.year`, set on
+the Commissioner tab), not code. Tradeable picks are that year plus `future` years
+after it, so a draft year one ahead of the real one hides that year's picks.
 
 ---
 
