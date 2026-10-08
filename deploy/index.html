@@ -1946,7 +1946,7 @@ function startPolling(){
       // it — no point polling a room nobody has open.
       if(chatOn() && await loadChat()) drawChat();
       // The schedule is a once-a-day fetch: only when the league date rolls over.
-      if(seasonLive() && SCHED.day!==dayKey()){ await loadSchedule(); render(); }
+      if(seasonLive() && (SCHED.day!==dayKey()||NBAP.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers()]); render(); }
     }catch(e){}
   }, (A()&&(A().status==='open'||A().status==='match')) ? 4000 : 12000);
 }
@@ -3353,7 +3353,7 @@ function drawAdmin(){
     drawTips();
     $('tipDay').oninput=drawTips;
     $('tipSave').onclick=saveTips;
-    $('tipReload').onclick=async()=>{ await loadSchedule(true); drawTips();
+    $('tipReload').onclick=async()=>{ await Promise.all([loadSchedule(true),loadNbaPlayers(true)]); drawTips();
       projToast(SCHED.ok?`${Object.keys(SCHED.tips).length} clubs playing tonight`
                         :'Could not reach the schedule'); };
   }
@@ -3455,7 +3455,7 @@ async function saveTips(){
     out[m[1].toUpperCase()]=hhmm(tipMinutes(m[2]));
   });
   if(bad.length&&!confirm(`These lines were not understood and will be dropped:\n\n${bad.join('\n')}\n\nSave the rest?`)) return;
-  const known=new Set(Object.values(NBATM));
+  const known=new Set([...Object.values(NBATM),...Object.values(NBAP.byKey)]);
   const odd=Object.keys(out).filter(k=>!known.has(k));
   if(odd.length&&!confirm(`No player on any roster plays for: ${odd.join(', ')}.\n\nSave anyway?`)) return;
   S.cfg.sched={...(S.cfg.sched||{}),[day]:out};
@@ -7894,8 +7894,36 @@ function tipMinutes(v){
   }catch(e){ const d=new Date(t); return d.getHours()*60+d.getMinutes(); }
 }
 const hhmm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+/* Which NBA club a player is on TODAY. ESPN's rosters (/api/players, refreshed
+   daily) come first, because NBATM is last season's table: it never heard of a
+   rookie, and a player who changed clubs over the summer would lock at his old
+   club's tip-off. NBATM is the fallback for anyone ESPN does not list.
+   nameKey() must match lib/nba.mjs exactly. */
+const nameKey=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+(jr|sr|ii|iii|iv)$/,'').replace(/\s+/g,'');
+let NBAP={day:'',byKey:{},n:0};
+async function loadNbaPlayers(force){
+  const day=dayKey();
+  if(!force&&NBAP.day===day&&NBAP.n) return NBAP;
+  if(!await probeAPI()) return NBAP;
+  try{
+    const r=await fetch('/api/players',{cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    const j=await r.json(), byKey={};
+    Object.values((j&&j.players)||{}).forEach(p=>{ if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t; });
+    NBAP={day,byKey,n:Object.keys(byKey).length};
+  }catch(e){ /* keep whatever we had; NBATM still answers */ }
+  return NBAP;
+}
+/* Our spelling → ESPN's where the words differ, not just the punctuation.
+   Same table as ESPNNAME in lib/nba.mjs. */
+const ESPNNAME={"Ron Holland":"Ronald Holland II","Mouhamadou Gueye":"Mouhamed Gueye"};
+function nbaTeamOf(name){
+  const c=canon(name), e=ESPNNAME[name]||ESPNNAME[c];
+  return NBAP.byKey[nameKey(name)]||NBAP.byKey[nameKey(c)]||(e&&NBAP.byKey[nameKey(e)])||NBATM[c]||null;
+}
 function tipOf(name,at){
-  const tm=NBATM[canon(name)];
+  const tm=nbaTeamOf(name);
   if(!tm) return null;
   const v=tipFor(tm,dayKey(at));
   if(v==null) return null;
@@ -8969,7 +8997,7 @@ function netChip(){
   await loadNotes();
   wireChat();
   comboAttachAll();
-  if(seasonLive()) loadSchedule().then(()=>render());
+  if(seasonLive()) Promise.all([loadSchedule(),loadNbaPlayers()]).then(()=>render());
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();

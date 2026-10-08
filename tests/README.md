@@ -10,6 +10,7 @@ node tests/smoke.js                 # renders every view as signed-out, commissi
 node tests/mail.test.js             # the mail functions' pure logic
 node tests/stats.test.js            # the stats feed's parsing, date window and tip-offs
 node tests/lineups.test.js          # lineup history: append-only, carry, lineup at tip-off
+node tests/nba.test.js              # NBA club per player: ESPN parsing and name folding
 ```
 
 - `dom.js` — a DOM stub with enough behaviour to execute the real script: ids are

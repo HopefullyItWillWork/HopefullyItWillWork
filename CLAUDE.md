@@ -2038,6 +2038,21 @@ tip-off**, so every save is also recorded by `/api/lineups`:
 History is keyed by club **name**. A club renamed mid-season has its earlier
 entries under the old name; scoring has to follow `S.cfg.renames`.
 
+## Which NBA club a player is on
+
+Locks need each player's NBA club to know whose tip-off freezes him. `NBATM` is
+last season's hand-made table: it has no rookies and goes stale with every
+trade. `/api/players` serves ESPN's 30 current rosters (`nbaplayers`, refreshed
+when older than six hours and every morning by `nba-players-daily.mjs`), and the
+page's `nbaTeamOf()` reads it first, falling back to `NBATM`.
+
+Matching goes through `nameKey()` (letters only, accents and Jr/II/III dropped),
+which exists identically in `lib/nba.mjs` and the page. Names that differ by
+whole words go in `ESPNNAME`, also in both places — today Ron Holland → Ronald
+Holland II and Mouhamadou Gueye → Mouhamed Gueye. Every rated player was checked
+against ESPN on 2026-10-08; the ~100 others without a match are unsigned.
+Tests: `tests/nba.test.js`.
+
 ## The 920-game rule in scoring (league decision, 2026-10-08)
 
 GMs manage their own games. When a night would carry a club past 920, games count
