@@ -2038,13 +2038,59 @@ tip-off**, so every save is also recorded by `/api/lineups`:
 History is keyed by club **name**. A club renamed mid-season has its earlier
 entries under the old name; scoring has to follow `S.cfg.renames`.
 
-## The 920-game rule in scoring (league decision, 2026-10-08)
+## Which NBA club a player is on
 
-GMs manage their own games. When a night would carry a club past 920, games count
-**top-down in slot order** — C, G1–G4, F1–F4, U1–U6 — until the cap is reached,
-and everything after is discarded. At 919 with ten starters playing, only the
-centre counts. That is on the GM. The site should **warn** when tonight's
-starters would push a club past 920; it does not stop them.
+Locks need each player's NBA club to know whose tip-off freezes him. `NBATM` is
+last season's hand-made table: it has no rookies and goes stale with every
+trade. `/api/players` serves ESPN's 30 current rosters (`nbaplayers`, refreshed
+when older than six hours and every morning by `nba-players-daily.mjs`), and the
+page's `nbaTeamOf()` reads it first, falling back to `NBATM`.
+
+Matching goes through `nameKey()` (letters only, accents and Jr/II/III dropped),
+which exists identically in `lib/nba.mjs` and the page. Names that differ by
+whole words go in `ESPNNAME`, also in both places — today Ron Holland → Ronald
+Holland II and Mouhamadou Gueye → Mouhamed Gueye. Every rated player was checked
+against ESPN on 2026-10-08; the ~100 others without a match are unsigned.
+Tests: `tests/nba.test.js`.
+
+## Scoring
+
+`lib/score.mjs` is the rule (pure, `tests/score.test.js`); `lib/scorerun.mjs`
+reads and writes; `score-nightly.mjs` runs at :45 past each stats hour
+(09:45–13:45 UTC), half an hour after the stats job, with its own time budget.
+
+For each player in a night's box scores: find his game's tip-off (from the
+night's games, by his NBA club), take each club's lineup **as of that tip-off**
+(`lineupAt`), and if he is in a slot the club started him. Then:
+
+- **One game per slot per night.** The first man to tip in a slot keeps it; a
+  second man in the same slot that night is `reused` and does not count. The
+  page's lock forbids that swap, but the lock is browser-only — this is the
+  server-side half of it.
+- **The game cap, top-down** (league decision, 2026-10-08). GMs manage their own
+  games. When a night would take a club past 920, its starters count in slot
+  order — C, G1–G4, F1–F4, U1–U6 — until the cap, and the rest go under `over`.
+  At 919 with ten starters playing, only the centre counts.
+- Names: `keysFor()` tries the roster name, `NAMEFIX` (a copy of the page's),
+  `ESPNNAME`, and the commissioner's `settings.alias`, all through `nameKey()`.
+- Club names go through the rename journal (`currentName()`), both for lineup
+  history and for summing a season.
+
+Every run rescores the stats feed's window (last night + five) **oldest first**,
+because a correction early in the window changes how many games every later
+night starts from. Nights before the window are settled. A stored night that was
+never scored is caught up.
+
+Written: `score-<season>` (`{days:{date:{club:totals}}, lastRun}`, the whole
+season, small) and `score-YYYY-MM-DD` (one night in full: `counted`, `over`,
+`reused`, and box-score players nobody started). `GET /api/score` adds
+`standings`, computed on read so it can never disagree with the nights.
+`POST /api/score?run=1[&day=D]` rescores now.
+
+The page reads `/api/score` once a day (`loadDaily`): the **Standings** table at
+the top of Team trends, the 15-day chart (`DAILY` is `score.days`, already in
+the chart's shape), and the lineup screen's games pill and **over-920 warning**,
+which names, in slot order, the starters who would not count tonight.
 
 ---
 
@@ -2054,14 +2100,11 @@ starters would push a club past 920; it does not stop them.
   reading a file back in would have to get right.
 - Auto-advancing the auction. The snake says who is on the clock, but nothing
   times a nomination out or nudges a GM who has wandered off.
-- **Scoring.** Box scores (`daily-*`) and lineup history (`luh/*`) are both
-  recorded; nothing yet combines them into club totals, counts games against 920
-  (top-down slot order, above), or builds standings from real results.
-- **The over-920 warning** on the lineup screen. Needs games used so far, which
-  is scoring.
-- **The 15-day chart's loader.** `loadDaily()` reads `window.storage` key
-  `daily2026`, which only exists in the claude.ai artifact sandbox — on Netlify it
-  reads nothing. It needs club totals per night, so it comes after accrual.
+- **Checking scoring against the old platform** for the first week or two
+  before relying on the site alone. The past platform let clubs finish at
+  925–927 games; this one stops at exactly the cap.
+- **Last night's actual line** on the lineup screen (`luLine` reads `S.daily`,
+  which nothing fills yet) and in the daily email digest's stats slot.
 - **Daily stat accrual.** The lineup structure is built — slots, eligibility,
   bench, IR, lock — but nothing counts a night's box score against a started
   player yet. The feed (above) supplies the box scores; `startedOn(club)` is the
