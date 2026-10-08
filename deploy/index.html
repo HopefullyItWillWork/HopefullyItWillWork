@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>League Ledger</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -95,6 +96,10 @@ cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;just
 .themebtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 body{transition:background-color .18s ease,color .18s ease}
 .mast-in{max-width:1280px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+/* The league mark: a question mark whose dot is a basketball, from logo.svg.
+   Drawn in the theme's own amber and ink so it follows the light theme too. */
+.brandwrap{display:flex;align-items:center;gap:9px}
+.mark{width:26px;height:32px;flex:none}
 .brand{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.005em;line-height:1;color:var(--chalk)}
 .brand::after{content:'';display:block;height:2px;width:34px;background:var(--amber);margin-top:5px}
 .season{font-family:var(--mono);font-size:10.5px;color:var(--steel);letter-spacing:.14em;text-transform:uppercase}
@@ -779,7 +784,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 <body>
 <header class="mast" id="mast">
   <div class="mast-in">
-    <div class="brand" id="brand">League Ledger</div>
+    <div class="brandwrap"><svg class="mark" viewBox="0 2 64 70" aria-hidden="true"><path d="M18 22 Q18 8 32 8 Q46 8 46 22 Q46 30 37 34 Q32 36.5 32 42" fill="none" stroke="var(--amber)" stroke-width="9" stroke-linecap="round"/><path d="M18 22 Q18 8 32 8 Q46 8 46 22 Q46 30 37 34 Q32 36.5 32 42" fill="none" stroke="var(--ink)" stroke-width="1.4"/><circle cx="32" cy="55" r="9.5" fill="var(--amber)"/><g fill="none" stroke="var(--ink)" stroke-width="1.3"><path d="M22.5 55 H41.5"/><path d="M32 45.5 V64.5"/><path d="M25.5 48.2 Q29.6 55 25.5 61.8"/><path d="M38.5 48.2 Q34.4 55 38.5 61.8"/></g></svg><div class="brand" id="brand">League Ledger</div></div>
     <div class="season" id="seasonL">2026&#8211;27</div>
     <span class="chip" id="netChip" title="League data status"></span>
   <div class="who" id="whoBar"></div>
