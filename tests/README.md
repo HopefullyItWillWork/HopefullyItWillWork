@@ -8,6 +8,8 @@ node tests/test.js                  # the app, against the working tree's deploy
 node tests/test.js path/to/old.html # any other build, to check a test is not vacuous
 node tests/smoke.js                 # renders every view as signed-out, commissioner, each GM
 node tests/mail.test.js             # the mail functions' pure logic
+node tests/stats.test.js            # the stats feed's parsing, date window and tip-offs
+node tests/lineups.test.js          # lineup history: append-only, carry, lineup at tip-off
 ```
 
 - `dom.js` — a DOM stub with enough behaviour to execute the real script: ids are

@@ -2217,8 +2217,10 @@ async function toggleIR(team,idx){
       SLOTIDS.forEach(id=>{ if(canon(lu.s[id])===canon(p.n)){ was=slotLabel(id); lu.s[id]=''; } });
       if(was) S.teams[team].lu={d:dayKey(),s:lu.s};
     }
-    return commit({kind:'edit',team,
+    await commit({kind:'edit',team,
       detail:`${p.n} moved to injured reserve${was?` \u2014 ${was} spot opened`:''}`},['rosters']);
+    if(was) await logLineup(team);
+    return;
   }
   /* Coming off the IR. If the active roster is already full this is a swap, not
      a move, and the GM picks who leaves. */
@@ -7919,6 +7921,20 @@ function lineupNote(){
     ? 'No NBA games tonight, so nothing locks.'
     : `Tip-off times unavailable${SCHED.reason?' ('+SCHED.reason+')':''}, so nothing is locked.`;
 }
+/* Every lineup save is also sent to /api/lineups, which stamps it with the
+   server's clock and keeps it for good (lib/lineups.mjs). The lineup in
+   `rosters` is only ever the current one; scoring needs to know what it was at
+   each tip-off. Failure here never blocks the save — the morning carry-forward
+   still has the club's lineup — but it is said out loud, because a lost entry
+   is a change that scoring will not see. */
+async function logLineup(team){
+  if(!HAS_API) return;
+  try{
+    const r=await fetch('/api/lineups',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({club:team,s:lineupOf(team).s,by:isComm()?'Commissioner':(me||'')})});
+    if(!r.ok) throw new Error('http '+r.status);
+  }catch(e){ projToast('Lineup saved, but its time stamp did not reach the server. Save it again to be safe.'); }
+}
 /* ---- moves ---- */
 async function setSlot(team,id,name){
   if(!canEdit(team)) return alert('You can only set your own lineup.');
@@ -7943,6 +7959,7 @@ async function setSlot(team,id,name){
   S.teams[team].lu={d:dayKey(),s:lu.s};
   await commit({kind:'edit',team,detail: name
     ? `${name} started at ${slotLabel(id)}` : `${slotLabel(id)} spot cleared`},['rosters']);
+  await logLineup(team);
 }
 async function clearLineup(team){
   if(!canEdit(team)) return alert('You can only set your own lineup.');
@@ -7954,6 +7971,7 @@ async function clearLineup(team){
   SLOTIDS.forEach(id=>{ if(lu.s[id]&&!isLocked(lu.s[id])) lu.s[id]=''; });
   S.teams[team].lu={d:dayKey(),s:lu.s};
   await commit({kind:'edit',team,detail:'Lineup cleared'},['rosters']);
+  await logLineup(team);
 }
 /* Fill every open, unlocked slot with the best available man who fits it. The
    scarcest slot goes first — centre, then the named positions, then utility —
@@ -7975,6 +7993,7 @@ async function autoLineup(team){
   if(!filled) return projToast('Nothing left to fill');
   S.teams[team].lu={d:dayKey(),s:lu.s};
   await commit({kind:'edit',team,detail:`Lineup auto-filled — ${filled} spot${filled===1?'':'s'}`},['rosters']);
+  await logLineup(team);
 }
 
 /* The nine scoring categories as the lineup shows them, in the order the league
