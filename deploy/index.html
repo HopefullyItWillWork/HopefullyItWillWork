@@ -2367,13 +2367,39 @@ async function commit(entry,only){
   try{
     // the log is append-only so concurrent entries never overwrite each other
     const logOk = newEntry ? await appendLog([newEntry]) : true;
-    const putOk = await Store.put(S,{only: only || sliceGuess(entry)});
+    const slices = only || sliceGuess(entry);
+    /* Anyone a club no longer has under contract comes out of its lineup in
+       the same save — a release, a trade, a swap off the IR, a player signed
+       away by another club. Scoring trusts the lineup, so a man left in a slot
+       after he is gone would go on scoring for the club that let him go. Done
+       here rather than in each of those paths so a path added later cannot
+       forget it. */
+    const pruned = slices.includes('rosters') ? pruneLineups() : [];
+    const putOk = await Store.put(S,{only: slices});
     ok = logOk && putOk;
+    if(putOk) for(const t of pruned) await logLineup(t);
   }catch(e){ ok=false; }
   setSync(ok?'ok':'err', ok
     ? (HAS_API?`Shared \u00b7 ${S.log.length} transactions`:`Saved locally \u00b7 ${S.log.length} transactions`)
     : 'Could not save \u2014 your change is local only');
   render();
+}
+/* Clear every lineup slot holding someone the club no longer has active —
+   gone from the roster, out of contract, or on the IR. Returns the clubs
+   whose lineup changed, so their new lineup can be recorded with a server
+   time stamp. A lineup only exists once the season is live. */
+function pruneLineups(){
+  if(!seasonLive()) return [];
+  const changed=[];
+  TEAMS().forEach(t=>{
+    const lu=S.teams[t]&&S.teams[t].lu;
+    if(!lu||!lu.s) return;
+    const ok=new Set(S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)).map(p=>canon(p.n)));
+    let hit=false;
+    Object.keys(lu.s).forEach(id=>{ const n=lu.s[id]; if(n&&!ok.has(canon(n))){ lu.s[id]=''; hit=true; } });
+    if(hit){ S.teams[t].lu={d:dayKey(),s:lu.s}; changed.push(t); }
+  });
+  return changed;
 }
 /* Only push the slices a change could have touched. */
 function sliceGuess(entry){
