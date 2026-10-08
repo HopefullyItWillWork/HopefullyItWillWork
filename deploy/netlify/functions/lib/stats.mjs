@@ -15,7 +15,7 @@
    One stored record per league date, under the blob key `daily-YYYY-MM-DD`
    (state.mjs strips "/" from keys, so not `daily/…`):
 
-     { date, at, games: { <espnId>: { final, home, away } },
+     { date, at, games: { <espnId>: { final, home, away, tip } },
        players: { <espnId>: { n, t, s: { MP,FG,FGA,FT,FTA,P3,TRB,AST,STL,BLK,TOV,PTS } } } }
 
    `s` uses the same keys as RATER's per-game line, so anything that already
@@ -71,7 +71,8 @@ export function gamesFrom(scoreboard, types) {
       const c = (comp.competitors || []).find((x) => x.homeAway === h);
       return (c && c.team && c.team.abbreviation) || "";
     };
-    out.push({ id: String(e.id), final: !!st.completed, home: side("home"), away: side("away") });
+    out.push({ id: String(e.id), final: !!st.completed, home: side("home"), away: side("away"),
+      tip: e.date || comp.date || null });
   }
   return out;
 }
@@ -131,6 +132,30 @@ export function diffDay(before, after) {
     if (!x || !y) { out.push({ id, n: (y || x).n, what: x ? "removed" : "added" }); continue; }
     const cats = Object.keys(y.s).filter((k) => x.s[k] !== y.s[k]);
     if (cats.length) out.push({ id, n: y.n, what: cats.map((k) => `${k} ${x.s[k]}→${y.s[k]}`).join(", ") });
+  }
+  return out;
+}
+
+/* Tonight's tip-offs for the lineup lock: { <ESPN team code>: "HH:MM" } in
+   league time. Every season type counts here — a preseason game still has a
+   start time — and a postponed or cancelled game is left out, because a game
+   that is not being played must not lock anybody. A club playing twice in a
+   day (it does not happen, but the feed cannot promise it) keeps the earlier
+   time, so a lock can never land later than the game a GM is watching. */
+export function tipsFrom(scoreboard, tz) {
+  const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+  const out = {};
+  for (const e of (scoreboard && scoreboard.events) || []) {
+    const name = String((e.status && e.status.type && e.status.type.name) || "");
+    if (/POSTPONED|CANCELED|CANCELLED|SUSPENDED/.test(name)) continue;
+    const t = new Date(e.date);
+    if (isNaN(t)) continue;
+    const hm = fmt.format(t);
+    const comp = (e.competitions && e.competitions[0]) || {};
+    for (const c of comp.competitors || []) {
+      const code = c.team && c.team.abbreviation;
+      if (code && (!out[code] || hm < out[code])) out[code] = hm;
+    }
   }
   return out;
 }

@@ -1987,8 +1987,10 @@ renders correctly but says "this device only" is a broken deploy that looks fine
 Box scores come from **ESPN's public site API** (free, no key):
 `site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=YYYYMMDD`
 for the night's games, then `summary?event=<id>` per game. **Not cdn.nba.com or
-stats.nba.com** — the NBA's CDN answers 403 to Netlify's servers, which is also
-why `/api/schedule` returns "no schedule available" and lineup locks never fire.
+stats.nba.com** — the NBA's CDN answers 403 to Netlify's servers. `/api/schedule`
+used to read it, never got a schedule, and so no lineup ever locked; it now reads
+ESPN's scoreboard for the one date asked (`sched-YYYY-MM-DD`, refreshed every 30
+minutes on the day, postponed games left out).
 Do not scrape Basketball-Reference: it prohibits it.
 
 - `lib/stats.mjs` — pure parsing and date logic, imports nothing
@@ -2015,15 +2017,48 @@ variables to let preseason in for testing.
 
 ---
 
+## Lineup history
+
+The page keeps only a club's **current** lineup (`S.teams[t].lu`, in `rosters`),
+carried forward until changed. Scoring needs the lineup **as of each player's
+tip-off**, so every save is also recorded by `/api/lineups`:
+
+- Each save is its own blob, `luh/<league date>/<club>/<server ISO>-<rand>`.
+  Append-only by construction; nothing is ever overwritten.
+- The time is the **server's**, never the browser's.
+- The page calls `logLineup(team)` after every lineup change (`setSlot`,
+  `autoLineup`, `clearLineup`, and moving a starter to IR). A failed post shows a
+  toast; it never blocks the save.
+- The nightly job's first run writes a `carry` entry for every club with a lineup
+  and nothing recorded yet that day, so an untouched lineup still has a baseline.
+- Scoring uses `lineupAt(entries, tip)`: the last entry at or before the tip.
+  A change after a game starts therefore cannot reach that game, whatever the
+  browser lock did. Tests: `tests/lineups.test.js`.
+
+History is keyed by club **name**. A club renamed mid-season has its earlier
+entries under the old name; scoring has to follow `S.cfg.renames`.
+
+## The 920-game rule in scoring (league decision, 2026-10-08)
+
+GMs manage their own games. When a night would carry a club past 920, games count
+**top-down in slot order** — C, G1–G4, F1–F4, U1–U6 — until the cap is reached,
+and everything after is discarded. At 919 with ten starters playing, only the
+centre counts. That is on the GM. The site should **warn** when tonight's
+starters would push a club past 920; it does not stop them.
+
+---
+
 ## Not yet built
 
 - CSV import. Export is built; see the commissioner's player table above for what
   reading a file back in would have to get right.
 - Auto-advancing the auction. The snake says who is on the clock, but nothing
   times a nomination out or nudges a GM who has wandered off.
-- **Lineup snapshots.** Only each club's *current* lineup is stored (`lu`), so a
-  job reading it the next morning cannot tell who was in a slot at tip-off. Each
-  player's slot has to be recorded when his game locks before accrual can be right.
+- **Scoring.** Box scores (`daily-*`) and lineup history (`luh/*`) are both
+  recorded; nothing yet combines them into club totals, counts games against 920
+  (top-down slot order, above), or builds standings from real results.
+- **The over-920 warning** on the lineup screen. Needs games used so far, which
+  is scoring.
 - **The 15-day chart's loader.** `loadDaily()` reads `window.storage` key
   `daily2026`, which only exists in the claude.ai artifact sandbox — on Netlify it
   reads nothing. It needs club totals per night, so it comes after accrual.

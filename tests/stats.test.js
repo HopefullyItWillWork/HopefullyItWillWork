@@ -3,7 +3,7 @@
    shape ESPN returns. The parts that matter are reading each column by its key
    rather than its position, and the re-fetch window landing on the right
    nights. */
-import { windowDays, daysBefore, seasonTypes, gamesFrom, parseBox, diffDay, dayKey, ymd }
+import { windowDays, daysBefore, seasonTypes, gamesFrom, parseBox, diffDay, dayKey, ymd, tipsFrom }
   from '../deploy/netlify/functions/lib/stats.mjs';
 
 let fails = 0, ran = 0;
@@ -65,6 +65,22 @@ const d = diffDay(a, b);
 ok('changed stat listed', d.some(c => c.id === 'x' && c.what === 'TRB 4→5'), JSON.stringify(d));
 ok('vanished player listed', d.some(c => c.id === 'y' && c.what === 'removed'));
 ok('identical nights: no corrections', diffDay(a, a).length === 0);
+
+
+console.log('\n== tip-offs for the lineup lock, in league time ==');
+const tipEv = (date, home, away, status='STATUS_SCHEDULED') => ({ date, status:{ type:{ name: status } },
+  competitions:[{ competitors:[{ homeAway:'home', team:{ abbreviation: home } }, { homeAway:'away', team:{ abbreviation: away } }] }] });
+const tips = tipsFrom({ events: [
+  tipEv('2026-10-21T23:30Z', 'NY', 'BOS'),            // 7:30pm Eastern (EDT)
+  tipEv('2026-10-22T02:00Z', 'POR', 'GS'),            // 10pm Eastern, still the 21st
+  tipEv('2026-10-22T00:00Z', 'MIA', 'ORL', 'STATUS_POSTPONED'),
+] }, 'America/New_York');
+ok('Eastern time', tips.NY === '19:30' && tips.BOS === '19:30', JSON.stringify(tips));
+ok('a late West Coast game stays on its night', tips.GS === '22:00');
+ok('a postponed game locks nobody', !('MIA' in tips) && !('ORL' in tips));
+ok('winter: the clock change is followed', tipsFrom({ events:[tipEv('2026-12-02T00:00Z','DEN','LAL')] },
+   'America/New_York').DEN === '19:00');
+ok('gamesFrom carries the tip time', gamesFrom({ events:[{ ...ev(9, 2, true), date:'2026-10-21T23:30Z' }] }, null)[0].tip === '2026-10-21T23:30Z');
 
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);
