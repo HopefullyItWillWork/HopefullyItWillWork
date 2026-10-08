@@ -79,6 +79,7 @@ ok('at the cap nothing counts', r.clubs.X.counted.length === 0 && r.clubs.X.tota
 console.log('\n== names and renames ==');
 ok('alias map is honoured', keysFor('Kevin Porter Jr.', { 'Kevin Porter Jr.': 'Kevin Porter Jr' }).has('kevinporter'));
 ok('ESPN nickname table is honoured', keysFor('Ron Holland').has('ronaldholland'));
+ok('the commissioner\'s ESPN map is honoured', keysFor('Bub Carrington', {}, { 'Bub Carrington': 'Carlton Carrington' }).has('carltoncarrington'));
 const ren = [{ from: 'N. Daman', to: 'Hello' }, { from: 'Hello', to: 'N. Daman test' }];
 ok('a chain of renames resolves', currentName('N. Daman', ren) === 'N. Daman test');
 ok('a removed club maps to null', currentName('Gone', [{ from: 'Gone', to: null }]) === null);

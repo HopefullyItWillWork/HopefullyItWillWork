@@ -1417,6 +1417,23 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <span class="fcount" id="nomState" style="align-self:center"></span>
     </div>
 
+    <h2 class="sub">Stats and scoring</h2>
+    <p class="note">The nightly jobs, and whether they are keeping up. Stats arrive from 5:15am Eastern and are
+      scored half an hour later, hourly until about 9am; every run also re-reads the five nights before, so a
+      stat correction is picked up on its own. Nothing here needs pressing for the league to work &#8212; the
+      buttons are for checking a fix straight away rather than waiting for the morning.</p>
+    <div id="healthBox"></div>
+    <div class="form f4">
+      <button class="btn ghost" id="hCheck">Check again</button>
+      <button class="btn ghost" id="hStats">Fetch stats now</button>
+      <button class="btn" id="hScore">Rescore now</button>
+    </div>
+    <h3 class="sub" style="margin-top:14px">Names ESPN does not know</h3>
+    <p class="note">Players under contract whose name matches nobody on an NBA roster at ESPN. Most are simply
+      unsigned or overseas. But a spelling the box scores do not use means that player <b>never scores and never
+      locks</b>, so if he is in the NBA, pick his ESPN name here.</p>
+    <div id="espnMiss"></div>
+
     <h2 class="sub">Tip-off times</h2>
     <p class="note">A player is frozen the moment <em>his own</em> game tips off &#8212; a five o'clock
       game locks that man at five and leaves his team-mate on a half-seven game free for another two
@@ -3383,6 +3400,21 @@ function drawAdmin(){
       await saveNomOrder([]);
     };
   }
+  if($('healthBox')&&!$('healthBox').dataset.built){
+    $('healthBox').dataset.built='1';
+    if(!NBAP.n) loadNbaPlayers().then(()=>drawHealth());
+    $('hCheck').onclick=()=>drawHealth(true);
+    const run=async(url,what)=>{
+      try{
+        const r=await fetch(url,{method:'POST'}), j=await r.json().catch(()=>({}));
+        projToast(r.status===429?`${what} ran less than five minutes ago`:r.ok?`${what} done`:`${what} failed`);
+      }catch(e){ projToast(`${what} failed`); }
+      await Promise.all([drawHealth(true),loadDaily(true)]);
+    };
+    $('hStats').onclick=()=>run('/api/stats?run=1','Stats fetch');
+    $('hScore').onclick=()=>run('/api/score?run=1','Rescore');
+  }
+  drawHealth();
   if($('tipBox')&&!$('tipBox').dataset.built){
     $('tipBox').dataset.built='1';
     $('tipDay').value=dayKey();
@@ -7948,16 +7980,24 @@ async function loadNbaPlayers(force){
     if(!r.ok) throw new Error('http '+r.status);
     const j=await r.json(), byKey={};
     Object.values((j&&j.players)||{}).forEach(p=>{ if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t; });
-    NBAP={day,byKey,n:Object.keys(byKey).length};
+    NBAP={day,byKey,n:Object.keys(byKey).length,at:j&&j.at,
+      names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
 }
 /* Our spelling → ESPN's where the words differ, not just the punctuation.
    Same table as ESPNNAME in lib/nba.mjs. */
 const ESPNNAME={"Ron Holland":"Ronald Holland II","Mouhamadou Gueye":"Mouhamed Gueye"};
+/* ESPN's club for a player, or null when ESPN does not list him. The
+   commissioner's own map (settings.espn, set on the Commissioner tab) comes
+   first, then the built-in table. */
+function espnTeamOf(name){
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return (e&&NBAP.byKey[nameKey(e)])||NBAP.byKey[nameKey(name)]||NBAP.byKey[nameKey(c)]||null;
+}
 function nbaTeamOf(name){
-  const c=canon(name), e=ESPNNAME[name]||ESPNNAME[c];
-  return NBAP.byKey[nameKey(name)]||NBAP.byKey[nameKey(c)]||(e&&NBAP.byKey[nameKey(e)])||NBATM[c]||null;
+  return espnTeamOf(name)||NBATM[canon(name)]||null;
 }
 function tipOf(name,at){
   const tm=nbaTeamOf(name);
@@ -8863,6 +8903,69 @@ async function drawLastNight(){
     </tbody><tfoot><tr><td class="l" colspan="3">Counted</td><td></td><td>${ma(t.FG,t.FGA)}</td><td>${ma(t.FT,t.FTA)}</td>
       <td>${t.P3||0}</td><td>${t.REB||0}</td><td>${t.AST||0}</td><td>${t.STL||0}</td><td>${t.BLK||0}</td>
       <td>${t.TO||0}</td><td>${t.PTS||0}</td></tr></tfoot></table></div>`;
+}
+/* ---- stats and scoring health, for the commissioner ---- */
+let HEALTH={at:0};
+const ago=iso=>{ const t=Date.parse(iso); if(isNaN(t)) return 'never';
+  const m=Math.round((Date.now()-t)/60000);
+  return m<1?'just now':m<60?m+' min ago':m<48*60?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'; };
+async function drawHealth(force){
+  const box=$('healthBox'); if(!box||!hasComm()) return;
+  if(force||Date.now()-HEALTH.at>60000){
+    const get=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); return r.ok?await r.json():null; }catch(e){ return null; } };
+    if(await probeAPI()){
+      const [st,sc]=await Promise.all([get('/api/stats'),get('/api/score')]);
+      HEALTH={at:Date.now(),st:st&&st.data,sc};
+    } else HEALTH={at:Date.now()};
+  }
+  const st=HEALTH.st||{}, sr=st.lastRun, sc=HEALTH.sc||{}, cr=sc.lastRun;
+  const stale=iso=>seasonLive()&&(!iso||Date.now()-Date.parse(iso)>30*3600*1000);
+  const errs=(r)=>r&&r.errors&&r.errors.length
+    ?`<div class="warnbox">${r.errors.map(e=>htmlEsc(e.day+': '+e.error)).join('<br>')}</div>`:'';
+  const nights=Object.keys(st.days||{}).filter(d=>st.days[d].stored).length;
+  const fixes=Object.values(st.days||{}).reduce((a,d)=>a+((d.corrections||[]).length),0);
+  const row=(label,ok,main,sub)=>`<div class="capcell"><dt>${label}</dt><dd class="${ok?'good':'bad'}" style="font-size:15px">${main}</dd>
+    <div class="t" style="font-size:11px;color:var(--steel);margin-top:3px">${sub}</div></div>`;
+  box.innerHTML=!HAS_API?'<div class="empty">No league database here, so there are no jobs to watch.</div>'
+    :`<dl class="capgrid">
+      ${row('Stats feed',!stale(sr&&sr.at)&&!(sr&&sr.errors&&sr.errors.length),sr?ago(sr.at):'not run yet',
+        `${nights} night${nights===1?'':'s'} stored${fixes?` \u00b7 ${fixes} correction${fixes===1?'':'s'} picked up`:''}`)}
+      ${row('Scoring',!stale(cr&&cr.at)&&!(cr&&cr.errors&&cr.errors.length),cr?ago(cr.at):'not run yet',
+        `${Object.keys(sc.days||{}).length} nights scored`)}
+      ${row('NBA rosters',!!NBAP.n,NBAP.at?ago(new Date(NBAP.at).toISOString()):'not loaded',`${NBAP.n} players`)}
+      ${row('Tip-offs today',SCHED.ok,SCHED.ok?(n=>n+' club'+(n===1?'':'s'))(Object.keys(SCHED.tips).length):'unavailable',
+        SCHED.ok?(Object.keys(SCHED.tips).length?'locks are live':'no games tonight'):htmlEsc(SCHED.reason||''))}
+    </dl>${errs(sr)}${errs(cr)}`;
+  drawEspnMiss();
+}
+function drawEspnMiss(){
+  const box=$('espnMiss'); if(!box) return;
+  if(!NBAP.n){ box.innerHTML='<div class="empty">ESPN\u2019s rosters have not loaded yet.</div>'; return; }
+  const mine=(S.cfg&&S.cfg.espn)||{};
+  const miss=[];
+  TEAMS().forEach(t=>S.teams[t].r.filter(contracted).forEach(p=>{ if(!espnTeamOf(p.n)) miss.push({t,n:p.n}); }));
+  const fixed=Object.keys(mine);
+  if(!miss.length&&!fixed.length){ box.innerHTML='<div class="okbox">Every player under contract matches an ESPN roster.</div>'; return; }
+  box.innerHTML=`<datalist id="espnNames">${(NBAP.names||[]).map(n=>`<option value="${htmlEsc(n)}">`).join('')}</datalist>
+    ${miss.map((m,i)=>`<div class="ent" style="grid-template-columns:1fr 1fr 110px;align-items:center">
+      <div>${htmlEsc(m.n)} <span class="t" style="color:var(--steel)">${htmlEsc(m.t)}</span></div>
+      <input list="espnNames" data-em="${i}" placeholder="ESPN name, if he is in the NBA" autocomplete="off">
+      <button class="btn ghost" data-emsave="${i}">Save</button></div>`).join('')}
+    ${fixed.length?`<p class="note" style="margin-top:10px">Already mapped: ${fixed.map(k=>
+      `${htmlEsc(k)} \u2192 ${htmlEsc(mine[k])} <button class="act" data-emdel="${htmlEsc(k)}">Remove</button>`).join(' \u00b7 ')}</p>`:''}`;
+  box.querySelectorAll('[data-emsave]').forEach(b=>b.onclick=async()=>{
+    const m=miss[+b.dataset.emsave], v=(box.querySelector(`[data-em="${b.dataset.emsave}"]`).value||'').trim();
+    if(!v) return;
+    if(!NBAP.byKey[nameKey(v)]) return alert(`${v} is not on any NBA roster at ESPN. Pick a name from the list.`);
+    S.cfg.espn={...mine,[m.n]:v};
+    await commit({kind:'edit',detail:`ESPN name for ${m.n} set to ${v}`},['settings']);
+    drawEspnMiss();
+  });
+  box.querySelectorAll('[data-emdel]').forEach(b=>b.onclick=async()=>{
+    const next={...mine}; delete next[b.dataset.emdel]; S.cfg.espn=next;
+    await commit({kind:'edit',detail:`ESPN name for ${b.dataset.emdel} removed`},['settings']);
+    drawEspnMiss();
+  });
 }
 /* ---- standings from real results ---- */
 function drawStandings(){

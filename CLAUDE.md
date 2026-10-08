@@ -2053,6 +2053,13 @@ trade. `/api/players` serves ESPN's 30 current rosters (`nbaplayers`, refreshed
 when older than six hours and every morning by `nba-players-daily.mjs`), and the
 page's `nbaTeamOf()` reads it first, falling back to `NBATM`.
 
+The commissioner can map a roster name to an ESPN name on the Commissioner tab
+("Names ESPN does not know", which lists every contracted player ESPN does not
+list). That map is `settings.espn`, separate from `settings.alias` on purpose:
+`alias` points at a RATER name and feeds `canon()`, so reusing it for ESPN
+spellings would break the rater for that player. Both the page (`espnTeamOf`)
+and scoring (`keysFor`) read `settings.espn` first.
+
 Matching goes through `nameKey()` (letters only, accents and Jr/II/III dropped),
 which exists identically in `lib/nba.mjs` and the page. Names that differ by
 whole words go in `ESPNNAME`, also in both places — today Ron Holland → Ronald
@@ -2094,6 +2101,13 @@ season, small) and `score-YYYY-MM-DD` (one night in full: `counted`, `over`,
 `standings`, computed on read so it can never disagree with the nights.
 `POST /api/score?run=1[&day=D]` rescores now.
 
+**Checking it.** My Team has a **Last night** box for any scored night: each
+starter's box score and whether he Counted, went Over cap, or was in a Slot
+reused, plus Bench players who played and the points left there. The
+Commissioner tab's **Stats and scoring** panel shows when each job last ran,
+errors, nights stored and corrections picked up, with Fetch stats now / Rescore
+now buttons.
+
 The page reads `/api/score` once a day (`loadDaily`): the **Standings** table at
 the top of Team trends, the 15-day chart (`DAILY` is `score.days`, already in
 the chart's shape), and the lineup screen's games pill and **over-920 warning**,
@@ -2110,8 +2124,9 @@ which names, in slot order, the starters who would not count tonight.
 - **Checking scoring against the old platform** for the first week or two
   before relying on the site alone. The past platform let clubs finish at
   925–927 games; this one stops at exactly the cap.
-- **Last night's actual line** on the lineup screen (`luLine` reads `S.daily`,
-  which nothing fills yet) and in the daily email digest's stats slot.
+- **Last night's line in the daily email digest** (its stats slot is marked).
+  Mail needs `RESEND_API_KEY` and `MAIL_FROM` set in Netlify; the free plan is
+  enough.
 - **Daily stat accrual.** The lineup structure is built — slots, eligibility,
   bench, IR, lock — but nothing counts a night's box score against a started
   player yet. The feed (above) supplies the box scores; `startedOn(club)` is the
