@@ -2035,6 +2035,13 @@ tip-off**, so every save is also recorded by `/api/lineups`:
   A change after a game starts therefore cannot reach that game, whatever the
   browser lock did. Tests: `tests/lineups.test.js`.
 
+**A player who leaves a club leaves its lineup.** `commit()` runs
+`pruneLineups()` before every save that touches `rosters`: any slot holding
+someone the club no longer has active (released, traded, signed away, out of
+contract, on the IR) is cleared, and the new lineup is posted to `/api/lineups`.
+Without it a released man stayed in his slot and kept scoring for the club that
+cut him. It lives in `commit()` so a new roster path cannot forget it.
+
 History is keyed by club **name**. A club renamed mid-season has its earlier
 entries under the old name; scoring has to follow `S.cfg.renames`.
 
