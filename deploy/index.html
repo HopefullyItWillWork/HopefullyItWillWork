@@ -4927,8 +4927,10 @@ function drawAuction(){
   drawBarred();
   drawStrategy();
   $('budgets').innerHTML=TEAMS().map(t=>{
-    const sp=S.cfg.roster-headcount(t), space=S.cfg.cap-committed(t);
-    const mx=a?bidCeiling(t,a.player):Math.max(0,space-Math.max(0,sp-1));
+    /* Between lots this is the same ceiling a bid would get, for a player the
+       club holds no rights on — one rule for both, not a second sum. */
+    const sp=S.cfg.roster-headcount(t);
+    const mx=bidCeiling(t,a?a.player:'');
     return `<div class="bid ${a&&a.leader===t?'win':''}"><div class="who2">${t}</div>
       <div style="color:var(--steel);font-family:var(--mono);font-size:11px">${headcount(t)}/${S.cfg.roster} &#183; ${money(committed(t))}</div>
       <div style="color:var(--dim);font-size:11px">${sp<=0?'roster full':sp+' spots'}</div>
@@ -6264,10 +6266,14 @@ const mleStamp=p=>(p&&p.mle&&p.mle.s)?p.mle:null;
 const mleStampText=p=>{const m=mleStamp(p);
   return m?`Mid-level exception \u2014 ${money(m.amt||0)} of the ${htmlEsc(m.s)} exception`:'';};
 /* Cap room, the number every exception is measured against: what a club may
-   commit before the soft cap, holding back a minimum for each empty seat. */
+   commit before the soft cap. NO seat reserve here. Minimum contracts are one
+   of the ways the rulebook lets a club go over the soft cap, so a club may spend
+   every dollar of room on one player and fill its other seats at the minimum
+   above the cap. The reserve belongs only against the HARD cap, which nothing
+   beats — minimums included. Holding seats back here understated every club's
+   bid by a dollar per empty seat. */
 function capRoom(team){
-  const sp=S.cfg.roster-headcount(team);
-  return S.cfg.cap-committed(team)-Math.max(0,sp-1)*1.00;
+  return S.cfg.cap-committed(team);
 }
 /* The mid-level is a SEPARATE LANE, not a top-up on cap room. A club signs a
    player out of its room OR out of the exception, and the exception caps what
@@ -6311,10 +6317,12 @@ function bidCeiling(team,name){
   if(cr0&&cr0.minOnly) return minSal();
   const sp=S.cfg.roster-headcount(team);
   if(sp<=0) return 0;
+  /* A minimum held back for every other empty seat — against the hard cap only,
+     because minimum deals may go over the soft cap but never over this. */
   const res=Math.max(0,sp-1)*1.00;
   const hard=S.cfg.tax-committed(team)-res;
   if(hard<1) return 0;
-  const space=S.cfg.cap-committed(team)-res;
+  const space=capRoom(team);
   const R=rightsOf(team,name);
   if(R.club===team&&R.bird==='Yes') return Math.max(1,hard);
   if(R.club===team&&R.bird) return Math.max(1,Math.min(hard,Math.max(space,0)+7.00));
@@ -6388,7 +6396,7 @@ function restrictionNote(team,name){
   if(R.club===team&&R.bird==='Yes') out.push('Bird rights &#8212; you may exceed the cap, up to the hard cap.');
   else if(R.club===team&&R.bird) out.push('Early Bird &#8212; you may go up to $7.00 over the cap.');
   const sp=S.cfg.roster-headcount(team);
-  const space=S.cfg.cap-committed(team)-Math.max(0,sp-1);
+  const space=capRoom(team);
   if(space<1&&!(R.club===team&&R.bird)) out.push(mleLeft(team)>0
     ? `Over the salary cap &#8212; one contract of up to ${money(mleLeft(team))} on the mid-level exception, `
       +'or minimum deals. A mid-level signing is two seasons.'
@@ -6566,7 +6574,17 @@ const nomOrder=()=>{
   const set=(S.cfg.nomOrder||[]).filter(t=>S.teams[t]);
   return set.length?set:[];
 };
-const nomCount=()=>(S.log||[]).filter(e=>e.kind==='sign'&&/^Nominated /.test(e.detail||'')).length;
+/* Nominations made since the order was last saved. Saving the order starts the
+   snake from the top. It used to count every nomination ever logged, so twelve
+   test nominations from September started the real auction twelve places in —
+   N. Daman in round two instead of the first club in the order. */
+const NOMSET=/^Auction nomination order set/;
+function nomCount(){
+  const L=S.log||[];
+  const set=L.find(e=>e.kind==='edit'&&NOMSET.test(e.detail||''));   // newest first
+  const from=set?set.ts:'';
+  return L.filter(e=>e.kind==='sign'&&/^Nominated /.test(e.detail||'')&&(!from||e.ts>from)).length;
+}
 /* The club at position i of the snake, ignoring who is full. */
 function nomSlot(i){
   const o=nomOrder();

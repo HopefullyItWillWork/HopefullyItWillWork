@@ -594,9 +594,18 @@ backwards, round three forwards again, so the club at each end nominates twice i
 a row — a snake. `nomSlot(i)` is the pure function; `nomOnClock()` is what the
 screens read.
 
+**Empty seats are held back from the hard cap only.** `bidCeiling()` reserves a
+minimum for each other empty seat against the $200.50 hard cap, which nothing
+beats. It used to reserve them against the soft cap too, but minimum deals are
+one of the ways over the soft cap, so a club may spend all its room on one
+player — that understated every bid by a dollar a seat (fixed 2026-10-09).
+
 **How far through the order we are is counted from the transaction log**, not
 stored. Every nomination writes one line, so `nomCount()` reads the append-only
-record of what actually happened: there is no counter to drift, nothing to reset,
+record of what actually happened — **counting only nominations since the order
+was last saved**, so saving the order restarts the snake from the top. It once
+counted every nomination ever logged, and twelve test nominations from September
+started the real auction twelve places in. There is still no counter to drift,
 and two GMs cannot race it.
 
 **A full club is skipped, not waited on.** It cannot sign anybody, so blocking the
@@ -725,7 +734,7 @@ players as it covers, so what is tracked is the money **left**.
 |---|---|
 | `mleAmt()` | the league's figure; `MLEDEF` ($5.50) when unset |
 | `mleLeft(t)` | dollars remaining — legacy `mle===false` reads as 0, a missing key as the full amount, so nothing migrates |
-| `capRoom(t)` | room under the **soft** cap, holding a minimum back for each empty seat |
+| `capRoom(t)` | room under the **soft** cap — the cap less what is committed, **nothing held back** |
 | `mleLane(t,name,price,declared)` | is this deal on the exception rather than on cap room? |
 | `mleCost(price)` | what it costs the pot — **the whole contract** |
 | `mleTied()` | the clubs level with the standing bid on declared MLE bids |

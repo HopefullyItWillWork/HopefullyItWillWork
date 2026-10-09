@@ -313,6 +313,21 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.cfg.cap = keepCap;
   }
 
+  console.log('\n== empty seats are held back from the HARD cap, not the soft one ==');
+  {
+    /* Minimum deals may go over the soft cap, so a club can spend all its room on
+       one player and fill the rest at the minimum. Holding a dollar per seat back
+       from the soft cap understated every bid (A. Daman, 2026-10-09: $96.25
+       offered against $102.25 of real room). */
+    const CS = g('S'), T = 'Osborn';
+    ok('cap room is the cap less what is committed, nothing held back',
+       Math.abs(g('capRoom')(T) - (CS.cfg.cap - g('committed')(T))) < 0.001,
+       g('capRoom')(T) + ' vs ' + (CS.cfg.cap - g('committed')(T)));
+    const seats = CS.cfg.roster - g('headcount')(T);
+    ok('the hard cap still holds a minimum back for each other empty seat',
+       g('bidCeiling')(T, 'Nobody At All') <= CS.cfg.tax - g('committed')(T) - Math.max(0, seats - 1) + 0.001);
+  }
+
   console.log('\n== the hard cap still beats the exception ==');
   {
     const CS = g('S'), T = 'Osborn';
@@ -2264,6 +2279,16 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        && g('nomSlot')(T.length + 1) === T[T.length - 2],
        g('nomSlot')(T.length) + '/' + g('nomSlot')(T.length + 1));
     ok('the third turns round again', g('nomSlot')(T.length * 2) === T[0]);
+    /* The snake starts from the top every time the order is saved: nominations
+       logged before it (twelve test ones, in this league) must not move it. */
+    {
+      const L = g('S').log, keep = L.slice();
+      L.unshift({ ts: '2020-01-01T00:00:00.000Z', kind: 'sign', team: T[0], detail: 'Nominated Old Test at $1.00' });
+      L.unshift({ ts: new Date().toISOString(), kind: 'edit', detail: 'Auction nomination order set — ' + T.join(', ') });
+      ok('saving the order resets the count', g('nomCount')() === 0, String(g('nomCount')()));
+      ok('and puts the first club on the clock', g('nomOnClock')().team === T[0]);
+      L.length = 0; keep.forEach(e => L.push(e));
+    }
     ok('the turn at each end doubles, as a snake does',
        g('nomSlot')(T.length - 1) === T[T.length - 1]
        && g('nomSlot')(T.length) === T[T.length - 1]);
