@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@netlify/blobs": "*"
+    "@netlify/blobs": "*",
+    "@anthropic-ai/sdk": "0.128.0"
   }
 }

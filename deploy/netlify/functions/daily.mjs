@@ -8,7 +8,9 @@
    On Mondays it also mails the WEEKLY, for the Monday–Sunday just finished, to
    each club with `weekly` on: the race, the categories a few rebounds from a
    point either way, which managers have surplus where the club is close, its
-   games pace against the cap, and how many minimum pickups it can still afford.
+   games pace against the cap, and how many minimum pickups it can still afford —
+   led by one or two parody tweets about the week's biggest move (lib/tweets.mjs,
+   written by Claude once per week and cached; skipped quietly without a key).
 
    Scoring has run by 09:45 UTC, so last night is in by 12:00. A stats problem
    costs the section, never the mail. `digest` and `digestw` stop a re-invocation
@@ -18,6 +20,7 @@ import { store, read, sendMail, mailConfigured, underCap } from "./lib/league.mj
 import { wrap, siteUrl, yesterdayIn, movesOn, movesBetween, prettyDay, dailyBody, weeklyBody,
   isMonday, dayPlus, dayIn, ord } from "./lib/format.mjs";
 import { digestDaily, digestWeekly } from "./lib/digest.mjs";
+import { weeklyTweets } from "./lib/tweets.mjs";
 
 const ZONE = process.env.LEAGUE_TZ || "America/New_York";
 const FOOT = "change this under Email on your My Team tab";
@@ -61,10 +64,13 @@ async function sendWeekly(s, teams, log, from, to) {
   const moves = movesBetween(log, ZONE, from, to), cache = {};
   const title = `Week of ${prettyDay(from)}`;
   let sent = 0; const failed = [];
+  let tweets;                                     // written once, shared by every club's weekly
   for (const t of subs) {
     let w = null;
     try { w = await digestWeekly(s, t, from, to, cache); } catch { w = null; }
     if (!w) continue;
+    if (tweets === undefined) { try { tweets = await weeklyTweets(s, from, moves, w.table); } catch { tweets = null; } }
+    w.tweets = tweets;
     const r = await sendMail({
       to: teams[t].email,
       subject: w.standing ? `Your week — ${ord(w.standing.rank)} of ${w.standing.of}`

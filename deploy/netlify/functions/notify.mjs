@@ -19,6 +19,7 @@ import { store, read, sendMail, mailConfigured, underCap } from "./lib/league.mj
 import { esc, wrap, siteUrl, yesterdayIn, movesOn, movesBetween, prettyDay, dailyBody, weeklyBody,
   dayIn, dayPlus } from "./lib/format.mjs";
 import { digestDaily, digestWeekly } from "./lib/digest.mjs";
+import { weeklyTweets } from "./lib/tweets.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: H });
@@ -84,7 +85,9 @@ export default async (req) => {
       try { w = await digestWeekly(s, to, wFrom, wTo); } catch { w = null; }
       title = `Week of ${prettyDay(wFrom)}`;
       if (!w) return json({ ok: false, reason: "nothing to report for that week" });
-      html = weeklyBody(w, movesBetween(log, zone, wFrom, wTo), zone);
+      const wMoves = movesBetween(log, zone, wFrom, wTo);
+      try { w.tweets = await weeklyTweets(s, wFrom, wMoves, w.table); } catch { w.tweets = null; }
+      html = weeklyBody(w, wMoves, zone);
       subject = `${title} \u2014 your League Ledger weekly`;
     } else {
       let d = null;

@@ -195,6 +195,7 @@ export function dailyBody(d, moves, zone) {
    afford. Built to start conversations, not to tell anyone what to trade. */
 export function weeklyBody(w, moves, zone) {
   const out = [P(esc(w.club), "#7d8590")];
+  if (w.tweets && w.tweets.length) out.push(tweetsBlock(w.tweets));
   if (w.standing) out.push(`<p style="margin:0 0 4px;font-size:15px">${headline(w.standing)}</p>`);
   if (w.weekRank) out.push(P(`This week alone: ${ord(w.weekRank)} of ${w.table.length}, ${num(w.weekPts)} roto points over ${w.nights} night${w.nights === 1 ? "" : "s"}.`));
 
@@ -239,6 +240,18 @@ export function weeklyBody(w, moves, zone) {
   out.push(H("The week's moves"));
   out.push(movesTable(moves, zone));
   return out.join("");
+}
+
+/* The parody tweets, as cards. "(parody)" is in the handle and the header,
+   so a forwarded email cannot be mistaken for the real thing. */
+export function tweetsBlock(tweets) {
+  return `<p style="margin:0 0 6px;font:700 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+    text-transform:uppercase;color:#7d8590">Around the league &middot; parody accounts</p>`
+    + tweets.map((t) => `<div style="border:1px solid #2b3038;border-radius:8px;padding:10px 12px;margin:0 0 8px">
+      <div style="font:600 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8e6e1">${esc(t.author)}
+        <span style="font-weight:400;color:#7d8590">${esc(t.handle)} &middot; parody</span></div>
+      <div style="margin-top:4px;color:#e8e6e1">${esc(t.text)}</div></div>`).join("")
+    + `<div style="height:8px"></div>`;
 }
 
 /* Kept so older callers and tests keep working: the daily with only last night. */
