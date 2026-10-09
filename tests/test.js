@@ -328,6 +328,18 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        g('bidCeiling')(T, 'Nobody At All') <= CS.cfg.tax - g('committed')(T) - Math.max(0, seats - 1) + 0.001);
   }
 
+  console.log('\n== this year\'s drafted rookies count against the tax, not the cap ==');
+  {
+    const CS = g('S'), T = 'Osborn', r = CS.teams[T].r;
+    const room = g('capRoom')(T), hard = g('committed')(T);
+    r.push({ n: 'Test Rookie', p: 'F', y: g('termFrom')(5.75, 3), o: 'RO', b: '', acq: g('leagueYear')(), cut: false, rookie: true });
+    ok('cap room is unchanged by the pick', Math.abs(g('capRoom')(T) - room) < 0.001, g('capRoom')(T) + ' vs ' + room);
+    ok('but the hard-cap total carries him', Math.abs(g('committed')(T) - hard - 5.75) < 0.001);
+    r[r.length - 1].acq = g('leagueYear')() - 1;
+    ok('a rookie from an earlier draft counts against the cap', Math.abs(g('capRoom')(T) - (room - 5.75)) < 0.001);
+    r.pop();
+  }
+
   console.log('\n== the hard cap still beats the exception ==');
   {
     const CS = g('S'), T = 'Osborn';

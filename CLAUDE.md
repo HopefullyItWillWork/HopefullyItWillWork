@@ -1135,6 +1135,14 @@ the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the
 auction and do not consume auction cap space, but the hard cap still binds: a
 club with no room passes. Anyone undrafted is an ordinary free agent.
 
+**This year's drafted rookies count against the hard cap but not the soft cap.**
+`committed()` is the hard-cap total and includes them; `capCommitted()` is the
+soft-cap total and leaves out `capExempt(p)` — `p.rookie` and `p.acq` equal to
+`leagueYear()`, both written by `makePick()`. `capRoom()`, the cap-space figures
+on the club page and My Team, and the trade machine's over-the-cap test all read
+`capCommitted()`. Next season he counts against both. Before 2026-10-09 every
+pick ate the club's auction cap room.
+
 ### How the draft is stored
 Two pieces of state, in different slices on purpose:
 

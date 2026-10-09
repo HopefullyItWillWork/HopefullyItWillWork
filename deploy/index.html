@@ -2215,6 +2215,15 @@ function birdMismatch(){
   return out;
 }
 const committed=t=>S.teams[t].r.reduce((s,p)=>s+(salNow(p)||0),0)+deadSalary(t);
+/* This year's drafted rookies count against the HARD cap but not the soft one:
+   a rookie taken in the draft of the league year the club is building for does
+   not use its cap room (league rule). committed() is the hard-cap total and
+   includes him; capCommitted() is the soft-cap total and leaves him out. Next
+   season, with leagueYear() moved on, he counts against both like anybody else.
+   `rookie` and `acq` are written by makePick() and travel with him in a trade. */
+const capExempt=p=>!!(p&&p.rookie&&String(p.acq)===String(leagueYear()));
+const rookieExempt=t=>S.teams[t].r.reduce((s,p)=>s+(capExempt(p)?(salNow(p)||0):0),0);
+const capCommitted=t=>committed(t)-rookieExempt(t);
 const onIR=p=>!!p.ir;
 const headcount=t=>S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)).length;
 const irCount=t=>S.teams[t].r.filter(p=>contracted(p)&&onIR(p)).length;
@@ -2907,6 +2916,7 @@ function tags(p){
 function drawDetail(){
   const t=activeTeam;if(!t)return;
   const {cap,tax,roster}=S.cfg,s=committed(t),n=headcount(t),dead=deadMoney(t),cuts=S.teams[t].cuts||[];
+  const sc=capCommitted(t), rx=s-sc;          // soft-cap total, and this year's rookies left out of it
   const mine=canEdit(t);
   const CS0=SORTS.cx||{col:'sal',desc:true};
   const cxv=(x,c)=>c==='n'?x.p.n:c==='pos'?(x.p.p||''):c==='acq'?(x.p.acq??null)
@@ -2927,14 +2937,15 @@ function drawDetail(){
   $('detail').innerHTML=`<div class="dhead"><h3>${t}</h3>
     ${gmName(t)?`<span class="pill gmpill" title="The GM on file for this club. It does not change when the club is renamed.">${htmlEsc(gmName(t))}</span>`:''}
     <span class="pill">${n} of ${roster} under contract</span>
-    <span class="pill ${cap-s>=0?'good':'bad'}">${cap-s>=0?money(cap-s)+' cap space':money(s-cap)+' over the cap'}</span>
+    <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
     <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
     ${mine?`<span class="pill good">${isComm()?'You can edit this club'
       :'Your club \u2014 you can sign, cut and list'}</span>`:''}</div>
     <dl class="capgrid">
       <div class="capcell"><dt>Salary cap</dt><dd>${money(cap)}</dd></div>
       <div class="capcell"><dt>Salary spent</dt><dd class="amb">${money(s)}</dd></div>
-      <div class="capcell"><dt>Cap space</dt><dd class="${cap-s>=0?'good':'bad'}">${money(cap-s)}</dd></div>
+      <div class="capcell"><dt>Cap space</dt><dd class="${cap-sc>=0?'good':'bad'}">${money(cap-sc)}${
+        rx>0?`<span class="sub2"> rookies' ${money(rx)} not counted</span>`:''}</dd></div>
       <div class="capcell"><dt>Hard cap</dt><dd>${money(tax)}</dd></div>
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
       <div class="capcell"><dt>Roster spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
@@ -4153,6 +4164,7 @@ function drawMe(){
   }
   const T=meTeam();
   const s=committed(T), n=headcount(T), {cap,tax,roster}=S.cfg;
+  const sc=capCommitted(T), rx=s-sc;          // this year's rookies count against the tax, not the cap
   const st=standings(), order=Object.keys(st.pts).sort((a,b)=>st.pts[b]-st.pts[a]);
   const fin=order.indexOf(T)+1, sfx=['st','nd','rd'][fin-1]||'th';
   const F=fullTotals(clubNames(T));
@@ -4163,7 +4175,7 @@ function drawMe(){
   const myEmail=(S.teams[T]||{}).email;
   $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>
     <span class="pill">${n} of ${roster} under contract</span>
-    <span class="pill ${cap-s>=0?'good':'bad'}">${cap-s>=0?money(cap-s)+' cap space':money(s-cap)+' over the cap'}</span>
+    <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
     <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
     <span class="pill">projected ${fin}${sfx} of ${order.length}</span>
     <span class="pill">${seasonLive()?'season is live':'offseason'}</span>
@@ -4172,7 +4184,8 @@ function drawMe(){
     <dl class="capgrid">
       <div class="capcell"><dt>Payroll</dt><dd class="amb">${money(s)}</dd></div>
       ${deadSalary(T)>0?`<div class="capcell"><dt>Released salary still charged</dt><dd class="bad">${money(deadSalary(T))}</dd></div>`:''}
-      <div class="capcell"><dt>Cap space</dt><dd class="${cap-s>=0?'good':'bad'}">${money(cap-s)}</dd></div>
+      <div class="capcell"><dt>Cap space</dt><dd class="${cap-sc>=0?'good':'bad'}">${money(cap-sc)}${
+        rx>0?`<span class="sub2"> rookies' ${money(rx)} not counted</span>`:''}</dd></div>
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
       <div class="capcell"><dt>Roster spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
       ${seasonLive()?`<div class="capcell"><dt>Games played</dt><dd>${gamesUsed(T)} / ${SCORE.cap||S.cfg.gamecap||920}</dd></div>`:''}
@@ -6273,7 +6286,7 @@ const mleStampText=p=>{const m=mleStamp(p);
    beats — minimums included. Holding seats back here understated every club's
    bid by a dollar per empty seat. */
 function capRoom(team){
-  return S.cfg.cap-committed(team);
+  return S.cfg.cap-capCommitted(team);
 }
 /* The mid-level is a SEPARATE LANE, not a top-up on cap room. A club signs a
    player out of its room OR out of the exception, and the exception caps what
@@ -7024,7 +7037,7 @@ function validateTrade(){
   const nA=pa.filter(contracted).length, nB=pb.filter(contracted).length;
   [[a,outA,outB,nA,nB],[b,outB,outA,nB,nA]].forEach(([t,out,inc,nOut,nIn])=>{
     const before=committed(t), after=before-out+inc;
-    const overCap=before>cap||after>cap;
+    const cb=capCommitted(t), overCap=cb>cap||cb-out+inc>cap;   // soft cap: this year's rookies left out
     const lim=maxIncoming(out);
     const s={before,after,out,inc,lim,overCap,capOk:true,taxOk:true,rosterOk:true,matching:matchOn()};
     if(matchOn()&&overCap&&inc>lim+0.001){s.capOk=false;
@@ -7331,8 +7344,12 @@ function recheckTrade(tr){
   const cA=outA.filter(contracted).length, cB=outB.filter(contracted).length;
   [[tr.a,sA,sB,cA,cB],[tr.b,sB,sA,cB,cA]]
     .forEach(([t,out,inc,nOut,nIn])=>{
-      const before=committed(t), after=before-out+inc;
-      if((before>cap||after>cap)&&inc>maxIncoming(out)+0.001)
+      const before=committed(t), after=before-out+inc, cb=capCommitted(t);
+      /* Matching only when the league has it switched on, exactly as
+         validateTrade() asks — this used to apply it regardless, so a trade
+         legal when offered could be refused when accepted. Soft cap measured
+         without this year's rookies. */
+      if(matchOn()&&(cb>cap||cb-out+inc>cap)&&inc>maxIncoming(out)+0.001)
         fails.push(`${t} sends ${money(out)} so may take back at most ${money(maxIncoming(out))}; this brings back ${money(inc)}.`);
       if(after>tax+0.001) fails.push(`${t} would sit at ${money(after)}, past the ${money(tax)} hard cap.`);
       if(headcount(t)-nOut+nIn>roster) fails.push(`${t} would carry more than ${roster} players.`);
