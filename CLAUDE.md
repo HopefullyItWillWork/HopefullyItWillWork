@@ -2101,9 +2101,17 @@ season, small) and `score-YYYY-MM-DD` (one night in full: `counted`, `over`,
 `standings`, computed on read so it can never disagree with the nights.
 `POST /api/score?run=1[&day=D]` rescores now.
 
-**Checking it.** My Team has a **Last night** box for any scored night: each
-starter's box score and whether he Counted, went Over cap, or was in a Slot
-reused, plus Bench players who played and the points left there. The
+**Checking it.** My Team has a **Results** box with a Day / Week switch, arrows,
+a date picker and Latest. A day shows each starter's box score and whether he
+Counted, went Over cap, or was in a Slot reused, plus Bench players who played
+and the points left there. A week (Monday–Sunday) sums each player's nights per
+outcome. The Standings table on Team trends has a period picker: the season, or
+any week with a scored night, re-ranked by `standingsFor()` — the same roto rule
+as `seasonStandings()` in lib/score.mjs, kept identical by hand.
+
+In season, My Team's header shows **Games played** (real, from scoring) beside
+**Projected games, full season** (the roster's projection). The projection was
+once labelled "Game slots used", which read as a real count. The
 Commissioner tab's **Stats and scoring** panel shows when each job last ran,
 errors, nights stored and corrections picked up, with Fetch stats now / Rescore
 now buttons.

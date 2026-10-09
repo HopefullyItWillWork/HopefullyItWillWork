@@ -851,7 +851,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <div id="lnWrap" hidden>
-      <h2>Last night <select id="lnDay" aria-label="Night" style="margin-left:auto;width:auto;flex:none"></select></h2>
+      <h2>Results</h2>
+      <div class="filters" id="lnCtl"></div>
       <div id="lnHead"></div>
       <div id="lnBody" style="margin-bottom:22px"></div>
     </div>
@@ -1200,7 +1201,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   </section>
 
   <section class="view" id="v-trends" role="tabpanel" hidden>
-    <h2>Standings</h2>
+    <h2>Standings <select id="standPer" aria-label="Period" style="margin-left:auto;width:auto;flex:none" hidden></select></h2>
     <p class="note" id="realStandNote"></p>
     <div id="realStand"></div>
     <h2 class="sub">Category profile &#8212; 2025&#8211;26 rosters</h2>
@@ -2926,7 +2927,7 @@ function drawDetail(){
       <div class="capcell"><dt>Cap space</dt><dd class="${cap-s>=0?'good':'bad'}">${money(cap-s)}</dd></div>
       <div class="capcell"><dt>Hard cap</dt><dd>${money(tax)}</dd></div>
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
-      <div class="capcell"><dt>Spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
+      <div class="capcell"><dt>Roster spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
     </dl>
     <div class="tscroll" data-cap="1"><table id="cxTbl"><thead><tr><th class="l" data-k="n">Player</th><th class="l hide" data-k="pos">Pos</th>
       <th class="hide2" data-k="acq">Acquired</th><th class="hide2" data-k="yrs">Term</th>
@@ -4163,8 +4164,9 @@ function drawMe(){
       ${deadSalary(T)>0?`<div class="capcell"><dt>Released salary still charged</dt><dd class="bad">${money(deadSalary(T))}</dd></div>`:''}
       <div class="capcell"><dt>Cap space</dt><dd class="${cap-s>=0?'good':'bad'}">${money(cap-s)}</dd></div>
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
-      <div class="capcell"><dt>Spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
-      <div class="capcell"><dt>Game slots used</dt><dd>${Math.round(F.own)} / ${S.cfg.gamecap||920}</dd></div>
+      <div class="capcell"><dt>Roster spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
+      ${seasonLive()?`<div class="capcell"><dt>Games played</dt><dd>${gamesUsed(T)} / ${SCORE.cap||S.cfg.gamecap||920}</dd></div>`:''}
+      <div class="capcell"><dt>${seasonLive()?'Projected games, full season':'Projected games'}</dt><dd>${Math.round(F.own)} / ${S.cfg.gamecap||920}</dd></div>
       ${seasonLive()?'':`<div class="capcell"><dt>Avg historical place</dt><dd class="${avgPlace<=3.5?'good':avgPlace>=6.5?'bad':''}">${avgPlace.toFixed(1)}</dd></div>
       <div class="capcell"><dt>Categories at a winning level</dt><dd class="${beat>=4?'good':beat<=1?'bad':''}">${beat} of 9</dd></div>
       <div class="capcell"><dt>Mid-level left</dt><dd>${mleLeft(T)>0?money(mleLeft(T)):'spent'}${
@@ -8825,8 +8827,8 @@ function gamesUsed(t){
   const row=SCORE.standings.find(r=>r.club===t);
   return row?row.tot.GP:0;
 }
-/* ================= LAST NIGHT =================
-   What a night actually did for the signed-in club, from the morning's scoring
+/* ================= RESULTS =================
+   What a night — or a Monday–Sunday week — actually did for the signed-in club, from the morning's scoring
    (/api/score?day=) and the night's box scores (/api/stats?day=):
      Counted     started, and inside the game cap
      Over cap    started, but past 920 — discarded top-down by slot
@@ -8844,65 +8846,115 @@ async function lnFetch(day){
   if(v.score) LN[day]=v;
   return v;
 }
+/* League dates as strings, by calendar arithmetic at noon UTC so no zone or
+   clock change can shift a day. Weeks run Monday to Sunday. */
+const dPlus=(d,n)=>{ const t=new Date(d+'T12:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
+const weekOf=d=>{ const w=(new Date(d+'T12:00:00Z').getUTCDay()+6)%7; const from=dPlus(d,-w); return {from,to:dPlus(from,6)}; };
+const shortDay=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-US',{timeZone:'UTC',weekday:'short',month:'short',day:'numeric'});
+let RES={mode:'day',day:''};
+/* Results for the signed-in club over one night or one Monday–Sunday week. */
 async function drawLastNight(){
   const wrap=$('lnWrap'); if(!wrap) return;
-  const T=me?meTeam():null, days=Object.keys(SCORE.days||{}).sort().reverse();
-  wrap.hidden=!T||!days.length;
+  const T=me?meTeam():null, scored=Object.keys(SCORE.days||{}).sort();
+  wrap.hidden=!T||!scored.length;
   if(wrap.hidden) return;
-  const sel=$('lnDay');
-  if(sel.dataset.days!==days.join()){
-    const keep=sel.value;
-    sel.innerHTML=days.map(d=>`<option>${d}</option>`).join('');
-    sel.value=days.includes(keep)?keep:days[0];
-    sel.dataset.days=days.join();
-    sel.onchange=()=>drawLastNight();
-  }
-  const day=sel.value;
-  const {score,night}=await lnFetch(day);
-  if(sel.value!==day) return;            // the GM picked another night while this loaded
-  const club=score&&score.clubs&&score.clubs[T];
-  if(!club){
-    $('lnHead').innerHTML=''; 
-    $('lnBody').innerHTML=`<div class="empty">${htmlEsc(T)} had nobody in a slot for ${htmlEsc(day)}.</div>`;
+  if(!RES.day) RES.day=scored[scored.length-1];
+  const latest=scored[scored.length-1];
+  const span=RES.mode==='week'?weekOf(RES.day):{from:RES.day,to:RES.day};
+  const nights=scored.filter(d=>d>=span.from&&d<=span.to);
+  const label=RES.mode==='week'
+    ?`Week of ${shortDay(span.from)} – ${shortDay(span.to)}`:shortDay(RES.day);
+  $('lnCtl').innerHTML=`<div class="toggle"><button data-rm="day" aria-pressed="${RES.mode==='day'}">Day</button>
+      <button data-rm="week" aria-pressed="${RES.mode==='week'}">Week</button></div>
+    <button class="btn ghost" data-rs="-1" aria-label="Previous">◀</button>
+    <input type="date" id="lnDate" class="mono" value="${RES.day}" min="${scored[0]}" max="${latest}" style="width:auto">
+    <button class="btn ghost" data-rs="1" aria-label="Next">▶</button>
+    <button class="btn ghost" data-rs="0">Latest</button>
+    <span class="fcount">${htmlEsc(label)}</span>`;
+  $('lnCtl').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ RES.mode=b.dataset.rm; drawLastNight(); });
+  $('lnCtl').querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{
+    const k=+b.dataset.rs;
+    RES.day = k===0 ? latest : dPlus(RES.day, k*(RES.mode==='week'?7:1));
+    drawLastNight(); });
+  $('lnDate').onchange=e=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){ RES.day=e.target.value; drawLastNight(); } };
+
+  const want=RES.mode+'|'+RES.day;
+  if(!nights.length){
+    $('lnHead').innerHTML='';
+    $('lnBody').innerHTML=`<div class="empty">Nothing scored ${RES.mode==='week'?'that week':'for '+htmlEsc(shortDay(RES.day))}${
+      RES.day>latest?' yet':''} — no games, or the morning has not scored it.</div>`;
     return;
   }
-  const rows=[];
-  const add=(x,st)=>rows.push({slot:x.slot||'',n:x.n,t:x.t||'',s:x.s||{},st});
-  (club.counted||[]).forEach(x=>add(x,'Counted'));
-  (club.over||[]).forEach(x=>add(x,'Over cap'));
-  (club.reused||[]).forEach(x=>add(x,'Slot reused'));
-  /* Bench: on the roster today, played last night, credited to nobody here. */
-  const seen=new Set(rows.map(r=>nameKey(r.n)));
-  const played={};
-  Object.values((night&&night.players)||{}).forEach(p=>{ played[nameKey(p.n)]=p; });
-  S.teams[T].r.filter(contracted).forEach(p=>{
-    const c=canon(p.n), e=ESPNNAME[p.n]||ESPNNAME[c];
-    const hit=[p.n,c,e].filter(Boolean).map(nameKey).find(k=>played[k]&&!seen.has(k));
-    if(hit){ seen.add(hit); add({n:played[hit].n,t:played[hit].t,s:played[hit].s},'Bench'); }
-  });
+  const got=await Promise.all(nights.map(d=>lnFetch(d).then(v=>({d,...v}))));
+  if(RES.mode+'|'+RES.day!==want) return;            // moved on while this loaded
+
+  /* Every player row for every night, tagged with what happened to it. */
   const order=['Counted','Over cap','Slot reused','Bench'];
-  rows.sort((a,b)=>order.indexOf(a.st)-order.indexOf(b.st)||SLOTIDS.indexOf(a.slot)-SLOTIDS.indexOf(b.slot));
-  const t=club.totals||{};
-  const benchPts=rows.filter(r=>r.st==='Bench').reduce((a,r)=>a+(r.s.PTS||0),0);
+  const rows=[];
+  let tot={FG:0,FGA:0,FT:0,FTA:0,P3:0,REB:0,AST:0,STL:0,BLK:0,TO:0,PTS:0,GP:0}, over=0, reused=0, benchPts=0, last=null;
+  got.forEach(({d,score,night})=>{
+    const club=score&&score.clubs&&score.clubs[T];
+    if(!club) return;
+    last={club,cap:score.cap};
+    const add=(x,st)=>rows.push({d,slot:x.slot||'',n:x.n,t:x.t||'',s:x.s||{},st});
+    (club.counted||[]).forEach(x=>add(x,'Counted'));
+    (club.over||[]).forEach(x=>{ add(x,'Over cap'); over++; });
+    (club.reused||[]).forEach(x=>{ add(x,'Slot reused'); reused++; });
+    Object.keys(tot).forEach(k=>tot[k]+=(club.totals&&club.totals[k])||0);
+    /* Bench: on the roster today, played that night, credited to nobody here. */
+    const seen=new Set(rows.filter(r=>r.d===d).map(r=>nameKey(r.n))), played={};
+    Object.values((night&&night.players)||{}).forEach(p=>{ played[nameKey(p.n)]=p; });
+    S.teams[T].r.filter(contracted).forEach(p=>{
+      const c=canon(p.n), e=((S.cfg.espn||{})[p.n])||ESPNNAME[p.n]||ESPNNAME[c];
+      const hit=[e,p.n,c].filter(Boolean).map(nameKey).find(k=>played[k]&&!seen.has(k));
+      if(hit){ seen.add(hit); add({n:played[hit].n,t:played[hit].t,s:played[hit].s},'Bench'); benchPts+=played[hit].s.PTS||0; }
+    });
+  });
+  if(!last){
+    $('lnHead').innerHTML='';
+    $('lnBody').innerHTML=`<div class="empty">${htmlEsc(T)} had nobody in a slot ${RES.mode==='week'?'that week':'that night'}.</div>`;
+    return;
+  }
+  const after=last.club.gpBefore+((last.club.totals&&last.club.totals.GP)||0);
   $('lnHead').innerHTML=`<div class="dhead">
-    <span class="pill good">${t.GP||0} game${t.GP===1?'':'s'} counted</span>
-    ${club.over&&club.over.length?`<span class="pill bad">${club.over.length} over the cap</span>`:''}
-    ${club.reused&&club.reused.length?`<span class="pill bad">${club.reused.length} slot${club.reused.length===1?'':'s'} reused</span>`:''}
-    <span class="pill">${club.gpBefore+(t.GP||0)} / ${score.cap||920} after this night</span>
+    <span class="pill good">${tot.GP} game${tot.GP===1?'':'s'} counted</span>
+    ${over?`<span class="pill bad">${over} over the cap</span>`:''}
+    ${reused?`<span class="pill bad">${reused} slot${reused===1?'':'s'} reused</span>`:''}
+    <span class="pill">${after} / ${last.cap||920} after ${RES.mode==='week'?'this week':'this night'}</span>
     ${benchPts?`<span class="pill">${benchPts} points on the bench</span>`:''}</div>`;
+
   const ma=(m,a)=>`${m||0}-${a||0}`;
   const tag={Counted:'t-bird','Over cap':'t-blk','Slot reused':'t-blk',Bench:'t-cut'};
+  const K=['MP','FG','FGA','FT','FTA','P3','TRB','AST','STL','BLK','TOV','PTS'];
+  let list;
+  if(RES.mode==='day'){
+    list=rows.map(r=>({...r,g:1}));
+  } else {
+    /* A week sums each player's nights per outcome, so a man who counted four
+       times and sat on the bench once is two rows. */
+    const by={};
+    rows.forEach(r=>{
+      const k=nameKey(r.n)+'|'+r.st, x=by[k]||(by[k]={n:r.n,t:r.t,st:r.st,slot:'',g:0,s:Object.fromEntries(K.map(k=>[k,0]))});
+      x.g++; K.forEach(c=>x.s[c]+=r.s[c]||0);
+    });
+    list=Object.values(by);
+  }
+  list.sort((a,b)=>order.indexOf(a.st)-order.indexOf(b.st)
+    ||(RES.mode==='day'?SLOTIDS.indexOf(a.slot)-SLOTIDS.indexOf(b.slot):(b.s.PTS||0)-(a.s.PTS||0)));
+  const first=RES.mode==='day'?'<th class="l">Slot</th>':'<th>G</th>';
   $('lnBody').innerHTML=`<div class="scroller" data-cap="1"><table id="lnTbl"><thead><tr>
-    <th class="l">Slot</th><th class="l">Player</th><th class="l">Tm</th><th>MIN</th><th>FG</th><th>FT</th>
+    ${first}<th class="l">Player</th><th class="l">Tm</th><th>MIN</th><th>FG</th><th>FT</th>
     <th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr class="${r.st==='Counted'?'':'iscut'}"><td class="l">${r.slot?htmlEsc(slotLabel(r.slot)):'\u2014'}</td>
+    ${list.map(r=>`<tr class="${r.st==='Counted'?'':'iscut'}">${RES.mode==='day'
+        ?`<td class="l">${r.slot?htmlEsc(slotLabel(r.slot)):'—'}</td>`:`<td>${r.g}</td>`}
       <td class="l pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}<span class="tag ${tag[r.st]}">${r.st}</span></td>
       <td class="l">${htmlEsc(r.t)}</td><td>${r.s.MP||0}</td><td>${ma(r.s.FG,r.s.FGA)}</td><td>${ma(r.s.FT,r.s.FTA)}</td>
       <td>${r.s.P3||0}</td><td>${r.s.TRB||0}</td><td>${r.s.AST||0}</td><td>${r.s.STL||0}</td><td>${r.s.BLK||0}</td>
       <td>${r.s.TOV||0}</td><td>${r.s.PTS||0}</td></tr>`).join('')}
-    </tbody><tfoot><tr><td class="l" colspan="3">Counted</td><td></td><td>${ma(t.FG,t.FGA)}</td><td>${ma(t.FT,t.FTA)}</td>
-      <td>${t.P3||0}</td><td>${t.REB||0}</td><td>${t.AST||0}</td><td>${t.STL||0}</td><td>${t.BLK||0}</td>
-      <td>${t.TO||0}</td><td>${t.PTS||0}</td></tr></tfoot></table></div>`;
+    </tbody><tfoot><tr><td class="l" colspan="3">Counted${RES.mode==='week'?` · ${nights.length} night${nights.length===1?'':'s'}`:''}</td><td></td>
+      <td>${ma(tot.FG,tot.FGA)}</td><td>${ma(tot.FT,tot.FTA)}</td>
+      <td>${tot.P3}</td><td>${tot.REB}</td><td>${tot.AST}</td><td>${tot.STL}</td><td>${tot.BLK}</td>
+      <td>${tot.TO}</td><td>${tot.PTS}</td></tr></tfoot></table></div>`;
 }
 /* ---- stats and scoring health, for the commissioner ---- */
 let HEALTH={at:0};
@@ -8968,13 +9020,48 @@ function drawEspnMiss(){
   });
 }
 /* ---- standings from real results ---- */
+/* Roto standings for any set of nights. The same rule as seasonStandings() in
+   lib/score.mjs — most clubs' worth of points for the best in a category down
+   to 1, fewest turnovers best, ties split — computed here so a single week can
+   be ranked. The season itself still comes from the server's copy. */
+function standingsFor(days){
+  const K=['FG','FGA','FT','FTA','P3','REB','AST','STL','BLK','TO','PTS','GP'], tot={};
+  TEAMS().forEach(t=>tot[t]=Object.fromEntries(K.map(k=>[k,0])));
+  Object.values(days).forEach(n=>Object.entries(n||{}).forEach(([c,t])=>{
+    const into=tot[c]||(tot[c]=Object.fromEntries(K.map(k=>[k,0])));
+    K.forEach(k=>into[k]+=t[k]||0); }));
+  const names=Object.keys(tot);
+  const val=(c,k)=>k==='FG%'?(tot[c].FGA?tot[c].FG/tot[c].FGA:0):k==='FT%'?(tot[c].FTA?tot[c].FT/tot[c].FTA:0):tot[c][k];
+  const pts={},cat={}; names.forEach(c=>{pts[c]=0;cat[c]={};});
+  ['FG%','FT%','P3','REB','AST','STL','BLK','TO','PTS'].forEach(k=>names.forEach(c=>{
+    const v=val(c,k), better=names.filter(o=>k==='TO'?val(o,k)<v:val(o,k)>v).length,
+      ties=names.filter(o=>val(o,k)===v).length, p=names.length-better-(ties-1)/2;
+    cat[c][k]=p; pts[c]+=p; }));
+  return names.sort((a,b)=>pts[b]-pts[a]||a.localeCompare(b)).map((c,i)=>({club:c,rank:i+1,pts:pts[c],cat:cat[c],
+    tot:tot[c],pct:{FG:val(c,'FG%'),FT:val(c,'FT%')}}));
+}
 function drawStandings(){
   const box=$('realStand'); if(!box) return;
-  const rows=SCORE.standings||[], cap=SCORE.cap||920;
+  const scored=Object.keys(SCORE.days||{}).sort(), cap=SCORE.cap||920;
+  /* Period: the season, or any Monday–Sunday week that has a scored night. */
+  const per=$('standPer'), weeks=[...new Set(scored.map(d=>weekOf(d).from))].reverse();
+  const sig=weeks.join();
+  if(per.dataset.sig!==sig){
+    const keep=per.value;
+    per.innerHTML=`<option value="">Season to date</option>`
+      +weeks.map(w=>`<option value="${w}">Week of ${htmlEsc(shortDay(w))}</option>`).join('');
+    per.value=weeks.includes(keep)?keep:'';
+    per.dataset.sig=sig; per.onchange=drawStandings;
+  }
+  per.hidden=!weeks.length;
+  const wk=per.value?weekOf(per.value):null;
+  const rows=wk?standingsFor(Object.fromEntries(scored.filter(d=>d>=wk.from&&d<=wk.to).map(d=>[d,SCORE.days[d]])))
+               :(SCORE.standings||[]);
   const played=rows.some(r=>r.tot.GP>0);
-  $('realStandNote').textContent=played
-    ? `Through ${Object.keys(SCORE.days).sort().pop()} \u00b7 scored each morning from last night's box scores and each club's lineup at tip-off.`
-    : 'No games scored yet. The first night is scored the morning after opening night.';
+  $('realStandNote').textContent=!scored.length
+    ? 'No games scored yet. The first night is scored the morning after opening night.'
+    : wk ? `${shortDay(wk.from)} \u2013 ${shortDay(wk.to)} only: totals and roto points for that week's nights. Games are that week's.`
+    : `Through ${scored[scored.length-1]} \u00b7 scored each morning from last night's box scores and each club's lineup at tip-off.`;
   if(!played){ box.innerHTML=''; return; }
   const K=SORTS.stand||{col:'tot',desc:true};
   const sv=(r,c)=>({rank:r.rank,club:r.club,gp:r.tot.GP,fg:r.pct.FG,ft:r.pct.FT,p3:r.tot.P3,reb:r.tot.REB,
@@ -8988,7 +9075,7 @@ function drawStandings(){
       <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
       <th data-k="pts">PTS</th><th data-k="tot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr>
       <td class="l">${r.rank}</td><td class="l">${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
-      <td class="${r.tot.GP>=cap?'bad':''}">${r.tot.GP} / ${cap}</td>
+      <td class="${!wk&&r.tot.GP>=cap?'bad':''}">${wk?r.tot.GP:`${r.tot.GP} / ${cap}`}</td>
       ${cell(r,'FG%',pct(r.pct.FG))}${cell(r,'FT%',pct(r.pct.FT))}${cell(r,'P3',r.tot.P3)}${cell(r,'REB',r.tot.REB)}
       ${cell(r,'AST',r.tot.AST)}${cell(r,'STL',r.tot.STL)}${cell(r,'BLK',r.tot.BLK)}${cell(r,'TO',r.tot.TO)}
       ${cell(r,'PTS',r.tot.PTS)}<td class="rating">${r.pts}</td></tr>`).join('')}</tbody></table></div>`;
