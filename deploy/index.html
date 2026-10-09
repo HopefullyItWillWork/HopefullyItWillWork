@@ -1565,6 +1565,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   <div class="err" id="emErr"></div>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
     <button type="button" class="btn ghost" id="emTest">Send a test</button>
+    <button type="button" class="btn ghost" id="emDigest">Send me today's digest</button>
     <button class="btn" id="doEmail" value="ok">Save</button></div>
 </form></dialog>
 
@@ -2753,6 +2754,15 @@ $('emTest').onclick=async()=>{
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'test',to:t});
   $('emErr').textContent = r.ok ? 'Sent \u2014 check your inbox.'
+    : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
+    : `Could not send: ${r.reason||'unknown error'}`;
+};
+$('emDigest').onclick=async()=>{
+  const t=emailing; if(!t) return;
+  if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first.'; return; }
+  $('emErr').textContent='Sending\u2026';
+  const r=await notify({kind:'digest',to:t});
+  $('emErr').textContent = r.ok ? 'Sent \u2014 this is what the morning digest looks like.'
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };

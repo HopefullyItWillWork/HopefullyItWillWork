@@ -1,8 +1,10 @@
 /* POST /api/notify — the league's outgoing mail.
 
-   Three kinds today:
+   Four kinds today:
      {kind:"trade",  from, pin, to, summary}   tells a GM an offer is waiting
      {kind:"test",   from, pin}                sends one message to yourself
+     {kind:"digest", from, pin}                sends yourself this morning's
+                                               digest, exactly as it would go out
      {kind:"all",    from, pin, subject, body} the commissioner writes the league
 
    The endpoint never accepts an address. It looks the recipient up in the
@@ -14,7 +16,8 @@
    daily ceiling in lib/league.mjs. */
 
 import { store, read, sendMail, mailConfigured, underCap } from "./lib/league.mjs";
-import { esc, wrap, siteUrl } from "./lib/format.mjs";
+import { esc, wrap, siteUrl, yesterdayIn, movesOn, prettyDay, digestBody } from "./lib/format.mjs";
+import { digestStats } from "./lib/digest.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: H });
@@ -55,6 +58,30 @@ export default async (req) => {
       html: wrap("It works", `<p style="margin:0">Mail from the league ledger is reaching ${esc(to)}.</p>
         <p style="margin:14px 0 0">If you turned the daily digest on, the next one arrives tomorrow morning.</p>`),
       text: `Mail from the league ledger is reaching ${to}.`,
+    });
+    return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
+  }
+
+  /* This morning's digest, to yourself, whether or not the digest is switched on
+     for your club — so a GM can see what it looks like before turning it on, and
+     the commissioner can check the stats section after a change. */
+  if (kind === "digest") {
+    const to = asComm ? String(body.to || "") : from;
+    const club = teams[to];
+    if (!club || !club.email) return json({ ok: false, reason: "no address on file" });
+    if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
+    const zone = process.env.LEAGUE_TZ || "America/New_York";
+    const day = yesterdayIn(zone);
+    const moves = movesOn((await read(s, "log")).data || [], zone, day);
+    let stats = null;
+    try { stats = await digestStats(s, to, day); } catch { stats = null; }
+    const pretty = prettyDay(day);
+    const r = await sendMail({
+      to: club.email,
+      subject: `${pretty} \u2014 your League Ledger digest`,
+      html: wrap(pretty, digestBody(to, club, moves, zone, stats),
+        "a copy you asked for; the daily digest is set on your My Team tab"),
+      text: `${pretty}: ${moves.length} transactions.\n\n${siteUrl()}`,
     });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
   }

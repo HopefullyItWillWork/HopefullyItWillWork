@@ -3,15 +3,15 @@
    Every morning it mails each club that has an address on file and the digest
    switched on, listing every transaction the league recorded the day before.
 
-   Yesterday's per-game stats are NOT in here, and that is not an oversight: the
-   nightly stats feed CLAUDE.md lists under "Not yet built" does not exist yet,
-   so there is no daily/<date> key to read. The email leaves a marked slot for
-   it, so when the feed lands the stats half drops in without redesigning this.
+   It leads with how the club's starters did last night and where it stands
+   (lib/digest.mjs, from the morning's scoring), then the day's transactions.
+   Scoring runs at 09:45 UTC, well before this at 12:00, so last night is in.
 
    Schedule is UTC. 12:00 UTC is 8am Eastern in summer, 7am in winter. */
 
 import { store, read, sendMail, mailConfigured, underCap } from "./lib/league.mjs";
-import { wrap, siteUrl, yesterdayIn, movesOn, prettyDay, digestBody } from "./lib/format.mjs";
+import { wrap, siteUrl, yesterdayIn, movesOn, prettyDay, digestBody, ord } from "./lib/format.mjs";
+import { digestStats } from "./lib/digest.mjs";
 
 const ZONE = process.env.LEAGUE_TZ || "America/New_York";
 
@@ -42,11 +42,17 @@ export default async () => {
   const pretty = prettyDay(day);
   let sent = 0;
   const failed = [];
+  const cache = {};
   for (const t of subs) {
+    /* Stats never stop the mail: a scoring problem costs the section, not the digest. */
+    let stats = null;
+    try { stats = await digestStats(s, t, day, cache); } catch { stats = null; }
     const r = await sendMail({
       to: teams[t].email,
-      subject: `${pretty} \u2014 ${moves.length} transaction${moves.length === 1 ? "" : "s"} in the league`,
-      html: wrap(pretty, digestBody(t, teams[t], moves, ZONE),
+      subject: stats && stats.rank
+        ? `${pretty} \u2014 ${stats.totals.PTS || 0} points, ${ord(stats.rank)} of ${stats.of}`
+        : `${pretty} \u2014 ${moves.length} transaction${moves.length === 1 ? "" : "s"} in the league`,
+      html: wrap(pretty, digestBody(t, teams[t], moves, ZONE, stats),
         "turn this off under Email on your My Team tab"),
       text:
         `${pretty}: ${moves.length} transactions.\n\n` +

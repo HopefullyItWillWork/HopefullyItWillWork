@@ -2,7 +2,7 @@
    with no Netlify runtime and no @netlify/blobs installed. The date bucketing is
    the part that actually matters: get the zone wrong and every evening move is
    filed under the following day and mailed late. */
-import { dayIn, yesterdayIn, movesOn, esc, wrap, digestBody, prettyDay, clubLine }
+import { dayIn, yesterdayIn, movesOn, esc, wrap, digestBody, prettyDay, clubLine, statsBlock, ord }
   from '../deploy/netlify/functions/lib/format.mjs';
 
 let fails = 0, ran = 0;
@@ -62,9 +62,22 @@ const evil = digestBody('Coulter', club,
 ok('a hostile detail string is escaped in the digest',
    !evil.includes('<img src=x') && evil.includes('&lt;img src=x'));
 
-console.log('\n== the stats half is marked as missing, not faked ==');
-ok('digest says the feed is not built', /nightly stats feed is not built/.test(evil));
+console.log('\n== last night\'s stats ==');
+ok('no scored night says so, and invents nothing', /No league games were scored/.test(evil));
 ok('digest still lists transactions', /Transactions/.test(evil));
+const line = (pts) => ({ FG: 5, FGA: 10, FT: 2, FTA: 2, P3: 1, TRB: 5, AST: 3, STL: 1, BLK: 1, TOV: 2, PTS: pts });
+const stats = { day: '2026-10-22', counted: [{ slot: 'C', n: 'Nikola Jokic', s: line(31) }, { slot: 'G1', n: '<b>Evil</b>', s: line(9) }],
+  over: [{ n: 'Late Guy' }], reused: [], totals: { FG: 10, FGA: 20, P3: 2, REB: 10, AST: 6, STL: 2, BLK: 2, TO: 4, PTS: 40, GP: 2 },
+  gpAfter: 918, cap: 920, rank: 2, of: 9, pts: 61.5, rankWas: 4 };
+const sb = statsBlock(stats);
+ok('standing and movement', /2nd of 9/.test(sb) && /up from 4th/.test(sb) && /61.5 roto points/.test(sb), sb.slice(0, 200));
+ok('games against the cap', /918 \/ 920 games/.test(sb));
+ok('each counted starter, and the counted total', sb.includes('Nikola Jokic') && />31</.test(sb) && />40</.test(sb));
+ok('player names are escaped', !sb.includes('<b>Evil</b>') && sb.includes('&lt;b&gt;Evil'));
+ok('over the cap is named', /1 over the game cap: Late Guy/.test(sb));
+ok('down is down', /down from 1st/.test(statsBlock({ ...stats, rankWas: 1 })));
+ok('ordinals', ord(1) === '1st' && ord(2) === '2nd' && ord(3) === '3rd' && ord(4) === '4th' && ord(11) === '11th' && ord(12) === '12th' && ord(21) === '21st');
+ok('the digest carries the section', /Last night/.test(digestBody('Coulter', club, [], ZONE, stats)));
 
 console.log('\n== the wrapper ==');
 const w = wrap('Title', '<p>body</p>', 'foot');

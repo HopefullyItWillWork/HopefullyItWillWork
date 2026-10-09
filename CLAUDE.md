@@ -2123,6 +2123,26 @@ which names, in slot order, the starters who would not count tonight.
 
 ---
 
+## Daily digest
+
+`daily.mjs` mails, at 12:00 UTC, every club with an address and the digest on.
+It leads with **Last night** (`lib/digest.mjs`, from the morning's scoring: rank
+and movement, roto points, games against the cap, each counted starter's line,
+anyone over the cap or in a reused slot), then yesterday's transactions. Scoring
+runs from 09:45 UTC, so last night is in by then. A stats failure drops the
+section, never the email. The subject carries points and place when there is a
+scored night.
+
+`/api/notify` kind `digest` sends you this morning's digest on demand ("Send me
+today's digest" in the Email dialog), whether or not yours is switched on.
+
+Mail goes through **Resend** (plain fetch in `lib/league.mjs`), not Netlify, so
+the free Netlify plan is enough. It needs `RESEND_API_KEY` and `MAIL_FROM` in
+Netlify's environment variables and the sending domain verified at Resend; the
+domain's DNS is at **Porkbun**. With no key, every send is a quiet no-op.
+
+---
+
 ## Not yet built
 
 - CSV import. Export is built; see the commissioner's player table above for what
@@ -2132,9 +2152,6 @@ which names, in slot order, the starters who would not count tonight.
 - **Checking scoring against the old platform** for the first week or two
   before relying on the site alone. The past platform let clubs finish at
   925–927 games; this one stops at exactly the cap.
-- **Last night's line in the daily email digest** (its stats slot is marked).
-  Mail needs `RESEND_API_KEY` and `MAIL_FROM` set in Netlify; the free plan is
-  enough.
 - **Daily stat accrual.** The lineup structure is built — slots, eligibility,
   bench, IR, lock — but nothing counts a night's box score against a started
   player yet. The feed (above) supplies the box scores; `startedOn(club)` is the
