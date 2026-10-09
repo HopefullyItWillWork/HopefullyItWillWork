@@ -2213,8 +2213,11 @@ sign, cut, trade, and not nominations, which are logged as `sign`). In season ev
 lineup change is an `edit`, and a digest listing forty of them is not a digest.
 
 **The weekly opens with one or two tweets** (`lib/tweets.mjs`) in the voice
-of Zach Lowe, Bill Simmons, Nate Duncan or John Hollinger, reacting to the week's
-biggest move (`biggestMoves()`: executed trades first, then the dearest signings).
+of Zach Lowe, Bill Simmons, Nate Duncan or John Hollinger about the week
+(`weekStory()`): the biggest moves if there were any (`biggestMoves()`: executed
+trades first, then the dearest signings), and always the race — the season table
+with climbs and slides, the best and worst weeks, the standout player lines. A
+week with no transactions still gets tweets; a week with no games gets none.
 Claude writes them inside the Monday run — `claude-opus-5-5`, effort `medium`,
 server-side `fallbacks: "default"`, a JSON-only reply checked by `parseTweets()`
 (listed author, ≤280 characters, at most two). Fully automatic and fully optional:
