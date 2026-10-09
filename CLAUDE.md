@@ -588,15 +588,51 @@ many picks go live and whose pick it is. The draft's Open was the one switch on
 that page that took no confirmation, which is exactly how a draft starts three
 days early.
 
+### The commissioner can fix anything in a live auction
+Built on draft day, 2026-10-09, after asking how a live auction could break.
+Every one of these is `hasComm()` (so a deputy too), logged, and lives on the
+auction tab's **Commissioner controls** strip (`drawNomAdmin()`) or the lot itself:
+
+| | |
+|---|---|
+| **Acting for** (`AUCAS`, `aucActor()`) | nominate and bid for any club whose GM has dropped off. `bidControls()` and the nomination form read `aucActor()`, not `me` |
+| **Back one / Skip one** (`nomShift()`) | move the clock by `S.cfg.nomAdj`, added to the log count by `nomPos()`. Saving the order resets it |
+| **Put on the clock** (`nomSetClock()`) | that club's next turn in the snake from here |
+| **In the nomination cycle** (`S.cfg.nomOut`, `nomSkip()`) | a club taken out is skipped like a full one — GMs who fill up leave early. It may still bid |
+| **Cancel the lot** | now asks whether to give the nominator its turn back (`nomShift(-1)`) |
+| **Remove top bid** (`removeTopBid()`) | the top club's whole run of entries and its max, then proxies re-resolve |
+| **Undo this award** (`undoAward()`) | player back where he was (pool, or the roster he was expiring on), mid-level refunded, lot reopened with its bids. `awardTo()` writes `a.undo` first |
+
+**The merge had to learn about both of the last two.** Each browser keeps its own
+copy of the lot and `mergeSlice('auction')` unions the bid lists, so a removed bid
+came straight back from any stale copy. `a.removed` (bid ids) and `a.voided` (max
+amounts) are tombstones the merge filters on; `a.reopen` is a stamp that lets a
+reopened lot beat the stale `closed` copy every other browser still holds, which
+the status ranking alone would prefer.
+
+Beyond the auction the commissioner already had: assign any player to any club at
+any salary (warns, never blocks), edit any contract, move and cut for any club,
+answer a restricted match for an absent club, undo any rookie pick, open and close
+both the auction and the draft.
+
 ### The auction nominates on a snake
 `S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
 backwards, round three forwards again, so the club at each end nominates twice in
 a row — a snake. `nomSlot(i)` is the pure function; `nomOnClock()` is what the
 screens read.
 
+**Empty seats are held back from the hard cap only.** `bidCeiling()` reserves a
+minimum for each other empty seat against the $200.50 hard cap, which nothing
+beats. It used to reserve them against the soft cap too, but minimum deals are
+one of the ways over the soft cap, so a club may spend all its room on one
+player — that understated every bid by a dollar a seat (fixed 2026-10-09).
+
 **How far through the order we are is counted from the transaction log**, not
 stored. Every nomination writes one line, so `nomCount()` reads the append-only
-record of what actually happened: there is no counter to drift, nothing to reset,
+record of what actually happened — **counting only nominations since the order
+was last saved**, so saving the order restarts the snake from the top. It once
+counted every nomination ever logged, and twelve test nominations from September
+started the real auction twelve places in. There is still no counter to drift,
 and two GMs cannot race it.
 
 **A full club is skipped, not waited on.** It cannot sign anybody, so blocking the
@@ -708,7 +744,10 @@ roster. Worth $7.00 over the cap.
 
 **Restricted free agents**: only players who finished the final year of a team,
 player, or rookie option. Their club sits out the bidding, then decides whether
-to match. All cap rules apply to the match.
+to match. All cap rules apply to the match. `rfaSitsOut(team,name)` is the
+rule: `placeBid()` and `nominate()` refuse the rights holder and its bid panel
+says why instead of showing controls. Before 2026-10-09 nothing enforced it, so
+the rights holder could bid, win outright and skip the match.
 
 **Declining a team option** is not a cut. In the offseason before the option year,
 `declineOption()` voids that year and clears `o`. The player stays on the roster
@@ -725,7 +764,7 @@ players as it covers, so what is tracked is the money **left**.
 |---|---|
 | `mleAmt()` | the league's figure; `MLEDEF` ($5.50) when unset |
 | `mleLeft(t)` | dollars remaining — legacy `mle===false` reads as 0, a missing key as the full amount, so nothing migrates |
-| `capRoom(t)` | room under the **soft** cap, holding a minimum back for each empty seat |
+| `capRoom(t)` | room under the **soft** cap — the cap less what is committed, **nothing held back** |
 | `mleLane(t,name,price,declared)` | is this deal on the exception rather than on cap room? |
 | `mleCost(price)` | what it costs the pot — **the whole contract** |
 | `mleTied()` | the clubs level with the standing bid on declared MLE bids |
@@ -771,6 +810,16 @@ the levelling rule below is available — it is not what makes it an MLE deal.
 
 **It beats the soft cap and nothing else.** `bidCeiling()` computes `hard` first and
 every branch is clamped to it, so the $200.50 hard cap is still absolute.
+
+**Every tie at the price goes to the coin flip, but GMs cannot tie on purpose**
+(league decision, 2026-10-09). `mleTied()` (the name is historical) returns every
+club level at the price, however it got there: two identical proxy maxes now end
+level instead of going to whoever set his first, and two clubs bidding the same
+amount at the same instant from different devices both survive the merge. The
+leader may raise to break a tie. **There is deliberately no Match button**, and a
+typed bid equal to the standing one is refused unless it is the mid-level level
+below — matching is not a strategy the league wants. The flip winner signs in his
+own lane: one season out of cap room, two on the exception.
 
 **Two clubs on the exception cannot separate themselves by a quarter** — the pot is
 the same size for both and neither may go past it — so a mid-level bid may
@@ -1125,6 +1174,14 @@ picks last. Three years with a rookie option on the last. First pick is 3.57% of
 the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the
 auction and do not consume auction cap space, but the hard cap still binds: a
 club with no room passes. Anyone undrafted is an ordinary free agent.
+
+**This year's drafted rookies count against the hard cap but not the soft cap.**
+`committed()` is the hard-cap total and includes them; `capCommitted()` is the
+soft-cap total and leaves out `capExempt(p)` — `p.rookie` and `p.acq` equal to
+`leagueYear()`, both written by `makePick()`. `capRoom()`, the cap-space figures
+on the club page and My Team, and the trade machine's over-the-cap test all read
+`capCommitted()`. Next season he counts against both. Before 2026-10-09 every
+pick ate the club's auction cap room.
 
 ### How the draft is stored
 Two pieces of state, in different slices on purpose:
