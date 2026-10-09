@@ -588,6 +588,33 @@ many picks go live and whose pick it is. The draft's Open was the one switch on
 that page that took no confirmation, which is exactly how a draft starts three
 days early.
 
+### The commissioner can fix anything in a live auction
+Built on draft day, 2026-10-09, after asking how a live auction could break.
+Every one of these is `hasComm()` (so a deputy too), logged, and lives on the
+auction tab's **Commissioner controls** strip (`drawNomAdmin()`) or the lot itself:
+
+| | |
+|---|---|
+| **Acting for** (`AUCAS`, `aucActor()`) | nominate and bid for any club whose GM has dropped off. `bidControls()` and the nomination form read `aucActor()`, not `me` |
+| **Back one / Skip one** (`nomShift()`) | move the clock by `S.cfg.nomAdj`, added to the log count by `nomPos()`. Saving the order resets it |
+| **Put on the clock** (`nomSetClock()`) | that club's next turn in the snake from here |
+| **In the nomination cycle** (`S.cfg.nomOut`, `nomSkip()`) | a club taken out is skipped like a full one — GMs who fill up leave early. It may still bid |
+| **Cancel the lot** | now asks whether to give the nominator its turn back (`nomShift(-1)`) |
+| **Remove top bid** (`removeTopBid()`) | the top club's whole run of entries and its max, then proxies re-resolve |
+| **Undo this award** (`undoAward()`) | player back where he was (pool, or the roster he was expiring on), mid-level refunded, lot reopened with its bids. `awardTo()` writes `a.undo` first |
+
+**The merge had to learn about both of the last two.** Each browser keeps its own
+copy of the lot and `mergeSlice('auction')` unions the bid lists, so a removed bid
+came straight back from any stale copy. `a.removed` (bid ids) and `a.voided` (max
+amounts) are tombstones the merge filters on; `a.reopen` is a stamp that lets a
+reopened lot beat the stale `closed` copy every other browser still holds, which
+the status ranking alone would prefer.
+
+Beyond the auction the commissioner already had: assign any player to any club at
+any salary (warns, never blocks), edit any contract, move and cut for any club,
+answer a restricted match for an absent club, undo any rookie pick, open and close
+both the auction and the draft.
+
 ### The auction nominates on a snake
 `S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
 backwards, round three forwards again, so the club at each end nominates twice in
