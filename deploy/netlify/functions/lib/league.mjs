@@ -23,7 +23,7 @@ export { esc, wrap, siteUrl, dayIn, timeIn, yesterdayIn, movesOn, prettyDay }
    under Site configuration → Environment variables:
 
      RESEND_API_KEY   required. Nothing is sent without it.
-     MAIL_FROM        required. e.g. "League Ledger <ledger@yourdomain.com>".
+     MAIL_FROM        required. e.g. "HIWW <ledger@hopefullyitwill.work>".
                       The domain has to be verified with Resend first.
      SITE_URL         optional. Used for links back into the app.
 

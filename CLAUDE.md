@@ -1421,7 +1421,7 @@ configuration → Environment variables:
 | Variable | | |
 |---|---|---|
 | `RESEND_API_KEY` | required | nothing is sent without it |
-| `MAIL_FROM` | required | e.g. `League Ledger <ledger@yourdomain.com>`; the domain must be verified with Resend |
+| `MAIL_FROM` | required | `HIWW <ledger@hopefullyitwill.work>` — the name before `<` is the sender name GMs see (the emails are branded HIWW); the domain must be verified with Resend |
 | `SITE_URL` | optional | links back into the app |
 | `LEAGUE_TZ` | optional | defaults to `America/New_York` |
 | `MAIL_DAILY_CAP` | optional | defaults to **100** sends a day — Resend's own free-tier daily limit, so our ceiling bites first |

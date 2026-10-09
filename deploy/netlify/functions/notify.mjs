@@ -64,10 +64,10 @@ export default async (req) => {
     if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
     const r = await sendMail({
       to: addr,
-      subject: "League Ledger — test message",
-      html: wrap("It works", `<p style="margin:0">Mail from the league ledger is reaching ${esc(to)}.</p>
+      subject: "HIWW — test message",
+      html: wrap("It works", `<p style="margin:0">Mail from HIWW is reaching ${esc(to)}.</p>
         <p style="margin:14px 0 0">If you turned the daily digest on, the next one arrives tomorrow morning.</p>`),
-      text: `Mail from the league ledger is reaching ${to}.`,
+      text: `Mail from HIWW is reaching ${to}.`,
     });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
   }
@@ -96,13 +96,13 @@ export default async (req) => {
       const wMoves = movesBetween(log, zone, wFrom, wTo);
       try { w.tweets = await weeklyTweets(s, wFrom, wMoves, w); } catch { w.tweets = null; }
       html = weeklyBody(w, wMoves, zone);
-      subject = `${title} \u2014 your League Ledger weekly`;
+      subject = `${title} \u2014 your HIWW weekly`;
     } else {
       let d = null;
       try { d = await digestDaily(s, to, day); } catch { d = null; }
       title = prettyDay(day);
       html = dailyBody(d || { club: to, day }, movesOn(log, zone, day), zone);
-      subject = `${title} \u2014 your League Ledger daily`;
+      subject = `${title} \u2014 your HIWW daily`;
     }
     const r = await sendMail({ to: club.email, subject,
       html: wrap(title, html),
@@ -180,7 +180,7 @@ export default async (req) => {
         to: x.addr,
         subject,
         html: wrap(subject, `${para}<p style="margin:18px 0 0"><a href="${siteUrl()}"
-          style="color:#c8922e;font-weight:700">Open the league ledger</a></p>`,
+          style="color:#c8922e;font-weight:700">Open HIWW</a></p>`,
           "Manage emails on My Team"),
         text,
       });
