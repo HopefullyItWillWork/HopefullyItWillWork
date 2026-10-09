@@ -83,6 +83,10 @@ ok('the commissioner\'s ESPN map is honoured', keysFor('Bub Carrington', {}, { '
 const ren = [{ from: 'N. Daman', to: 'Hello' }, { from: 'Hello', to: 'N. Daman test' }];
 ok('a chain of renames resolves', currentName('N. Daman', ren) === 'N. Daman test');
 ok('a removed club maps to null', currentName('Gone', [{ from: 'Gone', to: null }]) === null);
+const liveJournal = [{ from: 'N. Daman', to: 'Hello' }, { from: 'N. Daman', to: 'Nd test' }, { from: 'N. Daman', to: 'N. Daman test' }];
+ok('a club that exists today keeps its name, whatever the journal says',
+   currentName('N. Daman', liveJournal, ['N. Daman', 'Osborn']) === 'N. Daman');
+ok('...and the journal still maps a name that is gone', currentName('N. Daman', liveJournal, ['Hello']) === 'Hello');
 r = scoreNight({ night, gpBefore: {}, renames: [{ from: 'Old', to: 'New' }],
   lineups: { Old: [entry('2026-10-21T13:15:00.000Z', { C: 'Nikola Jokic' })] } });
 ok('a lineup saved under the old name scores for the new one', r.clubs.New && r.clubs.New.counted.length === 1 && !r.clubs.Old);

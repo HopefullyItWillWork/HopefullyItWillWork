@@ -2,7 +2,7 @@
    with no Netlify runtime and no @netlify/blobs installed. The date bucketing is
    the part that actually matters: get the zone wrong and every evening move is
    filed under the following day and mailed late. */
-import { dayIn, yesterdayIn, movesOn, esc, wrap, digestBody, prettyDay, clubLine, statsBlock, ord }
+import { dayIn, yesterdayIn, movesOn, movesBetween, esc, wrap, dailyBody, weeklyBody, headline, lastNightBlock, prettyDay, clubLine, ord, gapText, isMonday }
   from '../deploy/netlify/functions/lib/format.mjs';
 
 let fails = 0, ran = 0;
@@ -57,27 +57,57 @@ console.log('\n== league text never lands in the markup raw ==');
 ok('escapes angle brackets', esc('<b>x</b>')==='&lt;b&gt;x&lt;/b&gt;');
 ok('escapes quotes and ampersands', esc(`"a"&'b'`)==='&quot;a&quot;&amp;&#39;b&#39;');
 ok('null becomes empty', esc(null)==='');
-const evil = digestBody('Coulter', club,
+const evil = dailyBody({ club: 'Coulter', live: true, last: null },
   [{ts:'2026-09-02T16:00:00Z', kind:'trade', detail:'<img src=x onerror=alert(1)>', team:'Brice'}], ZONE);
 ok('a hostile detail string is escaped in the digest',
    !evil.includes('<img src=x') && evil.includes('&lt;img src=x'));
 
-console.log('\n== last night\'s stats ==');
+console.log('\n== the daily ==');
 ok('no scored night says so, and invents nothing', /No league games were scored/.test(evil));
-ok('digest still lists transactions', /Transactions/.test(evil));
+ok('digest still lists league moves', /League moves/.test(evil));
 const line = (pts) => ({ FG: 5, FGA: 10, FT: 2, FTA: 2, P3: 1, TRB: 5, AST: 3, STL: 1, BLK: 1, TOV: 2, PTS: pts });
-const stats = { day: '2026-10-22', counted: [{ slot: 'C', n: 'Nikola Jokic', s: line(31) }, { slot: 'G1', n: '<b>Evil</b>', s: line(9) }],
+const last = { counted: [{ slot: 'C', n: 'Nikola Jokic', s: line(31) }, { slot: 'G1', n: '<b>Evil</b>', s: line(9) }],
   over: [{ n: 'Late Guy' }], reused: [], totals: { FG: 10, FGA: 20, P3: 2, REB: 10, AST: 6, STL: 2, BLK: 2, TO: 4, PTS: 40, GP: 2 },
-  gpAfter: 918, cap: 920, rank: 2, of: 9, pts: 61.5, rankWas: 4 };
-const sb = statsBlock(stats);
-ok('standing and movement', /2nd of 9/.test(sb) && /up from 4th/.test(sb) && /61.5 roto points/.test(sb), sb.slice(0, 200));
-ok('games against the cap', /918 \/ 920 games/.test(sb));
-ok('each counted starter, and the counted total', sb.includes('Nikola Jokic') && />31</.test(sb) && />40</.test(sb));
-ok('player names are escaped', !sb.includes('<b>Evil</b>') && sb.includes('&lt;b&gt;Evil'));
-ok('over the cap is named', /1 over the game cap: Late Guy/.test(sb));
-ok('down is down', /down from 1st/.test(statsBlock({ ...stats, rankWas: 1 })));
+  gpAfter: 918, cap: 920, bench: [{ n: 'Josh Giddey', s: { PTS: 21 } }], benchPts: 21 };
+const ln = lastNightBlock(last);
+ok('counted starters and total', ln.includes('Nikola Jokic') && />31</.test(ln) && />40</.test(ln));
+ok('games against the cap', /918 \/ 920 used/.test(ln));
+ok('points left on the bench', /21 points left on your bench/.test(ln) && ln.includes('Josh Giddey 21'));
+ok('player names are escaped', !ln.includes('<b>Evil</b>') && ln.includes('&lt;b&gt;Evil'));
+ok('over the cap is named', /Over the game cap.*Late Guy/.test(ln));
+const st = { rank: 3, of: 9, pts: 54.5, rankWas: 4, above: { club: 'Osborn', gap: 2.5 }, below: { club: 'Brice', gap: 1 } };
+const hl = headline(st);
+ok('headline: place, movement, points, the club ahead', /3rd of 9/.test(hl) && /up from 4th/.test(hl) && /54.5 roto points/.test(hl) && /2.5 behind Osborn for 2nd/.test(hl), hl);
+ok('the leader is told his lead instead', /1 clear of Brice/.test(headline({ ...st, rank: 1, above: null })));
+ok('down is down', /down from 1st/.test(headline({ ...st, rankWas: 1 })));
 ok('ordinals', ord(1) === '1st' && ord(2) === '2nd' && ord(3) === '3rd' && ord(4) === '4th' && ord(11) === '11th' && ord(12) === '12th' && ord(21) === '21st');
-ok('the digest carries the section', /Last night/.test(digestBody('Coulter', club, [], ZONE, stats)));
+const tn = dailyBody({ club: 'X', live: true, last, standing: st,
+  tonight: { games: 7, playing: ['A'], idle: ['Idle Guy'], empty: 2, benchPlaying: ['Bench Guy'] } }, [], ZONE);
+ok('tonight: starters with no game, empty slots, bench players who play', /Idle Guy/.test(tn) && /2 empty slots/.test(tn) && /Bench Guy/.test(tn));
+
+console.log('\n== only roster moves are mail ==');
+const L2 = [{ ts: '2026-09-02T16:00:00Z', kind: 'sign', detail: 'Kevin Love', team: 'Brice' },
+  { ts: '2026-09-02T16:01:00Z', kind: 'edit', detail: 'Kevin Love started at C', team: 'Brice' },
+  { ts: '2026-09-02T16:02:00Z', kind: 'sign', detail: 'Nominated Someone at $1.00', team: 'Brice' }];
+ok('lineup edits and nominations are left out', movesOn(L2, ZONE, '2026-09-02').length === 1);
+ok('a week of moves', movesBetween(L2, ZONE, '2026-08-31', '2026-09-06').length === 1);
+ok('Monday is Monday', isMonday('2026-11-02') && !isMonday('2026-11-01'));
+
+console.log('\n== the weekly ==');
+const wk = weeklyBody({ club: 'A. Daman', nights: 4, standing: st, weekRank: 2, weekPts: 61,
+  table: [{ club: 'Osborn', gm: 'Chris Osborn', rank: 2, pts: 57, move: 1, gp: 40 }, { club: 'A. Daman', gm: '', rank: 3, pts: 54.5, move: -1, gp: 38 }],
+  gains: [{ k: 'REB', club: 'Brice', gap: 14 }], risks: [{ k: 'FG%', club: 'N. Fink', gap: 0.002 }], surplus: ['AST'],
+  angles: [{ k: 'REB', clubs: [{ club: 'Brice', gm: 'Mark Brice' }] }],
+  pace: { used: 300, cap: 920, projected: 948, expected: 290 }, pickups: { left: 3, spots: 3, money: 40 },
+  best: [{ n: 'Nikola Jokic', club: 'A. Daman', g: 4, s: { PTS: 120, TRB: 50, AST: 40 } }], worst: [], leagueTop: [] }, [], ZONE);
+ok('the race, with movement', /Chris Osborn/.test(wk) && /&uarr;1/.test(wk) && /&darr;1/.test(wk));
+ok('a point within reach', /14 rebounds behind Brice</.test(wk));
+ok('a point at risk, in percentage points', /0.2 pts of FG% ahead of N. Fink/.test(wk));
+ok('surplus to trade', /Comfortably clear in assists/.test(wk));
+ok('who has what you need: managers, not players', /Mark Brice \(Brice\) has more than they need/.test(wk));
+ok('games pace, warned when games will be wasted', /roughly 28 games will go to waste/.test(wk));
+ok('pickups left', /3 more minimum pickups/.test(wk));
+ok('gap text', gapText('PTS', 12.4) === '12 points' && gapText('REB', 1) === '1 rebound' && gapText('FT%', 0.0123) === '1.2 pts of FT%');
 
 console.log('\n== the wrapper ==');
 const w = wrap('Title', '<p>body</p>', 'foot');

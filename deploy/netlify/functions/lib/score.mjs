@@ -55,7 +55,12 @@ export function keysFor(name, alias, espn) {
 
 /* Old club name → the name it goes by now, following the journal in order.
    A club removed from the league (to: null) maps to null. */
-export function currentName(name, renames) {
+export function currentName(name, renames, live) {
+  /* A club that exists today IS its current name, whatever the journal says.
+     The live journal records N. Daman renamed three times and never back, while
+     N. Daman exists under that name — so the walk alone sent every N. Daman stat
+     to a club called "Hello". */
+  if (live && live.includes(name)) return name;
   let cur = name;
   for (const r of renames || []) if (r && r.from === cur) cur = r.to;
   return cur;
@@ -79,12 +84,12 @@ function tipsByClub(games) {
      alias, espn, renames from settings
    Returns { clubs: { club: { gpBefore, counted:[…], over:[…], reused:[…], totals } },
              unmatched: [players nobody started], noTip: [players with no game] } */
-export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, renames }) {
+export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, renames, live }) {
   /* Lineup history grouped under each club's CURRENT name, merged in time
      order — a rename mid-day leaves entries under both names. */
   const byClub = {};
   for (const [club, list] of Object.entries(lineups || {})) {
-    const now = currentName(club, renames);
+    const now = currentName(club, renames, live);
     if (!now) continue;
     (byClub[now] = byClub[now] || []).push(...list);
   }
@@ -156,7 +161,7 @@ export function seasonStandings(days, renames, clubs) {
   for (const c of clubs || []) tot[c] = zero();
   for (const night of Object.values(days || {})) {
     for (const [club, t] of Object.entries(night || {})) {
-      const now = currentName(club, renames);
+      const now = currentName(club, renames, clubs);
       if (!now) continue;
       const into = (tot[now] = tot[now] || zero());
       for (const k of CATS) into[k] += t[k] || 0;

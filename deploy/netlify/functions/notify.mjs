@@ -3,8 +3,8 @@
    Four kinds today:
      {kind:"trade",  from, pin, to, summary}   tells a GM an offer is waiting
      {kind:"test",   from, pin}                sends one message to yourself
-     {kind:"digest", from, pin}                sends yourself this morning's
-                                               digest, exactly as it would go out
+     {kind:"digest", from, pin, weekly?}       sends yourself this morning's daily,
+                                               or last week's weekly, as it would go out
      {kind:"all",    from, pin, subject, body} the commissioner writes the league
 
    The endpoint never accepts an address. It looks the recipient up in the
@@ -16,8 +16,10 @@
    daily ceiling in lib/league.mjs. */
 
 import { store, read, sendMail, mailConfigured, underCap } from "./lib/league.mjs";
-import { esc, wrap, siteUrl, yesterdayIn, movesOn, prettyDay, digestBody } from "./lib/format.mjs";
-import { digestStats } from "./lib/digest.mjs";
+import { esc, wrap, siteUrl, yesterdayIn, movesOn, movesBetween, prettyDay, dailyBody, weeklyBody,
+  dayIn, dayPlus } from "./lib/format.mjs";
+import { digestDaily, digestWeekly } from "./lib/digest.mjs";
+import { weeklyTweets } from "./lib/tweets.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: H });
@@ -71,18 +73,32 @@ export default async (req) => {
     if (!club || !club.email) return json({ ok: false, reason: "no address on file" });
     if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
     const zone = process.env.LEAGUE_TZ || "America/New_York";
+    const log = (await read(s, "log")).data || [];
     const day = yesterdayIn(zone);
-    const moves = movesOn((await read(s, "log")).data || [], zone, day);
-    let stats = null;
-    try { stats = await digestStats(s, to, day); } catch { stats = null; }
-    const pretty = prettyDay(day);
-    const r = await sendMail({
-      to: club.email,
-      subject: `${pretty} \u2014 your League Ledger digest`,
-      html: wrap(pretty, digestBody(to, club, moves, zone, stats),
-        "a copy you asked for; the daily digest is set on your My Team tab"),
-      text: `${pretty}: ${moves.length} transactions.\n\n${siteUrl()}`,
-    });
+    let html, subject, title;
+    if (body.weekly) {
+      /* The last full Monday–Sunday: the week the Monday weekly would cover. */
+      const today = dayIn(zone, new Date());
+      const back = (new Date(today + "T12:00:00Z").getUTCDay() + 6) % 7;     // days since Monday
+      const wFrom = dayPlus(today, -back - 7), wTo = dayPlus(wFrom, 6);
+      let w = null;
+      try { w = await digestWeekly(s, to, wFrom, wTo); } catch { w = null; }
+      title = `Week of ${prettyDay(wFrom)}`;
+      if (!w) return json({ ok: false, reason: "nothing to report for that week" });
+      const wMoves = movesBetween(log, zone, wFrom, wTo);
+      try { w.tweets = await weeklyTweets(s, wFrom, wMoves, w.table); } catch { w.tweets = null; }
+      html = weeklyBody(w, wMoves, zone);
+      subject = `${title} \u2014 your League Ledger weekly`;
+    } else {
+      let d = null;
+      try { d = await digestDaily(s, to, day); } catch { d = null; }
+      title = prettyDay(day);
+      html = dailyBody(d || { club: to, day }, movesOn(log, zone, day), zone);
+      subject = `${title} \u2014 your League Ledger daily`;
+    }
+    const r = await sendMail({ to: club.email, subject,
+      html: wrap(title, html, "a copy you asked for; digests are set under Email on your My Team tab"),
+      text: `${title}\n\n${siteUrl()}` });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
   }
 

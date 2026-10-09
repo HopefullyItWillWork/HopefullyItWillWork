@@ -2145,7 +2145,10 @@ night's games, by his NBA club), take each club's lineup **as of that tip-off**
 - Names: `keysFor()` tries the roster name, `NAMEFIX` (a copy of the page's),
   `ESPNNAME`, and the commissioner's `settings.alias`, all through `nameKey()`.
 - Club names go through the rename journal (`currentName()`), both for lineup
-  history and for summing a season.
+  history and for summing a season — **except a club that exists today, which is
+  its own current name whatever the journal says.** The live journal records N.
+  Daman renamed three times and never back; without that guard every N. Daman
+  stat would have been filed under "Hello" (found 2026-10-09, before any game).
 
 Every run rescores the stats feed's window (last night + five) **oldest first**,
 because a correction early in the window changes how many games every later
@@ -2180,18 +2183,51 @@ which names, in slot order, the starters who would not count tonight.
 
 ---
 
-## Daily digest
+## The digests
 
-`daily.mjs` mails, at 12:00 UTC, every club with an address and the digest on.
-It leads with **Last night** (`lib/digest.mjs`, from the morning's scoring: rank
-and movement, roto points, games against the cap, each counted starter's line,
-anyone over the cap or in a reused slot), then yesterday's transactions. Scoring
-runs from 09:45 UTC, so last night is in by then. A stats failure drops the
-section, never the email. The subject carries points and place when there is a
-scored night.
+Two emails, each a GM's choice (`S.teams[t].daily`, `S.teams[t].weekly`, set in
+the Email dialog and on Settings). Both are about **how the season is going, not
+the cap**. `lib/digest.mjs` gathers the data (no Netlify import; tested with an
+in-memory store); `lib/format.mjs` lays it out (pure). `daily.mjs` sends both at
+12:00 UTC, after scoring; the weekly only on Mondays, for the Monday–Sunday just
+finished. `digest` and `digestw` stop a re-run sending twice. A stats failure
+drops a section, never the mail.
 
-`/api/notify` kind `digest` sends you this morning's digest on demand ("Send me
-today's digest" in the Email dialog), whether or not yours is switched on.
+- **Daily:** place and movement and the gap to the club ahead
+  ("3rd of 9 (up from 4th) · 54.5 roto points · 2.5 behind Osborn for 2nd"), last
+  night's counted starters, **points left on the bench**, anyone over the cap or
+  in a reused slot, **tonight** (starters with no game, empty slots, bench players
+  who do have one — left out entirely if tips or ESPN's rosters are missing, since
+  it would otherwise call everyone idle), and yesterday's roster moves.
+- **Weekly:** the race with each club's movement, the week's own rank, **where the
+  points are close** (`categoryPicture()`: within 3% of the club above is +1 within
+  reach, of the club below is −1 at risk; 8% clear of the club below is surplus),
+  **who has what you need** (`tradeAngles()`: managers with surplus in your
+  within-reach categories — names only, never players, league decision), **games
+  pace** against the 920 cap with a projected finish, **pickups left** (minimum
+  signings affordable under the hard cap, limited by open active spots — the
+  league has no add limit), and the week's best performers, yours and the league's.
+
+Moves in either digest are **roster moves only** (`movesOn()`/`movesBetween()`:
+sign, cut, trade, and not nominations, which are logged as `sign`). In season every
+lineup change is an `edit`, and a digest listing forty of them is not a digest.
+
+**The weekly opens with one or two parody tweets** (`lib/tweets.mjs`) in the voice
+of Zach Lowe, Bill Simmons, Nate Duncan or John Hollinger, reacting to the week's
+biggest move (`biggestMoves()`: executed trades first, then the dearest signings).
+Claude writes them inside the Monday run — `claude-opus-5-5`, effort `medium`,
+server-side `fallbacks: "default"`, a JSON-only reply checked by `parseTweets()`
+(listed author, ≤280 characters, at most two). Fully automatic and fully optional:
+no `ANTHROPIC_API_KEY` in Netlify, an API error, a refusal or unparseable output,
+and the weekly goes out without them. One request a week, cached under
+`tweets-<monday>` and shared by every club's email. Every post says **parody** in
+the handle and the header, and the prompt keeps them to this league's own moves —
+no invented real-world news, nothing personal. Uses `@anthropic-ai/sdk`, pinned in
+`deploy/package.json`. Tests: `tests/tweets.test.js` (the SDK import must resolve —
+`npm install` in `deploy/` first, or an import-map stub in a browser).
+
+`/api/notify` kind `digest` sends yourself today's daily, or with `weekly:true` last
+week's weekly, whether or not yours is switched on — the two "Send me…" buttons.
 
 Mail goes through **Resend** (plain fetch in `lib/league.mjs`), not Netlify, so
 the free Netlify plan is enough. It needs `RESEND_API_KEY` and `MAIL_FROM` in
