@@ -105,7 +105,7 @@ export default async (req) => {
       subject = `${title} \u2014 your League Ledger daily`;
     }
     const r = await sendMail({ to: club.email, subject,
-      html: wrap(title, html, "a copy you asked for; digests are set under Email on your My Team tab"),
+      html: wrap(title, html),
       text: `${title}\n\n${siteUrl()}` });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
   }
@@ -139,7 +139,7 @@ export default async (req) => {
          ${body.note ? `<p style="margin:16px 0 0;padding:11px 13px;background:#14161a;border-left:2px solid #c8922e">${esc(body.note)}</p>` : ""}
          <p style="margin:18px 0 0"><a href="${siteUrl()}"
            style="color:#c8922e;font-weight:700">Review the offer</a></p>`,
-        "you are getting this because your club has an address on file"
+        "Manage emails on My Team"
       ),
       text: `${from} has offered ${to} a trade. Review it at ${siteUrl()}`,
     });
@@ -181,7 +181,7 @@ export default async (req) => {
         subject,
         html: wrap(subject, `${para}<p style="margin:18px 0 0"><a href="${siteUrl()}"
           style="color:#c8922e;font-weight:700">Open the league ledger</a></p>`,
-          "you are getting this because your club has an address on file"),
+          "Manage emails on My Team"),
         text,
       });
       (r.ok ? sent : failed).push(x.club);

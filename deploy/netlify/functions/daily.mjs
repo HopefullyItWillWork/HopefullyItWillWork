@@ -23,7 +23,7 @@ import { digestDaily, digestWeekly } from "./lib/digest.mjs";
 import { weeklyTweets } from "./lib/tweets.mjs";
 
 const ZONE = process.env.LEAGUE_TZ || "America/New_York";
-const FOOT = "change this under Email on your My Team tab";
+const FOOT = "Manage emails on My Team";
 
 async function sendDaily(s, teams, log, day) {
   const mark = await read(s, "digest");
