@@ -328,6 +328,15 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        g('bidCeiling')(T, 'Nobody At All') <= CS.cfg.tax - g('committed')(T) - Math.max(0, seats - 1) + 0.001);
   }
 
+  console.log('\n== the rights holder sits out a restricted free agent ==');
+  {
+    const CS = g('S'), T = 'Osborn';
+    CS.teams[T].r.push({ n: 'Test RFA', p: 'G', y: {}, o: 'TO', b: '', acq: 2024, cut: false });
+    ok('the club holding matching rights may not bid or nominate', !!g('rfaSitsOut')(T, 'Test RFA'));
+    ok('every other club may', g('rfaSitsOut')('Brice', 'Test RFA') === null);
+    CS.teams[T].r.pop();
+  }
+
   console.log('\n== this year\'s drafted rookies count against the tax, not the cap ==');
   {
     const CS = g('S'), T = 'Osborn', r = CS.teams[T].r;

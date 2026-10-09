@@ -717,7 +717,10 @@ roster. Worth $7.00 over the cap.
 
 **Restricted free agents**: only players who finished the final year of a team,
 player, or rookie option. Their club sits out the bidding, then decides whether
-to match. All cap rules apply to the match.
+to match. All cap rules apply to the match. `rfaSitsOut(team,name)` is the
+rule: `placeBid()` and `nominate()` refuse the rights holder and its bid panel
+says why instead of showing controls. Before 2026-10-09 nothing enforced it, so
+the rights holder could bid, win outright and skip the match.
 
 **Declining a team option** is not a cut. In the offseason before the option year,
 `declineOption()` voids that year and clears `o`. The player stays on the roster

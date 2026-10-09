@@ -4302,6 +4302,8 @@ function bidControls(){
      be what the money comes from and the box would be a lie. */
   const room=Math.max(0,capRoom(me2)), Rme=rightsOf(me2,a.player);
   const canMle = ml>0 && !(Rme.club===me2&&Rme.bird);
+  const sit=rfaSitsOut(me2,a.player);
+  if(sit){ box.innerHTML=`<div class="block"><div class="okbox" style="margin:0">${htmlEsc(sit)}</div></div>`; return; }
   box.innerHTML=`<div class="block">
     <div class="meta">nominated by ${htmlEsc(a.by)}, ${a.bids.length} bid${a.bids.length===1?'':'s'} so far</div>
     <div class="bidrow">
@@ -6418,6 +6420,18 @@ function restrictionNote(team,name){
   return out;
 }
 function A(){ return S.auction||null; }
+/* The club holding matching rights on a restricted free agent SITS OUT the
+   bidding and then decides whether to match (rulebook). It may not bid, and it
+   may not nominate him either, since a nomination opens with the nominator's own
+   bid. Before 2026-10-09 nothing enforced this: the rights holder could bid,
+   win outright and skip the match. Returns the refusal, or null. */
+function rfaSitsOut(team,name){
+  const R=rightsOf(null,name);
+  return R.rfa&&R.club===team
+    ? `${team} holds matching rights on ${name}, so it sits out the bidding. `
+      +`When the bidding is done it decides whether to match the winning bid.`
+    : null;
+}
 
 /* ---- the auction room has to be opened before anyone can do anything ----
    The rookie draft has always had this: nothing is on the clock until the
@@ -6490,6 +6504,7 @@ function mleTied(){
 async function placeBid(team,amt,isMax,isMle){
   if(!aucOpen()) return alert(aucShutWhy());
   const a=A(); if(!a||a.status!=='open') return alert('Nothing is on the block.');
+  const sit=rfaSitsOut(team,a.player); if(sit) return alert(sit);
   amt=Math.round(amt*4)/4;
   /* A club barred from signing him is barred from bidding on him — a bid it
      could not honour is not a bid, it is a way of running the price up. */
@@ -6788,6 +6803,8 @@ async function nominate(name,team,open,max,isMle){
     return alert(c ? `It is ${c.team}'s nomination.` : 'Every club is full — there is nobody left to nominate for.');
   }
   if(nomFull(team)) return alert(`${team} already carries ${S.cfg.roster} players and cannot bid.`);
+  const sit=rfaSitsOut(team,name);
+  if(sit) return alert(`${team} cannot nominate ${name}.\n\n${sit}`);
   /* A nomination opens with the nominator's own bid, so a club that cannot sign
      him cannot put him up either — it would hold a bid it could not honour. */
   const nb=signBlock(team,name,Math.round((open||1)*4)/4);
