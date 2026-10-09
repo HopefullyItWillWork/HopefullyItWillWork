@@ -34,10 +34,25 @@ export function yesterdayIn(zone, now = new Date()) {
   return dayIn(zone, new Date(now.getTime() - 24 * 60 * 60 * 1000));
 }
 
-/* Entries the league recorded on one calendar day in the league's zone. */
+/* Roster moves the league recorded on one calendar day in the league's zone —
+   signings, releases and trades, the same rule as the Transactions page. Edits
+   are left out: in season every lineup change is an edit, and a digest listing
+   "Giddey started at G" forty times a day is not a digest. */
+const ROSTERMOVE = new Set(["sign", "cut", "trade"]);
+/* A nomination is logged as kind "sign" but signs nobody. */
+const isMove = (e) => e && e.ts && ROSTERMOVE.has(e.kind) && !/^Nominated /.test(e.detail || "");
 export function movesOn(log, zone, day) {
-  return (log || []).filter((e) => e && e.ts && dayIn(zone, new Date(e.ts)) === day);
+  return (log || []).filter((e) => isMove(e) && dayIn(zone, new Date(e.ts)) === day);
 }
+/* The same over a run of days, from and to inclusive. */
+export function movesBetween(log, zone, from, to) {
+  return (log || []).filter((e) => { if (!isMove(e)) return false;
+    const d = dayIn(zone, new Date(e.ts)); return d >= from && d <= to; });
+}
+/* Is the league date a Monday? Noon UTC, so no zone or clock change moves it. */
+export const isMonday = (day) => new Date(day + "T12:00:00Z").getUTCDay() === 1;
+export const dayPlus = (day, n) => { const t = new Date(day + "T12:00:00Z");
+  t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 
 export const KINDL = { sign: "Signing", cut: "Release", trade: "Trade", edit: "Edit", bid: "Auction" };
 
@@ -102,52 +117,129 @@ ${bodyHtml}
 </table></td></tr></table></body></html>`;
 }
 
-/* The digest body for one club: its line, yesterday's transactions, and how its
-   starters did last night. `stats` comes from lib/digest.mjs (null when the
-   night was not scored — the offseason, a night with no games, or a morning the
-   scoring has not reached yet).
-
-     stats = { day, counted:[{slot,n,t,s}], over, reused, totals, gpAfter, cap,
-               rank, of, rankWas, pts }                                         */
+/* ---------------- the digests ----------------
+   Both are about how the season is going, not the cap. lib/digest.mjs gathers
+   the data; these only lay it out, so they are pure and testable. */
 export const ord = (n) => { const v = n % 100;
   return n + ((v >= 11 && v <= 13) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th"); };
-export function statsBlock(stats) {
-  if (!stats) return `<p style="margin:0;color:#7d8590">No league games were scored for yesterday.</p>`;
-  const td = (v, l) => `<td style="padding:4px 6px;text-align:${l ? "left" : "right"};border-bottom:1px solid #2b3038;
-    font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3c7cf">${v}</td>`;
-  const th = (v, l) => `<th style="padding:4px 6px;text-align:${l ? "left" : "right"};font:700 10px/1 ui-monospace,monospace;
-    letter-spacing:.08em;color:#7d8590;border-bottom:1px solid #2b3038">${v}</th>`;
-  const t = stats.totals || {};
-  const move = stats.rankWas && stats.rankWas !== stats.rank
-    ? (stats.rankWas > stats.rank ? ` &middot; up from ${ord(stats.rankWas)}` : ` &middot; down from ${ord(stats.rankWas)}`) : "";
-  const rows = (stats.counted || []).map((x) => {
-    const s = x.s || {};
-    return `<tr>${td(esc(x.n), 1)}${td(s.PTS || 0)}${td(s.TRB || 0)}${td(s.AST || 0)}${td(s.P3 || 0)}${td(s.STL || 0)}${td(s.BLK || 0)}${td(s.TOV || 0)}${td(`${s.FG || 0}-${s.FGA || 0}`)}</tr>`;
-  }).join("");
-  const notes = [
-    stats.over && stats.over.length ? `${stats.over.length} over the game cap: ${stats.over.map((x) => esc(x.n)).join(", ")}` : "",
-    stats.reused && stats.reused.length ? `${stats.reused.length} in a slot already used that night: ${stats.reused.map((x) => esc(x.n)).join(", ")}` : "",
-  ].filter(Boolean);
-  return `<p style="margin:0 0 10px;color:#e8e6e1"><b>${ord(stats.rank)} of ${stats.of}</b>${move}
-      &middot; ${stats.pts} roto points &middot; ${stats.gpAfter} / ${stats.cap} games</p>
-    ${rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
-      <tr>${th("PLAYER", 1)}${th("PTS")}${th("REB")}${th("AST")}${th("3P")}${th("STL")}${th("BLK")}${th("TO")}${th("FG")}</tr>
-      ${rows}
-      <tr>${td("<b>Counted</b>", 1)}${td(t.PTS || 0)}${td(t.REB || 0)}${td(t.AST || 0)}${td(t.P3 || 0)}${td(t.STL || 0)}${td(t.BLK || 0)}${td(t.TO || 0)}${td(`${t.FG || 0}-${t.FGA || 0}`)}</tr>
-    </table>` : `<p style="margin:0;color:#7d8590">Nobody in your lineup played.</p>`}
-    ${notes.map((n) => `<p style="margin:8px 0 0;color:#d9614a">${n}</p>`).join("")}`;
+const CAT = { "FG%": "FG%", "FT%": "FT%", P3: "threes", REB: "rebounds", AST: "assists",
+  STL: "steals", BLK: "blocks", TO: "turnovers", PTS: "points" };
+const ONE = { P3: "three", REB: "rebound", AST: "assist", STL: "steal", BLK: "block", TO: "turnover", PTS: "point" };
+const num = (v) => (Math.round(v * 10) / 10).toString();
+/* A gap in its own units: percentage points for a rate, a count otherwise. */
+export const gapText = (k, g) => (k === "FG%" || k === "FT%")
+  ? `${(g * 100).toFixed(1)} pts of ${k}` : `${Math.round(g)} ${Math.round(g) === 1 ? ONE[k] || k : CAT[k] || k}`;
+const H = (t) => `<p style="margin:22px 0 4px;font:700 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+  text-transform:uppercase;color:#7d8590">${esc(t)}</p>`;
+const P = (t, c) => `<p style="margin:0 0 6px;color:${c || "#c3c7cf"}">${t}</p>`;
+const td = (v, l) => `<td style="padding:4px 6px;text-align:${l ? "left" : "right"};border-bottom:1px solid #2b3038;
+  font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3c7cf">${v}</td>`;
+const th = (v, l) => `<th style="padding:4px 6px;text-align:${l ? "left" : "right"};font:700 10px/1 ui-monospace,monospace;
+  letter-spacing:.08em;color:#7d8590;border-bottom:1px solid #2b3038">${v}</th>`;
+const table = (head, rows) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+  style="border-collapse:collapse"><tr>${head}</tr>${rows}</table>`;
+
+/* "3rd of 9 (up from 4th) · 54.5 roto points · 2.5 behind Osborn". */
+export function headline(st) {
+  if (!st) return "";
+  const move = st.rankWas && st.rankWas !== st.rank
+    ? (st.rankWas > st.rank ? ` (up from ${ord(st.rankWas)})` : ` (down from ${ord(st.rankWas)})`) : "";
+  const chase = st.above ? ` &middot; ${num(st.above.gap)} behind ${esc(st.above.club)} for ${ord(st.rank - 1)}`
+    : st.below ? ` &middot; ${num(st.below.gap)} clear of ${esc(st.below.club)}` : "";
+  return `<b style="color:#e8e6e1">${ord(st.rank)} of ${st.of}</b>${move} &middot; ${num(st.pts)} roto points${chase}`;
 }
 
-export function digestBody(clubName, club, moves, zone, stats) {
-  const c = clubLine(club);
-  const H = (t) => `<p style="margin:0 0 2px;font:700 11px/1 ui-monospace,monospace;letter-spacing:.14em;
-    text-transform:uppercase;color:#7d8590">${esc(t)}</p>`;
-  return `${H(clubName)}
-    <p style="margin:0 0 18px;color:#e8e6e1">$${c.payroll.toFixed(2)} committed &middot;
-      ${c.signed} under contract &middot; ${c.expiring} expiring</p>
-    ${H("Last night")}
-    ${statsBlock(stats)}
-    <p style="margin:22px 0 0"></p>
-    ${H("Transactions")}
+const lineRow = (x) => { const s = x.s || {};
+  return `<tr>${td(esc(x.n), 1)}${td(s.PTS || 0)}${td(s.TRB || 0)}${td(s.AST || 0)}${td(s.P3 || 0)}${td(s.STL || 0)}${td(s.BLK || 0)}${td(s.TOV || 0)}${td(`${s.FG || 0}-${s.FGA || 0}`)}</tr>`; };
+const lineHead = th("PLAYER", 1) + th("PTS") + th("REB") + th("AST") + th("3P") + th("STL") + th("BLK") + th("TO") + th("FG");
+
+export function lastNightBlock(last) {
+  if (!last) return P("No league games were scored for yesterday.", "#7d8590");
+  const t = last.totals || {};
+  const out = [];
+  out.push(P(`${t.GP || 0} game${t.GP === 1 ? "" : "s"} counted &middot; ${last.gpAfter} / ${last.cap} used`));
+  out.push(last.counted.length ? table(lineHead, last.counted.map(lineRow).join("")
+    + `<tr>${td("<b>Counted</b>", 1)}${td(t.PTS || 0)}${td(t.REB || 0)}${td(t.AST || 0)}${td(t.P3 || 0)}${td(t.STL || 0)}${td(t.BLK || 0)}${td(t.TO || 0)}${td(`${t.FG || 0}-${t.FGA || 0}`)}</tr>`)
+    : P("Nobody in your lineup played.", "#7d8590"));
+  if (last.benchPts) out.push(P(`<b>${last.benchPts} points left on your bench</b>: `
+    + last.bench.map((p) => `${esc(p.n)} ${p.s.PTS || 0}`).join(", "), "#c8922e"));
+  if (last.over && last.over.length) out.push(P(`Over the game cap, so not counted: ${last.over.map((x) => esc(x.n)).join(", ")}`, "#d9614a"));
+  if (last.reused && last.reused.length) out.push(P(`In a slot already used that night: ${last.reused.map((x) => esc(x.n)).join(", ")}`, "#d9614a"));
+  return out.join("");
+}
+
+export function tonightBlock(t) {
+  if (!t) return "";
+  if (!t.games) return P("No NBA games tonight.", "#7d8590");
+  const out = [P(`${t.playing.length} of your starters play tonight.`)];
+  if (t.idle.length) out.push(P(`<b>Starting with no game tonight:</b> ${t.idle.map(esc).join(", ")}`, "#c8922e"));
+  if (t.empty) out.push(P(`<b>${t.empty} empty slot${t.empty === 1 ? "" : "s"}</b> in your lineup.`, "#c8922e"));
+  if (t.benchPlaying.length && (t.idle.length || t.empty))
+    out.push(P(`On your bench with a game: ${t.benchPlaying.map(esc).join(", ")}`));
+  return out.join("");
+}
+
+/* The daily: a thirty-second read. Where you stand, what last night did, what
+   tonight needs, and the league's moves. */
+export function dailyBody(d, moves, zone) {
+  return `${P(esc(d.club), "#7d8590")}
+    ${d.standing ? `<p style="margin:0 0 4px;font-size:15px">${headline(d.standing)}</p>` : ""}
+    ${d.live || d.last ? H("Last night") + lastNightBlock(d.last) : ""}
+    ${d.tonight ? H("Tonight") + tonightBlock(d.tonight) : ""}
+    ${H("League moves")}
     ${movesTable(moves, zone)}`;
 }
+
+/* The weekly: the race, where the points are close, who has what you need,
+   whether you are on pace against the cap, and how many pickups you can still
+   afford. Built to start conversations, not to tell anyone what to trade. */
+export function weeklyBody(w, moves, zone) {
+  const out = [P(esc(w.club), "#7d8590")];
+  if (w.standing) out.push(`<p style="margin:0 0 4px;font-size:15px">${headline(w.standing)}</p>`);
+  if (w.weekRank) out.push(P(`This week alone: ${ord(w.weekRank)} of ${w.table.length}, ${num(w.weekPts)} roto points over ${w.nights} night${w.nights === 1 ? "" : "s"}.`));
+
+  out.push(H("The race"));
+  out.push(table(th("#", 1) + th("CLUB", 1) + th("ROTO") + th("WEEK") + th("GAMES"),
+    w.table.map((r) => `<tr>${td(r.rank, 1)}${td(esc(r.club) + (r.gm ? ` <span style="color:#7d8590">${esc(r.gm)}</span>` : ""), 1)}${td(num(r.pts))}${td(r.move > 0 ? `<span style="color:#55a67a">&uarr;${r.move}</span>` : r.move < 0 ? `<span style="color:#d9614a">&darr;${-r.move}</span>` : "&ndash;")}${td(r.gp)}</tr>`).join("")));
+
+  if (w.gains.length || w.risks.length) {
+    out.push(H("Where the points are close"));
+    w.gains.forEach((g) => out.push(P(`<span style="color:#55a67a">+1 within reach:</span> ${gapText(g.k, g.gap)} behind ${esc(g.club)}`)));
+    w.risks.forEach((g) => out.push(P(`<span style="color:#d9614a">&minus;1 at risk:</span> only ${gapText(g.k, g.gap)} ahead of ${esc(g.club)}`)));
+  }
+  if (w.surplus.length) out.push(P(`Comfortably clear in ${w.surplus.map((k) => CAT[k] || k).join(", ")}: you could trade some of that away without losing a point.`, "#7d8590"));
+
+  if (w.angles.length) {
+    out.push(H("Who has what you need"));
+    w.angles.forEach((a) => out.push(P(`<b>${esc(CAT[a.k] || a.k)}:</b> ${a.clubs.map((c) => esc(c.gm ? `${c.gm} (${c.club})` : c.club)).join(", ")} ha${a.clubs.length === 1 ? "s" : "ve"} more than they need.`)));
+  }
+
+  if (w.pace || w.pickups) {
+    out.push(H("Games and pickups"));
+    if (w.pace) {
+      const over = w.pace.projected - w.pace.cap;
+      out.push(P(`${w.pace.used} of ${w.pace.cap} games used; about ${w.pace.expected} would be on schedule. `
+        + (over > 0 ? `<b style="color:#d9614a">On pace for about ${w.pace.projected}: roughly ${over} games will go to waste.</b> Start fewer low-value players.`
+          : over < -10 ? `<b style="color:#c8922e">On pace for about ${w.pace.projected}: roughly ${-over} games unused.</b> Fill your slots.`
+          : `On pace for about ${w.pace.projected}.`)));
+    }
+    if (w.pickups) out.push(P(`You can afford <b>${w.pickups.left} more minimum pickup${w.pickups.left === 1 ? "" : "s"}</b> this season `
+      + `(${w.pickups.spots} roster spot${w.pickups.spots === 1 ? "" : "s"} open, room under the hard cap for ${w.pickups.money}).`));
+  }
+
+  const perf = (x) => { const s = x.s || {};
+    return `${esc(x.n)}${x.club && x.club !== w.club ? ` <span style="color:#7d8590">(${esc(x.club)})</span>` : ""}: `
+      + `${s.PTS || 0} pts, ${s.TRB || 0} reb, ${s.AST || 0} ast in ${x.g} game${x.g === 1 ? "" : "s"}`; };
+  if (w.best.length || w.leagueTop.length) {
+    out.push(H("Performers"));
+    w.best.forEach((x) => out.push(P(`<span style="color:#55a67a">Yours:</span> ${perf(x)}`)));
+    w.worst.forEach((x) => out.push(P(`<span style="color:#7d8590">Quietest:</span> ${perf(x)}`)));
+    w.leagueTop.forEach((x) => out.push(P(`<span style="color:#c8922e">League:</span> ${perf(x)}`)));
+  }
+  out.push(H("The week's moves"));
+  out.push(movesTable(moves, zone));
+  return out.join("");
+}
+
+/* Kept so older callers and tests keep working: the daily with only last night. */
+export function statsBlock(stats) { return lastNightBlock(stats); }

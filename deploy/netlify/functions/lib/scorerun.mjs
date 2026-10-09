@@ -44,6 +44,7 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   if (!season) return { ok: false, reason: "no season in settings" };
   const cap = parseInt(cfg.gamecap, 10) > 0 ? parseInt(cfg.gamecap, 10) : 920;
   const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
+  const live = Object.keys((await readKey(s, "rosters")).data || {});
 
   const feed = ((await readKey(s, "daily-index")).data) || {};
   const stored = Object.keys(feed.days || {})
@@ -70,11 +71,11 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
       for (const [d, clubs] of Object.entries(idx.days)) {
         if (d >= day) continue;
         for (const [c, t] of Object.entries(clubs)) {
-          const now = currentName(c, renames);      // a night scored before a rename
+          const now = currentName(c, renames, live);      // a night scored before a rename
           if (now) gpBefore[now] = (gpBefore[now] || 0) + (t.GP || 0);
         }
       }
-      const r = scoreNight({ night, lineups, gpBefore, cap, alias, espn, renames });
+      const r = scoreNight({ night, lineups, gpBefore, cap, alias, espn, renames, live });
       idx.days[day] = Object.fromEntries(Object.entries(r.clubs).map(([c, x]) => [c, x.totals]));
       const prevNight = await readKey(s, "score-" + day);
       await writeKey(s, "score-" + day, prevNight, { day, cap, ...r });

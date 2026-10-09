@@ -1085,6 +1085,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <div><label for="setEmail">Address</label><input id="setEmail" type="email" placeholder="gm@example.com" autocomplete="off"></div>
       <div><label for="setDaily">Daily digest</label>
         <select id="setDaily"><option value="">Off</option><option value="1">On</option></select></div>
+      <div><label for="setWeekly">Weekly digest</label>
+        <select id="setWeekly"><option value="">Off</option><option value="1">On</option></select></div>
       <div><button class="btn ghost" id="setMailTest">Send a test</button></div>
       <button class="btn" id="setEmailGo">Save</button>
     </div>
@@ -1555,18 +1557,22 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
 <dialog id="dlgEmail"><form method="dialog" class="dlg">
   <h4 id="emTitle">Email</h4>
-  <p>Used to send you trade offers, and the daily digest if you want it. It is stored with the
+  <p>Used to send you trade offers, and the digests if you want them. It is stored with the
     rosters, so treat it as visible to the league.</p>
   <div class="fields">
     <div><label for="emAddr">Address</label>
       <input id="emAddr" type="email" placeholder="gm@example.com" autocomplete="email"></div>
     <div><label class="chk" for="emDaily"><input type="checkbox" id="emDaily">
-      Send me a daily digest &#8212; every transaction in the league from the day before</label></div>
+      Daily digest &#8212; each morning: where you stand, last night, tonight's lineup, the league's moves</label></div>
+    <div><label class="chk" for="emWeekly"><input type="checkbox" id="emWeekly">
+      Weekly digest &#8212; Monday mornings: the race, the categories you are close in, who has what you need,
+      your games pace and pickups left</label></div>
   </div>
   <div class="err" id="emErr"></div>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
     <button type="button" class="btn ghost" id="emTest">Send a test</button>
-    <button type="button" class="btn ghost" id="emDigest">Send me today's digest</button>
+    <button type="button" class="btn ghost" id="emDigest">Send me today's daily</button>
+    <button type="button" class="btn ghost" id="emWeek">Send me last week's weekly</button>
     <button class="btn" id="doEmail" value="ok">Save</button></div>
 </form></dialog>
 
@@ -2765,6 +2771,7 @@ function openEmail(team){
   $('emTitle').textContent=`Email for ${team}`;
   $('emAddr').value=d.email||'';
   $('emDaily').checked=!!d.daily;
+  $('emWeekly').checked=!!d.weekly;
   $('emErr').textContent='';
   openModal('dlgEmail');
 }
@@ -2786,9 +2793,20 @@ $('emDigest').onclick=async()=>{
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };
+/* ", daily and weekly digests on" — the log line and the settings note. */
+const digestWords=(d,w)=>d&&w?', daily and weekly digests on':d?', daily digest on':w?', weekly digest on':', digests off';
+$('emWeek').onclick=async()=>{
+  const t=emailing; if(!t) return;
+  if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first.'; return; }
+  $('emErr').textContent='Sending\u2026';
+  const r=await notify({kind:'digest',weekly:true,to:t});
+  $('emErr').textContent = r.ok ? 'Sent \u2014 this is what Monday morning looks like.'
+    : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
+    : `Could not send: ${r.reason||'unknown error'}`;
+};
 $('doEmail').onclick=async(e)=>{
   if(!emailing) return;
-  const t=emailing, v=$('emAddr').value.trim(), on=!!$('emDaily').checked;
+  const t=emailing, v=$('emAddr').value.trim(), on=!!$('emDaily').checked, wk=!!$('emWeekly').checked;
   if(v&&!okEmail(v)){
     $('emErr').textContent='That does not look like an email address.';
     if(e&&e.preventDefault) e.preventDefault();
@@ -2797,9 +2815,9 @@ $('doEmail').onclick=async(e)=>{
   /* No address means no mail, whatever the box says — the digest has nowhere to go. */
   S.teams[t].email=v;
   S.teams[t].daily=v?on:false;
+  S.teams[t].weekly=v?wk:false;
   emailing=null;
-  await commit({kind:'edit',team:t,
-    detail:`Email ${v?'set':'cleared'}${v&&on?', daily digest on':v?', daily digest off':''}`},['rosters']);
+  await commit({kind:'edit',team:t,detail:`Email ${v?'set':'cleared'}${v?digestWords(on,wk):''}`},['rosters']);
 };
 /* A free agent has no roster entry, so there is nothing to edit in place. What
    the commissioner can do is assign him a club and a contract, or correct the
@@ -3509,7 +3527,7 @@ function drawAdmin(){
       gmName(t)?`<div class="t" style="font-size:11px">${htmlEsc(gmName(t))}</div>`
                :'<div class="t" style="font-size:11px;opacity:.7">no GM name on file</div>'}</div>
     <div class="t">${d.pin?'PIN set':'no PIN \u2014 open to claim'}
-      \u00b7 ${d.email?htmlEsc(d.email):'no email'}${d.email&&d.daily?' \u00b7 daily digest on':''}</div>
+      \u00b7 ${d.email?htmlEsc(d.email):'no email'}${d.email&&(d.daily||d.weekly)?' \u00b7 '+[d.daily?'daily':'',d.weekly?'weekly':''].filter(Boolean).join(' + ')+' digest':''}</div>
     <div><button class="btn ghost" data-em="${htmlEsc(t)}">Email</button>
     <button class="btn ghost" data-pin="${htmlEsc(t)}">Set PIN</button>
     <button class="btn ghost" data-clr="${htmlEsc(t)}">Clear</button></div></div>`;}).join('');
@@ -3771,8 +3789,9 @@ function drawSettings(){
   if($('setName')&&document.activeElement!==$('setName')) $('setName').value=mine;
   if($('setEmail')&&document.activeElement!==$('setEmail')) $('setEmail').value=d.email||'';
   if($('setDaily')) $('setDaily').value=d.daily?'1':'';
+  if($('setWeekly')) $('setWeekly').value=d.weekly?'1':'';
   if($('setMailNote')) $('setMailNote').textContent = d.email
-    ? `The league mails ${d.email}${d.daily?' and sends the daily digest.':'. The daily digest is off.'}`
+    ? `The league mails ${d.email}${digestWords(d.daily,d.weekly)}.`
     : 'No address on file, so nothing is mailed to this club.';
   if($('setPinNote')&&!$('setPinNote').dataset.said)
     $('setPinNote').textContent = d.pin ? '' : 'This club has no PIN yet, so leave "current PIN" blank.';
@@ -3817,12 +3836,12 @@ function wireSettings(){
   };
   $('setEmailGo').onclick=async()=>{
     const t=me; if(!t||isComm()||!S.teams[t]) return;
-    const v=$('setEmail').value.trim(), on=$('setDaily').value==='1';
+    const v=$('setEmail').value.trim(), on=$('setDaily').value==='1', wk=$('setWeekly').value==='1';
     if(v&&!okEmail(v)) return alert('That does not look like an email address.');
     S.teams[t].email=v;
     S.teams[t].daily=v?on:false;      // no address means nothing to mail
-    await commit({kind:'edit',team:t,
-      detail:`Email ${v?'set':'cleared'}${v&&on?', daily digest on':v?', daily digest off':''}`},['rosters']);
+    S.teams[t].weekly=v?wk:false;
+    await commit({kind:'edit',team:t,detail:`Email ${v?'set':'cleared'}${v?digestWords(on,wk):''}`},['rosters']);
     projToast(v?'Address saved':'Address cleared');
   };
   $('setMailTest').onclick=async()=>{
@@ -4200,7 +4219,7 @@ function drawMe(){
     <span class="pill">projected ${fin}${sfx} of ${order.length}</span>
     <span class="pill">${seasonLive()?'season is live':'offseason'}</span>
     <button class="btn ghost" id="meEmail" style="margin-left:auto">${
-      myEmail ? (S.teams[T].daily?'Email \u00b7 digest on':'Email \u00b7 digest off') : 'Add your email'}</button></div>
+      myEmail ? 'Email \u00b7 '+([S.teams[T].daily?'daily':'',S.teams[T].weekly?'weekly':''].filter(Boolean).join(' + ')||'no digest') : 'Add your email'}</button></div>
     <dl class="capgrid">
       <div class="capcell"><dt>Payroll</dt><dd class="amb">${money(s)}</dd></div>
       ${deadSalary(T)>0?`<div class="capcell"><dt>Released salary still charged</dt><dd class="bad">${money(deadSalary(T))}</dd></div>`:''}
