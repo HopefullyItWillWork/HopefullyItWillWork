@@ -12,6 +12,7 @@ node tests/stats.test.js            # the stats feed's parsing, date window and 
 node tests/lineups.test.js          # lineup history: append-only, carry, lineup at tip-off
 node tests/nba.test.js              # NBA club per player: ESPN parsing and name folding
 node tests/score.test.js            # scoring: lineup at tip-off, one game per slot, the 920 cap top-down
+node tests/tweets.test.js           # the weekly's parody tweets: which moves, what parses (npm install in deploy/ first)
 ```
 
 - `dom.js` — a DOM stub with enough behaviour to execute the real script: ids are
