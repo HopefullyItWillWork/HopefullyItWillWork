@@ -102,21 +102,52 @@ ${bodyHtml}
 </table></td></tr></table></body></html>`;
 }
 
-/* The digest body for one club. Yesterday's per-game stats are not in here:
-   the nightly stats feed CLAUDE.md lists under "Not yet built" does not exist,
-   so there is no daily/<date> key to read. The slot is marked so the stats half
-   drops in later without redesigning the email. */
-export function digestBody(clubName, club, moves, zone) {
+/* The digest body for one club: its line, yesterday's transactions, and how its
+   starters did last night. `stats` comes from lib/digest.mjs (null when the
+   night was not scored — the offseason, a night with no games, or a morning the
+   scoring has not reached yet).
+
+     stats = { day, counted:[{slot,n,t,s}], over, reused, totals, gpAfter, cap,
+               rank, of, rankWas, pts }                                         */
+export const ord = (n) => { const v = n % 100;
+  return n + ((v >= 11 && v <= 13) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th"); };
+export function statsBlock(stats) {
+  if (!stats) return `<p style="margin:0;color:#7d8590">No league games were scored for yesterday.</p>`;
+  const td = (v, l) => `<td style="padding:4px 6px;text-align:${l ? "left" : "right"};border-bottom:1px solid #2b3038;
+    font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3c7cf">${v}</td>`;
+  const th = (v, l) => `<th style="padding:4px 6px;text-align:${l ? "left" : "right"};font:700 10px/1 ui-monospace,monospace;
+    letter-spacing:.08em;color:#7d8590;border-bottom:1px solid #2b3038">${v}</th>`;
+  const t = stats.totals || {};
+  const move = stats.rankWas && stats.rankWas !== stats.rank
+    ? (stats.rankWas > stats.rank ? ` &middot; up from ${ord(stats.rankWas)}` : ` &middot; down from ${ord(stats.rankWas)}`) : "";
+  const rows = (stats.counted || []).map((x) => {
+    const s = x.s || {};
+    return `<tr>${td(esc(x.n), 1)}${td(s.PTS || 0)}${td(s.TRB || 0)}${td(s.AST || 0)}${td(s.P3 || 0)}${td(s.STL || 0)}${td(s.BLK || 0)}${td(s.TOV || 0)}${td(`${s.FG || 0}-${s.FGA || 0}`)}</tr>`;
+  }).join("");
+  const notes = [
+    stats.over && stats.over.length ? `${stats.over.length} over the game cap: ${stats.over.map((x) => esc(x.n)).join(", ")}` : "",
+    stats.reused && stats.reused.length ? `${stats.reused.length} in a slot already used that night: ${stats.reused.map((x) => esc(x.n)).join(", ")}` : "",
+  ].filter(Boolean);
+  return `<p style="margin:0 0 10px;color:#e8e6e1"><b>${ord(stats.rank)} of ${stats.of}</b>${move}
+      &middot; ${stats.pts} roto points &middot; ${stats.gpAfter} / ${stats.cap} games</p>
+    ${rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+      <tr>${th("PLAYER", 1)}${th("PTS")}${th("REB")}${th("AST")}${th("3P")}${th("STL")}${th("BLK")}${th("TO")}${th("FG")}</tr>
+      ${rows}
+      <tr>${td("<b>Counted</b>", 1)}${td(t.PTS || 0)}${td(t.REB || 0)}${td(t.AST || 0)}${td(t.P3 || 0)}${td(t.STL || 0)}${td(t.BLK || 0)}${td(t.TO || 0)}${td(`${t.FG || 0}-${t.FGA || 0}`)}</tr>
+    </table>` : `<p style="margin:0;color:#7d8590">Nobody in your lineup played.</p>`}
+    ${notes.map((n) => `<p style="margin:8px 0 0;color:#d9614a">${n}</p>`).join("")}`;
+}
+
+export function digestBody(clubName, club, moves, zone, stats) {
   const c = clubLine(club);
   const H = (t) => `<p style="margin:0 0 2px;font:700 11px/1 ui-monospace,monospace;letter-spacing:.14em;
     text-transform:uppercase;color:#7d8590">${esc(t)}</p>`;
   return `${H(clubName)}
     <p style="margin:0 0 18px;color:#e8e6e1">$${c.payroll.toFixed(2)} committed &middot;
       ${c.signed} under contract &middot; ${c.expiring} expiring</p>
-    ${H("Transactions")}
-    ${movesTable(moves, zone)}
+    ${H("Last night")}
+    ${statsBlock(stats)}
     <p style="margin:22px 0 0"></p>
-    ${H("Yesterday's stats")}
-    <p style="margin:0;color:#7d8590">Not available yet &mdash; the nightly stats feed is not built.
-      When it is, your club's numbers from the night before appear here.</p>`;
+    ${H("Transactions")}
+    ${movesTable(moves, zone)}`;
 }

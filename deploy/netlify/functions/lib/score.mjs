@@ -40,13 +40,14 @@ export const CATS = ["FG", "FGA", "FT", "FTA", "P3", "REB", "AST", "STL", "BLK",
 const zero = () => Object.fromEntries(CATS.map((k) => [k, 0]));
 
 /* Every key a roster name could be known by in a box score: itself, the
-   built-in fixes, ESPN's spelling, and the commissioner's own alias map
-   (settings.alias, the same map canon() reads first). */
-export function keysFor(name, alias) {
+   built-in fixes, ESPN's spelling, the commissioner's alias map
+   (settings.alias, the same map canon() reads first) and his ESPN-name map
+   (settings.espn, set under "Names ESPN does not know"). */
+export function keysFor(name, alias, espn) {
   const out = new Set();
   const add = (n) => { if (n) out.add(nameKey(n)); };
   for (const n of [name, alias && alias[name], NAMEFIX[name]]) {
-    add(n); add(ESPNNAME[n]);
+    add(n); add(ESPNNAME[n]); add(espn && espn[n]);
   }
   out.delete("");
   return out;
@@ -75,10 +76,10 @@ function tipsByClub(games) {
      lineups  { club: [entries…] } from lineupsOn(), club names as saved
      gpBefore { club: games already counted this season before this night }
      cap      the game cap (settings.gamecap, normally 920)
-     alias, renames from settings
+     alias, espn, renames from settings
    Returns { clubs: { club: { gpBefore, counted:[…], over:[…], reused:[…], totals } },
              unmatched: [players nobody started], noTip: [players with no game] } */
-export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, renames }) {
+export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, renames }) {
   /* Lineup history grouped under each club's CURRENT name, merged in time
      order — a rename mid-day leaves entries under both names. */
   const byClub = {};
@@ -97,7 +98,7 @@ export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, renames
     const e = lineupAt(byClub[club], tip), map = {};
     if (e) for (const id of SLOTS) {
       const n = e.s && e.s[id];
-      if (n) for (const key of keysFor(n, alias)) map[key] = id;
+      if (n) for (const key of keysFor(n, alias, espn)) map[key] = id;
     }
     return (slotCache[k] = map);
   };
