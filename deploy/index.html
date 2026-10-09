@@ -2772,6 +2772,12 @@ function openEmail(team){
   $('emAddr').value=d.email||'';
   $('emDaily').checked=!!d.daily;
   $('emWeekly').checked=!!d.weekly;
+  /* Say who the Send buttons mail: this club's address, which is not "me" when
+     the commissioner or a deputy has opened another club's settings. */
+  const mine=team===me;
+  $('emTest').textContent=mine?'Send a test':`Send ${team} a test`;
+  $('emDigest').textContent=mine?"Send me today's daily":`Send ${team} today's daily`;
+  $('emWeek').textContent=mine?"Send me last week's weekly":`Send ${team} last week's weekly`;
   $('emErr').textContent='';
   openModal('dlgEmail');
 }
@@ -2780,7 +2786,7 @@ $('emTest').onclick=async()=>{
   if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first, then send a test.'; return; }
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'test',to:t});
-  $('emErr').textContent = r.ok ? 'Sent \u2014 check your inbox.'
+  $('emErr').textContent = r.ok ? `Sent \u2014 check ${t===me?'your':t+"'s"} inbox.`
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };
@@ -2789,7 +2795,7 @@ $('emDigest').onclick=async()=>{
   if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first.'; return; }
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'digest',to:t});
-  $('emErr').textContent = r.ok ? 'Sent \u2014 this is what the morning digest looks like.'
+  $('emErr').textContent = r.ok ? `Sent to ${t===me?'you':t} \u2014 this is what the morning digest looks like.`
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };
@@ -2800,7 +2806,7 @@ $('emWeek').onclick=async()=>{
   if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first.'; return; }
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'digest',weekly:true,to:t});
-  $('emErr').textContent = r.ok ? 'Sent \u2014 this is what Monday morning looks like.'
+  $('emErr').textContent = r.ok ? `Sent to ${t===me?'you':t} \u2014 this is what Monday morning looks like.`
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };

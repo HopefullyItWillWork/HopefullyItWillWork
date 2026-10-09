@@ -47,10 +47,18 @@ export default async (req) => {
     if (!sender.pin || pin !== String(sender.pin)) return json({ ok: false, reason: "bad pin" }, 403);
   }
 
+  /* A deputy (S.cfg.deputies) has commissioner access on the page, so he may
+     send a club's test or digest to that club, like the commissioner login can.
+     Without this the "Send…" buttons in another club's Email dialog mailed the
+     deputy's own address. The league-wide broadcast stays commissioner-login
+     only (below), on purpose. */
+  const deputy = !asComm && Array.isArray(cfg.deputies) && cfg.deputies.includes(from);
+  const pickTo = () => (asComm || deputy) && body.to && teams[String(body.to)] ? String(body.to) : from;
+
   const kind = String(body.kind || "");
 
   if (kind === "test") {
-    const to = asComm ? String(body.to || "") : from;
+    const to = pickTo();
     const addr = (teams[to] || {}).email;
     if (!addr) return json({ ok: false, reason: "no address on file" });
     if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
@@ -68,7 +76,7 @@ export default async (req) => {
      for your club — so a GM can see what it looks like before turning it on, and
      the commissioner can check the stats section after a change. */
   if (kind === "digest") {
-    const to = asComm ? String(body.to || "") : from;
+    const to = pickTo();
     const club = teams[to];
     if (!club || !club.email) return json({ ok: false, reason: "no address on file" });
     if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
