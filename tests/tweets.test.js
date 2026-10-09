@@ -1,4 +1,4 @@
-/* The weekly's parody tweets. The model call itself is not tested here — it
+/* The weekly's tweets. The model call itself is not tested here — it
    costs money and its words change — but everything around it is: which moves
    it is shown, and that only well-formed posts by a listed author, under the
    length limit, ever reach an email. Run with the SDK resolvable (node, after
@@ -25,12 +25,11 @@ ok('nominations, offers and pending matches are not moves', m.length === 3 && !m
 
 console.log('\n== only well-formed posts reach an email ==');
 const good = parseTweets('Sure! [{"author":"Zach Lowe","text":"Coulter at $15.25 for Harden is a choice."},{"author":"Bill Simmons","text":"HARDEN RULE."}]');
-ok('parses a JSON array out of surrounding text', good && good.length === 2 && good[0].handle === '@ZachLowe_Parody');
+ok('parses a JSON array out of surrounding text', good && good.length === 2 && good[0].author === 'Zach Lowe');
 ok('an unknown author is dropped', parseTweets('[{"author":"Woj","text":"Breaking."}]') === null);
 ok('an overlong post is dropped', parseTweets(`[{"author":"Nate Duncan","text":"${'x'.repeat(300)}"}]`) === null);
 ok('garbage is null, not a crash', parseTweets('no json here') === null && parseTweets('[{bad') === null);
 ok('at most two', parseTweets(JSON.stringify(VOICES.map((v) => ({ author: v.name, text: 'hi' })))).length === 2);
-ok('every handle says parody', VOICES.every((v) => /Parody/.test(v.handle)));
 
 console.log('\n== no key, no call, no tweets ==');
 const mem = new Map(), store = { async get(k) { return mem.get(k) ?? null; }, async set(k, v) { mem.set(k, v); } };

@@ -9,7 +9,7 @@
    each club with `weekly` on: the race, the categories a few rebounds from a
    point either way, which managers have surplus where the club is close, its
    games pace against the cap, and how many minimum pickups it can still afford —
-   led by one or two parody tweets about the week's biggest move (lib/tweets.mjs,
+   led by one or two tweets about the week's biggest move (lib/tweets.mjs,
    written by Claude once per week and cached; skipped quietly without a key).
 
    Scoring has run by 09:45 UTC, so last night is in by 12:00. A stats problem

@@ -1,6 +1,7 @@
-/* The weekly digest's "around the league" tweets: one or two short, clearly
-   PARODY posts in the voice of NBA writers, reacting to the week's biggest
-   moves in this league. Written by Claude once a week, inside the Monday
+/* The weekly digest's "around the league" tweets: one or two short, playful
+   posts in the voice of NBA writers, reacting to the week's biggest moves in
+   this league. Fiction for a private nine-person league; the league asked for
+   them unlabelled (2026-10-09), so the email shows only the writer's name. Written by Claude once a week, inside the Monday
    digest run — nobody has to remember anything.
 
    Everything here is optional and fails soft. No ANTHROPIC_API_KEY, an API
@@ -8,19 +9,18 @@
    out without tweets. The result is cached under `tweets-<monday>` so the nine
    weekly emails share one request and a re-run never pays twice.
 
-   They are labelled "(parody)" on every post and are only ever about this
-   league's own signings and trades, never about real-world events or anyone's
-   personal life. */
+   The prompt keeps them to this league's own signings and trades — never
+   real-world NBA news, never anyone's personal life. */
 
 import Anthropic from "@anthropic-ai/sdk";
 
 /* Who may "post". The style notes keep the voices distinct; nothing here claims
    to be a real quote. */
 export const VOICES = [
-  { name: "Zach Lowe", handle: "@ZachLowe_Parody", style: "measured, detail-obsessed, loves a weird contract nuance, ends with a wry aside" },
-  { name: "Bill Simmons", handle: "@BillSimmons_Parody", style: "hot takes, pop-culture comparisons, all-caps excitement, invents a 'rule' named after himself" },
-  { name: "Nate Duncan", handle: "@NateDuncan_Parody", style: "cap-sheet nerd, talks in percentages and contract math, dry" },
-  { name: "John Hollinger", handle: "@Hollinger_Parody", style: "analytical, cites a made-up efficiency metric, gently skeptical" },
+  { name: "Zach Lowe", style: "measured, detail-obsessed, loves a weird contract nuance, ends with a wry aside" },
+  { name: "Bill Simmons", style: "hot takes, pop-culture comparisons, all-caps excitement, invents a 'rule' named after himself" },
+  { name: "Nate Duncan", style: "cap-sheet nerd, talks in percentages and contract math, dry" },
+  { name: "John Hollinger", style: "analytical, cites a made-up efficiency metric, gently skeptical" },
 ];
 
 /* The week's biggest moves, as plain lines for the prompt: every trade, then
@@ -41,19 +41,19 @@ export function parseTweets(text) {
   try { arr = JSON.parse(s.slice(a, b + 1)); } catch { return null; }
   if (!Array.isArray(arr)) return null;
   const out = arr.map((t) => {
-    const v = VOICES.find((x) => t && (x.name === t.author || x.handle === t.handle));
+    const v = VOICES.find((x) => t && x.name === t.author);
     const body = t && typeof t.text === "string" ? t.text.trim() : "";
-    return v && body && body.length <= 280 ? { author: v.name, handle: v.handle, text: body } : null;
+    return v && body && body.length <= 280 ? { author: v.name, text: body } : null;
   }).filter(Boolean);
   return out.length ? out.slice(0, 2) : null;
 }
 
-const SYSTEM = `You write short parody tweets for a private fantasy basketball league's weekly newsletter.
+const SYSTEM = `You write short, playful tweets for a private fantasy basketball league's weekly newsletter.
 The league is a nine-team NBA dynasty league with salary caps, an auction and trades. Each post is in the
 voice of a well-known NBA writer, reacting to a move made by a club in THIS fantasy league that week.
 
 Rules:
-- Every post is obviously parody and playful. It is about the fantasy move only: the club, the manager,
+- Every post is playful and about the fantasy move only: the club, the manager,
   the player and the price. Do not invent real-world NBA news, injuries, quotes or events.
 - Be funny, specific and a little provocative about the move: an overpay, a steal, a bold trade. Nothing
   mean-spirited about anyone personally.

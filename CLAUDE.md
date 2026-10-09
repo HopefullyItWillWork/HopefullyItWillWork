@@ -2212,7 +2212,7 @@ Moves in either digest are **roster moves only** (`movesOn()`/`movesBetween()`:
 sign, cut, trade, and not nominations, which are logged as `sign`). In season every
 lineup change is an `edit`, and a digest listing forty of them is not a digest.
 
-**The weekly opens with one or two parody tweets** (`lib/tweets.mjs`) in the voice
+**The weekly opens with one or two tweets** (`lib/tweets.mjs`) in the voice
 of Zach Lowe, Bill Simmons, Nate Duncan or John Hollinger, reacting to the week's
 biggest move (`biggestMoves()`: executed trades first, then the dearest signings).
 Claude writes them inside the Monday run — `claude-opus-5-5`, effort `medium`,
@@ -2220,9 +2220,10 @@ server-side `fallbacks: "default"`, a JSON-only reply checked by `parseTweets()`
 (listed author, ≤280 characters, at most two). Fully automatic and fully optional:
 no `ANTHROPIC_API_KEY` in Netlify, an API error, a refusal or unparseable output,
 and the weekly goes out without them. One request a week, cached under
-`tweets-<monday>` and shared by every club's email. Every post says **parody** in
-the handle and the header, and the prompt keeps them to this league's own moves —
-no invented real-world news, nothing personal. Uses `@anthropic-ai/sdk`, pinned in
+`tweets-<monday>` and shared by every club's email. They carry only the writer's
+name — no "parody" label and no handle, at the league's request (2026-10-09; it is
+a private nine-person league) — and the prompt keeps them to this league's own
+moves: no invented real-world news, nothing personal. Uses `@anthropic-ai/sdk`, pinned in
 `deploy/package.json`. Tests: `tests/tweets.test.js` (the SDK import must resolve —
 `npm install` in `deploy/` first, or an import-map stub in a browser).
 
