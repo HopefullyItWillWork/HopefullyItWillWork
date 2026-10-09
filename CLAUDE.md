@@ -1421,7 +1421,7 @@ configuration → Environment variables:
 | Variable | | |
 |---|---|---|
 | `RESEND_API_KEY` | required | nothing is sent without it |
-| `MAIL_FROM` | required | e.g. `League Ledger <ledger@yourdomain.com>`; the domain must be verified with Resend |
+| `MAIL_FROM` | required | `HIWW <ledger@hopefullyitwill.work>` — the name before `<` is the sender name GMs see (the emails are branded HIWW); the domain must be verified with Resend |
 | `SITE_URL` | optional | links back into the app |
 | `LEAGUE_TZ` | optional | defaults to `America/New_York` |
 | `MAIL_DAILY_CAP` | optional | defaults to **100** sends a day — Resend's own free-tier daily limit, so our ceiling bites first |
@@ -2213,7 +2213,9 @@ sign, cut, trade, and not nominations, which are logged as `sign`). In season ev
 lineup change is an `edit`, and a digest listing forty of them is not a digest.
 
 **The weekly opens with one or two tweets** (`lib/tweets.mjs`) in the voice
-of Zach Lowe, Bill Simmons, Nate Duncan or John Hollinger about the week
+of NBA writers about the week — ten voices in `VOICES`: Zach Lowe, Bill Simmons,
+Nate Duncan, John Hollinger, Kevin O'Connor, Brian Windhorst, Shams Charania,
+Kevin Pelton, Tim Legler, Ethan Sherwood Strauss
 (`weekStory()`): the biggest moves if there were any (`biggestMoves()`: executed
 trades first, then the dearest signings), and always the race — the season table
 with climbs and slides, the best and worst weeks, the standout player lines. A

@@ -663,7 +663,7 @@ dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg h4{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.04em;margin-bottom:5px}
 .dlg p{font-size:12.5px;color:var(--steel);margin-bottom:16px;line-height:1.5}
 .dlg .fields{display:grid;gap:11px;margin-bottom:16px}
-.dlg .acts{display:flex;gap:8px;justify-content:flex-end}
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}  /* five buttons in the Email dialog are wider than the box */
 .chk{display:flex;align-items:flex-start;gap:9px;font-family:var(--body);font-size:12.5px;
   color:var(--steel);line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0;
   margin-bottom:0}
@@ -2772,6 +2772,12 @@ function openEmail(team){
   $('emAddr').value=d.email||'';
   $('emDaily').checked=!!d.daily;
   $('emWeekly').checked=!!d.weekly;
+  /* Say who the Send buttons mail: this club's address, which is not "me" when
+     the commissioner or a deputy has opened another club's settings. */
+  const mine=team===me;
+  $('emTest').textContent=mine?'Send a test':`Send ${team} a test`;
+  $('emDigest').textContent=mine?"Send me today's daily":`Send ${team} today's daily`;
+  $('emWeek').textContent=mine?"Send me last week's weekly":`Send ${team} last week's weekly`;
   $('emErr').textContent='';
   openModal('dlgEmail');
 }
@@ -2780,7 +2786,7 @@ $('emTest').onclick=async()=>{
   if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first, then send a test.'; return; }
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'test',to:t});
-  $('emErr').textContent = r.ok ? 'Sent \u2014 check your inbox.'
+  $('emErr').textContent = r.ok ? `Sent \u2014 check ${t===me?'your':t+"'s"} inbox.`
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };
@@ -2789,7 +2795,7 @@ $('emDigest').onclick=async()=>{
   if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first.'; return; }
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'digest',to:t});
-  $('emErr').textContent = r.ok ? 'Sent \u2014 this is what the morning digest looks like.'
+  $('emErr').textContent = r.ok ? `Sent to ${t===me?'you':t} \u2014 this is what the morning digest looks like.`
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };
@@ -2800,7 +2806,7 @@ $('emWeek').onclick=async()=>{
   if(!(S.teams[t]||{}).email){ $('emErr').textContent='Save an address first.'; return; }
   $('emErr').textContent='Sending\u2026';
   const r=await notify({kind:'digest',weekly:true,to:t});
-  $('emErr').textContent = r.ok ? 'Sent \u2014 this is what Monday morning looks like.'
+  $('emErr').textContent = r.ok ? `Sent to ${t===me?'you':t} \u2014 this is what Monday morning looks like.`
     : r.reason==='not configured' ? 'Email is not set up on this site yet (no mail provider key).'
     : `Could not send: ${r.reason||'unknown error'}`;
 };

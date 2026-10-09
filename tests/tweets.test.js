@@ -44,6 +44,8 @@ ok('an unknown author is dropped', parseTweets('[{"author":"Woj","text":"Breakin
 ok('an overlong post is dropped', parseTweets(`[{"author":"Nate Duncan","text":"${'x'.repeat(300)}"}]`) === null);
 ok('garbage is null, not a crash', parseTweets('no json here') === null && parseTweets('[{bad') === null);
 ok('at most two', parseTweets(JSON.stringify(VOICES.map((v) => ({ author: v.name, text: 'hi' })))).length === 2);
+ok('ten voices, every one parseable', VOICES.length === 10 && VOICES.every((v) => parseTweets(JSON.stringify([{ author: v.name, text: 'x' }]))));
+ok("an apostrophe in a name survives", parseTweets('[{"author":"Kevin O\'Connor","text":"my guy"}]')[0].author === "Kevin O'Connor");
 
 console.log('\n== no key, no call, no tweets ==');
 const mem = new Map(), store = { async get(k) { return mem.get(k) ?? null; }, async set(k, v) { mem.set(k, v); } };

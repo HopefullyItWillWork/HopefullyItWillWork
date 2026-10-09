@@ -3,7 +3,8 @@
    biggest trade or signing if there was one, and otherwise (or as well) the
    race: who leads, who climbed or slid, who had the best week, whose players
    went off. A week with no transactions still has a story. Fiction for a private nine-person league; the league asked for
-   them unlabelled (2026-10-09), so the email shows only the writer's name. Written by Claude once a week, inside the Monday
+   them unlabelled (2026-10-09), so the email shows only the writer's name.
+   Ten voices (VOICES); each week the model picks one or two that suit the story. Written by Claude once a week, inside the Monday
    digest run — nobody has to remember anything.
 
    Everything here is optional and fails soft. No ANTHROPIC_API_KEY, an API
@@ -23,6 +24,12 @@ export const VOICES = [
   { name: "Bill Simmons", style: "hot takes, pop-culture comparisons, all-caps excitement, invents a 'rule' named after himself" },
   { name: "Nate Duncan", style: "cap-sheet nerd, talks in percentages and contract math, dry" },
   { name: "John Hollinger", style: "analytical, cites a made-up efficiency metric, gently skeptical" },
+  { name: "Kevin O'Connor", style: "upside-obsessed, talks about a player's tools and 'my guy', ranks things in tiers" },
+  { name: "Brian Windhorst", style: "connects dots nobody asked him to, 'something is going on here', hints at what is coming next" },
+  { name: "Shams Charania", style: "breaking-news format starting 'Sources:', terse, gives the exact terms of this league's move" },
+  { name: "Kevin Pelton", style: "careful projections, a made-up win-shares-style number, measured conclusions" },
+  { name: "Tim Legler", style: "former player, straight-shooting, loves shooters and fit, tells it like it is" },
+  { name: "Ethan Sherwood Strauss", style: "contrarian, sees the bigger story behind the move, wry and a little philosophical" },
 ];
 
 /* The week's biggest moves, as plain lines for the prompt: every trade, then

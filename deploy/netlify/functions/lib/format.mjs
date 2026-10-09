@@ -103,7 +103,7 @@ export function wrap(title, bodyHtml, footNote) {
   style="max-width:560px;background:#1b1e24;border:1px solid #2b3038;border-radius:3px">
 <tr><td style="padding:22px 24px 6px">
   <div style="font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;
-    text-transform:uppercase;color:#c8922e">League Ledger</div>
+    text-transform:uppercase;color:#c8922e">HIWW</div>
   <h1 style="margin:10px 0 0;font:700 21px/1.25 Georgia,serif;color:#e8e6e1">${esc(title)}</h1>
 </td></tr>
 <tr><td style="padding:14px 24px 22px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#c3c7cf">
@@ -111,7 +111,7 @@ ${bodyHtml}
 </td></tr>
 <tr><td style="padding:0 24px 22px;border-top:1px solid #2b3038">
   <p style="margin:14px 0 0;font:12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#7d8590">
-    <a href="${siteUrl()}" style="color:#c8922e">Open the ledger</a>${footNote ? " &middot; " + footNote : ""}
+    <a href="${siteUrl()}" style="color:#c8922e">Open HIWW</a>${footNote ? " &middot; " + footNote : ""}
   </p>
 </td></tr>
 </table></td></tr></table></body></html>`;

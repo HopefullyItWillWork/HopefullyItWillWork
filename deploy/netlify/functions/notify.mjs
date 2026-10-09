@@ -47,19 +47,27 @@ export default async (req) => {
     if (!sender.pin || pin !== String(sender.pin)) return json({ ok: false, reason: "bad pin" }, 403);
   }
 
+  /* A deputy (S.cfg.deputies) has commissioner access on the page, so he may
+     send a club's test or digest to that club, like the commissioner login can.
+     Without this the "Send…" buttons in another club's Email dialog mailed the
+     deputy's own address. The league-wide broadcast stays commissioner-login
+     only (below), on purpose. */
+  const deputy = !asComm && Array.isArray(cfg.deputies) && cfg.deputies.includes(from);
+  const pickTo = () => (asComm || deputy) && body.to && teams[String(body.to)] ? String(body.to) : from;
+
   const kind = String(body.kind || "");
 
   if (kind === "test") {
-    const to = asComm ? String(body.to || "") : from;
+    const to = pickTo();
     const addr = (teams[to] || {}).email;
     if (!addr) return json({ ok: false, reason: "no address on file" });
     if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
     const r = await sendMail({
       to: addr,
-      subject: "League Ledger — test message",
-      html: wrap("It works", `<p style="margin:0">Mail from the league ledger is reaching ${esc(to)}.</p>
+      subject: "HIWW — test message",
+      html: wrap("It works", `<p style="margin:0">Mail from HIWW is reaching ${esc(to)}.</p>
         <p style="margin:14px 0 0">If you turned the daily digest on, the next one arrives tomorrow morning.</p>`),
-      text: `Mail from the league ledger is reaching ${to}.`,
+      text: `Mail from HIWW is reaching ${to}.`,
     });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
   }
@@ -68,7 +76,7 @@ export default async (req) => {
      for your club — so a GM can see what it looks like before turning it on, and
      the commissioner can check the stats section after a change. */
   if (kind === "digest") {
-    const to = asComm ? String(body.to || "") : from;
+    const to = pickTo();
     const club = teams[to];
     if (!club || !club.email) return json({ ok: false, reason: "no address on file" });
     if (!(await underCap(s))) return json({ ok: false, reason: "daily send limit reached" });
@@ -88,16 +96,16 @@ export default async (req) => {
       const wMoves = movesBetween(log, zone, wFrom, wTo);
       try { w.tweets = await weeklyTweets(s, wFrom, wMoves, w); } catch { w.tweets = null; }
       html = weeklyBody(w, wMoves, zone);
-      subject = `${title} \u2014 your League Ledger weekly`;
+      subject = `${title} \u2014 your HIWW weekly`;
     } else {
       let d = null;
       try { d = await digestDaily(s, to, day); } catch { d = null; }
       title = prettyDay(day);
       html = dailyBody(d || { club: to, day }, movesOn(log, zone, day), zone);
-      subject = `${title} \u2014 your League Ledger daily`;
+      subject = `${title} \u2014 your HIWW daily`;
     }
     const r = await sendMail({ to: club.email, subject,
-      html: wrap(title, html, "a copy you asked for; digests are set under Email on your My Team tab"),
+      html: wrap(title, html),
       text: `${title}\n\n${siteUrl()}` });
     return json(r.ok ? { ok: true } : { ok: false, reason: r.reason });
   }
@@ -131,7 +139,7 @@ export default async (req) => {
          ${body.note ? `<p style="margin:16px 0 0;padding:11px 13px;background:#14161a;border-left:2px solid #c8922e">${esc(body.note)}</p>` : ""}
          <p style="margin:18px 0 0"><a href="${siteUrl()}"
            style="color:#c8922e;font-weight:700">Review the offer</a></p>`,
-        "you are getting this because your club has an address on file"
+        "Manage emails on My Team"
       ),
       text: `${from} has offered ${to} a trade. Review it at ${siteUrl()}`,
     });
@@ -172,8 +180,8 @@ export default async (req) => {
         to: x.addr,
         subject,
         html: wrap(subject, `${para}<p style="margin:18px 0 0"><a href="${siteUrl()}"
-          style="color:#c8922e;font-weight:700">Open the league ledger</a></p>`,
-          "you are getting this because your club has an address on file"),
+          style="color:#c8922e;font-weight:700">Open HIWW</a></p>`,
+          "Manage emails on My Team"),
         text,
       });
       (r.ok ? sent : failed).push(x.club);
