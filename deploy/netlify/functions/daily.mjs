@@ -9,7 +9,7 @@
    each club with `weekly` on: the race, the categories a few rebounds from a
    point either way, which managers have surplus where the club is close, its
    games pace against the cap, and how many minimum pickups it can still afford —
-   led by one or two parody tweets about the week's biggest move (lib/tweets.mjs,
+   led by one or two tweets about the week — a big move, the race, a big week (lib/tweets.mjs,
    written by Claude once per week and cached; skipped quietly without a key).
 
    Scoring has run by 09:45 UTC, so last night is in by 12:00. A stats problem
@@ -69,7 +69,7 @@ async function sendWeekly(s, teams, log, from, to) {
     let w = null;
     try { w = await digestWeekly(s, t, from, to, cache); } catch { w = null; }
     if (!w) continue;
-    if (tweets === undefined) { try { tweets = await weeklyTweets(s, from, moves, w.table); } catch { tweets = null; } }
+    if (tweets === undefined) { try { tweets = await weeklyTweets(s, from, moves, w); } catch { tweets = null; } }
     w.tweets = tweets;
     const r = await sendMail({
       to: teams[t].email,

@@ -86,7 +86,7 @@ export default async (req) => {
       title = `Week of ${prettyDay(wFrom)}`;
       if (!w) return json({ ok: false, reason: "nothing to report for that week" });
       const wMoves = movesBetween(log, zone, wFrom, wTo);
-      try { w.tweets = await weeklyTweets(s, wFrom, wMoves, w.table); } catch { w.tweets = null; }
+      try { w.tweets = await weeklyTweets(s, wFrom, wMoves, w); } catch { w.tweets = null; }
       html = weeklyBody(w, wMoves, zone);
       subject = `${title} \u2014 your League Ledger weekly`;
     } else {

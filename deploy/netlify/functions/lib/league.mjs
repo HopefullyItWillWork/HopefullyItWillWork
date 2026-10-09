@@ -14,7 +14,7 @@ export async function read(s, key) {
   return raw ? JSON.parse(raw) : { rev: 0, data: null };
 }
 
-export { esc, wrap, siteUrl, dayIn, timeIn, yesterdayIn, movesOn, prettyDay, digestBody }
+export { esc, wrap, siteUrl, dayIn, timeIn, yesterdayIn, movesOn, prettyDay }
   from "./format.mjs";
 
 /* ---- sending ----------------------------------------------------------

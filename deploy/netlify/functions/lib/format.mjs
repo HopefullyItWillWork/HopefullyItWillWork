@@ -242,14 +242,12 @@ export function weeklyBody(w, moves, zone) {
   return out.join("");
 }
 
-/* The parody tweets, as cards. "(parody)" is in the handle and the header,
-   so a forwarded email cannot be mistaken for the real thing. */
+/* The weekly's tweets, as cards: the writer's name and the post. */
 export function tweetsBlock(tweets) {
   return `<p style="margin:0 0 6px;font:700 11px/1 ui-monospace,monospace;letter-spacing:.14em;
-    text-transform:uppercase;color:#7d8590">Around the league &middot; parody accounts</p>`
+    text-transform:uppercase;color:#7d8590">Around the league</p>`
     + tweets.map((t) => `<div style="border:1px solid #2b3038;border-radius:8px;padding:10px 12px;margin:0 0 8px">
-      <div style="font:600 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8e6e1">${esc(t.author)}
-        <span style="font-weight:400;color:#7d8590">${esc(t.handle)} &middot; parody</span></div>
+      <div style="font:600 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8e6e1">${esc(t.author)}</div>
       <div style="margin-top:4px;color:#e8e6e1">${esc(t.text)}</div></div>`).join("")
     + `<div style="height:8px"></div>`;
 }

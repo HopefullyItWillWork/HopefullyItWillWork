@@ -264,6 +264,7 @@ export async function digestWeekly(s, club, from, to, cache = {}) {
   return {
     from, to, club, nights: Object.keys(inWeek).length,
     table, standing: st && { ...st, row: undefined },
+    weekTable: week.filter((r) => r.tot.GP > 0).map((r) => ({ club: r.club, gm: gm(r.club), rank: r.rank, pts: r.pts })),
     weekRank: wk ? wk.rank : null, weekPts: wk ? wk.pts : null,
     gains: picture.filter((c) => c.up && c.up.close).map((c) => ({ k: c.k, club: c.up.club, gap: c.up.gap })),
     risks: picture.filter((c) => c.down && c.down.close).map((c) => ({ k: c.k, club: c.down.club, gap: c.down.gap })),
