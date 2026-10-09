@@ -784,15 +784,15 @@ the levelling rule below is available — it is not what makes it an MLE deal.
 **It beats the soft cap and nothing else.** `bidCeiling()` computes `hard` first and
 every branch is clamped to it, so the $200.50 hard cap is still absolute.
 
-**Any club may match the standing bid instead of raising it** (league decision,
-2026-10-09), and every tie is settled by a coin flip at the award. It began as the
-mid-level rule below and was widened so a tie under the soft cap is settled the
-same way. `placeBid()` takes a bid equal to the standing one from any club not
-already leading or level; the bid panel has a **Match** button; `mleTied()` (the
-name is historical) returns every club level at the price; two identical proxy
-maxes end level rather than going to whoever set his first; and the leader may
-raise to break a tie, which is otherwise "bidding against yourself". The flip
-winner signs in his own lane — one season out of cap room, two on the exception.
+**Every tie at the price goes to the coin flip, but GMs cannot tie on purpose**
+(league decision, 2026-10-09). `mleTied()` (the name is historical) returns every
+club level at the price, however it got there: two identical proxy maxes now end
+level instead of going to whoever set his first, and two clubs bidding the same
+amount at the same instant from different devices both survive the merge. The
+leader may raise to break a tie. **There is deliberately no Match button**, and a
+typed bid equal to the standing one is refused unless it is the mid-level level
+below — matching is not a strategy the league wants. The flip winner signs in his
+own lane: one season out of cap room, two on the exception.
 
 **Two clubs on the exception cannot separate themselves by a quarter** — the pot is
 the same size for both and neither may go past it — so a mid-level bid may

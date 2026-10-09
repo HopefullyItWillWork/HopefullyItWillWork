@@ -4312,8 +4312,6 @@ function bidControls(){
       <div><label for="bAmt">Your bid</label><input id="bAmt" class="mono" type="number" step="0.25"
         min="${(a.bid+0.25).toFixed(2)}" value="${(a.bid+0.25).toFixed(2)}"></div>
       <button class="btn" id="bGo" ${ceil<a.bid+0.25?'disabled':''}>Bid</button>
-      ${a.leader&&!mine&&!tied.includes(me2)&&ceil>=a.bid-0.001
-        ?`<button class="btn ghost" id="bMatch" title="Bid exactly the standing amount. A tie is settled by a coin flip at the award.">Match ${money(a.bid)}</button>`:''}
     </div>
     <div class="bidrow" style="grid-template-columns:1fr auto">
       <div><label for="bMax">Max bid (bids for you, up to this)</label>
@@ -4325,7 +4323,8 @@ function bidControls(){
       <b>The whole contract comes out of it</b>, so ${money(ml)} is the most you may bid this way, and it
       may sit above the ${money(S.cfg.cap)} salary cap. It is not added to your cap room${
         room>0?` — you have ${money(room)} of that, and this is the other lane, not extra`:''}.
-      It <b>signs him for two seasons</b>.</span></label>`:''}
+      It <b>signs him for two seasons</b>, and another club on its own exception may level your bid
+      rather than raise it, which the commissioner settles with a coin flip.</span></label>`:''}
     ${tied.length>1?`<div class="warnbox"><b>Level at ${money(a.bid)}:</b> ${htmlEsc(tied.join(' and '))}.
       Unless somebody raises, the commissioner flips a coin for him at the award.</div>`:''}
     ${ceil<a.bid+0.25
@@ -4348,11 +4347,6 @@ function bidControls(){
   $('bUp').onclick=()=>amt.value=(parseFloat(amt.value||a.bid)+0.25).toFixed(2);
   $('bDn').onclick=()=>amt.value=Math.max(a.bid+0.25,parseFloat(amt.value||0)-0.25).toFixed(2);
   $('bGo').onclick=()=>placeBid(me2,parseFloat(amt.value),false,mleOn());
-  if($('bMatch')) $('bMatch').onclick=()=>{
-    if(!confirm(`Match ${money(a.bid)} on ${a.player}?\n\nYou will be level with ${a.leader}. `
-      +'If nobody raises, the commissioner flips a coin for him at the award.')) return;
-    placeBid(me2,a.bid,false,mleOn());
-  };
   $('bMaxGo').onclick=()=>{const v=parseFloat($('bMax').value);
     if(!(v>=1))return alert('Enter a max bid of at least $1.00.');placeBid(me2,v,true,mleOn());};
 }
@@ -6499,10 +6493,11 @@ function resolveProxies(){
     break;
   }
 }
-/* The clubs level with the standing bid. Any club may MATCH the standing bid
-   rather than raise it, and a tie is settled by a coin flip when the
-   commissioner awards. The name is historical: it began as the mid-level rule,
-   where two pots of the same size cannot outbid each other by a quarter. Pure. */
+/* Every club level with the standing bid, however it got there: a deliberate
+   level on the mid-level exception, two identical proxy maxes, or two clubs
+   bidding the same amount at the same instant from different devices (the merge
+   keeps both). A tie is settled by a coin flip when the commissioner awards.
+   The name is historical — it began as the mid-level rule. Pure. */
 function mleTied(){
   const a=A(); if(!a||!a.bids||!a.bids.length) return [];
   const best={};
@@ -6511,8 +6506,8 @@ function mleTied(){
   /* Every club level at the price is in the flip, but only a mid-level bid can
      have produced a level pair in the first place — so at least one of them has
      to be on the exception, or this is not a tie, it is one club bidding. */
-  /* Any two clubs level at the price are a tie — not only clubs on the
-     exception (league decision, 2026-10-09). */
+  /* Any two clubs level at the price are a tie, not only clubs on the
+     exception (league decision, 2026-10-09) — for the accidental cases above. */
   return at.length>1?at:[];
 }
 async function placeBid(team,amt,isMax,isMle){
@@ -6573,12 +6568,13 @@ async function placeBid(team,amt,isMax,isMle){
 
        `mleReal` is that test for the club bidding, and `placeBid()` has already
        refused an amount its pot cannot cover, so nothing more is needed here. */
-    /* Any club may MATCH the standing bid instead of raising it (league
-       decision, 2026-10-09). It used to be the mid-level exception only, where
-       two pots of the same size cannot outbid each other by a quarter; the
-       league wants a tie under the soft cap settled the same way. The lot then
-       carries a tie and the commissioner flips for it at the award. */
-    const levelling = !!a.leader && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
+    /* A GM may LEVEL the standing bid only on the mid-level exception, where two
+       pots of the same size cannot outbid each other by a quarter. Anywhere else a
+       bid has to beat the standing one — matching on purpose is not a strategy
+       the league allows (2026-10-09). Ties that happen on their own (two
+       identical maxes, two clubs bidding the same at the same instant) are still
+       caught by mleTied() and flipped at the award. */
+    const levelling = mleReal && !!a.leader && Math.abs(amt-a.bid)<0.001 && a.leader!==team;
     if(levelling&&(a.bids||[]).some(b=>b.t===team&&Math.abs(b.amt-a.bid)<0.001))
       return alert(`${team} is already level at ${money(a.bid)}.`);
     /* The leader may not bid against himself — unless someone has matched him,
@@ -6592,8 +6588,11 @@ async function placeBid(team,amt,isMax,isMle){
       if(need>cw.ceil+0.001) return alert(
         `${team} cannot go higher on ${a.player}.\n\nThe next bid is ${money(need)} and `
         +`${money(cw.ceil)} is all it has.`
-        +(cw.ceil>=a.bid-0.001?`\n\nYou can match ${money(a.bid)} instead — a tie goes to a coin flip.`:''));
-      return alert(`Bid must be at least ${money(need)}, or exactly ${money(a.bid)} to match.`);
+        +(!mleReal&&mleLeft(team)>0
+          ? `\n\nTo match ${money(a.bid)} instead of raising, bid it on your mid-level exception `
+            +`— tick the box above.`
+          : ''));
+      return alert(`Bid must be at least ${money(need)}.`);
     }
     if(levelling){
       a.bids.unshift({t:team,amt,ts:now(),mle:mleReal,level:true});

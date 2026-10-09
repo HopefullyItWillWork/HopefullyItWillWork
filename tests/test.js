@@ -333,7 +333,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const CS = g('S'), keep = CS.auction;
     CS.auction = { player: 'Tie Test', status: 'open', bid: 10, leader: 'Brice',
       bids: [{ t: 'Osborn', amt: 10, ts: '2', level: true }, { t: 'Brice', amt: 10, ts: '1' }] };
-    ok('no exception involved, still a tie', g('mleTied')().length === 2, JSON.stringify(g('mleTied')()));
+    ok('an accidental tie (no exception involved) is still a tie', g('mleTied')().length === 2, JSON.stringify(g('mleTied')()));
     CS.auction.bids.unshift({ t: 'Osborn', amt: 10.25, ts: '3' }); CS.auction.bid = 10.25; CS.auction.leader = 'Osborn';
     ok('a raise ends it', g('mleTied')().length === 0);
     CS.auction = keep;
