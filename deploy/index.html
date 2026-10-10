@@ -663,7 +663,10 @@ dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg h4{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.04em;margin-bottom:5px}
 .dlg p{font-size:12.5px;color:var(--steel);margin-bottom:16px;line-height:1.5}
 .dlg .fields{display:grid;gap:11px;margin-bottom:16px}
-.dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}  /* five buttons in the Email dialog are wider than the box */
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#tmPreview table{width:100%;margin:10px 0 4px;border-collapse:collapse}
+#tmPreview td,#tmPreview th{padding:5px 8px;text-align:right}
+#tmPreview .l{text-align:left}  /* five buttons in the Email dialog are wider than the box */
 .chk{display:flex;align-items:flex-start;gap:9px;font-family:var(--body);font-size:12.5px;
   color:var(--steel);line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0;
   margin-bottom:0}
@@ -1641,12 +1644,25 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div><label for="edOpt">Option</label><select id="edOpt">
       <option value="">None</option><option value="TO">Team option</option>
       <option value="PO">Player option</option><option value="RO">Rookie option</option></select></div>
+    <div><label for="edOptN">Option years</label><select id="edOptN">
+      <option value="1">Final season</option><option value="2">Final two seasons</option></select></div>
     <div><label for="edBird">Rights held</label><select id="edBird"></select></div>
     <div><label for="edAlias">Also spelled</label>
       <input id="edAlias" placeholder="the spelling the league spreadsheet uses" autocomplete="off"></div>
   </div>
   <p class="note" id="edNote" hidden></p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
+</form></dialog>
+
+<dialog id="dlgTerm"><form method="dialog" class="dlg">
+  <h4 id="tmTitle">Contract length</h4><p id="tmSub"></p>
+  <div class="fields">
+    <div><label for="tmYears">Length</label><select id="tmYears"></select></div>
+    <div><label for="tmOpt">Option</label><select id="tmOpt"></select></div>
+  </div>
+  <div id="tmPreview"></div>
+  <p class="note" id="tmNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doTerm" value="ok">Save</button></div>
 </form></dialog>
 
 <script>
@@ -2510,7 +2526,7 @@ async function signPlayer(name,team,price,years,opts){
       /* Arriving as a free agent restarts the clock; staying put does not.
          The league year, not the wall clock — a signing made in January 2027
          belongs to the 2026-27 season. */
-      p.y=y;p.o='';p.acq=p.acq&&t===team?p.acq:leagueYear();
+      p.y=y;p.o='';delete p.on;delete p.auc;p.acq=p.acq&&t===team?p.acq:leagueYear();
       if(t!==team) unlist(p);
       S.teams[team].r.push(p);moved=true;break;}
   }
@@ -2571,23 +2587,132 @@ async function cutPlayer(team,idx){
    rights his tenure earned. `o` is cleared, because a player who finished an
    option year is restricted and this one never played it. */
 function canDecline(p){
-  return !!p && p.o==='TO' && !seasonLive() && contracted(p) && yrsLeft(p)===1;
+  if(!p||seasonLive()||!contracted(p)) return false;
+  /* A player option is the player's call, so only the commissioner records it. */
+  if(p.o==='PO') return hasComm() && yrsLeft(p)<=optYears(p);
+  return p.o==='TO' && yrsLeft(p)<=optYears(p);
 }
+/* How many seasons at the end of the deal are option years: one, or two in a
+   row. The league has always allowed two straight option years and never a
+   guaranteed season after an option one, so the options are always the TAIL of
+   the contract and a count is the whole of it. `p.on` is that count; a contract
+   from before it existed carries `o` alone and means the final season. */
+const optYears=p=>p&&OPTL[p.o]&&p.o!=='RO' ? (p.on===2?2:1) : (p&&p.o==='RO'?1:0);
 async function declineOption(team,idx){
   if(!canEdit(team)) return alert('You can only decline options for your own club.');
   const p=S.teams[team].r[idx];
-  if(!canDecline(p)) return alert(`${p?p.n:'That player'} has no team option to decline right now. `
-    +'A team option is declined during the offseason before its final season.');
-  const bk=birdRight(p);
-  if(!confirm(`Decline the team option on ${p.n}? His ${money(salNow(p))} for ${curSeason()} comes off your cap.\n\n`
-    +`He becomes an unrestricted free agent. Every club may bid on him${bk?`, and you keep his ${bk==='Yes'?'Bird':'Early Bird'} rights`:''}.`)) return;
+  if(!canDecline(p)) return alert(`${p?p.n:'That player'} has no option to decline right now. `
+    +'An option is declined during the offseason before an option season.');
+  const bk=birdRight(p), po=p.o==='PO', what=po?'player option':'team option';
+  /* Declining the first of two option years voids both: there is never a
+     guaranteed season, or an option season, after one that was turned down. */
+  const cur=curSeason();
+  p.y=normContract(p.y,cur);
+  const gone=Object.keys(p.y).filter(k=>seasonStart(k)>=seasonStart(cur));
+  if(!confirm(`Decline the ${what} on ${p.n}? His ${money(salNow(p))} for ${cur} comes off `
+    +`${po?team+'\u2019s':'your'} cap${gone.length>1?`, and the ${gone.length-1} season${gone.length>2?'s':''} after it`:''}.\n\n`
+    +`He becomes an unrestricted free agent. Every club may bid on him${bk?`, and ${po?team:'you'} keep${po?'s':''} his ${bk==='Yes'?'Bird':'Early Bird'} rights`:''}.`)) return;
   const sal=salNow(p);
-  delete p.y[curSeason()];
-  p.o='';
+  gone.forEach(k=>delete p.y[k]);
+  p.o=''; delete p.on;
   delete p.blk;
-  await commit({kind:'edit',team,detail:`${p.n} \u2014 team option declined (${money(sal)}). Unrestricted free agent`
+  await commit({kind:'edit',team,detail:`${p.n} \u2014 ${what} declined (${money(sal)}). Unrestricted free agent`
     +(bk?`, ${team} keeps ${bk==='Yes'?'Bird':'Early Bird'} rights`:'')},['rosters']);
 }
+/* ---- the length of an auction signing ----
+   The auction decides a price, not a term. A player won at auction is written
+   as one season (two on the exception) and his GM then sets the length, and any
+   team option, until the season goes live (league decision, 2026-10-10). The
+   commissioner may set it at any time, and is the only one who can attach a
+   player option — that is the player's right, not something a club grants itself.
+
+   Escalation is the rulebook's and is applied, never typed: nothing under $4.00
+   moves; from $4.00 every later season adds the same raise, 4.5% of the first
+   year (7.5% with Bird rights), rounded up to the next $0.25. Raises never
+   compound — the seed's contracts agree (Holmgren 35.00, 36.75, 38.50, 40.25). */
+const TERMMAX=4, TERMMINMAX=2;
+const raiseFor=(base,bird)=>base<4-1e-9 ? 0 : Math.ceil(base*(bird?0.075:0.045)*4-1e-9)/4;
+function escalated(base,years,bird,start){
+  const y={}, r=raiseFor(base,bird), from=start||curSeason();
+  for(let i=0;i<Math.max(1,years||1);i++) y[seasonAt(from,i)]=Math.round((base+r*i)*4)/4;
+  return y;
+}
+/* Won at auction by this club in the offseason being built. `p.auc` is stamped
+   at the award; the 2026 auction ran before the stamp existed, so its winners
+   are found in the log ("Won <name> at $x"), and only while the contract still
+   starts this season — a deal from an earlier summer has a season before it. */
+function auctionSigned(team,p){
+  if(!p||p.rookie||!contracted(p)||salPrev(p)!=null) return false;
+  if(p.auc===curSeason()) return true;
+  const c=canon(p.n);
+  return (S.log||[]).some(e=>e&&e.kind==='sign'&&e.team===team&&(()=>{
+    const m=/^Won (.+?) at \$/.exec(e.detail||''); return !!m&&canon(m[1])===c; })());
+}
+const termOpen=(team,p)=>auctionSigned(team,p) && (hasComm() || (canEdit(team)&&!seasonLive()));
+/* The longest deal the rulebook allows him: a minimum contract runs two seasons
+   at most, everything else four. */
+const termMax=p=>salNow(p)<=minSal()+0.001 ? TERMMINMAX : TERMMAX;
+let terming=null;
+function termPreview(){
+  if(!terming) return;
+  const {team,p}=terming, n=+$('tmYears').value||1, on=+$('tmOpt').value.split(':')[1]||0;
+  const y=escalated(salNow(p),n,birdRight(p)==='Yes'), ks=Object.keys(y);
+  const ot=$('tmOpt').value.split(':')[0];
+  $('tmPreview').innerHTML=`<table class="mini"><thead><tr><th class="l">Season</th><th>Salary</th><th class="l"></th></tr></thead><tbody>${
+    ks.map((k,i)=>`<tr><td class="l">${k}</td><td class="mono">${money(y[k])}</td><td class="l">${
+      on&&i>=ks.length-on?`<span class="tag ${OPTL[ot][1]}">${OPTL[ot][0]}</span>`:''}</td></tr>`).join('')}</tbody></table>`;
+}
+function termOptions(){
+  if(!terming) return;
+  const n=+$('tmYears').value||1, keep=$('tmOpt').value;
+  /* The first season is being played, so it is never an option year: a two-year
+     deal can carry one, three years or more can carry two. */
+  const types=hasComm()?['TO','PO']:['TO'], out=[['','None']];
+  types.forEach(t=>{ for(let k=1;k<=Math.min(2,n-1);k++)
+    out.push([`${t}:${k}`,`${OPTL[t][0]} \u2014 ${k===1?'final season':'final two seasons'}`]); });
+  $('tmOpt').innerHTML=out.map(([v,l])=>`<option value="${v}"${v===keep?' selected':''}>${l}</option>`).join('');
+  if(!out.some(o=>o[0]===keep)) $('tmOpt').value='';
+  termPreview();
+}
+function openTerm(team,idx){
+  const p=S.teams[team].r[idx];
+  if(!termOpen(team,p)) return alert(seasonLive()
+    ? 'Contract lengths are set before the season goes live. Ask the commissioner to change it.'
+    : 'Only a player your club won at this offseason\u2019s auction can have his length set here.');
+  terming={team,idx,p};
+  const max=termMax(p), cur=yrsLeft(p);
+  $('tmTitle').textContent=p.n;
+  $('tmSub').textContent=`${team} \u00b7 won at ${money(salNow(p))}`
+    +(raiseFor(salNow(p),birdRight(p)==='Yes')?` \u00b7 raises of ${money(raiseFor(salNow(p),birdRight(p)==='Yes'))} a season${birdRight(p)==='Yes'?' (Bird)':''}`:' \u00b7 no raises under $4.00');
+  $('tmYears').innerHTML=Array.from({length:max},(_,i)=>i+1)
+    .map(n=>`<option value="${n}"${n===Math.min(cur,max)?' selected':''}>${n} season${n>1?'s':''}</option>`).join('');
+  $('tmOpt').innerHTML=`<option value="${p.o&&p.o!=='RO'?p.o+':'+optYears(p):''}"></option>`;
+  $('tmOpt').value=$('tmOpt').options[0].value;
+  termOptions();
+  $('tmNote').innerHTML=(max<TERMMAX?`A minimum contract runs two seasons at most. `:'')
+    +(mleStamp(p)&&max===TERMMAX?`Signed on the mid-level: under the cap the exception allows two seasons, over it four. `:'')
+    +(hasComm()?'':'You can change this until the season goes live. ')
+    +'Two option seasons in a row are allowed; a guaranteed season never follows an option one.';
+  openModal('dlgTerm');
+}
+$('tmYears').onchange=termOptions;
+$('tmOpt').onchange=termPreview;
+$('doTerm').onclick=async(ev)=>{
+  if(!terming) return;
+  const {team,p}=terming;
+  if(!termOpen(team,p)){ terming=null; return alert('The length can no longer be changed here.'); }
+  const n=Math.min(+$('tmYears').value||1,termMax(p));
+  const [ot,k]=$('tmOpt').value.split(':'), on=Math.min(+k||0,n-1);
+  if(ot==='PO'&&!hasComm()){ ev.preventDefault(); return alert('Only the commissioner can attach a player option.'); }
+  const base=salNow(p), before=yrsLeft(p);
+  p.y=escalated(base,n,birdRight(p)==='Yes');
+  if(on>0&&OPTL[ot]){ p.o=ot; p.on=on; } else { p.o=''; delete p.on; }
+  terming=null;
+  await commit({kind:'edit',team,detail:`${p.n} \u2014 ${n} season${n>1?'s':''} from ${money(base)}`
+    +(n>1&&raiseFor(base,birdRight(p)==='Yes')?` to ${money(salOff(p,n-1))}`:'')
+    +(p.o?`, ${OPTL[p.o][0].toLowerCase()} on the final ${on===2?'two seasons':'season'}`:'')
+    +(before!==n?` (was ${before})`:'')},['rosters']);
+};
 let editing=null;
 function openEdit(team,idx){
   if(!canEditContract())
@@ -2622,6 +2747,7 @@ function fillComm(team,p){
   $('edY0').value=salPrev(p)??'';
   $('edPos').value=p.p||'';
   $('edOpt').value=OPTL[p.o]?p.o:'';
+  $('edOptN').value=String(p.on===2?2:1);
   /* The rights column is free text in the source spreadsheet, so an unknown
      value is offered back rather than silently rewritten to something else. */
   const raw=p.b==null?'':String(p.b);
@@ -2733,6 +2859,7 @@ $('doEdit').onclick=async(ev)=>{
     if(pv==null) delete p.y[seasonPrev(cs0)]; else p.y[seasonPrev(cs0)]=pv;
     p.p=$('edPos').value.trim();
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
+    if(p.o&&p.o!=='RO'&&$('edOptN').value==='2') p.on=2; else delete p.on;
     p.b=$('edBird').value;
     saveRecord(canon(p.n),p.p,$('edAlias').value.trim(),true);
     const to=$('edClub').value;
@@ -2940,7 +3067,7 @@ function drawLedger(){
 }
 function tags(p){
   let h='';
-  if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}</span>`;
+  if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}${optYears(p)===2?' \u00d72':''}</span>`;
   if(!contracted(p)&&p.o)h+='<span class="tag t-rfa">Restricted</span>';
   const bk=birdRight(p);
   if(bk==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(bk)h+='<span class="tag t-eb">Early Bird</span>';
@@ -2962,7 +3089,8 @@ function drawDetail(){
       const exp=!contracted(p);
       return `<tr><td>${p.n}${tags(p)}${
         canEditContract()?`<button class="act edit" data-e="${i}">Edit</button>`:''}${
-        mine&&canDecline(p)?`<button class="act edit" data-d="${i}">Decline option</button>`:''}${
+        termOpen(t,p)?`<button class="act edit" data-tm="${i}">Length</button>`:''}${
+        (mine||hasComm())&&canDecline(p)?`<button class="act edit" data-d="${i}">Decline option</button>`:''}${
         mine?`<button class="act" data-c="${i}">Cut</button>`:''}</td>
       <td class="pos hide">${p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2 ${exp?'exp':''}">${exp?'expiring':yrsLeft(p)+' yr'+(yrsLeft(p)===1?'':'s')}</td>
@@ -3008,6 +3136,7 @@ function drawDetail(){
   sortable('cutTbl','cut','s',true); redraw.cut=drawDetail;
   $('detail').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>cutPlayer(t,+b.dataset.c));
   $('detail').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>declineOption(t,+b.dataset.d));
+  $('detail').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>openTerm(t,+b.dataset.tm));
   $('detail').querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>openEdit(t,+b.dataset.e));
 }
 function drawFA(){
@@ -4281,6 +4410,7 @@ function drawMe(){
         canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}
         <button class="act edit${p.blk?' on':''}" data-mrb="${i}">${p.blk?'Unlist':'Block'}</button>
         ${seasonLive()?`<button class="act edit" data-mri="${i}">${p.ir?'Activate':'IR'}</button>`:''}
+        ${termOpen(T,p)?`<button class="act edit" data-mrt="${i}">Length</button>`:''}
         ${canDecline(p)?`<button class="act edit" data-mrd="${i}">Decline option</button>`:''}
         <button class="act" data-mrc="${i}">Cut</button></span></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
@@ -4288,6 +4418,7 @@ function drawMe(){
   $('meRoster').querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,+b.dataset.mre));
   $('meRoster').querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,+b.dataset.mrc));
   $('meRoster').querySelectorAll('[data-mrd]').forEach(b=>b.onclick=()=>declineOption(T,+b.dataset.mrd));
+  $('meRoster').querySelectorAll('[data-mrt]').forEach(b=>b.onclick=()=>openTerm(T,+b.dataset.mrt));
   $('meRoster').querySelectorAll('[data-mri]').forEach(b=>b.onclick=()=>toggleIR(T,+b.dataset.mri));
   $('meRoster').querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,+b.dataset.mrb));
   sortable('meRosTbl','mine','sal',true); redraw.mine=drawMe;
@@ -6136,7 +6267,7 @@ function leagueCSV(rows){
     const p=r.p, c=canon(p.n);
     out.push([c,p.n,r.t||'',p.p||'',
       num(salPrev(p)),num(salNow(p)),num(salOff(p,1)),num(salOff(p,2)),
-      r.fa?'':r.yrs, p.o||'', p.b||'', p.acq==null?'':p.acq,
+      r.fa?'':r.yrs, (p.o||'')+(p.o&&p.on===2?'x2':''), p.b||'', p.acq==null?'':p.acq,
       p.ir?'yes':'', p.blk?'yes':'', r.rtg==null?'':r.rtg,
       (mleStamp(p)||{}).s||'', mleStamp(p)?num(p.mle.amt):'',
       aliasesFor(c), r.fa?'free agent':'contract'].map(csvCell).join(','));
@@ -7086,6 +7217,7 @@ async function awardTo(team,note){
     mle:S.teams[team].mle,at:now()};
   a.status='closed'; a.winner=team; a.price=price; a.match=null;
   await signPlayer(a.player,team,price,mle?2:1,{force:true,mle:mle?{amt:need}:null});
+  { const p=S.teams[team].r.find(x=>canon(x.n)===canon(a.player)&&contracted(x)); if(p) p.auc=curSeason(); }
   if(mle) S.teams[team].mle=Math.max(0,Math.round((mleLeft(team)-need)*4)/4);
   await commit({kind:'sign',team,detail:`Won ${a.player} at ${money(price)}${note||''}`
     +(mle?` \u2014 ${money(need)} of the mid-level, two seasons`:'')});
