@@ -36,6 +36,16 @@ export default async (req) => {
       if (key === "all") {
         const out = {};
         await Promise.all(KEYS.map(async (k) => { out[k] = await read(store, k); }));
+        /* `&chat=<ts>&me=<club>`: how many chat posts by somebody else are newer
+           than <ts>, for the Chat badge. The page asks about once a minute, so
+           nobody downloads the room just to learn whether it has moved. */
+        if (url.searchParams.has("chat")) {
+          const since = url.searchParams.get("chat") || "", who = url.searchParams.get("me") || "";
+          const c = await read(store, "chat");
+          const list = Array.isArray(c.data) ? c.data : [];
+          out.chat = { rev: c.rev, ts: (list[0] && list[0].ts) || "",
+            n: since ? list.filter((m) => m && m.ts > since && m.by !== who).length : 0 };
+        }
         return new Response(JSON.stringify(out), { headers: H });
       }
       return new Response(JSON.stringify(await read(store, key)), { headers: H });

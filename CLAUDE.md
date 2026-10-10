@@ -640,6 +640,12 @@ and only while the contract still starts this season.
   the commissioner, since it is the player's call. The Edit dialog has an
   **Option years** select for correcting any contract.
 
+**The commissioner tab lists every auction signing** (`drawTermAdmin()`) until the
+season goes live: length, option, and **Set / Not set**, with a "waiting on" count
+per club and a Length button on each row. "Set" is `p.tset` — the GM saved the
+dialog this offseason — so a one-season deal he means to keep must be saved once
+too. My Team shows the GM the same reminder above his roster.
+
 ### The auction nominates on a snake
 `S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
 backwards, round three forwards again, so the club at each end nominates twice in
@@ -2063,6 +2069,34 @@ that proves the function bundled and the Blobs store is reachable. A preview tha
 renders correctly but says "this device only" is a broken deploy that looks fine.
 
 ---
+
+## Telling an open tab a new build is live
+
+**Bump `<meta name="ll-build">` in `deploy/index.html` on every deploy that
+changes the page.** An open tab keeps running the code it loaded, and a browser
+can load a cached copy (GMs saw the old dialog after the 2026-10-09 deploy until
+a hard refresh). `checkVersion()` fetches the live page uncached 20 seconds after
+load, every 15 minutes, and when the tab comes back into view (at most every 5),
+and a different build shows a **Reload** bar at the bottom. It never reloads by
+itself — a GM may be halfway through a bid. Forget the bump and nothing breaks;
+the bar simply does not appear.
+
+## Tab badges
+
+**Trades** counts offers waiting on the signed-in club's answer (every pending
+offer for the commissioner login). **Chat** (and the More button) counts posts by
+somebody else since this browser last had the room open (`ll_chatseen`). The
+chat count does not download the room: about once a minute the poll adds
+`&chat=<last seen ts>&me=<club>` to `?key=all`, and `state.mjs` answers with
+`chat:{rev,ts,n}`. A browser that has never opened chat starts at zero.
+
+## Best for tonight
+
+`tonightLineup()` is the lineup's **Best for tonight** button: every unlocked slot
+is cleared and refilled in two passes — players whose NBA club plays tonight
+first, then anyone left — each scarcest slot first, best rated first. Locked men
+stay put. It needs tip-off times (the feed or the commissioner's override) and
+says so when there are none.
 
 ## Nightly stats feed
 
