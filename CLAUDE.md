@@ -615,6 +615,37 @@ any salary (warns, never blocks), edit any contract, move and cut for any club,
 answer a restricted match for an absent club, undo any rookie pick, open and close
 both the auction and the draft.
 
+### An auction signing's length is set afterwards
+The auction decides a price, not a term. An award writes one season (two on the
+exception) and stamps `p.auc` with the offseason; the winning GM then sets the
+length and any team option with the **Length** button on My Team or the club page
+(`openTerm()`), as often as he likes **until the season goes live** (league
+decision, 2026-10-10). The commissioner (or a deputy) can do it any time and is the
+only one who can attach a **player option**. The 2026 auction ran before `p.auc`
+existed, so `auctionSigned()` also finds winners in the log ("Won <name> at $x"),
+and only while the contract still starts this season.
+
+- Up to four seasons; a minimum contract two (`termMax()`). The mid-level's
+  under-the-cap two-year limit is noted in the dialog, not enforced.
+- Raises are applied, never typed (`escalated()`): nothing under $4.00 moves;
+  from $4.00 each later season adds the same raise, 4.5% of the first year (7.5%
+  with Bird rights), rounded up to $0.25, never compounding. The seed agrees
+  (Holmgren 35.00, 36.75, 38.50, 40.25).
+- **Options are always the tail of a deal**: one option season, or two in a row,
+  and never a guaranteed season after an option one. `p.on` is the count (2, or
+  absent for one); `optYears(p)` reads it. The first season is being played, so a
+  two-year deal can carry one option year and three or more can carry two.
+- Declining (`declineOption()`) works in the offseason before **any** option season
+  and voids that season and everything after it. A player option is declined by
+  the commissioner, since it is the player's call. The Edit dialog has an
+  **Option years** select for correcting any contract.
+
+**The commissioner tab lists every auction signing** (`drawTermAdmin()`) until the
+season goes live: length, option, and **Set / Not set**, with a "waiting on" count
+per club and a Length button on each row. "Set" is `p.tset` — the GM saved the
+dialog this offseason — so a one-season deal he means to keep must be saved once
+too. My Team shows the GM the same reminder above his roster.
+
 ### The auction nominates on a snake
 `S.cfg.nomOrder` is the commissioner's round-one order. Round two runs it
 backwards, round three forwards again, so the club at each end nominates twice in
@@ -749,8 +780,8 @@ rule: `placeBid()` and `nominate()` refuse the rights holder and its bid panel
 says why instead of showing controls. Before 2026-10-09 nothing enforced it, so
 the rights holder could bid, win outright and skip the match.
 
-**Declining a team option** is not a cut. In the offseason before the option year,
-`declineOption()` voids that year and clears `o`. The player stays on the roster
+**Declining a team option** is not a cut. In the offseason before an option year,
+`declineOption()` voids that year and any after it, and clears `o` and `p.on`. The player stays on the roster
 as an expiring player: an **unrestricted** free agent whose club keeps any Bird
 rights. There is no release record, so no bar on signing him back. Releasing a
 player who has an option instead goes through the normal cut rules, and the Cut
@@ -2038,6 +2069,34 @@ that proves the function bundled and the Blobs store is reachable. A preview tha
 renders correctly but says "this device only" is a broken deploy that looks fine.
 
 ---
+
+## Telling an open tab a new build is live
+
+**Bump `<meta name="ll-build">` in `deploy/index.html` on every deploy that
+changes the page.** An open tab keeps running the code it loaded, and a browser
+can load a cached copy (GMs saw the old dialog after the 2026-10-09 deploy until
+a hard refresh). `checkVersion()` fetches the live page uncached 20 seconds after
+load, every 15 minutes, and when the tab comes back into view (at most every 5),
+and a different build shows a **Reload** bar at the bottom. It never reloads by
+itself — a GM may be halfway through a bid. Forget the bump and nothing breaks;
+the bar simply does not appear.
+
+## Tab badges
+
+**Trades** counts offers waiting on the signed-in club's answer (every pending
+offer for the commissioner login). **Chat** (and the More button) counts posts by
+somebody else since this browser last had the room open (`ll_chatseen`). The
+chat count does not download the room: about once a minute the poll adds
+`&chat=<last seen ts>&me=<club>` to `?key=all`, and `state.mjs` answers with
+`chat:{rev,ts,n}`. A browser that has never opened chat starts at zero.
+
+## Best for tonight
+
+`tonightLineup()` is the lineup's **Best for tonight** button: every unlocked slot
+is cleared and refilled in two passes — players whose NBA club plays tonight
+first, then anyone left — each scarcest slot first, best rated first. Locked men
+stay put. It needs tip-off times (the feed or the commissioner's override) and
+says so when there are none.
 
 ## Nightly stats feed
 

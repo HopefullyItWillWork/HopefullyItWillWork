@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="ll-build" content="2026-10-10.1">
 <title>League Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -464,6 +465,12 @@ tbody tr.hasproj td:first-child::after{content:" \2022";color:var(--amber)}
 border:1px solid var(--amber);color:var(--chalk);font-family:var(--mono);font-size:12px;padding:10px 16px;
 border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.updbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:210;display:flex;gap:12px;
+align-items:center;background:var(--panel);border:1px solid var(--amber);color:var(--chalk);padding:9px 10px 9px 15px;
+border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:14px;max-width:calc(100% - 32px)}
+.badge{display:inline-block;min-width:17px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--tax);
+color:#fff;font:700 10px/17px var(--mono);text-align:center;vertical-align:1px;letter-spacing:0}
+.badge:empty{display:none}
 .filters{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}
 .filters input,.filters select{width:auto;min-width:150px}
 .fcount{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.08em;margin-left:auto}
@@ -663,7 +670,10 @@ dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg h4{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.04em;margin-bottom:5px}
 .dlg p{font-size:12.5px;color:var(--steel);margin-bottom:16px;line-height:1.5}
 .dlg .fields{display:grid;gap:11px;margin-bottom:16px}
-.dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}  /* five buttons in the Email dialog are wider than the box */
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#tmPreview table{width:100%;margin:10px 0 4px;border-collapse:collapse}
+#tmPreview td,#tmPreview th{padding:5px 8px;text-align:right}
+#tmPreview .l{text-align:left}  /* five buttons in the Email dialog are wider than the box */
 .chk{display:flex;align-items:flex-start;gap:9px;font-family:var(--body);font-size:12.5px;
   color:var(--steel);line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0;
   margin-bottom:0}
@@ -799,10 +809,10 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
     <button role="tab" data-v="v-contracts" aria-selected="true">Contracts</button>
     <button role="tab" data-v="v-rater" aria-selected="false">Player rater</button>
-    <button role="tab" data-v="v-trade" aria-selected="false">Trades <span id="tCount"></span></button>
+    <button role="tab" data-v="v-trade" aria-selected="false">Trades <span class="badge" id="tCount"></span></button>
 
     <div class="more">
-      <button type="button" id="moreBtn" aria-expanded="false" aria-haspopup="true">More</button>
+      <button type="button" id="moreBtn" aria-expanded="false" aria-haspopup="true">More<span class="badge" id="moreBadge"></span></button>
     </div>
   </nav>
   <div class="menuwrap"><div class="moremenu" id="moreMenu" hidden>
@@ -810,7 +820,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
         <button role="tab" data-v="v-lab" aria-selected="false" hidden>Builder</button>
         <button role="tab" data-v="v-draft" aria-selected="false">Quick sign</button>
         <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
-        <button role="tab" data-v="v-chat" aria-selected="false">Chat &amp; notes</button>
+        <button role="tab" data-v="v-chat" aria-selected="false">Chat &amp; notes<span class="badge" id="chatBadge"></span></button>
         <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
         <button role="tab" data-v="v-proj" aria-selected="false" id="projTab" hidden>My projections</button>
         <button role="tab" data-v="v-trends" aria-selected="false">Team trends</button>
@@ -820,6 +830,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
   </div></div>
 </header>
+<div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
+  <button type="button" class="btn" id="updGo">Reload</button></div>
 <main>
   <section class="view" id="v-contracts" role="tabpanel">
     <div id="welcome"></div>
@@ -1284,6 +1296,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="warn"><b>Read this before you share the link.</b> Sign-in here is honor-system only. The page runs entirely in the browser, so anyone who views the source can read every PIN. It prevents mistakes and keeps an audit trail &#8212; it does not stop someone determined. Keep the commissioner PIN to yourself and rely on the transaction log to catch anything odd.</div>
     <div class="warn" id="rosWarn" hidden></div>
     <div class="warn" id="birdWarn" hidden></div>
+    <div id="termAdmin" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
       <div><label for="sLeague">League name</label><input id="sLeague" maxlength="60"
@@ -1641,12 +1654,25 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div><label for="edOpt">Option</label><select id="edOpt">
       <option value="">None</option><option value="TO">Team option</option>
       <option value="PO">Player option</option><option value="RO">Rookie option</option></select></div>
+    <div><label for="edOptN">Option years</label><select id="edOptN">
+      <option value="1">Final season</option><option value="2">Final two seasons</option></select></div>
     <div><label for="edBird">Rights held</label><select id="edBird"></select></div>
     <div><label for="edAlias">Also spelled</label>
       <input id="edAlias" placeholder="the spelling the league spreadsheet uses" autocomplete="off"></div>
   </div>
   <p class="note" id="edNote" hidden></p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
+</form></dialog>
+
+<dialog id="dlgTerm"><form method="dialog" class="dlg">
+  <h4 id="tmTitle">Contract length</h4><p id="tmSub"></p>
+  <div class="fields">
+    <div><label for="tmYears">Length</label><select id="tmYears"></select></div>
+    <div><label for="tmOpt">Option</label><select id="tmOpt"></select></div>
+  </div>
+  <div id="tmPreview"></div>
+  <p class="note" id="tmNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doTerm" value="ok">Save</button></div>
 </form></dialog>
 
 <script>
@@ -1981,8 +2007,9 @@ function startPolling(){
     if(!await probeAPI()) return;
     if(document.hidden) return;
     try{
-      const r=await fetch(API+'?key=all',{cache:'no-store'});
+      const r=await fetch(API+'?key=all'+chatPeekQuery(),{cache:'no-store'});
       const j=await r.json();
+      if(j.chat) chatPeek(j.chat);
       let changed=false;
       SLICES.forEach(k=>{
         if(j[k]&&j[k].rev!==REV[k]){ REV[k]=j[k].rev; applySlice(k,j[k].data); setBase(k,j[k].data); changed=true; }
@@ -2510,7 +2537,7 @@ async function signPlayer(name,team,price,years,opts){
       /* Arriving as a free agent restarts the clock; staying put does not.
          The league year, not the wall clock — a signing made in January 2027
          belongs to the 2026-27 season. */
-      p.y=y;p.o='';p.acq=p.acq&&t===team?p.acq:leagueYear();
+      p.y=y;p.o='';delete p.on;delete p.auc;p.acq=p.acq&&t===team?p.acq:leagueYear();
       if(t!==team) unlist(p);
       S.teams[team].r.push(p);moved=true;break;}
   }
@@ -2571,22 +2598,164 @@ async function cutPlayer(team,idx){
    rights his tenure earned. `o` is cleared, because a player who finished an
    option year is restricted and this one never played it. */
 function canDecline(p){
-  return !!p && p.o==='TO' && !seasonLive() && contracted(p) && yrsLeft(p)===1;
+  if(!p||seasonLive()||!contracted(p)) return false;
+  /* A player option is the player's call, so only the commissioner records it. */
+  if(p.o==='PO') return hasComm() && yrsLeft(p)<=optYears(p);
+  return p.o==='TO' && yrsLeft(p)<=optYears(p);
 }
+/* How many seasons at the end of the deal are option years: one, or two in a
+   row. The league has always allowed two straight option years and never a
+   guaranteed season after an option one, so the options are always the TAIL of
+   the contract and a count is the whole of it. `p.on` is that count; a contract
+   from before it existed carries `o` alone and means the final season. */
+const optYears=p=>p&&OPTL[p.o]&&p.o!=='RO' ? (p.on===2?2:1) : (p&&p.o==='RO'?1:0);
 async function declineOption(team,idx){
   if(!canEdit(team)) return alert('You can only decline options for your own club.');
   const p=S.teams[team].r[idx];
-  if(!canDecline(p)) return alert(`${p?p.n:'That player'} has no team option to decline right now. `
-    +'A team option is declined during the offseason before its final season.');
-  const bk=birdRight(p);
-  if(!confirm(`Decline the team option on ${p.n}? His ${money(salNow(p))} for ${curSeason()} comes off your cap.\n\n`
-    +`He becomes an unrestricted free agent. Every club may bid on him${bk?`, and you keep his ${bk==='Yes'?'Bird':'Early Bird'} rights`:''}.`)) return;
+  if(!canDecline(p)) return alert(`${p?p.n:'That player'} has no option to decline right now. `
+    +'An option is declined during the offseason before an option season.');
+  const bk=birdRight(p), po=p.o==='PO', what=po?'player option':'team option';
+  /* Declining the first of two option years voids both: there is never a
+     guaranteed season, or an option season, after one that was turned down. */
+  const cur=curSeason();
+  p.y=normContract(p.y,cur);
+  const gone=Object.keys(p.y).filter(k=>seasonStart(k)>=seasonStart(cur));
+  if(!confirm(`Decline the ${what} on ${p.n}? His ${money(salNow(p))} for ${cur} comes off `
+    +`${po?team+'\u2019s':'your'} cap${gone.length>1?`, and the ${gone.length-1} season${gone.length>2?'s':''} after it`:''}.\n\n`
+    +`He becomes an unrestricted free agent. Every club may bid on him${bk?`, and ${po?team:'you'} keep${po?'s':''} his ${bk==='Yes'?'Bird':'Early Bird'} rights`:''}.`)) return;
   const sal=salNow(p);
-  delete p.y[curSeason()];
-  p.o='';
+  gone.forEach(k=>delete p.y[k]);
+  p.o=''; delete p.on;
   delete p.blk;
-  await commit({kind:'edit',team,detail:`${p.n} \u2014 team option declined (${money(sal)}). Unrestricted free agent`
+  await commit({kind:'edit',team,detail:`${p.n} \u2014 ${what} declined (${money(sal)}). Unrestricted free agent`
     +(bk?`, ${team} keeps ${bk==='Yes'?'Bird':'Early Bird'} rights`:'')},['rosters']);
+}
+/* ---- the length of an auction signing ----
+   The auction decides a price, not a term. A player won at auction is written
+   as one season (two on the exception) and his GM then sets the length, and any
+   team option, until the season goes live (league decision, 2026-10-10). The
+   commissioner may set it at any time, and is the only one who can attach a
+   player option — that is the player's right, not something a club grants itself.
+
+   Escalation is the rulebook's and is applied, never typed: nothing under $4.00
+   moves; from $4.00 every later season adds the same raise, 4.5% of the first
+   year (7.5% with Bird rights), rounded up to the next $0.25. Raises never
+   compound — the seed's contracts agree (Holmgren 35.00, 36.75, 38.50, 40.25). */
+const TERMMAX=4, TERMMINMAX=2;
+const raiseFor=(base,bird)=>base<4-1e-9 ? 0 : Math.ceil(base*(bird?0.075:0.045)*4-1e-9)/4;
+function escalated(base,years,bird,start){
+  const y={}, r=raiseFor(base,bird), from=start||curSeason();
+  for(let i=0;i<Math.max(1,years||1);i++) y[seasonAt(from,i)]=Math.round((base+r*i)*4)/4;
+  return y;
+}
+/* Won at auction by this club in the offseason being built. `p.auc` is stamped
+   at the award; the 2026 auction ran before the stamp existed, so its winners
+   are found in the log ("Won <name> at $x"), and only while the contract still
+   starts this season — a deal from an earlier summer has a season before it. */
+function auctionSigned(team,p){
+  if(!p||p.rookie||!contracted(p)||salPrev(p)!=null) return false;
+  if(p.auc===curSeason()) return true;
+  const c=canon(p.n);
+  return (S.log||[]).some(e=>e&&e.kind==='sign'&&e.team===team&&(()=>{
+    const m=/^Won (.+?) at \$/.exec(e.detail||''); return !!m&&canon(m[1])===c; })());
+}
+const termOpen=(team,p)=>auctionSigned(team,p) && (hasComm() || (canEdit(team)&&!seasonLive()));
+/* The longest deal the rulebook allows him: a minimum contract runs two seasons
+   at most, everything else four. */
+const termMax=p=>salNow(p)<=minSal()+0.001 ? TERMMINMAX : TERMMAX;
+let terming=null;
+function termPreview(){
+  if(!terming) return;
+  const {team,p}=terming, n=+$('tmYears').value||1, on=+$('tmOpt').value.split(':')[1]||0;
+  const y=escalated(salNow(p),n,birdRight(p)==='Yes'), ks=Object.keys(y);
+  const ot=$('tmOpt').value.split(':')[0];
+  $('tmPreview').innerHTML=`<table class="mini"><thead><tr><th class="l">Season</th><th>Salary</th><th class="l"></th></tr></thead><tbody>${
+    ks.map((k,i)=>`<tr><td class="l">${k}</td><td class="mono">${money(y[k])}</td><td class="l">${
+      on&&i>=ks.length-on?`<span class="tag ${OPTL[ot][1]}">${OPTL[ot][0]}</span>`:''}</td></tr>`).join('')}</tbody></table>`;
+}
+function termOptions(){
+  if(!terming) return;
+  const n=+$('tmYears').value||1, keep=$('tmOpt').value;
+  /* The first season is being played, so it is never an option year: a two-year
+     deal can carry one, three years or more can carry two. */
+  const types=hasComm()?['TO','PO']:['TO'], out=[['','None']];
+  types.forEach(t=>{ for(let k=1;k<=Math.min(2,n-1);k++)
+    out.push([`${t}:${k}`,`${OPTL[t][0]} \u2014 ${k===1?'final season':'final two seasons'}`]); });
+  $('tmOpt').innerHTML=out.map(([v,l])=>`<option value="${v}"${v===keep?' selected':''}>${l}</option>`).join('');
+  if(!out.some(o=>o[0]===keep)) $('tmOpt').value='';
+  termPreview();
+}
+function openTerm(team,idx){
+  const p=S.teams[team].r[idx];
+  if(!termOpen(team,p)) return alert(seasonLive()
+    ? 'Contract lengths are set before the season goes live. Ask the commissioner to change it.'
+    : 'Only a player your club won at this offseason\u2019s auction can have his length set here.');
+  terming={team,idx,p};
+  const max=termMax(p), cur=yrsLeft(p);
+  $('tmTitle').textContent=p.n;
+  $('tmSub').textContent=`${team} \u00b7 won at ${money(salNow(p))}`
+    +(raiseFor(salNow(p),birdRight(p)==='Yes')?` \u00b7 raises of ${money(raiseFor(salNow(p),birdRight(p)==='Yes'))} a season${birdRight(p)==='Yes'?' (Bird)':''}`:' \u00b7 no raises under $4.00');
+  $('tmYears').innerHTML=Array.from({length:max},(_,i)=>i+1)
+    .map(n=>`<option value="${n}"${n===Math.min(cur,max)?' selected':''}>${n} season${n>1?'s':''}</option>`).join('');
+  $('tmOpt').innerHTML=`<option value="${p.o&&p.o!=='RO'?p.o+':'+optYears(p):''}"></option>`;
+  $('tmOpt').value=$('tmOpt').options[0].value;
+  termOptions();
+  $('tmNote').innerHTML=(max<TERMMAX?`A minimum contract runs two seasons at most. `:'')
+    +(mleStamp(p)&&max===TERMMAX?`Signed on the mid-level: under the cap the exception allows two seasons, over it four. `:'')
+    +(hasComm()?'':'You can change this until the season goes live. ')
+    +'Two option seasons in a row are allowed; a guaranteed season never follows an option one.';
+  openModal('dlgTerm');
+}
+$('tmYears').onchange=termOptions;
+$('tmOpt').onchange=termPreview;
+$('doTerm').onclick=async(ev)=>{
+  if(!terming) return;
+  const {team,p}=terming;
+  if(!termOpen(team,p)){ terming=null; return alert('The length can no longer be changed here.'); }
+  const n=Math.min(+$('tmYears').value||1,termMax(p));
+  const [ot,k]=$('tmOpt').value.split(':'), on=Math.min(+k||0,n-1);
+  if(ot==='PO'&&!hasComm()){ ev.preventDefault(); return alert('Only the commissioner can attach a player option.'); }
+  const base=salNow(p), before=yrsLeft(p);
+  p.y=escalated(base,n,birdRight(p)==='Yes');
+  if(on>0&&OPTL[ot]){ p.o=ot; p.on=on; } else { p.o=''; delete p.on; }
+  p.tset=curSeason();
+  terming=null;
+  await commit({kind:'edit',team,detail:`${p.n} \u2014 ${n} season${n>1?'s':''} from ${money(base)}`
+    +(n>1&&raiseFor(base,birdRight(p)==='Yes')?` to ${money(salOff(p,n-1))}`:'')
+    +(p.o?`, ${OPTL[p.o][0].toLowerCase()} on the final ${on===2?'two seasons':'season'}`:'')
+    +(before!==n?` (was ${before})`:'')},['rosters']);
+};
+/* Every auction signing in the league, for the commissioner to chase before the
+   season goes live. "Set" means the GM saved the Length dialog this offseason
+   (`p.tset`) — a one-season deal he means to keep has to be saved once too, so
+   the list can tell a choice from a deal nobody looked at. */
+function auctionTerms(team){
+  const out=[];
+  (team?[team]:TEAMS()).forEach(t=>S.teams[t].r.forEach((p,i)=>{ if(auctionSigned(t,p)) out.push({t,i,p}); }));
+  return out;
+}
+const termSet=p=>p.tset===curSeason();
+function drawTermAdmin(){
+  const box=$('termAdmin'); if(!box) return;
+  const rows=hasComm()&&!seasonLive()?auctionTerms():[];
+  box.hidden=!rows.length;
+  if(!rows.length){ box.innerHTML=''; return; }
+  const unset=rows.filter(r=>!termSet(r.p));
+  const by={}; unset.forEach(r=>{ by[r.t]=(by[r.t]||0)+1; });
+  rows.sort((a,b)=>(termSet(a.p)-termSet(b.p))||a.t.localeCompare(b.t)||(salNow(b.p)-salNow(a.p)));
+  box.innerHTML=`<h2 class="sub">Auction contract lengths</h2>
+    <p class="note">${unset.length?`${unset.length} of ${rows.length} auction signings have not been set yet \u2014 waiting on ${
+      Object.keys(by).map(t=>`${htmlEsc(t)} (${by[t]})`).join(', ')}.`:`All ${rows.length} auction signings are set.`}
+      GMs can change these until the season goes live. Anything left alone stays as signed: one season, two on the mid-level.</p>
+    <div class="scroller" data-cap><table id="termTbl"><thead><tr><th class="l">Player</th><th class="l">Club</th>
+      <th>Salary</th><th>Length</th><th class="l">Option</th><th class="l">Status</th><th class="acts"></th></tr></thead><tbody>${
+      rows.map(r=>`<tr><td class="l pname" data-player="${htmlEsc(r.p.n)}">${htmlEsc(r.p.n)}</td><td class="l">${htmlEsc(r.t)}</td>
+        <td class="mono">${money(salNow(r.p))}</td><td class="mono">${yrsLeft(r.p)}</td>
+        <td class="l">${r.p.o&&OPTL[r.p.o]?OPTL[r.p.o][0]+(optYears(r.p)===2?' \u00d72':''):'&#8212;'}</td>
+        <td class="l">${termSet(r.p)?'Set':'<b>Not set</b>'}</td>
+        <td class="acts"><button class="act edit" data-tat="${htmlEsc(r.t)}" data-tai="${r.i}">Length</button></td></tr>`).join('')}
+    </tbody></table></div>`;
+  box.querySelectorAll('[data-tat]').forEach(b=>b.onclick=()=>openTerm(b.dataset.tat,+b.dataset.tai));
 }
 let editing=null;
 function openEdit(team,idx){
@@ -2622,6 +2791,7 @@ function fillComm(team,p){
   $('edY0').value=salPrev(p)??'';
   $('edPos').value=p.p||'';
   $('edOpt').value=OPTL[p.o]?p.o:'';
+  $('edOptN').value=String(p.on===2?2:1);
   /* The rights column is free text in the source spreadsheet, so an unknown
      value is offered back rather than silently rewritten to something else. */
   const raw=p.b==null?'':String(p.b);
@@ -2733,6 +2903,7 @@ $('doEdit').onclick=async(ev)=>{
     if(pv==null) delete p.y[seasonPrev(cs0)]; else p.y[seasonPrev(cs0)]=pv;
     p.p=$('edPos').value.trim();
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
+    if(p.o&&p.o!=='RO'&&$('edOptN').value==='2') p.on=2; else delete p.on;
     p.b=$('edBird').value;
     saveRecord(canon(p.n),p.p,$('edAlias').value.trim(),true);
     const to=$('edClub').value;
@@ -2940,7 +3111,7 @@ function drawLedger(){
 }
 function tags(p){
   let h='';
-  if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}</span>`;
+  if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}${optYears(p)===2?' \u00d72':''}</span>`;
   if(!contracted(p)&&p.o)h+='<span class="tag t-rfa">Restricted</span>';
   const bk=birdRight(p);
   if(bk==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(bk)h+='<span class="tag t-eb">Early Bird</span>';
@@ -2962,7 +3133,8 @@ function drawDetail(){
       const exp=!contracted(p);
       return `<tr><td>${p.n}${tags(p)}${
         canEditContract()?`<button class="act edit" data-e="${i}">Edit</button>`:''}${
-        mine&&canDecline(p)?`<button class="act edit" data-d="${i}">Decline option</button>`:''}${
+        termOpen(t,p)?`<button class="act edit" data-tm="${i}">Length</button>`:''}${
+        (mine||hasComm())&&canDecline(p)?`<button class="act edit" data-d="${i}">Decline option</button>`:''}${
         mine?`<button class="act" data-c="${i}">Cut</button>`:''}</td>
       <td class="pos hide">${p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2 ${exp?'exp':''}">${exp?'expiring':yrsLeft(p)+' yr'+(yrsLeft(p)===1?'':'s')}</td>
@@ -3008,6 +3180,7 @@ function drawDetail(){
   sortable('cutTbl','cut','s',true); redraw.cut=drawDetail;
   $('detail').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>cutPlayer(t,+b.dataset.c));
   $('detail').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>declineOption(t,+b.dataset.d));
+  $('detail').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>openTerm(t,+b.dataset.tm));
   $('detail').querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>openEdit(t,+b.dataset.e));
 }
 function drawFA(){
@@ -3902,7 +4075,7 @@ function render(){
   if(me&&me!=='__comm__'&&!S.teams[me]) me=null;
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
-  drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();
+  drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
   /* The trade machine's two club selects were built once and never again, so a
@@ -4267,7 +4440,11 @@ function drawMe(){
                  MS.col==='n'?y.n:MS.col==='sal'?salNow(y):rtg(y.n),MS.desc);
     });
   const canAct=canEdit(T);
-  $('meRoster').innerHTML=`<table id="meRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
+  const unsetT=canAct&&!seasonLive()?auctionTerms(T).filter(r=>!termSet(r.p)):[];
+  $('meRoster').innerHTML=(unsetT.length?`<div class="warn"><b>${unsetT.length} auction signing${unsetT.length===1?'':'s'} still need${unsetT.length===1?'s':''} a contract length:</b>
+    ${unsetT.map(r=>htmlEsc(r.p.n)).join(', ')}. Use <b>Length</b> on each one before the season goes live \u2014
+    save it even if one season is what you want, so the commissioner knows it was your choice.</div>`:'')
+    +`<table id="meRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
     <th data-k="sal">Salary</th><th class="hide2" data-k="rtg">Rating</th>${canAct?'<th class="acts"></th>':''}</tr></thead>
     <tbody>${mrows.map(p=>{
       const i=S.teams[T].r.findIndex(x=>x.n===p.n);
@@ -4281,6 +4458,7 @@ function drawMe(){
         canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}
         <button class="act edit${p.blk?' on':''}" data-mrb="${i}">${p.blk?'Unlist':'Block'}</button>
         ${seasonLive()?`<button class="act edit" data-mri="${i}">${p.ir?'Activate':'IR'}</button>`:''}
+        ${termOpen(T,p)?`<button class="act edit" data-mrt="${i}">Length</button>`:''}
         ${canDecline(p)?`<button class="act edit" data-mrd="${i}">Decline option</button>`:''}
         <button class="act" data-mrc="${i}">Cut</button></span></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
@@ -4288,6 +4466,7 @@ function drawMe(){
   $('meRoster').querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,+b.dataset.mre));
   $('meRoster').querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,+b.dataset.mrc));
   $('meRoster').querySelectorAll('[data-mrd]').forEach(b=>b.onclick=()=>declineOption(T,+b.dataset.mrd));
+  $('meRoster').querySelectorAll('[data-mrt]').forEach(b=>b.onclick=()=>openTerm(T,+b.dataset.mrt));
   $('meRoster').querySelectorAll('[data-mri]').forEach(b=>b.onclick=()=>toggleIR(T,+b.dataset.mri));
   $('meRoster').querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,+b.dataset.mrb));
   sortable('meRosTbl','mine','sal',true); redraw.mine=drawMe;
@@ -6136,7 +6315,7 @@ function leagueCSV(rows){
     const p=r.p, c=canon(p.n);
     out.push([c,p.n,r.t||'',p.p||'',
       num(salPrev(p)),num(salNow(p)),num(salOff(p,1)),num(salOff(p,2)),
-      r.fa?'':r.yrs, p.o||'', p.b||'', p.acq==null?'':p.acq,
+      r.fa?'':r.yrs, (p.o||'')+(p.o&&p.on===2?'x2':''), p.b||'', p.acq==null?'':p.acq,
       p.ir?'yes':'', p.blk?'yes':'', r.rtg==null?'':r.rtg,
       (mleStamp(p)||{}).s||'', mleStamp(p)?num(p.mle.amt):'',
       aliasesFor(c), r.fa?'free agent':'contract'].map(csvCell).join(','));
@@ -7086,6 +7265,7 @@ async function awardTo(team,note){
     mle:S.teams[team].mle,at:now()};
   a.status='closed'; a.winner=team; a.price=price; a.match=null;
   await signPlayer(a.player,team,price,mle?2:1,{force:true,mle:mle?{amt:need}:null});
+  { const p=S.teams[team].r.find(x=>canon(x.n)===canon(a.player)&&contracted(x)); if(p) p.auc=curSeason(); }
   if(mle) S.teams[team].mle=Math.max(0,Math.round((mleLeft(team)-need)*4)/4);
   await commit({kind:'sign',team,detail:`Won ${a.player} at ${money(price)}${note||''}`
     +(mle?` \u2014 ${money(need)} of the mid-level, two seasons`:'')});
@@ -7534,8 +7714,34 @@ function drawTrade(){
         isComm()?'pick a club you are acting for to propose it':'you can only propose one your own club is in'}.`
     : '';
   $('emailBtn').disabled=!v.pa.length&&!v.pb.length&&!v.ka.length&&!v.kb.length;
-  const pend=(S.trades||[]).filter(t=>t.status==='pending').length;
-  $('tCount').textContent=pend?` (${pend})`:'';
+  drawBadges();
+}
+/* ---- tab badges ----
+   Trades: offers waiting on MY club's answer (every pending offer for the
+   commissioner login, which answers for everybody). Chat: posts by somebody
+   else since this browser last had the room open. The chat count comes from the
+   poll, which asks the server about once a minute (`&chat=` on ?key=all) rather
+   than downloading the room: CHATNEW is that answer. */
+var CHATNEW=0, CHATPEEK=0;   // var, not let: render() can reach drawBadges() early
+const chatSeen=()=>{ try{ return localStorage.getItem('ll_chatseen')||''; }catch(e){ return ''; } };
+const setChatSeen=ts=>{ try{ if(ts) localStorage.setItem('ll_chatseen',ts); }catch(e){} };
+function drawBadges(){
+  const pend=(S.trades||[]).filter(t=>t.status==='pending'&&(isComm()||(me&&t.b===me))).length;
+  if($('tCount')) $('tCount').textContent=pend?String(pend):'';
+  const c=CHATNEW>0?String(Math.min(CHATNEW,99)):'';
+  if($('chatBadge')) $('chatBadge').textContent=c;
+  if($('moreBadge')) $('moreBadge').textContent=c;
+}
+function chatPeekQuery(){
+  if(Date.now()-CHATPEEK<60000) return '';
+  CHATPEEK=Date.now();
+  return `&chat=${encodeURIComponent(chatSeen())}&me=${encodeURIComponent(isComm()?'Commissioner':(me||''))}`;
+}
+function chatPeek(c){
+  if(!c) return;
+  if(!chatSeen()){ setChatSeen(c.ts); CHATNEW=0; }   // first visit: nothing is "new"
+  else CHATNEW=chatOn()?0:(c.n||0);
+  drawBadges();
 }
 function tradeText(v){
   const L=(t,ps,ks)=>{
@@ -8375,6 +8581,40 @@ async function autoLineup(team){
   await commit({kind:'edit',team,detail:`Lineup auto-filled — ${filled} spot${filled===1?'':'s'}`},['rosters']);
   await logLineup(team);
 }
+/* Start the players who have a game tonight. Every slot not locked is cleared
+   and refilled in two passes — first only men whose club plays tonight, then
+   anyone left — each scarcest slot first and best rated first, like Start all.
+   Locked men stay where they are; a man whose game has already tipped and who
+   is not in the lineup cannot be added. A man with no game still takes an empty
+   slot in the second pass: he uses no game tonight, and the lineup carries
+   forward to tomorrow. */
+async function tonightLineup(team){
+  if(!canEdit(team)) return alert('You can only set your own lineup.');
+  if(!seasonLive()) return alert('Lineups open once the commissioner sets the season live.');
+  const roster=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p));
+  if(!roster.some(p=>tipOf(p.n)))
+    return alert(SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length
+      ? 'Nobody on your roster plays tonight.'
+      : 'Tip-off times are not available right now, so there is no way to tell who plays tonight.');
+  if(!confirm('Rebuild tonight\u2019s lineup? Locked players stay put. Everyone else is reseated: '
+    +'players with a game tonight first, best rated first, then the rest in any open spots.')) return;
+  const lu=lineupOf(team), s={};
+  SLOTIDS.forEach(id=>{ s[id]=lu.s[id]&&isLocked(lu.s[id])?lu.s[id]:''; });
+  const used=new Set(Object.values(s).filter(Boolean).map(canon));
+  const rt=n=>rtg(n)??-99;
+  const pool=roster.filter(p=>!used.has(canon(p.n))&&!isLocked(p.n)).sort((a,b)=>rt(b.n)-rt(a.n));
+  const fill=want=>SLOTIDS.forEach(id=>{
+    if(s[id]) return;
+    const i=pool.findIndex(p=>want(p)&&slotOk(id,p.n));
+    if(i>=0) s[id]=pool.splice(i,1)[0].n;
+  });
+  fill(p=>!!tipOf(p.n));
+  fill(()=>true);
+  const playing=SLOTIDS.filter(id=>s[id]&&tipOf(s[id])).length;
+  S.teams[team].lu={d:dayKey(),s};
+  await commit({kind:'edit',team,detail:`Lineup set for tonight \u2014 ${playing} starter${playing===1?'':'s'} with a game`},['rosters']);
+  await logLineup(team);
+}
 
 /* The nine scoring categories as the lineup shows them, in the order the league
    reads a box score. Percentages last: they are rates, everything else is a
@@ -8429,7 +8669,8 @@ function drawLineup(){
     <span class="pill">${ir.length} of ${irMax} on the IR</span>
     ${lockedN?`<span class="pill">${lockedN} locked</span>`:''}
     <span class="pill ${used+playing.length>cap?'bad':''}" title="Games counted so far this season, out of the cap">${used} / ${cap} games</span>
-    ${can?`<button class="btn ghost" id="luAuto" style="margin-left:auto">Start all</button>
+    ${can?`<button class="btn ghost" id="luTonight" style="margin-left:auto" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
+      <button class="btn ghost" id="luAuto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
     ${lost.length?`<div class="warn"><b>Tonight would take ${htmlEsc(T)} past ${cap} games.</b>
       You have ${room} game${room===1?'':'s'} left and ${playing.length} starters playing tonight. Games count
@@ -8524,6 +8765,7 @@ function drawLineup(){
       const i=S.teams[T].r.findIndex(x=>canon(x.n)===canon(b.dataset.fromir));
       if(i>=0) toggleIR(T,i); });
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
+    if($('luTonight')) $('luTonight').onclick=()=>tonightLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
   }
 }
@@ -8654,6 +8896,7 @@ function chatLine(m){
 }
 function drawChat(){
   const box=$('chatLog'); if(!box) return;
+  if(chatOn()&&CHAT.length){ setChatSeen(CHAT[0].ts); if(CHATNEW){ CHATNEW=0; drawBadges(); } }
   const shown=CHAT.slice(0,CHATSHOW);
   box.innerHTML = shown.length ? shown.map(chatLine).join('')
     : `<div class="empty">${CHATLOADED?'Nobody has said anything yet.':'Loading…'}</div>`;
@@ -9597,6 +9840,30 @@ function markMore(){
     .some(b=>b.getAttribute('aria-selected')==='true'||b.getAttribute('aria-selected')===true);
   if($('moreBtn')) $('moreBtn').style.color = inMenu ? 'var(--amber)' : '';
 }
+/* ---- a newer build is live ----
+   An open tab keeps running the code it loaded, and a browser can even load a
+   cached copy — after the 2026-10-09 deploy GMs saw the old dialog until a hard
+   refresh. The page carries its build in <meta name="ll-build">; every 15
+   minutes, and whenever the tab comes back into view (at most every 5), it
+   fetches the live page uncached and compares. A different build puts a Reload
+   bar at the bottom of the screen. Nothing reloads by itself — a GM may be
+   halfway through a bid. BUMP THE META ON EVERY DEPLOY that changes this file. */
+var VERAT=0, VERNEW=false;
+const BUILD=(()=>{ const m=document.querySelector('meta[name="ll-build"]'); return m?m.getAttribute('content')||'':''; })();
+async function checkVersion(){
+  if(VERNEW||!HAS_API||!BUILD||Date.now()-VERAT<5*60000) return;
+  VERAT=Date.now();
+  try{
+    const r=await fetch('/?build='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return;
+    const m=/<meta name="ll-build" content="([^"]+)"/.exec(await r.text());
+    if(m&&m[1]!==BUILD){ VERNEW=true; if($('updBar')) $('updBar').hidden=false; }
+  }catch(e){}
+}
+if($('updGo')) $('updGo').onclick=()=>location.reload();
+setTimeout(checkVersion,20000);
+setInterval(checkVersion,15*60000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkVersion(); });
 /* One status chip in the masthead instead of a line buried on one tab. */
 function netChip(){
   const c=$('netChip'); if(!c) return;
