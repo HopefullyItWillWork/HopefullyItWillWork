@@ -619,8 +619,10 @@ both the auction and the draft.
 The auction decides a price, not a term. An award writes one season (two on the
 exception) and stamps `p.auc` with the offseason; the winning GM then sets the
 length and any team option with the **Length** button on My Team or the club page
-(`openTerm()`), as often as he likes **until the season goes live** (league
-decision, 2026-10-10). The commissioner (or a deputy) can do it any time and is the
+(`openTerm()`), as often as he likes **until the commissioner locks them** —
+`S.cfg.termLock`, the Lock / Open switch on the Commissioner tab's auction-lengths
+list (`setTermLock()`, `termLocked()`). It used to close when the season went
+live; the league made it a switch on 2026-10-13. The commissioner (or a deputy) can do it any time and is the
 only one who can attach a **player option**. The 2026 auction ran before `p.auc`
 existed, so `auctionSigned()` also finds winners in the log ("Won <name> at $x"),
 and only while the contract still starts this season.
@@ -640,8 +642,7 @@ and only while the contract still starts this season.
   the commissioner, since it is the player's call. The Edit dialog has an
   **Option years** select for correcting any contract.
 
-**The commissioner tab lists every auction signing** (`drawTermAdmin()`) until the
-season goes live: length, option, and **Set / Not set**, with a "waiting on" count
+**The commissioner tab lists every auction signing** (`drawTermAdmin()`): length, option, and **Set / Not set**, with a "waiting on" count
 per club and a Length button on each row. "Set" is `p.tset` — the GM saved the
 dialog this offseason — so a one-season deal he means to keep must be saved once
 too. My Team shows the GM the same reminder above his roster.
@@ -2132,6 +2133,36 @@ Regular season only by default. Set `STATS_TYPES=1,2` in Netlify's environment
 variables to let preseason in for testing.
 
 ---
+
+## The preseason tournament
+
+A trial run of the feed and scoring on the last preseason nights, for fun
+(2026-10-13 to 10-16, the league's idea). `S.cfg.pre = {on, from, to}` in
+settings; the Commissioner tab's **Preseason tournament** panel starts it, ends
+it, fills empty lineups and rescores.
+
+- While it is on and today is one of its nights, `lineupsOpen()` is true in the
+  offseason — every lineup gate asks `lineupsOpen()`, not `seasonLive()`. No
+  game cap and no IR in the tournament; the lineup header says so.
+- **Start** fills every club whose lineup is empty with `bestLineup()` (the
+  Best for tonight rule) and records it with `/api/lineups`, so nobody has to do
+  anything; the morning carry-forward keeps it each night. GMs may change theirs.
+- The feed fetches preseason games (ESPN type 1) **for those dates only**
+  (`preRange()` in `lib/feed.mjs`) and marks a night `pre` in `daily-index` when
+  every game is preseason. Season scoring skips `pre` nights; `runPre()` in
+  `lib/scorerun.mjs` scores them into `score-pre` (no cap, rescored every run, also
+  written as `score-YYYY-MM-DD` so My Team's Results box shows them).
+  `score-nightly` runs it after the season's scoring. `GET /api/score?pre=1`,
+  `POST /api/score?run=1&pre=1`.
+- The standings card (`drawPre()`) sits on Contracts and My Team until the
+  season goes live.
+
+**The trial found a real bug:** `fetchNight()` stored each game without its
+tip-off, and scoring finds every player's lineup as of his tip — so every player
+would have been "no game" and nothing would ever have scored. Games now keep
+`tip` (normalised to a full ISO string, since ESPN's `…T23:30Z` sorts after
+`…T23:30:00.000Z` as a string) and `ty`, the season type. Checked end to end on
+Oct 12's real preseason box scores.
 
 ## Lineup history
 

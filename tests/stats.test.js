@@ -80,7 +80,8 @@ ok('a late West Coast game stays on its night', tips.GS === '22:00');
 ok('a postponed game locks nobody', !('MIA' in tips) && !('ORL' in tips));
 ok('winter: the clock change is followed', tipsFrom({ events:[tipEv('2026-12-02T00:00Z','DEN','LAL')] },
    'America/New_York').DEN === '19:00');
-ok('gamesFrom carries the tip time', gamesFrom({ events:[{ ...ev(9, 2, true), date:'2026-10-21T23:30Z' }] }, null)[0].tip === '2026-10-21T23:30Z');
+ok('gamesFrom carries the tip time', gamesFrom({ events:[{ ...ev(9, 2, true), date:'2026-10-21T23:30Z' }] }, null)[0].tip === '2026-10-21T23:30:00.000Z');
+ok('gamesFrom carries the season type', gamesFrom({ events:[ev(9, 1, true)] }, null)[0].ty === 1);
 
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);

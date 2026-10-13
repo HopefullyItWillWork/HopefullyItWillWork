@@ -47,16 +47,29 @@ export async function fetchNight(day, types) {
   const players = {}, meta = {};
   const boxes = await Promise.all(games.filter((g) => g.final)
     .map(async (g) => [g, parseBox(await getJSON(`${SUMMARY}?event=${g.id}`))]));
-  for (const g of games) meta[g.id] = { final: g.final, home: g.home, away: g.away };
+  /* The tip-off has to be kept: scoring finds each player's lineup as of his
+     game's tip. It was dropped here until 2026-10-13, which would have left every
+     player with no game and nothing scored — found by the preseason trial. */
+  for (const g of games) meta[g.id] = { final: g.final, home: g.home, away: g.away, tip: g.tip, ty: g.ty };
   for (const [, box] of boxes) Object.assign(players, box);
   return { date: day, games: meta, players };
 }
 
 /* The run. `force` re-fetches nights already checked today. Returns the summary
    it also stores on the index. */
+/* The preseason tournament's nights, from settings.pre — preseason games are
+   fetched for those dates only, and only while it is on. */
+export function preRange(cfg) {
+  const p = cfg && cfg.pre, ok = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
+  return p && ok(p.from) && ok(p.to) ? { on: !!p.on, from: p.from, to: p.to } : null;
+}
+
 export async function runFeed(s, { force = false, now = Date.now } = {}) {
   const start = now();
   const types = seasonTypes(process.env.STATS_TYPES);
+  const pre = preRange((await readKey(s, "settings")).data);
+  const typesFor = (day) => pre && pre.on && day >= pre.from && day <= pre.to
+    ? new Set([...types, 1]) : types;
   const today = todayIn(TZ());
   const days = windowDays(windowDays(today, 1)[1], WINDOW);    // yesterday and the WINDOW before it
 
@@ -72,7 +85,7 @@ export async function runFeed(s, { force = false, now = Date.now } = {}) {
     if (!force && had && had.checked === today && had.allFinal) { done.push(day); continue; }
     if (now() - start > BUDGET) { left.push(day); continue; }
     try {
-      const fresh = await fetchNight(day, types);
+      const fresh = await fetchNight(day, typesFor(day));
       const prev = await readKey(s, dayKey(day));
       /* A night that had games cannot lose all of them. An empty scoreboard for
          a stored night is ESPN having a bad moment, not a correction. */
@@ -90,6 +103,8 @@ export async function runFeed(s, { force = false, now = Date.now } = {}) {
         checked: today, allFinal, games: gameIds.length,
         players: Object.keys(fresh.players).length,
         stored: !!(gameIds.length || prev.data),
+        /* Every game preseason: the tournament scores it, the season does not. */
+        pre: gameIds.length > 0 && gameIds.every((id) => fresh.games[id].ty === 1),
         /* Corrections are kept per night, newest last, so the history of a night
            is readable: the first fill is not a correction, later changes are. */
         corrections: [...((had && had.corrections) || []),
