@@ -1,4 +1,7 @@
-/* GET /api/players  ->  { at, teams, players: { <espnId>: { n, t, pos } } }
+/* GET /api/players  ->  { at, teams, players: { <espnId>: { n, t, pos, el } } }
+
+   `el` is the player's fantasy position eligibility from ESPN's fantasy game
+   ("G, F"), which the page's lineup eligibility reads first.
 
    Which NBA club every player is on today (lib/nba.mjs). The page reads it once
    a day to know whose game locks whom. Refreshed here whenever the stored copy

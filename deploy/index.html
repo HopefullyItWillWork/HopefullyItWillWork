@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-13.1">
+<meta name="ll-build" content="2026-10-13.2">
 <title>League Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2812,7 +2812,11 @@ function fillComm(team,p){
   const opts=TEAMS().map(t=>`<option${t===team?' selected':''}>${htmlEsc(t)}</option>`).join('');
   $('edClub').innerHTML=(team?'':'<option value="" selected>\u2014 not on a roster \u2014</option>')+opts;
   $('edY0').value=salPrev(p)??'';
-  $('edPos').value=p.p||'';
+  /* Prefilled with the position the app is using; only a CHANGE is saved as
+     the commissioner's override, so saving the dialog for something else never
+     freezes ESPN's answer in place. Blank it to hand the player back to ESPN. */
+  $('edPos').value=posShow(p.n)||p.p||'';
+  $('edPos').dataset.orig=$('edPos').value;
   $('edOpt').value=OPTL[p.o]?p.o:'';
   $('edOptN').value=String(p.on===2?2:1);
   /* The rights column is free text in the source spreadsheet, so an unknown
@@ -2852,8 +2856,8 @@ function openPlayerEdit(name){
    Returns the slices touched so commit() only writes what changed. */
 function saveRecord(c,pos,alias,rostered){
   S.cfg.pos=S.cfg.pos||{}; S.cfg.alias=S.cfg.alias||{};
-  const base=RIDX[c];
-  if(!rostered && pos && (!base||pos!==base.p)) S.cfg.pos[c]=pos; else delete S.cfg.pos[c];
+  const orig=($('edPos')&&$('edPos').dataset.orig)||'';
+  if(pos!==orig){ if(pos) S.cfg.pos[c]=pos; else delete S.cfg.pos[c]; }
   /* One alias field edits one mapping. Any others already pointing at this
      player are left alone rather than silently dropped. */
   const had=Object.keys(S.cfg.alias).filter(k=>S.cfg.alias[k]===c);
@@ -2924,11 +2928,11 @@ $('doEdit').onclick=async(ev)=>{
   if(cm&&!cm.hidden&&hasComm()){
     const pv=g('edY0');
     if(pv==null) delete p.y[seasonPrev(cs0)]; else p.y[seasonPrev(cs0)]=pv;
-    p.p=$('edPos').value.trim();
+    if($('edPos').value.trim()!==($('edPos').dataset.orig||'')) p.p=$('edPos').value.trim()||p.p;
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
     if(p.o&&p.o!=='RO'&&$('edOptN').value==='2') p.on=2; else delete p.on;
     p.b=$('edBird').value;
-    saveRecord(canon(p.n),p.p,$('edAlias').value.trim(),true);
+    saveRecord(canon(p.n),$('edPos').value.trim(),$('edAlias').value.trim(),true);
     const to=$('edClub').value;
     if(to&&to!==team&&S.teams[to]){ S.teams[team].r.splice(idx,1); S.teams[to].r.push(unlist(p)); moved=to; }
   }
@@ -3159,7 +3163,7 @@ function drawDetail(){
         termOpen(t,p)?`<button class="act edit" data-tm="${i}">Length</button>`:''}${
         (mine||hasComm())&&canDecline(p)?`<button class="act edit" data-d="${i}">Decline option</button>`:''}${
         mine?`<button class="act" data-c="${i}">Cut</button>`:''}</td>
-      <td class="pos hide">${p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
+      <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2 ${exp?'exp':''}">${exp?'expiring':yrsLeft(p)+' yr'+(yrsLeft(p)===1?'':'s')}</td>
       <td class="${exp?'exp':''}">${exp?'&#8212;':money(salNow(p))}</td>
       <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':money(salOff(p,1))}</td>
@@ -3280,7 +3284,7 @@ function drawQuickPool(){
     ${shotHeads(H)}${H('rtg','Rating')}<th></th></tr></thead><tbody>${
     rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
       <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
-      <td class="pos l hide">${htmlEsc(p.p||'—')}</td>
+      <td class="pos l hide">${htmlEsc(posShow(p.n)||p.p||'—')}</td>
       <td class="l hide2" style="font-size:11.5px">${htmlEsc(p.from)}</td>
       ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
         <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
@@ -4344,7 +4348,7 @@ function drawFAList(){
       <td>${p.n}${R.rfa?`<span class="tag t-rfa">${R.club===me2?'Your RFA':'RFA'}</span>`:''}
         ${R.club===me2&&R.bird==='Yes'?'<span class="tag t-bird">Bird</span>':''}
         ${R.club===me2&&R.bird&&R.bird!=='Yes'?'<span class="tag t-eb">E.Bird</span>':''}</td>
-      <td class="pos hide">${p.p||'&#8212;'}</td>
+      <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td>
       ${hasStats(p)?`<td>${p.g}</td>
       <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
       <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
@@ -8351,14 +8355,21 @@ const slotLabel=id=>({C:'C',G:'G',F:'F',U:'UTIL'})[slotKind(id)];
 /* The position a player is eligible at, as a set of G/F/C. The sheet writes
    "G, F", "F, C" and one stray "PG"; a two-letter guard or forward reads as its
    family, so PG and SG are both G. */
+/* Lineup eligibility, first answer wins (2026-10-13):
+     1. the commissioner's override (S.cfg.pos, the Position field on Edit);
+     2. ESPN's fantasy eligibility, refreshed daily with the NBA rosters —
+        so a positional change on ESPN reaches the lineup with nobody typing;
+     3. the club sheet's position on the roster entry;
+     4. the rater's position from the 2025-26 import. */
 function posSet(name){
   const c=canon(name);
-  let raw=null;
-  for(const t of TEAMS()){
+  let raw=POSFIX[c]!=null&&POSFIX[c]!==''?POSFIX[c]:null;
+  if(!raw) raw=espnPosOf(name);
+  if(!raw) for(const t of TEAMS()){
     const p=S.teams[t].r.find(x=>canon(x.n)===c);
     if(p&&p.p){ raw=p.p; break; }
   }
-  if(!raw) raw=(POSFIX[c]!=null?POSFIX[c]:(RIDX[c]&&RIDX[c].p))||'';
+  if(!raw) raw=(RIDX[c]&&RIDX[c].p)||'';
   const out=new Set();
   String(raw).split(/[,/]/).forEach(tok=>{
     const t=tok.trim().toUpperCase();
@@ -8369,6 +8380,8 @@ function posSet(name){
   });
   return out;
 }
+/* The position as a table shows it, from the same answer the lineup uses. */
+const posShow=name=>['G','F','C'].filter(k=>posSet(name).has(k)).join(', ');
 const posText=name=>[...posSet(name)].sort().join('/')||'—';
 /* Utility takes anybody. Every other slot wants its own letter. */
 function slotOk(id,name){
@@ -8474,7 +8487,7 @@ const hhmm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart
    nameKey() must match lib/nba.mjs exactly. */
 const nameKey=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+(jr|sr|ii|iii|iv)$/,'').replace(/\s+/g,'');
-let NBAP={day:'',byKey:{},n:0};
+let NBAP={day:'',byKey:{},n:0,pos:{}};
 async function loadNbaPlayers(force){
   const day=dayKey();
   if(!force&&NBAP.day===day&&NBAP.n) return NBAP;
@@ -8482,9 +8495,12 @@ async function loadNbaPlayers(force){
   try{
     const r=await fetch('/api/players',{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
-    const j=await r.json(), byKey={};
-    Object.values((j&&j.players)||{}).forEach(p=>{ if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t; });
-    NBAP={day,byKey,n:Object.keys(byKey).length,at:j&&j.at,
+    const j=await r.json(), byKey={}, pos={};
+    Object.values((j&&j.players)||{}).forEach(p=>{
+      if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t;
+      if(p&&p.n&&p.el) pos[nameKey(p.n)]=p.el;
+    });
+    NBAP={day,byKey,pos,n:Object.keys(byKey).length,at:j&&j.at,
       names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
@@ -8499,6 +8515,12 @@ function espnTeamOf(name){
   const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
   const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
   return (e&&NBAP.byKey[nameKey(e)])||NBAP.byKey[nameKey(name)]||NBAP.byKey[nameKey(c)]||null;
+}
+/* ESPN fantasy eligibility ("G, F"), through the same name resolution. */
+function espnPosOf(name){
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{}, P=NBAP.pos||{};
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return (e&&P[nameKey(e)])||P[nameKey(name)]||P[nameKey(c)]||null;
 }
 function nbaTeamOf(name){
   return espnTeamOf(name)||NBATM[canon(name)]||null;
@@ -8695,6 +8717,10 @@ function drawLineup(){
   const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T), room=Math.max(0,cap-used);
   const playing=SLOTIDS.filter(id=>lu.s[id]&&tipOf(lu.s[id]));
   const tourney=!seasonLive();          // the preseason tournament: no game cap, no IR
+  /* Starters whose position no longer fits their slot — ESPN's eligibility
+     moved under a lineup set earlier. Told, not fixed: which way to shuffle is
+     the GM's call. */
+  const misfit=SLOTIDS.filter(id=>lu.s[id]&&!slotOk(id,lu.s[id])).map(id=>`${lu.s[id]} (${slotLabel(id)}, plays ${posText(lu.s[id])})`);
   const lost=tourney?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   $('luHead').innerHTML=`<div class="dhead"><h3>Tonight &#183; ${htmlEsc(dayKey())}</h3>
     <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
@@ -8705,6 +8731,8 @@ function drawLineup(){
     ${can?`<button class="btn ghost" id="luTonight" style="margin-left:auto" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
       <button class="btn ghost" id="luAuto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
+    ${misfit.length?`<div class="warn"><b>Not eligible where they are:</b> ${misfit.map(htmlEsc).join(', ')}.
+      Positions now follow ESPN\u2019s fantasy eligibility. Move them, or use Best for tonight.</div>`:''}
     ${lost.length?`<div class="warn"><b>Tonight would take ${htmlEsc(T)} past ${cap} games.</b>
       You have ${room} game${room===1?'':'s'} left and ${playing.length} starters playing tonight. Games count
       top-down \u2014 C, then G, F and UTIL \u2014 so these ${lost.length} would not count:
@@ -8729,12 +8757,15 @@ function drawLineup(){
 
   const opts=(id)=>{
     const cur=lu.s[id];
+    /* The man in the slot is always listed, even when his position no longer
+       fits it (ESPN changed it) — otherwise the select reads "empty" while he
+       is still in the lineup and still counts. */
     const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
-      .filter(p=>slotOk(id,p.n)&&!isLocked(p.n))
+      .filter(p=>(slotOk(id,p.n)||canon(p.n)===canon(cur))&&!isLocked(p.n))
       .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
     return `<option value="">&#8212; empty &#8212;</option>`
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
-        htmlEsc(p.n)}</option>`).join('');
+        htmlEsc(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('');
   };
   const slotRows=SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};

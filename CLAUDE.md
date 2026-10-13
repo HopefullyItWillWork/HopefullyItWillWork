@@ -2214,6 +2214,26 @@ Holland II and Mouhamadou Gueye → Mouhamed Gueye. Every rated player was check
 against ESPN on 2026-10-08; the ~100 others without a match are unsigned.
 Tests: `tests/nba.test.js`.
 
+## Positions come from ESPN
+
+Lineup eligibility (`posSet()`) takes the first answer of: the commissioner's
+override (`S.cfg.pos`, the Position field on Edit — only a *change* to the
+prefilled value is saved, and blanking it hands the player back to ESPN), then
+**ESPN's fantasy eligibility**, then the club sheet's `p`, then the rater's
+position. The eligibility is ESPN's own fantasy game's player list
+(`lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/<end year>/players?view=players_wl`,
+public, `X-Fantasy-Filter` header), fetched with the NBA rosters in
+`fetchPlayers()` and carried on `nbaplayers` as `el` ("G, F"). Only the
+single-position slot ids count (0 PG, 1 SG, 2 SF, 3 PF, 4 C, 5 G, 6 F) — the combo
+slots would make a pure centre "F/C". A failed fantasy fetch keeps the last
+positions. On 2026-10-13 it covered all 134 contracted players and differed from
+the sheet on 47 (25 of them blank).
+
+A starter whose position no longer fits his slot is **shown and warned about,
+never cleared** — a browser that has not loaded ESPN's positions would judge by
+the sheet and clear a valid starter. Tables showing a rostered player's position
+read `posShow()`, the same answer.
+
 ## Scoring
 
 `lib/score.mjs` is the rule (pure, `tests/score.test.js`); `lib/scorerun.mjs`
