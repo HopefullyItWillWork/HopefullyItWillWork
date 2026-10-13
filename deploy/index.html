@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-10.1">
+<meta name="ll-build" content="2026-10-13.1">
 <title>League Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -835,6 +835,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 <main>
   <section class="view" id="v-contracts" role="tabpanel">
     <div id="welcome"></div>
+    <div id="preBox2" hidden></div>
     <h2>Payroll &#8212; committed salary</h2>
     <div class="ledger" id="ledger"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
@@ -853,6 +854,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
+    <div id="preBox" hidden></div>
     <div id="luWrap" hidden>
       <h2>Tonight's lineup</h2>
       <div id="luHead"></div>
@@ -1297,6 +1299,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="warn" id="rosWarn" hidden></div>
     <div class="warn" id="birdWarn" hidden></div>
     <div id="termAdmin" hidden></div>
+    <div id="preAdmin" hidden></div>
     <h2 class="sub">League settings</h2>
     <div class="form f4">
       <div><label for="sLeague">League name</label><input id="sLeague" maxlength="60"
@@ -2019,7 +2022,8 @@ function startPolling(){
       // it — no point polling a room nobody has open.
       if(chatOn() && await loadChat()) drawChat();
       // The schedule is a once-a-day fetch: only when the league date rolls over.
-      if(seasonLive() && (SCHED.day!==dayKey()||NBAP.day!==dayKey()||SCORE.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers(),loadDaily()]); render(); }
+      if(S.cfg.pre && PRE.day!==dayKey()){ await loadPre(); }
+      if(lineupsOpen() && (SCHED.day!==dayKey()||NBAP.day!==dayKey()||SCORE.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers(),loadDaily()]); render(); }
     }catch(e){}
   }, (A()&&(A().status==='open'||A().status==='match')) ? 4000 : 12000);
 }
@@ -2467,7 +2471,7 @@ async function commit(entry,only){
    whose lineup changed, so their new lineup can be recorded with a server
    time stamp. A lineup only exists once the season is live. */
 function pruneLineups(){
-  if(!seasonLive()) return [];
+  if(!lineupsOpen()) return [];
   const changed=[];
   TEAMS().forEach(t=>{
     const lu=S.teams[t]&&S.teams[t].lu;
@@ -2659,7 +2663,17 @@ function auctionSigned(team,p){
   return (S.log||[]).some(e=>e&&e.kind==='sign'&&e.team===team&&(()=>{
     const m=/^Won (.+?) at \$/.exec(e.detail||''); return !!m&&canon(m[1])===c; })());
 }
-const termOpen=(team,p)=>auctionSigned(team,p) && (hasComm() || (canEdit(team)&&!seasonLive()));
+/* GMs may set lengths until the commissioner locks them (S.cfg.termLock, a
+   switch on the Commissioner tab) — it used to close when the season went live
+   (changed 2026-10-13). The commissioner is never locked out. */
+const termLocked=()=>!!(S.cfg&&S.cfg.termLock);
+const termOpen=(team,p)=>auctionSigned(team,p) && (hasComm() || (canEdit(team)&&!termLocked()));
+async function setTermLock(on){
+  if(!hasComm()) return;
+  S.cfg.termLock=!!on;
+  await commit({kind:'edit',detail:on?'Contract lengths locked \u2014 the commissioner now sets them'
+    :'Contract lengths opened \u2014 GMs can set their auction signings'},['settings']);
+}
 /* The longest deal the rulebook allows him: a minimum contract runs two seasons
    at most, everything else four. */
 const termMax=p=>salNow(p)<=minSal()+0.001 ? TERMMINMAX : TERMMAX;
@@ -2687,8 +2701,8 @@ function termOptions(){
 }
 function openTerm(team,idx){
   const p=S.teams[team].r[idx];
-  if(!termOpen(team,p)) return alert(seasonLive()
-    ? 'Contract lengths are set before the season goes live. Ask the commissioner to change it.'
+  if(!termOpen(team,p)) return alert(auctionSigned(team,p)&&termLocked()
+    ? 'The commissioner has locked contract lengths. Ask the commissioner to change it.'
     : 'Only a player your club won at this offseason\u2019s auction can have his length set here.');
   terming={team,idx,p};
   const max=termMax(p), cur=yrsLeft(p);
@@ -2702,7 +2716,7 @@ function openTerm(team,idx){
   termOptions();
   $('tmNote').innerHTML=(max<TERMMAX?`A minimum contract runs two seasons at most. `:'')
     +(mleStamp(p)&&max===TERMMAX?`Signed on the mid-level: under the cap the exception allows two seasons, over it four. `:'')
-    +(hasComm()?'':'You can change this until the season goes live. ')
+    +(hasComm()?'':'You can change this until the commissioner locks contract lengths. ')
     +'Two option seasons in a row are allowed; a guaranteed season never follows an option one.';
   openModal('dlgTerm');
 }
@@ -2737,7 +2751,7 @@ function auctionTerms(team){
 const termSet=p=>p.tset===curSeason();
 function drawTermAdmin(){
   const box=$('termAdmin'); if(!box) return;
-  const rows=hasComm()&&!seasonLive()?auctionTerms():[];
+  const rows=hasComm()?auctionTerms():[];
   box.hidden=!rows.length;
   if(!rows.length){ box.innerHTML=''; return; }
   const unset=rows.filter(r=>!termSet(r.p));
@@ -2746,7 +2760,11 @@ function drawTermAdmin(){
   box.innerHTML=`<h2 class="sub">Auction contract lengths</h2>
     <p class="note">${unset.length?`${unset.length} of ${rows.length} auction signings have not been set yet \u2014 waiting on ${
       Object.keys(by).map(t=>`${htmlEsc(t)} (${by[t]})`).join(', ')}.`:`All ${rows.length} auction signings are set.`}
-      GMs can change these until the season goes live. Anything left alone stays as signed: one season, two on the mid-level.</p>
+      Anything left alone stays as signed: one season, two on the mid-level.</p>
+    <div class="filters"><span>${termLocked()
+      ?'<b>Locked.</b> GMs cannot change lengths; you still can.'
+      :'<b>Open.</b> GMs can set and change lengths on their own auction signings.'}</span>
+      <button class="btn ghost" id="termLockBtn">${termLocked()?'Open to GMs':'Lock lengths'}</button></div>
     <div class="scroller" data-cap><table id="termTbl"><thead><tr><th class="l">Player</th><th class="l">Club</th>
       <th>Salary</th><th>Length</th><th class="l">Option</th><th class="l">Status</th><th class="acts"></th></tr></thead><tbody>${
       rows.map(r=>`<tr><td class="l pname" data-player="${htmlEsc(r.p.n)}">${htmlEsc(r.p.n)}</td><td class="l">${htmlEsc(r.t)}</td>
@@ -2756,6 +2774,11 @@ function drawTermAdmin(){
         <td class="acts"><button class="act edit" data-tat="${htmlEsc(r.t)}" data-tai="${r.i}">Length</button></td></tr>`).join('')}
     </tbody></table></div>`;
   box.querySelectorAll('[data-tat]').forEach(b=>b.onclick=()=>openTerm(b.dataset.tat,+b.dataset.tai));
+  if($('termLockBtn')) $('termLockBtn').onclick=()=>{
+    const to=!termLocked();
+    if(confirm(to?'Lock contract lengths? GMs will no longer be able to change their auction signings; you still can.'
+      :'Open contract lengths? GMs will be able to set and change their auction signings again.')) setTermLock(to);
+  };
 }
 let editing=null;
 function openEdit(team,idx){
@@ -4075,7 +4098,7 @@ function render(){
   if(me&&me!=='__comm__'&&!S.teams[me]) me=null;
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
-  drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();
+  drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
   /* The trade machine's two club selects were built once and never again, so a
@@ -4440,9 +4463,9 @@ function drawMe(){
                  MS.col==='n'?y.n:MS.col==='sal'?salNow(y):rtg(y.n),MS.desc);
     });
   const canAct=canEdit(T);
-  const unsetT=canAct&&!seasonLive()?auctionTerms(T).filter(r=>!termSet(r.p)):[];
+  const unsetT=canAct&&!termLocked()?auctionTerms(T).filter(r=>!termSet(r.p)):[];
   $('meRoster').innerHTML=(unsetT.length?`<div class="warn"><b>${unsetT.length} auction signing${unsetT.length===1?'':'s'} still need${unsetT.length===1?'s':''} a contract length:</b>
-    ${unsetT.map(r=>htmlEsc(r.p.n)).join(', ')}. Use <b>Length</b> on each one before the season goes live \u2014
+    ${unsetT.map(r=>htmlEsc(r.p.n)).join(', ')}. Use <b>Length</b> on each one \u2014
     save it even if one season is what you want, so the commissioner knows it was your choice.</div>`:'')
     +`<table id="meRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
     <th data-k="sal">Salary</th><th class="hide2" data-k="rtg">Rating</th>${canAct?'<th class="acts"></th>':''}</tr></thead>
@@ -8524,7 +8547,7 @@ async function logLineup(team){
 /* ---- moves ---- */
 async function setSlot(team,id,name){
   if(!canEdit(team)) return alert('You can only set your own lineup.');
-  if(!seasonLive()) return alert('Lineups open once the commissioner sets the season live.');
+  if(!lineupsOpen()) return alert('Lineups open once the commissioner sets the season live.');
   if(!SLOTIDS.includes(id)) return;
   const lu=lineupOf(team), was=lu.s[id];
   if(was&&isLocked(was))
@@ -8564,7 +8587,7 @@ async function clearLineup(team){
    because filling utility first strands a centre on the bench. */
 async function autoLineup(team){
   if(!canEdit(team)) return alert('You can only set your own lineup.');
-  if(!seasonLive()) return alert('Lineups open once the commissioner sets the season live.');
+  if(!lineupsOpen()) return alert('Lineups open once the commissioner sets the season live.');
   const lu=lineupOf(team);
   const used=new Set(Object.values(lu.s).filter(Boolean).map(canon));
   const pool=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p)&&!used.has(canon(p.n))&&!isLocked(p.n))
@@ -8588,16 +8611,12 @@ async function autoLineup(team){
    is not in the lineup cannot be added. A man with no game still takes an empty
    slot in the second pass: he uses no game tonight, and the lineup carries
    forward to tomorrow. */
-async function tonightLineup(team){
-  if(!canEdit(team)) return alert('You can only set your own lineup.');
-  if(!seasonLive()) return alert('Lineups open once the commissioner sets the season live.');
+/* The lineup Best for tonight builds, without saving it: locked men stay, and
+   everyone else is reseated — men with a game tonight first, then the rest —
+   each scarcest slot first, best rated first. The preseason tournament fills
+   every club's lineup with this too. */
+function bestLineup(team){
   const roster=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p));
-  if(!roster.some(p=>tipOf(p.n)))
-    return alert(SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length
-      ? 'Nobody on your roster plays tonight.'
-      : 'Tip-off times are not available right now, so there is no way to tell who plays tonight.');
-  if(!confirm('Rebuild tonight\u2019s lineup? Locked players stay put. Everyone else is reseated: '
-    +'players with a game tonight first, best rated first, then the rest in any open spots.')) return;
   const lu=lineupOf(team), s={};
   SLOTIDS.forEach(id=>{ s[id]=lu.s[id]&&isLocked(lu.s[id])?lu.s[id]:''; });
   const used=new Set(Object.values(s).filter(Boolean).map(canon));
@@ -8610,6 +8629,19 @@ async function tonightLineup(team){
   });
   fill(p=>!!tipOf(p.n));
   fill(()=>true);
+  return s;
+}
+async function tonightLineup(team){
+  if(!canEdit(team)) return alert('You can only set your own lineup.');
+  if(!lineupsOpen()) return alert('Lineups open once the commissioner sets the season live.');
+  const roster=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p));
+  if(!roster.some(p=>tipOf(p.n)))
+    return alert(SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length
+      ? 'Nobody on your roster plays tonight.'
+      : 'Tip-off times are not available right now, so there is no way to tell who plays tonight.');
+  if(!confirm('Rebuild tonight\u2019s lineup? Locked players stay put. Everyone else is reseated: '
+    +'players with a game tonight first, best rated first, then the rest in any open spots.')) return;
+  const s=bestLineup(team);
   const playing=SLOTIDS.filter(id=>s[id]&&tipOf(s[id])).length;
   S.teams[team].lu={d:dayKey(),s};
   await commit({kind:'edit',team,detail:`Lineup set for tonight \u2014 ${playing} starter${playing===1?'':'s'} with a game`},['rosters']);
@@ -8649,7 +8681,7 @@ function luLine(name){
 }
 function drawLineup(){
   const wrap=$('luWrap'); if(!wrap) return;
-  wrap.hidden = !me || !seasonLive();
+  wrap.hidden = !me || !lineupsOpen();
   if(wrap.hidden) return;
   const T=meTeam(), lu=lineupOf(T), can=canEdit(T);
   const bench=benchOf(T), ir=irOf(T);
@@ -8662,13 +8694,14 @@ function drawLineup(){
      but he is told, by name, who would not count. */
   const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T), room=Math.max(0,cap-used);
   const playing=SLOTIDS.filter(id=>lu.s[id]&&tipOf(lu.s[id]));
-  const lost=playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
+  const tourney=!seasonLive();          // the preseason tournament: no game cap, no IR
+  const lost=tourney?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   $('luHead').innerHTML=`<div class="dhead"><h3>Tonight &#183; ${htmlEsc(dayKey())}</h3>
     <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
     <span class="pill">${bench.length} on the bench</span>
-    <span class="pill">${ir.length} of ${irMax} on the IR</span>
+    ${tourney?'<span class="pill good">Preseason tournament</span>':`<span class="pill">${ir.length} of ${irMax} on the IR</span>`}
     ${lockedN?`<span class="pill">${lockedN} locked</span>`:''}
-    <span class="pill ${used+playing.length>cap?'bad':''}" title="Games counted so far this season, out of the cap">${used} / ${cap} games</span>
+    ${tourney?'':`<span class="pill ${used+playing.length>cap?'bad':''}" title="Games counted so far this season, out of the cap">${used} / ${cap} games</span>`}
     ${can?`<button class="btn ghost" id="luTonight" style="margin-left:auto" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
       <button class="btn ghost" id="luAuto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
@@ -8676,6 +8709,8 @@ function drawLineup(){
       You have ${room} game${room===1?'':'s'} left and ${playing.length} starters playing tonight. Games count
       top-down \u2014 C, then G, F and UTIL \u2014 so these ${lost.length} would not count:
       ${lost.map(htmlEsc).join(', ')}. Bench them, or reorder, to choose who uses the last games.</div>`:''}
+    ${tourney?`<p class="note"><b>Preseason tournament, ${htmlEsc(preSpan())}.</b> Your lineup was filled for you and
+      carries forward each night; change it any time. Just for fun \u2014 none of it counts toward the season.</p>`:''}
     <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night, scored the
       next morning from the box scores and this lineup as it stood when his game tipped off. The numbers
       below are each man's per-game line.</p>`;
@@ -9322,6 +9357,107 @@ redraw.prof=drawProfile;
 const PAL=['#E0A340','#55A67A','#7FB0E8','#C9553F','#C9B463','#9B7FD4','#5FC2B8','#E8896B','#8FA3B8'];
 let DAILY=null, hidden=new Set();
 let SCORE={day:'',days:{},standings:[],cap:920,ok:false};
+/* ---- the preseason tournament ----
+   A trial run of the stats feed and scoring on the last preseason nights, for
+   fun. S.cfg.pre = {on, from, to} (settings). While it is on and today is one of
+   its nights, lineups are open in the offseason (lineupsOpen()), with no game cap
+   and no IR. Starting it fills every empty lineup with bestLineup() and records
+   it, and the morning carry-forward keeps it, so nobody has to do anything.
+   The feed fetches preseason games for those dates only; scoring keeps them in
+   `score-pre`, apart from the season (lib/scorerun.mjs runPre). */
+var PRE={day:'',days:{},standings:[],ok:false,lastRun:null};
+const preCfg=()=>{ const p=S.cfg&&S.cfg.pre; return p&&/^\d{4}-\d{2}-\d{2}$/.test(p.from||'')&&/^\d{4}-\d{2}-\d{2}$/.test(p.to||'')?p:null; };
+const preLive=()=>{ const p=preCfg(); return !!(p&&p.on&&dayKey()>=p.from&&dayKey()<=p.to); };
+function lineupsOpen(){ return seasonLive()||preLive(); }
+function preSpan(){ const p=preCfg(); return p?`${shortDay(p.from)} \u2013 ${shortDay(p.to)}`:''; }
+async function loadPre(){
+  PRE.day=dayKey();
+  if(!preCfg()||!await probeAPI()){ drawPre(); return PRE; }
+  try{
+    const r=await fetch('/api/score?pre=1',{cache:'no-store'});
+    if(r.ok){ const j=await r.json(); PRE={day:dayKey(),days:j.days||{},standings:j.standings||[],ok:true,lastRun:j.lastRun||null}; }
+  }catch(e){}
+  drawPre(); drawLastNight();
+  return PRE;
+}
+function drawPre(){
+  const p=preCfg(), show=!!p&&!seasonLive();
+  ['preBox','preBox2'].forEach(id=>{ const b=$(id); if(b) b.hidden=!show; });
+  if(!show) return;
+  const nights=Object.keys(PRE.days||{}).sort();
+  const rows=(PRE.standings||[]).filter(r=>r.tot&&r.tot.GP>0);
+  const pc=v=>v==null?'&#8212;':(v*100).toFixed(1);
+  const html=`<div class="pre"><div class="dhead"><h3>Preseason tournament</h3>
+      <span class="pill">${htmlEsc(preSpan())}</span>
+      <span class="pill">${nights.length} night${nights.length===1?'':'s'} scored</span>
+      ${p.on?'':'<span class="pill">finished</span>'}</div>
+    <p class="note">A trial run of the nightly stats on the last preseason games, just for fun \u2014 none of it counts.
+      Every club\u2019s lineup was filled automatically and carries forward each night; change yours on My Team
+      any time. Results post the morning after each night.</p>
+    ${rows.length?`<div class="scroller"><table id="preTbl"><thead><tr><th>#</th><th class="l">Club</th><th>Roto pts</th>
+      <th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th><th>Games</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr${me===r.club?' class="sel"':''}><td>${r.rank}</td><td class="l">${htmlEsc(r.club)}</td>
+        <td class="mono"><b>${r.pts}</b></td>${['PTS','REB','AST','P3','STL','BLK','TO'].map(k=>`<td class="mono">${r.tot[k]}</td>`).join('')}
+        <td class="mono">${pc(r.pct.FG)}</td><td class="mono">${pc(r.pct.FT)}</td><td class="mono">${r.tot.GP}</td></tr>`).join('')}
+      </tbody></table></div>`
+      :`<div class="empty">${PRE.ok?'No nights scored yet \u2014 the first results arrive the morning after the first games.':'Loading\u2026'}</div>`}</div>`;
+  ['preBox','preBox2'].forEach(id=>{ const b=$(id); if(b) b.innerHTML=html; });
+}
+/* Commissioner: start, end and rescore. */
+function drawPreAdmin(){
+  const box=$('preAdmin'); if(!box) return;
+  box.hidden=!hasComm()||seasonLive();
+  if(box.hidden) return;
+  const p=preCfg()||{from:'2026-10-13',to:'2026-10-16',on:false};
+  box.innerHTML=`<h2 class="sub">Preseason tournament</h2>
+    <p class="note">A trial run of the stats feed and scoring on preseason games. Starting it opens lineups for those nights,
+      fills every club\u2019s empty lineup automatically and records it, and tells the feed to pull preseason box scores for
+      those dates. It is scored on its own and never touches the season. ${PRE.lastRun?`Last scored ${htmlEsc(fmt(PRE.lastRun.at))}.`:''}</p>
+    <div class="filters"><label for="preFrom" style="margin:0">From</label><input id="preFrom" type="date" value="${p.from}">
+      <label for="preTo" style="margin:0">To</label><input id="preTo" type="date" value="${p.to}">
+      ${p.on?'<button class="btn danger" id="preEnd">End tournament</button>':'<button class="btn" id="preStart">Start tournament</button>'}
+      ${p.on?'<button class="btn ghost" id="preFill">Fill empty lineups</button>':''}
+      <button class="btn ghost" id="preRun">Score now</button></div>`;
+  if($('preStart')) $('preStart').onclick=()=>startPre();
+  if($('preEnd')) $('preEnd').onclick=async()=>{
+    if(!confirm('End the preseason tournament? Lineups close until the season goes live. The results stay on screen.')) return;
+    S.cfg.pre={...preCfg(),on:false};
+    await commit({kind:'edit',detail:'Preseason tournament ended'},['settings']); drawPre();
+  };
+  if($('preFill')) $('preFill').onclick=()=>fillPreLineups(true);
+  if($('preRun')) $('preRun').onclick=async()=>{
+    try{
+      const r=await fetch('/api/score?run=1&pre=1',{method:'POST'}); const j=await r.json();
+      projToast(r.ok?`Scored ${((j.run&&j.run.done)||[]).length} night(s)`:(j.reason||'Could not score'));
+    }catch(e){ projToast('Could not reach scoring'); }
+    await loadPre();
+  };
+}
+async function startPre(){
+  const from=$('preFrom').value, to=$('preTo').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||to<from)
+    return alert('Pick a first and last night, in order.');
+  if(!confirm(`Start the preseason tournament, ${from} to ${to}?\n\nLineups open for those nights and every club with an empty `
+    +'lineup gets one filled automatically. The feed pulls preseason box scores for those dates, scored apart from the season.')) return;
+  S.cfg.pre={on:true,from,to};
+  await commit({kind:'edit',detail:`Preseason tournament started, ${from} to ${to}`},['settings']);
+  await fillPreLineups(false);
+  loadPre();
+}
+/* Every club with nothing in its lineup gets bestLineup(), saved and recorded
+   with the server's clock. A club that has set one is left alone. */
+async function fillPreLineups(ask){
+  if(!hasComm()) return;
+  await Promise.all([loadSchedule(true),loadNbaPlayers()]);
+  const empty=TEAMS().filter(t=>!SLOTIDS.some(id=>lineupOf(t).s[id]));
+  if(!empty.length) return projToast('Every club already has a lineup');
+  if(ask&&!confirm(`Fill the lineup for ${empty.length} club${empty.length===1?'':'s'} with nothing set: ${empty.join(', ')}?`)) return;
+  empty.forEach(t=>{ S.teams[t].lu={d:dayKey(),s:bestLineup(t)}; });
+  await commit({kind:'edit',detail:`Preseason tournament lineups filled \u2014 ${empty.join(', ')}`},['rosters']);
+  for(const t of empty) await logLineup(t);
+  projToast(`Filled ${empty.length} lineup${empty.length===1?'':'s'}`);
+  render();
+}
 async function loadDaily(force){
   const day=dayKey();
   if(!force&&SCORE.day===day&&SCORE.ok){ drawTrend(); return SCORE; }
@@ -9371,7 +9507,7 @@ let RES={mode:'day',day:''};
 /* Results for the signed-in club over one night or one Monday–Sunday week. */
 async function drawLastNight(){
   const wrap=$('lnWrap'); if(!wrap) return;
-  const T=me?meTeam():null, scored=Object.keys(SCORE.days||{}).sort();
+  const T=me?meTeam():null, scored=[...new Set([...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})])].sort();
   wrap.hidden=!T||!scored.length;
   if(wrap.hidden) return;
   if(!RES.day) RES.day=scored[scored.length-1];
@@ -9900,7 +10036,8 @@ function netChip(){
   await loadNotes();
   wireChat();
   comboAttachAll();
-  if(seasonLive()) Promise.all([loadSchedule(),loadNbaPlayers()]).then(()=>render());
+  if(lineupsOpen()) Promise.all([loadSchedule(),loadNbaPlayers()]).then(()=>render());
+  if(S.cfg.pre) loadPre();
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();

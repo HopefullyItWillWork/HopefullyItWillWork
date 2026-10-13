@@ -48,7 +48,7 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
 
   const feed = ((await readKey(s, "daily-index")).data) || {};
   const stored = Object.keys(feed.days || {})
-    .filter((d) => d >= season.from && d <= season.to && feed.days[d].stored).sort();
+    .filter((d) => d >= season.from && d <= season.to && feed.days[d].stored && !feed.days[d].pre).sort();
   const window = new Set((feed.lastRun && feed.lastRun.window) || []);
 
   const key = "score-" + season.key;
@@ -88,5 +88,42 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   }
   idx.lastRun = { at: new Date().toISOString(), done, left, errors, notes, ms: now() - start };
   await writeKey(s, key, prevIdx, idx);
+  return idx.lastRun;
+}
+
+/* The preseason tournament: the same scoring over the tournament's nights, kept
+   apart in `score-pre`. No game cap — it is four nights — and every night is
+   rescored each run, because there are only a handful. Each night is also
+   written as score-YYYY-MM-DD, so the Results box on My Team shows it. */
+export async function runPre(s, { now = Date.now } = {}) {
+  const start = now();
+  const cfg = (await readKey(s, "settings")).data || {};
+  const p = cfg.pre;
+  if (!p || !/^\d{4}-\d{2}-\d{2}$/.test(p.from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(p.to || ""))
+    return { ok: false, reason: "no tournament in settings" };
+  const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
+  const live = Object.keys((await readKey(s, "rosters")).data || {});
+  const feed = ((await readKey(s, "daily-index")).data) || {};
+  const nights = Object.keys(feed.days || {}).filter((d) => d >= p.from && d <= p.to && feed.days[d].stored).sort();
+
+  const prevIdx = await readKey(s, "score-pre");
+  const idx = { from: p.from, to: p.to, days: {} };
+  const done = [], left = [], errors = [];
+  for (const day of nights) {
+    if (now() - start > BUDGET) { left.push(day); if (prevIdx.data && prevIdx.data.days && prevIdx.data.days[day]) idx.days[day] = prevIdx.data.days[day]; continue; }
+    try {
+      const night = (await readKey(s, dayKey(day))).data;
+      if (!night) continue;
+      const r = scoreNight({ night, lineups: await lineupsOn(s, day), gpBefore: {}, cap: 1e9, alias, espn, renames, live });
+      idx.days[day] = Object.fromEntries(Object.entries(r.clubs).map(([c, x]) => [c, x.totals]));
+      const prevNight = await readKey(s, "score-" + day);
+      await writeKey(s, "score-" + day, prevNight, { day, cap: null, pre: true, ...r });
+      done.push(day);
+    } catch (e) {
+      errors.push({ day, error: String((e && e.message) || e) });
+    }
+  }
+  idx.lastRun = { at: new Date().toISOString(), done, left, errors, ms: now() - start };
+  await writeKey(s, "score-pre", prevIdx, idx);
   return idx.lastRun;
 }

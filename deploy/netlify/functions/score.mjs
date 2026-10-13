@@ -6,12 +6,14 @@
                                       who was over the game cap, who nobody started
    POST /api/score?run=1           -> rescore now (throttled to once per five minutes)
    POST /api/score?run=1&day=D     -> rescore just that night
+   GET  /api/score?pre=1           -> the preseason tournament: { from, to, days, standings }
+   POST /api/score?run=1&pre=1     -> rescore the tournament now
 
    Standings are computed on read from the per-night totals, so they can never
    disagree with them. */
 
 import { store, read } from "./lib/league.mjs";
-import { runScore, seasonOf } from "./lib/scorerun.mjs";
+import { runScore, runPre, seasonOf } from "./lib/scorerun.mjs";
 import { seasonStandings } from "./lib/score.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
@@ -27,6 +29,18 @@ export default async (req) => {
     if (!season) return json({ ok: false, reason: "no season in settings" });
     const key = "score-" + season.key;
 
+    if (req.method === "POST" && url.searchParams.get("run") && url.searchParams.get("pre")) {
+      const idx = (await read(s, "score-pre")).data;
+      const last = idx && idx.lastRun && Date.parse(idx.lastRun.at);
+      if (last && Date.now() - last < 2 * 60 * 1000)
+        return json({ ok: false, reason: "ran less than two minutes ago", lastRun: idx.lastRun }, 429);
+      return json({ ok: true, run: await runPre(s) });
+    }
+    if (req.method === "GET" && url.searchParams.get("pre")) {
+      const idx = (await read(s, "score-pre")).data || { days: {} };
+      const clubs = Object.keys((await read(s, "rosters")).data || {});
+      return json({ ...idx, pre: cfg.pre || null, standings: seasonStandings(idx.days, cfg.renames, clubs) });
+    }
     if (req.method === "POST" && url.searchParams.get("run")) {
       const idx = (await read(s, key)).data;
       const last = idx && idx.lastRun && Date.parse(idx.lastRun.at);

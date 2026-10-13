@@ -71,8 +71,12 @@ export function gamesFrom(scoreboard, types) {
       const c = (comp.competitors || []).find((x) => x.homeAway === h);
       return (c && c.team && c.team.abbreviation) || "";
     };
+    /* The tip is normalised to a full ISO string so it compares cleanly with the
+       lineup history's server stamps: ESPN writes "…T23:30Z", and as a string
+       that sorts AFTER "…T23:30:00.000Z". `ty` is ESPN's season type (1 = preseason). */
+    const raw = e.date || comp.date || null, t = raw ? Date.parse(raw) : NaN;
     out.push({ id: String(e.id), final: !!st.completed, home: side("home"), away: side("away"),
-      tip: e.date || comp.date || null });
+      tip: Number.isFinite(t) ? new Date(t).toISOString() : null, ty: ty || null });
   }
   return out;
 }
