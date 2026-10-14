@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.8">
+<meta name="ll-build" content="2026-10-14.13">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -834,6 +834,18 @@ thead th.rotot{z-index:3}
 tr.sel td.rotot{background:var(--sel)}
 .standtbl tr.sel td{background:var(--sel)}
 
+/* ---- Chat replies and the Home chat card ---- */
+.chatre{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--steel);background:var(--panel2);
+  border:1px solid var(--line);border-left:3px solid var(--amber);padding:6px 10px;margin:0 0 6px;border-radius:2px}
+.chatre b{color:var(--chalk)}
+.chatre button{margin-left:auto}
+.msg .mq{font-size:12px;color:var(--steel);border-left:3px solid var(--line);padding:2px 8px;margin:2px 0 4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.msg .mq b{color:var(--chalk)}
+.msg.flash{outline:2px solid var(--amber);outline-offset:2px}
+#homeChat .msg{padding:6px 0;border-bottom:1px solid var(--line2)}
+#homeChat .mb{font-size:13.5px}
+
 /* ---- Info buttons: the explanation behind a small "i" (2026-10-14). A
    p.note.explain is hidden until its button is pressed; infoNotes() wires them. */
 .infobtn{display:inline-grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;
@@ -853,6 +865,10 @@ input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
   flex:none;vertical-align:middle;margin-right:6px}
 .hs.lg{position:absolute;top:14px;right:16px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
 #dlgPlayerBody{position:relative}
+.inj{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:2px;font:700 9.5px/1.4 var(--mono);
+  letter-spacing:.06em;background:var(--tbi-b);color:var(--amber);vertical-align:middle;cursor:help;flex:none}
+.inj.out{background:var(--trf-b);color:var(--tax)}
+[data-theme="jam"] .inj{border:2px solid #000;border-radius:0}
 td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 /* ---- Home: who is around and what just happened. ---- */
 .hlive{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:14px}
@@ -1011,7 +1027,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
        see showSub(). goTab() accepts a sub-view id too and opens its group.
        "Menu" is the old More dropdown, now holding the rarely used pages. -->
   <nav role="tablist" id="tabs">
-    <button role="tab" data-v="v-home" aria-selected="true">League Home</button>
+    <button role="tab" data-v="v-home" aria-selected="true">Home</button>
     <button role="tab" data-v="v-me" aria-selected="false" id="meTab" hidden>My Team</button>
     <button role="tab" data-v="v-league" aria-selected="false">League</button>
     <button role="tab" data-v="v-players" aria-selected="false">Players</button>
@@ -1057,6 +1073,14 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="feedHelp"></div>
       </div>
       <div class="homecol narrow">
+        <h2 class="sub">League chat <span class="fcount" id="homeChatSum"></span></h2>
+        <div id="homeChat"></div>
+        <div class="chatre" id="homeChatRe" hidden></div>
+        <div class="chatbox">
+          <textarea id="homeChatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
+          <button class="btn" id="homeChatGo">Post</button>
+        </div>
+        <div class="hfoot"><button class="btn ghost" data-go="v-chat">Open chat</button></div>
         <h2 class="sub">Last night's best <span class="fcount" id="homeBestDay"></span></h2>
         <div id="homeBest"></div>
         <h2 class="sub">Around the league</h2>
@@ -1286,6 +1310,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <span class="fcount" id="chatCount"></span>
       <button class="btn ghost" id="chatRefresh">Refresh</button>
     </div>
+    <div class="chatre" id="chatRe" hidden></div>
     <div class="chatbox">
       <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
       <button class="btn" id="chatGo">Post</button>
@@ -1293,18 +1318,6 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
     <div class="chatlog" id="chatLog"></div>
 
-    <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span>
-      <span class="fcount" id="notesWho"></span></h2>
-    <p class="note explain">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
-      which trade you are working on. Nobody else can read it: it is stored under your club,
-      encrypted with a key derived from your PIN, so it follows you between devices while a
-      league-mate who fetches it gets ciphertext. That is the same honour-system bar as the rest of
-      the app &#8212; it stops someone reading your notes, not someone who digs your PIN out of the
-      league data first.</p>
-    <textarea id="notesBox" rows="10" placeholder="Nobody else can read this."></textarea>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">
-      <button class="btn ghost" id="notesClear">Clear my notes</button>
-    </div>
   </section>
 
   <section class="view" id="v-settings" role="tabpanel" hidden>
@@ -1391,10 +1404,27 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
   <section class="view" id="v-players" role="tabpanel" hidden>
     <nav class="subnav" aria-label="Player sections">
       <button type="button" data-sub="v-rater" aria-pressed="true">Rater</button>
+      <button type="button" data-sub="v-night" aria-pressed="false">Last night</button>
       <button type="button" data-sub="v-pfa" aria-pressed="false">Free agents</button>
       <button type="button" data-sub="v-proj" aria-pressed="false" id="projTab" hidden>My projections</button>
       <button type="button" data-sub="v-draft" aria-pressed="false">Quick sign</button>
     </nav>
+  <!-- Every player's box score for one night (2026-10-14): drawNight(). -->
+  <div class="subview" id="v-night" data-subview hidden>
+    <h2>Box scores</h2>
+    <p class="note explain">Every player who played that night, from the morning's box scores — the same
+      numbers scoring reads. Filter to the free agents to see who is available and producing, or to your own club.
+      GS is a simple game score (points + rebounds + assists + 2 × steals and blocks − turnovers) used only to sort.</p>
+    <div id="ntNav"></div>
+    <div class="filters">
+      <select id="ntWho" aria-label="Which players"><option value="">All players</option>
+        <option value="fa">Free agents</option><option value="mine">My team</option><option value="rost">On a roster</option></select>
+      <input id="ntSearch" placeholder="Search" autocomplete="off">
+      <select id="ntPos" aria-label="Position"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
+      <span class="fcount" id="ntCount"></span>
+    </div>
+    <div class="scroller" data-cap="1" id="ntTable"></div>
+  </div>
   <div class="subview" id="v-rater" data-subview>
     <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
     <p class="note explain">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
@@ -3378,6 +3408,7 @@ function drawWho(){
   else{el.innerHTML=`<span>Signed in as <b>${isComm()?'Commissioner':htmlEsc(me)}</b></span>
     <span class="badge ${hasComm()?'comm':''}">${isComm()?'Full access'
       :isDeputy()?'GM \u00b7 commissioner access':'GM'}</span>
+    ${isComm()?'':'<button class="btn ghost" data-go="v-settings" title="Your club name, colours, email and PIN">Settings</button>'}
     <button class="btn ghost" id="outBtn">Sign out</button>`;}
   $('adminTab').hidden=!hasComm();
   /* Both entry points run the same open, so the header button gets the
@@ -4450,7 +4481,7 @@ function render(){
     }
   }
   drawDraft();drawLineup();drawChat();drawBlock();drawTradeLists();drawTrade();drawOffers();
-  drawRater();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
+  drawRater();drawNight();drawProfile();drawHistory();drawLab();drawLabChips();drawLabPool();
   exportBtn('expRater','player-rater.csv','raterTbl');
   exportBtn('expLabPool','player-pool.csv','labPoolTbl');
   exportBtn('expLab','team-builder.csv','labRoster');
@@ -4746,12 +4777,9 @@ function drawMe(){
   const beat=hplaces.filter(p=>p===1).length;
   const a=A();
   const myEmail=(S.teams[T]||{}).email;
+  /* The pill row (contracts, cap space, to the tax, projected place, phase)
+     repeated the cap grid right under it; removed 2026-10-14. */
   $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>
-    <span class="pill">${n} of ${roster} under contract</span>
-    <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
-    <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
-    <span class="pill">projected ${fin}${sfx} of ${order.length}</span>
-    <span class="pill">${seasonLive()?'season is live':'offseason'}</span>
     <button class="btn ghost" id="meEmail" style="margin-left:auto">${
       myEmail ? 'Email \u00b7 '+([S.teams[T].daily?'daily':'',S.teams[T].weekly?'weekly':''].filter(Boolean).join(' + ')||'no digest') : 'Add your email'}</button></div>
     <dl class="capgrid">
@@ -6685,7 +6713,9 @@ document.getElementById('themeBtn').onclick=()=>
    so projections can be edited from wherever a player appears.        */
 function openPlayerCard(name){
   const box=$('dlgPlayerBody');
-  box.innerHTML=headshot(name,'lg')+playerCard(name);
+  const ij=injOf(name);
+  box.innerHTML=headshot(name,'lg')+(ij?`<div class="warn" style="margin:0 90px 10px 0"><b>${htmlEsc(ij.s)}</b>${
+    ij.d?` \u2014 ${htmlEsc(ij.d)}`:''}${ij.r?`. Expected back ${htmlEsc(ij.r)}.`:''} <span style="opacity:.7">(ESPN)</span></div>`:'')+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
 }
@@ -8236,6 +8266,9 @@ function chatPeekQuery(){
 }
 function chatPeek(c){
   if(!c) return;
+  /* Home shows the room too, so a moved revision is fetched (one small read,
+     only when something changed) and both chat views redrawn. */
+  if(CHATLOADED&&c.rev!==CHATREV) loadChat().then(ch=>{ if(ch) drawChat(); });
   if(!chatSeen()){ setChatSeen(c.ts); CHATNEW=0; }   // first visit: nothing is "new"
   else CHATNEW=chatOn()?0:(c.n||0);
   drawBadges();
@@ -8966,13 +8999,14 @@ async function loadNbaPlayers(force){
   try{
     const r=await fetch('/api/players',{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
-    const j=await r.json(), byKey={}, pos={}, ids={};
+    const j=await r.json(), byKey={}, pos={}, ids={}, inj={};
     Object.entries((j&&j.players)||{}).forEach(([id,p])=>{
       if(p&&p.n) ids[nameKey(p.n)]=id;
+      if(p&&p.n&&p.inj) inj[nameKey(p.n)]=p.inj;
       if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t;
       if(p&&p.n&&p.el) pos[nameKey(p.n)]=p.el;
     });
-    NBAP={day,byKey,pos,ids,n:Object.keys(byKey).length,at:j&&j.at,
+    NBAP={day,byKey,pos,ids,inj,n:Object.keys(byKey).length,at:j&&j.at,
       names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
@@ -9353,10 +9387,10 @@ function drawLineup(){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>`
-        : can ? `<span class="lurowctl">${nm?headshot(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
+        ? `${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${injTag(nm)}`
+        : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
 
-              : `${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
+              : `${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?injTag(nm):''}`}</span>
       ${game(nm)}${stats(nm,L)}</div>`;
   }).join('');
 
@@ -9452,12 +9486,24 @@ async function loadChat(force){
     return changed;
   }catch(e){ return false; }
 }
+/* A reply carries a small copy of what it answers — id, author and the first
+   words — so it reads on its own even after the original scrolls away or is
+   deleted. CHATRE is the post being answered, shared by both composers. */
+var CHATRE=null;
+function chatReplyTo(id){
+  CHATRE=CHAT.find(x=>chatId(x)===id)||null;
+  drawChat();
+  const inp=chatOn()?$('chatIn'):$('homeChatIn');
+  if(inp&&inp.focus) inp.focus();
+}
 async function postChat(text){
   const body=String(text||'').trim();
   if(!body) return;
   if(!me) return alert('Sign in to post.');
   if(body.length>CHATMAX) return alert(`Keep it under ${CHATMAX} characters — that one is ${body.length}.`);
   const m={ts:now(),by:isComm()?'Commissioner':me,text:body};
+  if(CHATRE) m.re={id:chatId(CHATRE),by:CHATRE.by,t:String(CHATRE.text||'').slice(0,90)};
+  CHATRE=null;
   CHATBUSY=true;
   let ok=false;
   if(await probeAPI()){
@@ -9534,10 +9580,58 @@ async function refreshNotes(){
 let notesTimer=null;
 function chatLine(m){
   const mine = isComm() || m.by===me;
-  return `<div class="msg${m.by===me?' own':''}">
-    <div class="mh"><b>${htmlEsc(m.by)}</b><span class="t">${fmt(m.ts)}</span>
+  const by=m.by==='Commissioner'?'':m.by;
+  return `<div class="msg${m.by===me?' own':''}" data-msgid="${htmlEsc(chatId(m))}">
+    <div class="mh">${clubBadge(by)}<b>${htmlEsc(m.by)}</b><span class="t">${htmlEsc(agoText(m.ts))}</span>
+      ${me?`<button class="act edit" data-remsg="${htmlEsc(chatId(m))}">Reply</button>`:''}
       ${mine?`<button class="act" data-delmsg="${htmlEsc(chatId(m))}">Delete</button>`:''}</div>
+    ${m.re?`<div class="mq" data-goto="${htmlEsc(m.re.id)}" title="Show the post this answers">\u21B3 <b>${htmlEsc(m.re.by)}</b>: ${htmlEsc(m.re.t)}</div>`:''}
     <div class="mb">${htmlEsc(m.text)}</div></div>`;
+}
+/* The reply bar above a composer: who is being answered, and a way out. */
+function chatReBar(id){
+  const el=$(id); if(!el) return;
+  el.hidden=!CHATRE;
+  if(!CHATRE){ el.innerHTML=''; return; }
+  el.innerHTML=`<span>Replying to <b>${htmlEsc(CHATRE.by)}</b>: ${htmlEsc(String(CHATRE.text||'').slice(0,60))}</span>
+    <button class="act" data-cancelre="1" aria-label="Cancel the reply">\u00D7</button>`;
+  el.querySelector('[data-cancelre]').onclick=()=>{ CHATRE=null; drawChat(); };
+}
+function wireChatButtons(box){
+  box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>removeChat(b.dataset.delmsg));
+  box.querySelectorAll('[data-remsg]').forEach(b=>b.onclick=()=>chatReplyTo(b.dataset.remsg));
+  box.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>{
+    if(!chatOn()) goTab('v-chat');
+    const t=[...document.querySelectorAll('#chatLog [data-msgid]')].find(x=>x.dataset.msgid===b.dataset.goto);
+    if(t){ t.scrollIntoView&&t.scrollIntoView({block:'center'}); t.classList.add('flash'); setTimeout(()=>t.classList.remove('flash'),1600); }
+  });
+}
+/* Home's chat card: a one-line summary and the newest few posts, with its own
+   composer. Reading it here does not mark anything seen — the badge still
+   counts until the Chat tab is opened. */
+const CHATHOME=5;
+function chatSummary(){
+  if(!CHATLOADED) return 'loading\u2026';
+  if(!CHAT.length) return 'quiet so far';
+  const seen=chatSeen(), mine=isComm()?'Commissioner':me;
+  const fresh=seen?CHAT.filter(m=>m.ts>seen&&m.by!==mine).length:0;
+  const day=CHAT.filter(m=>Date.now()-new Date(m.ts).getTime()<86400000);
+  const who=[...new Set(day.map(m=>m.by))];
+  return [fresh?`${fresh} new`:'',
+    day.length?`${day.length} post${day.length===1?'':'s'} today${who.length?' from '+who.slice(0,3).join(', ')+(who.length>3?` +${who.length-3}`:''):''}`
+      :`last post ${agoText(CHAT[0].ts)}`].filter(Boolean).join(' \u00b7 ');
+}
+function drawHomeChat(){
+  const box=$('homeChat'); if(!box) return;
+  if($('homeChatSum')) $('homeChatSum').textContent=chatSummary();
+  const shown=CHAT.slice(0,CHATHOME);
+  box.innerHTML=shown.length?shown.map(chatLine).join('')
+    :`<div class="empty">${CHATLOADED?'Nobody has said anything yet. Start it off.':'Loading\u2026'}</div>`;
+  wireChatButtons(box);
+  const inp=$('homeChatIn'), go=$('homeChatGo');
+  if(go) go.disabled=!me;
+  if(inp){ inp.disabled=!me; inp.placeholder=me?(CHATRE?'Your reply':'Say something'):'Sign in to post'; }
+  chatReBar('homeChatRe');
 }
 function drawChat(){
   const box=$('chatLog'); if(!box) return;
@@ -9545,14 +9639,16 @@ function drawChat(){
   const shown=CHAT.slice(0,CHATSHOW);
   box.innerHTML = shown.length ? shown.map(chatLine).join('')
     : `<div class="empty">${CHATLOADED?'Nobody has said anything yet.':'Loading…'}</div>`;
-  box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>removeChat(b.dataset.delmsg));
+  wireChatButtons(box);
+  chatReBar('chatRe');
+  drawHomeChat();
   if($('chatCount')) $('chatCount').textContent = CHAT.length
     ? `${CHAT.length} post${CHAT.length===1?'':'s'}${CHAT.length>CHATSHOW?`, newest ${CHATSHOW} shown`:''}` : '';
   const send=$('chatGo'), inp=$('chatIn');
   if(send) send.disabled=!me;
   if(inp){
     inp.disabled=!me;
-    inp.placeholder = me ? 'Say something' : 'Sign in to post';
+    inp.placeholder = me ? (CHATRE?'Your reply':'Say something') : 'Sign in to post';
   }
   if($('chatWho')) $('chatWho').textContent = me
     ? `Posting as ${isComm()?'Commissioner':me}` : 'Signed out — you can read, not post';
@@ -9576,6 +9672,10 @@ function wireChat(){
     if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey){ e.preventDefault(); $('chatGo').onclick(); }
   };
   if($('chatRefresh')) $('chatRefresh').onclick=async()=>{ await loadChat(true); drawChat(); };
+  if($('homeChatGo')) $('homeChatGo').onclick=async()=>{
+    const v=$('homeChatIn').value; $('homeChatIn').value=''; await postChat(v); };
+  if($('homeChatIn')) $('homeChatIn').onkeydown=e=>{
+    if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey){ e.preventDefault(); $('homeChatGo').onclick(); } };
   if($('notesBox')) $('notesBox').oninput=()=>{
     clearTimeout(notesTimer);
     const v=$('notesBox').value;
@@ -10071,7 +10171,6 @@ function drawHome(){
     if(a&&(a.status==='open'||a.status==='match'))
       bits.push(`<b>${htmlEsc(a.player)}</b> is on the block at ${money(a.bid)}${a.leader?`, ${htmlEsc(a.leader)} leading`:''}.`);
     else if(aucOpen()){ const c=nomOnClock(); bits.push(`The auction room is open${c?` \u2014 <b>${htmlEsc(c.team)}</b> is on the clock`:''}.`); }
-    else if(aucClosed()) bits.push('The auction is over.');
     const d=S.cfg.draft;
     if(d&&d.open) bits.push(`The ${htmlEsc(String(d.year))} rookie draft is open.`);
     if(bits.length) off=`<div class="okbox" style="margin:0 0 14px">${bits.join(' ')}
@@ -10089,6 +10188,7 @@ function drawHome(){
       <button class="btn ghost" data-go="v-chat">Chat${CHATNEW?` \u00b7 ${CHATNEW} new`:''}</button></div>`;
   drawTape();
   drawHomeLive();
+  drawHomeChat();
   drawHomeBest();
 }
 /* Who is around (presence from the poll, seen in the last five minutes) and
@@ -10145,6 +10245,87 @@ function headshot(name,cls){
     src="https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=${w}&h=${Math.round(w*.73)}" onerror="this.remove()">`;
 }
 
+/* ================= PLAYERS › LAST NIGHT =================
+   Every box-score line for one night (the stats feed's daily-<date>, through
+   lnFetch()), filterable to free agents, the signed-in club, or everyone on a
+   roster. NTVIEW.day '' is the latest scored night. Ownership is the same test
+   every screen uses — isFreeAgent()/liveClub() through canon(). */
+var NTVIEW={day:''};
+function ntGo(day){ NTVIEW.day=day||''; drawNight(); }
+async function drawNight(){
+  const box=$('ntTable'); if(!box) return;
+  if(offscreen('v-night')) return;
+  const days=scoredDays(), latest=days[days.length-1];
+  const day=NTVIEW.day&&days.includes(NTVIEW.day)?NTVIEW.day:latest;
+  const nav=$('ntNav');
+  if(nav){
+    const i=days.indexOf(day);
+    nav.innerHTML=!days.length?'':`<div class="lunav">
+      <button class="btn ghost" data-nt="prev" aria-label="Earlier"${i>0?'':' disabled'}>\u25C0</button>
+      <span class="lnday">${htmlEsc(shortDay(day))}</span>
+      <button class="btn ghost" data-nt="next" aria-label="Later"${i<days.length-1?'':' disabled'}>\u25B6</button>
+      <input type="date" class="mono" id="ntDate" value="${day}" min="${days[0]}" max="${latest}" aria-label="Pick a night">
+      ${day!==latest?'<button class="btn" data-nt="latest">Latest</button>':''}</div>`;
+    nav.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.nt; ntGo(k==='latest'?'':k==='prev'?days[i-1]:days[i+1]); });
+    if($('ntDate')) $('ntDate').onchange=e=>{ const v=e.target.value; ntGo(days.includes(v)?v:days.filter(d=>d<=v).pop()||''); };
+  }
+  ['ntWho','ntSearch','ntPos'].forEach(id=>{ const el=$(id); if(el&&!el.dataset.w){ el.dataset.w='1';
+    el[id==='ntSearch'?'oninput':'onchange']=()=>drawNight(); } });
+  if(!days.length){ box.innerHTML='<div class="empty">No box scores yet. They land the morning after each night of games.</div>';
+    if($('ntCount')) $('ntCount').textContent=''; return; }
+  const want=day;
+  const v=await lnFetch(day);
+  if((NTVIEW.day&&days.includes(NTVIEW.day)?NTVIEW.day:latest)!==want) return;
+  const P=Object.values((v&&v.night&&v.night.players)||{});
+  if(!P.length){ box.innerHTML=`<div class="empty">No box scores on file for ${htmlEsc(shortDay(day))}.</div>`;
+    if($('ntCount')) $('ntCount').textContent=''; return; }
+  const who=$('ntWho').value, q=($('ntSearch').value||'').trim().toLowerCase(), pf=$('ntPos').value;
+  const mine=me?meTeam():null;
+  const gs=x=>(x.PTS||0)+(x.TRB||0)+(x.AST||0)+2*((x.STL||0)+(x.BLK||0))-(x.TOV||0);
+  let rows=P.map(p=>{ const club=signedClub(p.n)||liveClub(p.n); return {n:p.n,t:p.t||'',s:p.s||{},club,fa:isFreeAgent(p.n),gs:gs(p.s||{})}; });
+  rows=rows.filter(r=>(!who||(who==='fa'?r.fa:who==='mine'?r.club===mine:!!r.club))
+    &&(!q||r.n.toLowerCase().includes(q))&&(!pf||(posText(r.n)||'').includes(pf)));
+  const K=SORTS.night||{col:'gs',desc:true};
+  const sv=(r,c)=>c==='n'?r.n:c==='t'?r.t:c==='club'?(r.club||''):c==='gs'?r.gs
+    :c==='FGP'?shotPct(r.s.FG,r.s.FGA):c==='FTP'?shotPct(r.s.FT,r.s.FTA):(r.s[c]??null);
+  rows.sort((a,b)=>cmp(sv(a,K.col),sv(b,K.col),K.desc));
+  if($('ntCount')) $('ntCount').textContent=`${rows.length} player${rows.length===1?'':'s'}`;
+  const C=[['MP','MIN'],['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO']];
+  box.innerHTML=`<table id="ntTbl"><thead><tr><th class="l" data-k="n">Player</th><th class="l" data-k="t">NBA</th>
+    <th class="l" data-k="club">Owner</th>${C.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('')}
+    <th data-k="FGP">FG</th><th data-k="FTP">FT</th><th data-k="gs" title="Game score, for sorting">GS</th></tr></thead><tbody>${
+    rows.map(r=>`<tr><td class="l pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</td><td class="l">${htmlEsc(r.t)}</td>
+      <td class="l">${r.club?clubBadge(r.club)+htmlEsc(r.club)+(r.fa?' <span class="tag t-cut">expiring</span>':''):'<span class="tag t-bird">Free agent</span>'}</td>
+      ${C.map(([k])=>`<td>${r.s[k]??0}</td>`).join('')}
+      ${shotCell(r.s.FG,r.s.FGA)}${shotCell(r.s.FT,r.s.FTA)}<td class="rating">${r.gs}</td></tr>`).join('')}</tbody></table>`;
+  sortable('ntTbl','night','gs',true); redraw.night=drawNight;
+}
+
+/* ================= INJURIES =================
+   ESPN's injury report, carried on its rosters (/api/players, `inj` per player:
+   status, what, expected return). Read through the same name route as the
+   headshots. injTag() is the small chip: OUT in red, DTD and the rest in amber,
+   with the detail and return date on hover. It is information only — nothing
+   benches, cuts or blocks anybody on the strength of it. */
+function injOf(name){
+  const I=NBAP.inj||{}; if(!name) return null;
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return (e&&I[nameKey(e)])||I[nameKey(name)]||I[nameKey(c)]||null;
+}
+function injShort(s){
+  const t=String(s||'').toLowerCase();
+  return /^out/.test(t)?'OUT':/day/.test(t)?'DTD':/question/.test(t)?'Q':/doubt/.test(t)?'D':/suspen/.test(t)?'SUSP':/probab/.test(t)?'P'
+    :String(s||'').split(/\s+/)[0].toUpperCase().slice(0,5);
+}
+function injTag(name){
+  const i=injOf(name); if(!i) return '';
+  const k=injShort(i.s);
+  const tip=[i.s,i.d,i.r?`expected back ${i.r}`:''].filter(Boolean).join(' \u00b7 ');
+  return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" title="${htmlEsc(tip)}">${htmlEsc(k)}</span>`;
+}
+
 /* ================= INFO BUTTONS =================
    An explanation is a p.note.explain. It is hidden; a small "i" button opens
    it. The button goes in the heading right above the note when there is one,
@@ -10193,9 +10374,14 @@ function addHeadshots(root){ try{
   Array.prototype.forEach.call((root||document).querySelectorAll(sel),el=>{
     if(el.dataset.hsd===v) return; el.dataset.hsd=v;
     if((el.firstElementChild&&el.firstElementChild.classList.contains('hs'))
-       ||(el.previousElementSibling&&el.previousElementSibling.classList.contains('hs'))) return;
+       ||(el.previousElementSibling&&el.previousElementSibling.classList.contains('hs'))){
+      const nm=el.dataset.hs||el.dataset.player;
+      if(nm&&!el.querySelector('.inj')&&!(el.nextElementSibling&&el.nextElementSibling.classList.contains('inj'))){
+        const t=injTag(nm); if(t) el.insertAdjacentHTML('beforeend',t); }
+      return; }
     const name=el.dataset.hs||el.dataset.player||(el.parentNode&&el.parentNode.dataset&&el.parentNode.dataset.player);
     const h=name?headshot(name):''; if(h) el.insertAdjacentHTML('afterbegin',h);
+    if(name&&!el.querySelector('.inj')){ const t=injTag(name); if(t) el.insertAdjacentHTML('beforeend',t); }
   });
 }catch(e){} }
 
@@ -11074,6 +11260,7 @@ function netChip(){
   if(S.cfg.pre) loadPre();
   if(useProj&&LIVEW.includes(PROJSRC)) loadLive(PROJSRC).then(()=>{ RTGCACHE=null; render(); });
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
+  loadChat().then(()=>drawChat());
   loadDaily();
 })();
 </script>

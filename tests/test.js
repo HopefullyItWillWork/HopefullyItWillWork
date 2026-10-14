@@ -4441,6 +4441,55 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     SC.days=keep; delete LNc[d];
   }
 
+
+  console.log('\n== injuries and last night’s box scores ==');
+  {
+    const NB=g('NBAP'), keepI=NB.inj;
+    NB.inj={[g('nameKey')('Nikola Jokic')]:{s:'Out',d:'Knee sprain',r:'2026-11-01'},[g('nameKey')('Luka Doncic')]:{s:'Day-To-Day'}};
+    ok('an Out player gets a red OUT chip, through canon()', /class="inj out"[^>]*>OUT</.test(g('injTag')('Nikola Jokić')));
+    ok('the chip carries the detail and return date', /Knee sprain/.test(g('injTag')('Nikola Jokić')) && /2026-11-01/.test(g('injTag')('Nikola Jokić')));
+    ok('day-to-day reads DTD', />DTD</.test(g('injTag')('Luka Doncic')));
+    ok('a healthy player gets nothing', g('injTag')('Stephen Curry')==='');
+    NB.inj=keepI;
+
+    const SC=g('SCORE'), keep=SC.days, LNc=g('LN'), d='2026-10-21';
+    SC.days={[d]:{}};
+    LNc[d]={score:{clubs:{}},night:{players:{a:{n:'Nikola Jokic',t:'DEN',s:{MP:36,PTS:30,TRB:12,AST:10,P3:2,STL:1,BLK:1,TOV:3,FG:12,FGA:20,FT:4,FTA:5}},
+      b:{n:'Nobody Signed',t:'UTA',s:{MP:20,PTS:11,TRB:3,AST:1,P3:1,STL:2,BLK:0,TOV:1,FG:4,FGA:9,FT:2,FTA:2}}}}};
+    await g('drawNight')();
+    let h=document.getElementById('ntTable').innerHTML;
+    ok('last night lists every box-score line', /Nikola Jokic/.test(h) && /Nobody Signed/.test(h));
+    ok('...with the owner, and a free agent marked as one', /Osborn/.test(h) && /Free agent/.test(h));
+    document.getElementById('ntWho').value='fa'; await g('drawNight')();
+    h=document.getElementById('ntTable').innerHTML;
+    ok('the free-agent filter keeps only free agents', !/Nikola Jokic/.test(h) && /Nobody Signed/.test(h));
+    document.getElementById('ntWho').value='';
+    SC.days=keep; delete LNc[d];
+  }
+
+
+  console.log('\n== chat replies and the Home chat card ==');
+  {
+    const keepMe=X.me; X.me='Osborn';
+    const C=g('CHAT'); const keepC=C.slice(); C.length=0;
+    C.push({ts:'2026-10-14T12:00:00.000Z',by:'Coulter',text:'Who wants Trae Young?'});
+    ctx.CHATLOADED=true;
+    g('chatReplyTo')(g('chatId')(C[0]));
+    ok('reply picks the post being answered', ctx.CHATRE && ctx.CHATRE.by==='Coulter');
+    await g('postChat')('Me, for the right price');
+    const R=g('CHAT')[0];
+    ok('a reply carries who and what it answers', R.re && R.re.by==='Coulter' && /Trae Young/.test(R.re.t), JSON.stringify(R));
+    ok('the reply state clears after posting', ctx.CHATRE===null);
+    g('drawChat')();
+    const h=document.getElementById('homeChat').innerHTML;
+    ok('Home shows the newest posts', /for the right price/.test(h) && /Who wants Trae Young/.test(h));
+    ok('...with the quoted original on the reply', /data-goto=/.test(h));
+    ok('...and a Reply button on each', (h.match(/data-remsg=/g)||[]).length===2);
+    ok('the summary line counts today’s posts', /post/.test(document.getElementById('homeChatSum').textContent), document.getElementById('homeChatSum').textContent);
+    ok('My notes are gone from the Chat tab', !document.getElementById('notesBox'));
+    C.length=0; keepC.forEach(x=>C.push(x)); X.me=keepMe;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
