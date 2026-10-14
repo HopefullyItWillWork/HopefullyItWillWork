@@ -41,12 +41,33 @@ export function teamsFrom(json) {
     .map((t) => ({ id: String(t.id), code: t.abbreviation }));
 }
 
+/* A player's current injury from ESPN's roster entry, or null when he is
+   healthy. ESPN carries `injuries` on each athlete: the newest first, with a
+   status ("Out", "Day-To-Day", …) and, usually, details (type, location,
+   expected return). Kept small — it rides every page load in `nbaplayers`. */
+export function injuryFrom(a) {
+  const i = (a && Array.isArray(a.injuries) && a.injuries[0]) || null;
+  if (!i) return null;
+  const s = String(i.status || (i.type && (i.type.description || i.type.name)) || "").trim();
+  if (!s || /^active$/i.test(s)) return null;
+  const d = i.details || {};
+  const what = [d.type, d.location && d.location !== d.type ? d.location : "", d.detail]
+    .filter(Boolean).join(" ").trim() || String(i.shortComment || "").trim();
+  const out = { s: s.slice(0, 30) };
+  if (what) out.d = what.slice(0, 80);
+  if (d.returnDate) out.r = String(d.returnDate).slice(0, 10);
+  if (i.date) out.at = String(i.date).slice(0, 10);
+  return out;
+}
+
 export function rosterFrom(json, code) {
   const out = {};
   for (const a of (json && json.athletes) || []) {
     if (!a || !a.id) continue;
     out[String(a.id)] = { n: a.displayName || a.fullName || "", t: code,
       pos: (a.position && a.position.abbreviation) || "" };
+    const inj = injuryFrom(a);
+    if (inj) out[String(a.id)].inj = inj;
   }
   return out;
 }

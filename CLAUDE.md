@@ -50,7 +50,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
 | **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
 | **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
-| **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
+| **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Last night** `v-night` (every box score for a night, filterable to free agents / my team — `drawNight()`), **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
 | **Trades** | `v-trade` | unchanged |
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
 | **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
@@ -2423,6 +2423,18 @@ whole words go in `ESPNNAME`, also in both places — today Ron Holland → Rona
 Holland II and Mouhamadou Gueye → Mouhamed Gueye. Every rated player was checked
 against ESPN on 2026-10-08; the ~100 others without a match are unsigned.
 Tests: `tests/nba.test.js`.
+
+## Injuries come from ESPN
+
+ESPN's team rosters carry each athlete's `injuries`; `injuryFrom()` in
+`lib/nba.mjs` keeps the newest as `inj: {s, d, r, at}` (status such as "Out" or
+"Day-To-Day", what, expected return, reported) on the player in `nbaplayers`,
+refreshed with the rosters (six hours, and every morning). The page reads it into
+`NBAP.inj` through the same name route as the headshots (`injOf()`), and
+`injTag()` draws the chip — **OUT** red, **DTD**/Q/D amber — with the detail on
+hover. `addHeadshots()` adds it to every name it touches; the lineup rows and the
+player card carry it directly. **Information only**: nothing benches, cuts or
+blocks a player because of it. Tests: `tests/nba.test.js`.
 
 ## Positions come from ESPN
 

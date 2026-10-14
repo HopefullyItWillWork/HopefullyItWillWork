@@ -1,7 +1,7 @@
 /* Who plays for which NBA club. lib/nba.mjs's parsing and name folding, with
    ESPN's responses built inline. nameKey() is the part that matters: it is how
    a roster name finds its ESPN player, and the page carries a copy of it. */
-import { nameKey, teamsFrom, rosterFrom, ESPNNAME } from '../deploy/netlify/functions/lib/nba.mjs';
+import { nameKey, teamsFrom, rosterFrom, injuryFrom, ESPNNAME } from '../deploy/netlify/functions/lib/nba.mjs';
 
 let fails = 0, ran = 0;
 const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+name);
@@ -23,6 +23,13 @@ ok('bad teams payload is empty, not a crash', teamsFrom(null).length === 0 && te
 const r = rosterFrom({ athletes:[{ id:5113969, displayName:'Cameron Carr', position:{ abbreviation:'G' } }, { displayName:'No Id' }] }, 'LAL');
 ok('roster keyed by ESPN id', r['5113969'].n === 'Cameron Carr' && r['5113969'].t === 'LAL' && r['5113969'].pos === 'G');
 ok('an athlete with no id is skipped', Object.keys(r).length === 1);
+const hurt = rosterFrom({ athletes:[{ id:1, displayName:'Hurt Guy', injuries:[{ status:'Out', date:'2026-10-12T00:00Z',
+  details:{ type:'Knee', location:'Leg', detail:'Sprain', returnDate:'2026-11-01' } }] },
+  { id:2, displayName:'Fine Guy', injuries:[] }, { id:3, displayName:'Active Guy', injuries:[{ status:'Active' }] }] }, 'BOS');
+ok('an injured player carries his status, detail and return', hurt['1'].inj.s === 'Out' && /Knee/.test(hurt['1'].inj.d) && hurt['1'].inj.r === '2026-11-01');
+ok('a healthy player carries nothing', !hurt['2'].inj && !hurt['3'].inj);
+ok('day-to-day from the type when status is missing', injuryFrom({ injuries:[{ type:{ description:'Day-To-Day' } }] }).s === 'Day-To-Day');
+ok('garbage is null, not a crash', injuryFrom(null) === null && injuryFrom({ injuries:'x' }) === null);
 
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);
