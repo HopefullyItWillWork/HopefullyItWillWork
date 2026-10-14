@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.13">
+<meta name="ll-build" content="2026-10-14.14">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -865,6 +865,8 @@ input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
   flex:none;vertical-align:middle;margin-right:6px}
 .hs.lg{position:absolute;top:14px;right:16px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
 #dlgPlayerBody{position:relative}
+.injline{margin:0 90px 12px 0;font-size:13px}
+.injline .t{color:var(--steel);font-size:11px;margin-left:4px}
 .inj{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:2px;font:700 9.5px/1.4 var(--mono);
   letter-spacing:.06em;background:var(--tbi-b);color:var(--amber);vertical-align:middle;cursor:help;flex:none}
 .inj.out{background:var(--trf-b);color:var(--tax)}
@@ -6713,9 +6715,7 @@ document.getElementById('themeBtn').onclick=()=>
    so projections can be edited from wherever a player appears.        */
 function openPlayerCard(name){
   const box=$('dlgPlayerBody');
-  const ij=injOf(name);
-  box.innerHTML=headshot(name,'lg')+(ij?`<div class="warn" style="margin:0 90px 10px 0"><b>${htmlEsc(ij.s)}</b>${
-    ij.d?` \u2014 ${htmlEsc(ij.d)}`:''}${ij.r?`. Expected back ${htmlEsc(ij.r)}.`:''} <span style="opacity:.7">(ESPN)</span></div>`:'')+playerCard(name);
+  box.innerHTML=headshot(name,'lg')+injLine(name)+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
 }
@@ -9006,7 +9006,7 @@ async function loadNbaPlayers(force){
       if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t;
       if(p&&p.n&&p.el) pos[nameKey(p.n)]=p.el;
     });
-    NBAP={day,byKey,pos,ids,inj,n:Object.keys(byKey).length,at:j&&j.at,
+    NBAP={day,byKey,pos,ids,inj,injv:!!(j&&j.injv),injn:Object.keys(inj).length,n:Object.keys(byKey).length,at:j&&j.at,
       names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
@@ -10314,6 +10314,18 @@ function injOf(name){
   const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
   return (e&&I[nameKey(e)])||I[nameKey(name)]||I[nameKey(c)]||null;
 }
+/* The player card's injury line — always there, so a GM knows where to look:
+   the report when there is one, "none reported" when ESPN lists him healthy,
+   and why there is nothing when the report has not loaded or ESPN does not know
+   him. */
+function injLine(name){
+  const ij=injOf(name);
+  if(ij) return `<div class="warn injline"><b>Injury: ${htmlEsc(ij.s)}</b>${ij.d?` \u2014 ${htmlEsc(ij.d)}`:''}${
+    ij.r?`. Expected back ${htmlEsc(ij.r)}.`:''}${ij.at?` <span class="t">Reported ${htmlEsc(ij.at)}.</span>`:''} <span class="t">ESPN</span></div>`;
+  const why=!NBAP.n?'ESPN\u2019s report has not loaded':!NBAP.injv?'ESPN\u2019s report has not been fetched yet \u2014 it arrives with the next roster refresh'
+    :!espnTeamOf(name)?'not on an NBA roster at ESPN':'none reported';
+  return `<div class="okbox injline"><b>Injury:</b> ${why} <span class="t">ESPN</span></div>`;
+}
 function injShort(s){
   const t=String(s||'').toLowerCase();
   return /^out/.test(t)?'OUT':/day/.test(t)?'DTD':/question/.test(t)?'Q':/doubt/.test(t)?'D':/suspen/.test(t)?'SUSP':/probab/.test(t)?'P'
@@ -10853,6 +10865,8 @@ async function drawHealth(force){
       ${row('Scoring',!stale(cr&&cr.at)&&!(cr&&cr.errors&&cr.errors.length),cr?ago(cr.at):'not run yet',
         `${Object.keys(sc.days||{}).length} nights scored`)}
       ${row('NBA rosters',!!NBAP.n,NBAP.at?ago(new Date(NBAP.at).toISOString()):'not loaded',`${NBAP.n} players`)}
+      ${row('Injury report',!!NBAP.injv,NBAP.injv?`${NBAP.injn||0} listed`:'not fetched yet',
+        NBAP.injv?'from ESPN\u2019s rosters, with them':'arrives with the next roster refresh')}
       ${row('Tip-offs today',SCHED.ok,SCHED.ok?(n=>n+' club'+(n===1?'':'s'))(Object.keys(SCHED.tips).length):'unavailable',
         SCHED.ok?(Object.keys(SCHED.tips).length?'locks are live':'no games tonight'):htmlEsc(SCHED.reason||''))}
     </dl>${errs(sr)}${errs(cr)}`;

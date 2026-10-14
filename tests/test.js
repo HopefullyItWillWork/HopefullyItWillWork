@@ -4450,6 +4450,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('the chip carries the detail and return date', /Knee sprain/.test(g('injTag')('Nikola Jokić')) && /2026-11-01/.test(g('injTag')('Nikola Jokić')));
     ok('day-to-day reads DTD', />DTD</.test(g('injTag')('Luka Doncic')));
     ok('a healthy player gets nothing', g('injTag')('Stephen Curry')==='');
+    NB.injv=true;
+    ok('the player card always has an injury line', /Injury: Out/.test(g('injLine')('Nikola Joki\u0107')) && /Injury:/.test(g('injLine')('Stephen Curry')));
     NB.inj=keepI;
 
     const SC=g('SCORE'), keep=SC.days, LNc=g('LN'), d='2026-10-21';
