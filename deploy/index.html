@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.8">
+<meta name="ll-build" content="2026-10-14.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10071,7 +10071,6 @@ function drawHome(){
     if(a&&(a.status==='open'||a.status==='match'))
       bits.push(`<b>${htmlEsc(a.player)}</b> is on the block at ${money(a.bid)}${a.leader?`, ${htmlEsc(a.leader)} leading`:''}.`);
     else if(aucOpen()){ const c=nomOnClock(); bits.push(`The auction room is open${c?` \u2014 <b>${htmlEsc(c.team)}</b> is on the clock`:''}.`); }
-    else if(aucClosed()) bits.push('The auction is over.');
     const d=S.cfg.draft;
     if(d&&d.open) bits.push(`The ${htmlEsc(String(d.year))} rookie draft is open.`);
     if(bits.length) off=`<div class="okbox" style="margin:0 0 14px">${bits.join(' ')}
