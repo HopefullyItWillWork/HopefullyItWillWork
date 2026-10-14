@@ -52,10 +52,10 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
 | **Trades** | `v-trade` | unchanged |
-| **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`) |
-| **Rookie draft** | `v-rookie` | offseason only |
+| **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
+| **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
 | **Chat** | `v-chat` | chat and My notes, with the unread badge |
-| **Menu** ▾ | (the old More dropdown) | Settings `v-settings`, Cap rules `v-rules`, Commissioner `v-admin` |
+| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14) |
 
 Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
 projections, Team trends, League history and Transactions tabs — every one of
@@ -197,12 +197,20 @@ go back to any night (or week) and show what scored — the Results code
 (`drawLastNight()`) draws it and hides its own controls (`#lnWrap.combined`).
 With lineups closed (offseason) Results stands alone as before. Game times read
 "CLE tips off at 7:30 PM ET" (`clock12()`); a starter with no game says so.
-The lineup grid carries a tenth column, **PR** (`rtg()`), so `.lurow` is
-`repeat(10, …)`.
+The lineup grid carries its own **Game** column (club, tip-off, Locked / Tips
+off, No game) after the player, and a tenth stat column, **PR** (`rtg()`), so
+`.lurow` is `44px minmax(300px,1fr) 118px repeat(10, …)` and the cap is
+**1240px**, not 1040: the bench row's name, tag, Start select and IR button need
+the 300px, and at 1040 they spilled into the game column.
 
 **My Roster** shows PR and a per-game line from a toggle — **T7, T15, YTD**
 (the rolling windows, `liveLine()`) or **2025–26** (`RATER`) — `ROSTAT`
-(`ll_rostat`), `rosLine()`/`rosVal()`/`rosCells()`. It is independent of the
+(`ll_rostat`), `rosLine()`/`rosVal()`/`rosCells()`. The last option,
+**Contract**, swaps the stat columns for salary by season (this one and the
+three after), years left, option, rights and year acquired (`rosHeads()`).
+**Auction and Rookie draft are tabs only while they run** (`markPhaseTabs()`):
+the auction while `auctionRunning()` (room open, or a lot still being settled),
+the draft while it is open. Both switches are on the Commissioner tab. It is independent of the
 stats-period bar, which still drives PR.
 
 **Headshots everywhere**: `addHeadshots()` runs after drawing (with
@@ -1904,9 +1912,9 @@ the key fell back to `proj_anon`.
   global `[hidden]{display:none!important}` because author CSS otherwise wins.
 - Sentence case for headings and buttons, not tracked-out caps. Monospace for
   numbers — this is a ledger and tabular figures aid scanning.
-- The tabs and groups are in "Where everything lives" above. The Menu dropdown
-  (the old More menu) sits **outside** `<nav>` to escape its overflow clip and is
-  positioned in JS from the button's bounding rect.
+- The tabs and groups are in "Where everything lives" above. There is no Menu
+  dropdown any more: every page is a button in `#tabs`. `closeMore()`,
+  `placeMore()` and `markMore()` survive as no-ops.
 
 ---
 

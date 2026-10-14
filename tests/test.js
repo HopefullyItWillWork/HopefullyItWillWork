@@ -4414,6 +4414,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('roster cells: GP plus nine categories', (g('rosCells')(jok.n).match(/<td>/g)||[]).length===10);
     ctx.ROSTAT='d7';
     ok('a window not loaded reads as empty, not zero', g('rosVal')(jok,'PTS')===null);
+    ctx.ROSTAT='ctr';
+    ok('contract view: four seasons, years, option, rights, acquired', (g('rosCells')(jok).match(/<td/g)||[]).length===8 && g('rosVal')(jok,'s0')===g('salNow')(jok));
+    ok('contract headers name the seasons', new RegExp(g('curSeason')()).test(g('rosHeads')()));
     ctx.ROSTAT=keepR;
 
     ctx.LUVIEW.day=''; g('luGo')('2999-01-01');

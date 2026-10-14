@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.6">
+<meta name="ll-build" content="2026-10-14.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -276,8 +276,8 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
    name do not need 1200px, and letting it span the page either strands the name
    in a void or blows the dropdown out to half the screen. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden;max-width:1040px}
-.lurow{display:grid;grid-template-columns:44px minmax(180px,1fr) repeat(10,minmax(46px,60px));
+  border-radius:3px;overflow:hidden;max-width:1240px}
+.lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px repeat(10,minmax(46px,60px));
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 .lurow.empty{background:var(--panel2)}
 .lurow.locked{opacity:.72}
@@ -345,7 +345,7 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
 @media (max-width:1000px){
   .luslots{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .lurow,.luhdr{min-width:730px}
-  .lurow{grid-template-columns:40px minmax(170px,1fr) repeat(10,minmax(46px,56px))}
+  .lurow{grid-template-columns:40px minmax(170px,1fr) 108px repeat(10,minmax(46px,56px))}
   /* Pinned, and each variant paints its own background: a sticky cell with no
      background of its own lets the stats scroll visibly underneath it. */
   .lurow>.luslot,.luhdr>span:first-child{position:sticky;left:0;z-index:2;background:var(--panel)}
@@ -867,8 +867,13 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 .lunav .lnday{font:700 18px var(--disp);min-width:170px;text-align:center}
 .lunav input[type=date]{width:auto}
 #lnWrap.combined>h2,#lnWrap.combined>#lnCtl{display:none}
-.lutip.gt{color:var(--chalk);font-weight:600}
-.lutip.nog{color:var(--dim)}
+/* The game column: who he plays and when, or that he has no game. */
+.lugame{font-family:var(--mono);font-size:12px;line-height:1.25;color:var(--chalk);text-align:left;white-space:nowrap}
+.lugame small{display:block;font-size:10px;color:var(--steel);letter-spacing:.04em}
+.lugame.lk{color:var(--steel)}
+.lugame.lk small{color:var(--tax)}
+.lugame.nog{color:var(--dim)}
+.luhdr span:nth-child(3){text-align:left}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
@@ -1014,15 +1019,11 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
     <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
     <button role="tab" data-v="v-chat" aria-selected="false">Chat<span class="badge" id="chatBadge"></span></button>
-    <div class="more">
-      <button type="button" id="moreBtn" aria-expanded="false" aria-haspopup="true">Menu</button>
-    </div>
-  </nav>
-  <div class="menuwrap"><div class="moremenu" id="moreMenu" hidden>
+    <!-- Every page in the one bar (2026-10-14): the Menu dropdown is gone. -->
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
     <button role="tab" data-v="v-rules" aria-selected="false">Cap rules</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
-  </div></div>
+  </nav>
 </header>
 <div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
   <button type="button" class="btn" id="updGo">Reload</button></div>
@@ -4803,8 +4804,8 @@ function drawMe(){
       ROSTATS.map(([k,l])=>`<button type="button" data-rst="${k}" aria-pressed="${k===ROSTAT}">${l}</button>`).join('')}</div>
       <span class="fcount">${htmlEsc(rosStatNote())}</span></div>
     <table id="meRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
-    <th data-k="sal">Salary</th><th data-k="rtg" title="Player rating">PR</th><th data-k="g">GP</th>
-    ${ROSCOLS.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('')}${canAct?'<th class="acts"></th>':''}</tr></thead>
+    <th data-k="sal">Salary</th><th data-k="rtg" title="Player rating">PR</th>
+    ${rosHeads()}${canAct?'<th class="acts"></th>':''}</tr></thead>
     <tbody>${mrows.map(p=>{
       const i=S.teams[T].r.findIndex(x=>x.n===p.n);
       const started=seasonLive()&&startedOn(T).some(n=>canon(n)===canon(p.n));
@@ -4813,7 +4814,7 @@ function drawMe(){
         onIR(p)?'<span class="tag t-cut">Injured reserve</span>':''}${
         started?'<span class="tag t-bird">Starting</span>':''}</td><td>${money(salNow(p))}</td>
       <td class="rating">${rtg(p.n)!=null?(rtg(p.n)>0?'+':'')+rtg(p.n):'&#8212;'}</td>
-      ${rosCells(p.n)}
+      ${rosCells(p)}
       ${canAct?`<td class="acts"><span>${
         canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}
         <button class="act edit${p.blk?' on':''}" data-mrb="${i}">${p.blk?'Unlist':'Block'}</button>
@@ -6568,9 +6569,13 @@ const OFFSEASON_TABS=['v-auction','v-rookie'];
    minimum, and in the offseason a club adds players at auction or in the rookie
    draft, so there is nothing for the form to record. */
 const SEASON_TABS=['v-draft'];
+function auctionRunning(){
+  const a=A();
+  return aucOpen()||!!(a&&(a.status==='open'||a.status==='match'));
+}
 function markPhaseTabs(){
   const live=seasonLive();
-  const hidden=live?OFFSEASON_TABS:SEASON_TABS;
+  const hidden=[...(live?OFFSEASON_TABS:SEASON_TABS)];
   /* Top tabs carry data-v; the pills inside League and Players carry data-sub. */
   [...document.querySelectorAll('#tabs button'),...document.querySelectorAll('#moreMenu button'),
    ...document.querySelectorAll('[data-sub]')]
@@ -6579,6 +6584,15 @@ function markPhaseTabs(){
       if(OFFSEASON_TABS.includes(v)) b.hidden=live;
       else if(SEASON_TABS.includes(v)) b.hidden=!live;
     });
+  /* The auction and the rookie draft are tabs only while they are running:
+     the auction while its room is open (or a lot is still being settled), the
+     draft while it is open. The commissioner switches both on the Commissioner
+     tab, so nothing is lost by hiding them the rest of the year. */
+  const off=[];
+  if(!live&&!auctionRunning()) off.push('v-auction');
+  if(!live&&!(S.cfg.draft&&S.cfg.draft.open)) off.push('v-rookie');
+  off.forEach(v=>{ const b=document.querySelector(`#tabs [data-v="${v}"]`); if(b) b.hidden=true; });
+  hidden.push(...off);
   /* Someone standing on a page that just went away is moved somewhere real. A
      sub-view only counts as open when its group is open too. */
   const open=hidden.find(v=>{
@@ -9170,7 +9184,7 @@ function luLine(name){
    season — chosen here and independent of the stats period bar, which drives
    the PR column (rtg()). Per game. Lines come from the rolling windows
    (/api/score?stats=, liveLine()) or, for 2025-26, RATER. */
-var ROSTATS=[['d7','T7'],['d15','T15'],['szn','YTD'],['act','2025\u201326']];
+var ROSTATS=[['d7','T7'],['d15','T15'],['szn','YTD'],['act','Last year'],['ctr','Contract']];
 var ROSTAT=(()=>{ try{ const v=localStorage.getItem('ll_rostat'); return ROSTATS.some(([k])=>k===v)?v:'d15'; }catch(e){ return 'd15'; } })();
 var ROSTRIED={};
 var ROSCOLS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO'],['FGP','FG%'],['FTP','FT%']];
@@ -9178,15 +9192,33 @@ function rosLine(name){
   if(ROSTAT==='act'){ const r=RIDX[canon(name)]; return r&&r.s?{g:r.g,s:r.s}:null; }
   const l=liveLine(name,ROSTAT); return l&&l.s?l:null;
 }
+/* The Contract view: what he is owed this season and the three after, years
+   left, any option, the rights the club holds and the year he arrived. */
+const ROSRIGHTS={Yes:'Bird',Early:'Early Bird'};
+function rosHeads(){
+  if(ROSTAT==='ctr') return [0,1,2,3].map(n=>`<th data-k="s${n}">${htmlEsc(seasonAt(curSeason(),n))}</th>`).join('')
+    +'<th data-k="yrs">Yrs</th><th class="l" data-k="opt">Option</th><th class="l" data-k="rights">Rights</th><th data-k="acq">Acq</th>';
+  return '<th data-k="g">GP</th>'+ROSCOLS.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('');
+}
 function rosVal(p,col){
   if(col==='n') return p.n; if(col==='sal') return salNow(p); if(col==='rtg') return rtg(p.n);
+  if(/^s[0-3]$/.test(col)) return salOff(p,+col[1])||null;
+  if(col==='yrs') return yrsLeft(p); if(col==='opt') return p.o||null;
+  if(col==='rights') return ROSRIGHTS[birdRight(p)]||null; if(col==='acq') return p.acq||null;
   const L=rosLine(p.n); if(!L) return null;
   if(col==='g') return L.g||0;
   if(col==='FGP') return shotPct(L.s.FG,L.s.FGA);
   if(col==='FTP') return shotPct(L.s.FT,L.s.FTA);
   return L.s[col]!=null?L.s[col]:null;
 }
-function rosCells(name){
+function rosCells(p){
+  if(ROSTAT==='ctr'){
+    const D='&#8212;';
+    return [0,1,2,3].map(n=>{ const v=salOff(p,n); return `<td>${v?money(v):D}</td>`; }).join('')
+      +`<td>${yrsLeft(p)||D}</td><td class="l">${p.o?htmlEsc(p.o)+(optYears(p)>1?' \u00d7'+optYears(p):''):D}</td>`
+      +`<td class="l">${ROSRIGHTS[birdRight(p)]||D}</td><td>${p.acq||D}</td>`;
+  }
+  const name=typeof p==='string'?p:p.n;
   const L=rosLine(name);
   if(!L) return `<td>&#8212;</td>`+ROSCOLS.map(()=>'<td>&#8212;</td>').join('');
   const f=v=>v==null?'&#8212;':(+v).toFixed(1);
@@ -9194,6 +9226,7 @@ function rosCells(name){
     :k==='FTP'?`<td>${pctText(shotPct(L.s.FT,L.s.FTA))}</td>`:`<td>${f(L.s[k])}</td>`).join('');
 }
 function rosStatNote(){
+  if(ROSTAT==='ctr') return 'salary owed by season';
   if(ROSTAT==='act') return 'per game, 2025\u201326';
   const L=LIVE[ROSTAT];
   if(!L) return ROSTRIED[ROSTAT]?'not available yet':'loading\u2026';
@@ -9278,8 +9311,19 @@ function drawLineup(){
      three boxes in two columns. They hold the same nine columns and a GM reads
      them together — who is in, who is out, and who cannot play — so splitting
      them across a grid made the numbers stop lining up for no gain. */
-  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span>
+  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span>
     ${LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}<span title="Player rating">PR</span></div>`;
+  /* Tonight's game for a man, as its own column: club and tip-off, "Locked"
+     once it has started, "No game" when his club is idle and the schedule is
+     known — and nothing at all when there is no schedule to say either. */
+  const known=SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length>0;
+  const game=(nm,ir)=>{
+    if(!nm||ir) return '<span class="lugame"></span>';
+    const t=tipOf(nm);
+    if(!t) return `<span class="lugame nog">${known?'No game':''}</span>`;
+    const lk=minutesNow()>=t.at;
+    return `<span class="lugame${lk?' lk':''}">${htmlEsc(t.team)} ${htmlEsc(clock12(t.at))}<small>${lk?'Locked':'Tips off'}</small></span>`;
+  };
   const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
     nm?luCell(k,luVal(L&&L.r,k)):''}${
     nm&&(k==='FGP'||k==='FTP')?luShot(k,L&&L.r):''}</span>`).join('')
@@ -9305,11 +9349,11 @@ function drawLineup(){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="luname">${htmlEsc(nm)}</span><span class="lutip lk">${htmlEsc(lk.why)}</span>`
+        ? `${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>`
         : can ? `<span class="lurowctl">${nm?headshot(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
-                +(nm?(lk.why?`<span class="lutip gt">${htmlEsc(lk.why)}</span>`:(SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length?'<span class="lutip nog">No game tonight</span>':'')):'')
+
               : `${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
-      ${stats(nm,L)}</div>`;
+      ${game(nm)}${stats(nm,L)}</div>`;
   }).join('');
 
   /* The bench carries the control that starts somebody: every open slot he is
@@ -9327,12 +9371,11 @@ function drawLineup(){
                <option value="">Start&#8230;</option>
                ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
           : '<span class="lutip">no open spot</span>') : ''}
-        ${irBtn(p.n)}</span>
-        ${lk.why?`<span class="lutip${lk.locked?' lk':' gt'}">${htmlEsc(lk.why)}</span>`:''}</span>
-      ${stats(p.n,L)}</div>`;
+        ${irBtn(p.n)}</span></span>
+      ${game(p.n)}${stats(p.n,L)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
-      ${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
+      <span class="lugame"></span>${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
 
   const irRows=ir.map(p=>{
     const L=luLine(p.n);
@@ -9342,10 +9385,10 @@ function drawLineup(){
         ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
         ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span>
-      ${stats(p.n,L)}</div>`;
+      ${game(p.n,true)}${stats(p.n,L)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lutip">Nobody on the injured reserve.</span></span>
-      ${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
+      <span class="lugame"></span>${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
 
   $('luSlots').innerHTML=hdr('Slot')+slotRows
     +hdr('Bench')+benchRows
@@ -10889,27 +10932,12 @@ $('resetBtn').onclick=async()=>{
 };
 $('tabs').onclick=e=>{
   const b=e.target.closest('button');
-  if(!b) return;
-  if(b.id==='moreBtn'){
-    const open=$('moreMenu').hidden;
-    $('moreMenu').hidden=!open; b.setAttribute('aria-expanded',String(open));
-    if(open) placeMore();
-    return;
-  }
-  if(!b.dataset.v) return;
-  goTab(b.dataset.v);
-  closeMore();
-};
-$('moreMenu').onclick=e=>{
-  const b=e.target.closest('button');
   if(!b||!b.dataset.v) return;
   goTab(b.dataset.v);
-  closeMore();
 };
-function closeMore(){
-  $('moreMenu').hidden=true;
-  $('moreBtn').setAttribute('aria-expanded','false');
-}
+/* The Menu dropdown is gone (every page is in the one bar); these stay as
+   no-ops for anything that still calls them. */
+function closeMore(){ if($('moreMenu')) $('moreMenu').hidden=true; }
 /* Put the menu directly under the masthead, wherever the page happens to be
    scrolled to. The header is sticky, so its bottom edge in viewport coordinates
    IS "just below the bar" — reading it each time is what makes this hold on a
