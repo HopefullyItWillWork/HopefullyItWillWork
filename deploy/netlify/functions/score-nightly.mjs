@@ -6,7 +6,7 @@
    nothing when nothing changed. Everything is in lib/scorerun.mjs. */
 
 import { store } from "./lib/league.mjs";
-import { runScore, runPre } from "./lib/scorerun.mjs";
+import { runScore, runPre, runPstats } from "./lib/scorerun.mjs";
 
 export default async () => {
   const s = store();
@@ -14,6 +14,8 @@ export default async () => {
   /* The preseason tournament, when there is one; a failure there never touches
      the season's scoring above. */
   try { out.pre = await runPre(s); } catch (e) { out.pre = { error: String((e && e.message) || e) }; }
+  /* Rolling 7/15/30-day and season stats for the Players tab (lib/pstats.mjs). */
+  try { out.pstats = await runPstats(s); } catch (e) { out.pstats = { error: String((e && e.message) || e) }; }
   return new Response(JSON.stringify(out), { headers: { "content-type": "application/json" } });
 };
 

@@ -37,6 +37,87 @@ Netlify's base and publish directories both point at `deploy`, functions at
 
 ---
 
+## Where everything lives (the layout, rebuilt 2026-10-14)
+
+The app was reorganised around what a GM opens it to do. **Read this first if
+you are adding or moving a screen.** The mockup it was built from:
+claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
+
+### The tabs
+
+| Tab | Section id | What is on it |
+|---|---|---|
+| **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
+| **My Team** | `v-me` | the stats-period bar, tonight's lineup, Results, your roster; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
+| **League** | `v-league` (group) | sub-views **Clubs** `v-contracts`, **Standings & history** `v-history`, **Transactions** `v-log` |
+| **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
+| **Trades** | `v-trade` | unchanged |
+| **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`) |
+| **Rookie draft** | `v-rookie` | offseason only |
+| **Chat** | `v-chat` | chat and My notes, with the unread badge |
+| **Menu** ▾ | (the old More dropdown) | Settings `v-settings`, Cap rules `v-rules`, Commissioner `v-admin` |
+
+Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
+projections, Team trends, League history and Transactions tabs — every one of
+them still exists as a sub-view or moved block **with the same element ids**, so
+their draw functions were not touched. `v-lab` (the hidden Builder stub) and
+`v-trends` are gone; their contents moved (see the table).
+
+### Groups and sub-views
+
+A group is one `<section class="view">` holding several `<div data-subview>`,
+with a pill bar `<nav class="subnav">` whose buttons carry `data-sub="<id>"`.
+`showSub(id)` shows one sub-view and presses its pill; `goTab(id)` accepts a
+sub-view id and opens its group first, so `goTab('v-rater')` still works. Any
+button with `data-go="<id>"` navigates (Home's shortcuts use it).
+
+**To add a page:** a new top tab is a `<section class="view">` plus a
+`<button role="tab" data-v>` in `#tabs`; a page inside League or Players is a
+`<div class="subview" id data-subview hidden>` plus a pill. Phase-only pages go
+in `OFFSEASON_TABS` / `SEASON_TABS` — `markPhaseTabs()` hides tabs AND pills.
+
+Players › Free agents shows `#pfaSeason` (the signable list that used to be on
+My Team) in season and `#v-fa` (the free agent classes) in the offseason —
+`drawPlayersFA()`. League › Clubs: the payroll ledger is the club picker; the
+picked club (`activeTeam`) gets `drawClubLive()` — its lineup tonight with each
+man's numbers for the chosen period, its bench, its standing and strongest and
+weakest categories, and a Propose a trade button — above `drawDetail()`.
+
+**Home never suggests lineup moves** (league decision): it states facts —
+how many of your starters play tonight, first tip — and the GM decides.
+
+### The stats period
+
+The header's "Stats shown" strip is gone (`#projBar` stays hidden). The same
+choice is now a bar drawn into every `[data-perbar]` placeholder (My Team, a
+club on League, the rater) by `drawPerBars()`; clicks go through `data-pm` to
+`setProjMode()`. Periods: **7 days, 15 days, 30 days, Season** (this season's
+box scores — `PROJSRC` `d7` `d15` `d30` `szn`), **2025–26** (`act`),
+**Projection** (`agg`) and **Mine** (`mine`).
+
+The live periods come from `LIVE[w]`, fetched once a day from
+`GET /api/score?stats=<w>` (`loadLive()`), looked up by `liveLine()` through the
+same name route as `espnTeamOf()`. `projFor()`/`pstat()` are still the one
+place a stat line is chosen, so every table follows the period. Two rules for a
+live period, both in `pstat()`: a player with no line in the window has played
+**no games** in it (not last season's line), and a player with no `RATER` row
+(this year's rookies) still gets his live line. The rater's games floor scales
+with the window (`ratedFloor()`: 30% of the most games anyone has in it; 15 on a
+full season).
+
+Server side: `lib/pstats.mjs` (pure, `tests/pstats.test.js`) and `runPstats()` in
+`lib/scorerun.mjs`, run by `score-nightly` after scoring. `plog-<season>` keeps
+every night's lines; `pstats-<season>` holds the four windows, per game, keyed by
+`nameKey()`. Windows are calendar days back from the latest night. Until the
+regular season has a night they are built from preseason nights and say so.
+
+### Phone
+
+Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and
+scrolls sideways when the offseason adds Auction and Rookie draft.
+
+---
+
 ## Storage architecture
 
 League state is **split across five Netlify Blobs keys**, not one blob. This is
@@ -1706,9 +1787,9 @@ the key fell back to `proj_anon`.
   global `[hidden]{display:none!important}` because author CSS otherwise wins.
 - Sentence case for headings and buttons, not tracked-out caps. Monospace for
   numbers — this is a ledger and tabular figures aid scanning.
-- Six primary nav tabs; everything else lives in the More menu, which sits
-  **outside** `<nav>` to escape its overflow clip and is positioned in JS from the
-  button's bounding rect.
+- The tabs and groups are in "Where everything lives" above. The Menu dropdown
+  (the old More menu) sits **outside** `<nav>` to escape its overflow clip and is
+  positioned in JS from the button's bounding rect.
 
 ---
 

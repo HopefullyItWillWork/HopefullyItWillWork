@@ -2277,8 +2277,11 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      "#tabs button" — which markPhaseTabs() and goTab() both use — finds nothing
      here. What can be checked in Node is the rule; the hiding itself was
      verified in a real browser. */
-  ok('the three offseason-only views are named in one place',
-     JSON.stringify(g('OFFSEASON_TABS')) === JSON.stringify(['v-auction', 'v-fa', 'v-rookie']),
+  /* Since the 2026-10-14 layout the free agent classes are a part of Players ›
+     Free agents (drawPlayersFA() swaps them with the in-season list), so only
+     the auction and the rookie draft are offseason TABS. */
+  ok('the offseason-only views are named in one place',
+     JSON.stringify(g('OFFSEASON_TABS')) === JSON.stringify(['v-auction', 'v-rookie']),
      JSON.stringify(g('OFFSEASON_TABS')));
   g('S').cfg.phase = 'season';
   ctx.__alerts.length = 0;
@@ -2700,8 +2703,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   console.log('\n== quick sign belongs to the season ==');
   {
     ok('it is named as one', g('SEASON_TABS').join() === 'v-draft');
-    ok('and the offseason tabs are still the other three',
-       g('OFFSEASON_TABS').join() === 'v-auction,v-fa,v-rookie');
+    ok('and the offseason tabs are still the other two',
+       g('OFFSEASON_TABS').join() === 'v-auction,v-rookie');
     /* The DOM stub cannot resolve "#tabs button", so the RULE is asserted here
        and the hiding itself was confirmed in Chromium. */
     ok('the two lists do not overlap',
