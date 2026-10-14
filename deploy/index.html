@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.14">
+<meta name="ll-build" content="2026-10-14.15">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -492,6 +492,9 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
 .homegrid{display:flex;flex-wrap:wrap;gap:24px;margin-top:8px}
 .homecol{flex:999 1 560px;min-width:0}
 .homecol.narrow{flex:1 1 320px}
+.hometop{margin-top:0;align-items:flex-start}
+.hometop>.homecol.narrow{flex:1 1 300px;max-width:380px}
+@media(max-width:900px){.hometop>.homecol.narrow{max-width:none}}
 .hbest>div,.hfeed>div{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line2);font-size:14px}
 .hbest .mono{margin-left:auto;font-size:12.5px;color:var(--steel)}
 .hbest .mine{color:var(--amber)}
@@ -1052,6 +1055,11 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
        same elements that used to live on Team trends and Contracts, moved here. -->
   <section class="view" id="v-home" role="tabpanel">
     <div id="welcome"></div>
+    <!-- Two columns (2026-10-14): the club and the league on the left; the chat,
+         last night's best and the latest moves down the right from the top. On a
+         phone the right column stacks underneath. -->
+    <div class="homegrid hometop">
+      <div class="homecol">
     <div id="homeSnap"></div>
     <div id="homeTape"></div>
     <div id="homeOff"></div>
@@ -1061,8 +1069,6 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <select id="standPer" aria-label="Period" style="width:auto" hidden></select>
       <span class="fcount" id="realStandNote"></span></div>
     <div id="realStand"></div>
-    <div class="homegrid">
-      <div class="homecol">
     <h2 class="sub">Rolling 15 days</h2>
     <div class="filters">
       <select id="trCat"><option value="PTS">Points</option><option value="REB">Rebounds</option>
@@ -1075,7 +1081,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="feedHelp"></div>
       </div>
       <div class="homecol narrow">
-        <h2 class="sub">League chat <span class="fcount" id="homeChatSum"></span></h2>
+        <h2>League chat <span class="fcount" id="homeChatSum"></span></h2>
         <div id="homeChat"></div>
         <div class="chatre" id="homeChatRe" hidden></div>
         <div class="chatbox">

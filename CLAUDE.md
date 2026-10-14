@@ -83,6 +83,10 @@ picked club (`activeTeam`) gets `drawClubLive()` — its lineup tonight with eac
 man's numbers for the chosen period, its bench, its standing and strongest and
 weakest categories, and a Propose a trade button — above `drawDetail()`.
 
+**Home is two columns** (`.hometop`): the snapshot, the tape, standings and the
+15-day chart on the left; League chat, Last night's best and Around the league
+down the right from the top (stacking underneath on a phone).
+
 **Home never suggests lineup moves** (league decision): it states facts —
 how many of your starters play tonight, first tip — and the GM decides.
 
