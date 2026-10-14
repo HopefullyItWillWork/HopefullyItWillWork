@@ -111,6 +111,35 @@ every night's lines; `pstats-<season>` holds the four windows, per game, keyed b
 `nameKey()`. Windows are calendar days back from the latest night. Until the
 regular season has a night they are built from preseason nights and say so.
 
+### The Jam theme and the tale of the tape (2026-10-14)
+
+**A third theme**, NBA Jam's arcade cabinet with a 90s warm-up-jacket palette.
+The theme button cycles `dark -> light -> jam` (`THEMES`, `nextTheme()`); an
+unknown stored value reads as dark. Jam is a dark theme, so every
+`=== 'light'` check in the app is already right for it. It is a token set plus
+decorative rules, all scoped to `[data-theme="jam"]` at the end of the
+stylesheet: striped and hardwood bands on the masthead, bevelled arcade tabs
+and buttons, hard black shadows on cards. Mockup:
+claude.ai/artifact/6tT3QbD4Sd6XrNLMMEDir1.
+
+**The arcade fonts stay off the tables.** Bungee (`--arcade`) is on headings
+and the brand, Press Start 2P (`--pixel`) on tabs and the small labels, VT323
+(`--led`) on scoreboard figures (Home's cards, the tape). Table numbers keep
+the ledger's mono: a pixel font at table size is unreadable on a phone. Last
+night's best line wears a "He's on fire!" call — it is the best line of the
+night and nothing more is claimed for it.
+
+**The tale of the tape** (`#homeTape`, `drawTape()`) is on Home in every
+theme: the GM's club against **any club he picks**, its league rank in all
+nine categories side by side, and who leads each. The pick is remembered per
+club in this browser (`ll_tape`); it defaults to the club directly above (below
+for the leader). Signed out or as the commissioner, both sides are pickable.
+Season results once a night is scored (`SCORE.standings`, the same roto points
+the Standings table shows); before that, `standings()`'s projection under the
+stats period in front of the GM, and the header says which. `tapeRanks()`,
+`tapeDefault()` and `tapeData()` are pure. The panel is rewritten only when its
+HTML changed, so the poll does not snap shut a select the GM has open.
+
 ### Phone
 
 Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and
@@ -1783,7 +1812,8 @@ the key fell back to `proj_anon`.
   Free agent classes tab does — its rows used to render a card into a panel
   pinned under the entire grid, so reading the stats you had just asked for meant
   scrolling past four sorted tables. Prefer the modal.
-- Two themes via `[data-theme]` on the root. Every colour is a token. There is a
+- Three themes via `[data-theme]` on the root — `dark`, `light` and `jam` (see
+  "The Jam theme" below). Every colour is a token. There is a
   global `[hidden]{display:none!important}` because author CSS otherwise wins.
 - Sentence case for headings and buttons, not tracked-out caps. Monospace for
   numbers — this is a ledger and tabular figures aid scanning.

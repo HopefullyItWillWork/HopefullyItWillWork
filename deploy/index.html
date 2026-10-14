@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.1">
+<meta name="ll-build" content="2026-10-14.2">
 <title>League Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Bungee&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
 /* Two themes. Dark: the arena at night. Light: the scorer's table sheet —
    cool paper rather than cream, blue-black ink, amber darkened to hold contrast. */
@@ -816,6 +816,119 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 #stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--space);margin-bottom:9px}
 @media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
+/* ---- Tale of the tape (Home): your club against one you pick, category by
+   category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
+.tape{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;margin:0 0 20px}
+.tapehd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tapehd h2{margin:0;flex:none}
+.tapehd h2::after{display:none}
+.tapehd .pjlab{margin-left:auto}
+.tapetop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-bottom:12px}
+.tapeid{display:flex;gap:11px;align-items:center;min-width:0}
+.tapeid.r{flex-direction:row-reverse;text-align:right}
+.tapebadge{width:48px;height:48px;flex:none;display:grid;place-items:center;border-radius:3px;
+  font:700 20px var(--disp);color:#fff;background:var(--dyn2)}
+.tapeid.r .tapebadge{background:var(--tax2)}
+.tapenm{font:700 22px/1.1 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tapeid select{width:auto;max-width:100%;font:700 18px var(--disp);padding:4px 8px}
+.tapemeta{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
+.tapevs{font:700 26px var(--disp);color:var(--amber)}
+.taperow{display:grid;grid-template-columns:44px minmax(0,1fr) 52px minmax(0,1fr) 44px;gap:8px;align-items:center;padding:3px 0}
+.taperow .lab{text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--steel)}
+.taperow .rk{font-family:var(--mono);font-size:12px;color:var(--steel)}
+.taperow .rk.a{text-align:right}
+.taperow .rk.win{color:var(--amber);font-weight:700}
+.tapebar{height:10px;background:var(--well);border-radius:2px;display:flex;overflow:hidden}
+.tapebar.a{justify-content:flex-end}
+.tapebar span{display:block;height:100%;background:var(--steel);opacity:.55}
+.tapebar span.win{background:var(--amber);opacity:1}
+.tapefoot{margin-top:10px;font-size:13px;color:var(--steel)}
+.tapefoot b{color:var(--chalk)}
+@media(max-width:640px){
+  .tapetop{grid-template-columns:1fr;text-align:center}
+  .tapeid,.tapeid.r{flex-direction:row;text-align:left}
+  .tapevs{text-align:center}
+  .taperow{grid-template-columns:34px minmax(0,1fr) 44px minmax(0,1fr) 34px;gap:6px}
+}
+
+/* =================== THE JAM THEME (2026-10-14) ===================
+   A third theme beside dark and light: NBA Jam's arcade cabinet and 90s
+   warm-up jackets. Tokens first, so every screen follows; then a handful of
+   decorative rules scoped to [data-theme="jam"]. Numbers in tables stay in
+   the ledger's mono — the arcade fonts go on headings, tabs, labels and the
+   scoreboard figures only, because a pixel font at table size is unreadable
+   on a phone. Mockup: claude.ai/artifact/6tT3QbD4Sd6XrNLMMEDir1. */
+[data-theme="jam"]{
+  color-scheme:dark;
+  --arcade:'Bungee','Barlow Condensed',system-ui,sans-serif;
+  --pixel:'Press Start 2P',ui-monospace,monospace;
+  --led:'VT323',ui-monospace,monospace;
+  --ink:#0B0820; --panel:#17123A; --panel2:#201A4A; --well:#07051A;
+  --line:#2E2768; --line2:rgba(46,39,104,.6);
+  --chalk:#F4F1FF; --steel:#B3ABE0; --dim:#958DCB;
+  --amber:#FFD60A; --amber2:#E0B800; --tax:#FF5C7A; --tax2:#C8102E; --space:#3DDC84;
+  --dyn:#00D4DE; --dyn2:#00838C;
+  --sel:#2A1F63; --mast:#000;
+  --okbg:#0F2A1E; --okln:#2C6E4A; --oktx:#9DF0C2;
+  --wnbg:#2A0D12; --wnln:#6B1F2C; --wntx:#FFB3C0;
+  --bnr:#17123A;
+  --shadow:5px 5px 0 #000;
+}
+[data-theme="jam"] .mast{background:#000;border-bottom:4px solid var(--amber)}
+[data-theme="jam"] .mast::before{content:'';display:block;height:8px;
+  background:repeating-linear-gradient(135deg,#00A3AD 0 16px,#5B2A86 16px 32px,#C8102E 32px 48px,#FFD60A 48px 64px)}
+[data-theme="jam"] .mast::after{content:'';display:block;height:10px;border-top:3px solid #000;
+  background:repeating-linear-gradient(90deg,#C8843F 0 46px,#B8743A 46px 92px,#D39250 92px 138px)}
+[data-theme="jam"] .brand{font-family:var(--arcade);font-weight:400;color:var(--amber);letter-spacing:.02em;
+  text-shadow:2px 2px 0 #C8102E,4px 4px 0 #000}
+[data-theme="jam"] .brand::after{display:none}
+[data-theme="jam"] .season{font-family:var(--led);font-size:20px;letter-spacing:.04em;color:#FF6A13}
+[data-theme="jam"] .themebtn{border:2px solid var(--amber);color:var(--amber)}
+[data-theme="jam"] nav{gap:6px;padding-bottom:10px}
+[data-theme="jam"] nav button,[data-theme="jam"] .more>#moreBtn{font-family:var(--pixel);font-weight:400;font-size:9.5px;
+  letter-spacing:0;text-transform:uppercase;color:#fff;background:#5B2A86;border:3px solid #000;
+  box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.18);padding:11px 12px;min-height:40px}
+[data-theme="jam"] nav button:hover,[data-theme="jam"] .more>#moreBtn:hover{color:var(--amber)}
+[data-theme="jam"] nav button[aria-selected=true]{background:var(--amber);color:#000;border-bottom-color:#000}
+[data-theme="jam"] .more>#moreBtn{background:#241D52}
+[data-theme="jam"] .moremenu{border:3px solid #000;border-radius:0;box-shadow:6px 6px 0 #000}
+[data-theme="jam"] h2{font-family:var(--arcade);font-weight:400;font-size:19px;color:var(--dyn);text-shadow:2px 2px 0 #000}
+[data-theme="jam"] h2::after{height:3px;background:var(--line)}
+[data-theme="jam"] h2 .fcount,[data-theme="jam"] h2 select{text-shadow:none}
+[data-theme="jam"] .pjlab{font-family:var(--pixel);font-size:8px;letter-spacing:0;color:var(--steel)}
+[data-theme="jam"] .hcard,[data-theme="jam"] .impact,[data-theme="jam"] .tape{border:3px solid #000;border-radius:0;
+  box-shadow:5px 5px 0 #000;outline:2px solid #00A3AD;outline-offset:-7px}
+[data-theme="jam"] .hbig{font-family:var(--led);font-weight:400;font-size:46px;line-height:1;color:#FF6A13}
+[data-theme="jam"] .hbig .hof{font-family:var(--body)}
+[data-theme="jam"] .btn{border:3px solid #000;border-radius:0;color:#000;
+  box-shadow:inset -3px -3px 0 rgba(0,0,0,.3),inset 3px 3px 0 rgba(255,255,255,.3)}
+[data-theme="jam"] .btn.ghost{background:#5B2A86;color:#fff;border:3px solid #000}
+[data-theme="jam"] .btn.ghost:hover{color:var(--amber)}
+[data-theme="jam"] .btn.danger{background:#2A0D12;border:3px solid #000}
+[data-theme="jam"] .subnav button{border:3px solid #000;border-radius:0;background:#241D52;color:#fff}
+[data-theme="jam"] .subnav button[aria-pressed=true]{background:var(--amber);color:#000;border-color:#000}
+[data-theme="jam"] thead th{color:var(--dyn)}
+[data-theme="jam"] dialog{border:3px solid #000;border-radius:0;box-shadow:8px 8px 0 #000}
+[data-theme="jam"] .tapehd h2{font-size:26px;color:#fff;text-shadow:3px 3px 0 #5B2A86,5px 5px 0 #000}
+[data-theme="jam"] .tapebadge{border:3px solid #000;border-radius:0;font-family:var(--arcade);font-weight:400;background:#00A3AD}
+[data-theme="jam"] .tapeid.r .tapebadge{background:#5B2A86}
+[data-theme="jam"] .tapenm{font-family:var(--arcade);font-weight:400;font-size:20px}
+[data-theme="jam"] .tapemeta{font-family:var(--led);font-size:20px;color:var(--space)}
+[data-theme="jam"] .tapevs{font-family:var(--arcade);font-weight:400;font-size:40px;color:var(--amber);text-shadow:3px 3px 0 #C8102E}
+[data-theme="jam"] .taperow .lab{font-family:var(--pixel);font-size:8px;letter-spacing:0;color:#fff}
+[data-theme="jam"] .taperow .rk{font-family:var(--led);font-size:20px}
+[data-theme="jam"] .tapebar{height:13px;border:2px solid #000;border-radius:0;background:#000}
+[data-theme="jam"] .tapebar span{background:#5B2A86;opacity:1}
+[data-theme="jam"] .tapebar span.win{background:var(--amber);box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+/* Last night's best line gets the cabinet's call. It is the best line of the
+   night and nothing more is claimed for it. */
+[data-theme="jam"] .hbest>div:first-child{background:#2A0D12;border:3px solid #000;padding:9px 10px;margin-bottom:6px}
+[data-theme="jam"] .hbest>div:first-child::before{content:"He's on fire!";flex-basis:100%;
+  font-family:var(--arcade);font-size:17px;color:#FF6A13;text-shadow:2px 2px 0 #FFD60A,3px 3px 0 #000}
+@media(max-width:640px){
+  [data-theme="jam"] nav#tabs{background:#000;border-top:4px solid var(--amber);padding-top:5px}
+  [data-theme="jam"] nav button{font-size:8px;padding:10px 9px}
+}
 </style>
 </head>
 <body>
@@ -865,6 +978,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   <section class="view" id="v-home" role="tabpanel">
     <div id="welcome"></div>
     <div id="homeSnap"></div>
+    <div id="homeTape"></div>
     <div id="homeOff"></div>
     <div id="preBox2" hidden></div>
     <h2>Standings <select id="standPer" aria-label="Period" style="margin-left:auto;width:auto;flex:none" hidden></select></h2>
@@ -6375,12 +6489,19 @@ function goTab(id){
 }
 
 /* ---------- theme ---------- */
+/* Three themes, cycled by the one button: dark -> light -> jam -> dark.
+   Anything unknown reads as dark. Jam is a dark theme, so every
+   `=== 'light'` check in the app is already right for it. */
+const THEMES=['dark','light','jam'];
+const THEMENAME={dark:'the dark theme',light:'the light theme',jam:'the NBA Jam theme'};
+const nextTheme=t=>THEMES[(Math.max(0,THEMES.indexOf(t))+1)%THEMES.length];
 function applyTheme(t){
+  if(!THEMES.includes(t)) t='dark';
   document.documentElement.setAttribute('data-theme',t);
   const i=document.getElementById('themeIco');
-  if(i) i.textContent = t==='light' ? '\u25D3' : '\u25D2';
+  if(i) i.textContent = t==='light' ? '\u25D3' : t==='jam' ? '\u2605' : '\u25D2';
   const b=document.getElementById('themeBtn');
-  if(b) b.title = t==='light' ? 'Switch to the dark theme' : 'Switch to the light theme';
+  if(b) b.title = 'Switch to '+THEMENAME[nextTheme(t)];
   try{localStorage.setItem('ll_theme',t);}catch(e){}
 }
 (function(){
@@ -6390,7 +6511,7 @@ function applyTheme(t){
   applyTheme(t);
 })();
 document.getElementById('themeBtn').onclick=()=>
-  applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light');
+  applyTheme(nextTheme(document.documentElement.getAttribute('data-theme')));
 
 /* ============ PLAYER DETAIL: actuals vs my projections ============
    Any table can make a name clickable by giving the cell class="pname"
@@ -9688,7 +9809,97 @@ function drawHome(){
       <b>${htmlEsc(e.team||'')}</b> ${htmlEsc(e.detail||'')}</div>`).join('')}</div>`:'<div class="empty">No moves yet.</div>')
     +`<div class="hfoot"><button class="btn ghost" data-go="v-log">All transactions</button>
       <button class="btn ghost" data-go="v-chat">Chat${CHATNEW?` \u00b7 ${CHATNEW} new`:''}</button></div>`;
+  drawTape();
   drawHomeBest();
+}
+/* ================= TALE OF THE TAPE (Home, 2026-10-14) =================
+   Your club against any other, category by category: where each ranks in the
+   league in all nine, and who is ahead in each. The GM picks the opponent; it
+   defaults to the club directly above (below, for the leader) and the choice is
+   remembered per club in this browser (ll_tape). Signed out, or as the
+   commissioner, both sides are pickable.
+
+   Season results once a night has been scored (SCORE.standings, the same roto
+   points the Standings table shows); before that, the projection standings()
+   gives under the stats period in front of the GM, and the header says which. */
+const TAPECATS=[['PTS','PTS','PTS'],['REB','REB','TRB'],['AST','AST','AST'],['3PM','P3','P3'],
+  ['STL','STL','STL'],['BLK','BLK','BLK'],['TO','TO','TOV'],['FG%','FG%','FG'],['FT%','FT%','FT']];
+/* {club: value, higher better} -> {club: {r, tie}}. Pure. */
+function tapeRanks(vals){
+  const vs=Object.values(vals).filter(v=>v!=null), out={};
+  Object.entries(vals).forEach(([c,v])=>{
+    out[c]=v==null?null:{r:vs.filter(o=>o>v).length+1, tie:vs.filter(o=>o===v).length>1}; });
+  return out;
+}
+function tapeSource(){
+  const rows=SCORE.standings||[];
+  if(rows.some(r=>r.tot&&r.tot.GP>0)){
+    const ranks={};
+    TAPECATS.forEach(([lab,k])=>{
+      const rk=tapeRanks(Object.fromEntries(rows.map(r=>[r.club,r.cat?r.cat[k]:null])));
+      rows.forEach(r=>(ranks[r.club]=ranks[r.club]||{})[lab]=rk[r.club]); });
+    return {live:true,N:rows.length,ranks,pts:Object.fromEntries(rows.map(r=>[r.club,r.pts])),
+      order:rows.slice().sort((a,b)=>a.rank-b.rank).map(r=>r.club)};
+  }
+  const T=TEAMS(), st=standings(), ranks={};
+  TAPECATS.forEach(([lab,,k])=>{
+    const rk=tapeRanks(Object.fromEntries(T.map(t=>[t,k==='TOV'?-st.tot[t][k]:st.tot[t][k]])));
+    T.forEach(t=>(ranks[t]=ranks[t]||{})[lab]=rk[t]); });
+  return {live:false,N:T.length,ranks,pts:st.pts,order:T.slice().sort((a,b)=>st.pts[b]-st.pts[a]||a.localeCompare(b))};
+}
+/* The default opponent: the club directly above a, or below it for the leader. */
+function tapeDefault(order,a){
+  const i=order.indexOf(a);
+  return i>0?order[i-1]:order.find(c=>c!==a)||null;
+}
+/* Both sides' ranks in every category, and who leads it. Pure. */
+function tapeData(src,a,b){
+  const cats=TAPECATS.map(([lab])=>{
+    const ra=src.ranks[a]&&src.ranks[a][lab], rb=src.ranks[b]&&src.ranks[b][lab];
+    return {lab,a:ra||null,b:rb||null,win:ra&&rb?(ra.r<rb.r?'a':rb.r<ra.r?'b':''):''};
+  });
+  return {cats,leadA:cats.filter(c=>c.win==='a').length,leadB:cats.filter(c=>c.win==='b').length};
+}
+function tapeStore(){ try{return JSON.parse(localStorage.getItem('ll_tape')||'{}')||{};}catch(e){return {};} }
+function tapeSave(k,v){ const o=tapeStore(); o[k]=v; try{localStorage.setItem('ll_tape',JSON.stringify(o));}catch(e){} }
+const tapeInit=c=>String(c).split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+function drawTape(){
+  const box=$('homeTape'); if(!box) return;
+  const T=TEAMS(); if(T.length<2){ box.innerHTML=''; box.dataset.h=''; return; }
+  const src=tapeSource(), mine=me&&!isComm()&&S.teams[me]?me:null, saved=tapeStore();
+  const key=mine||'__any';
+  const pick=v=>v&&S.teams[v]?v:null;
+  const a=mine||pick(saved[key+'.a'])||src.order[0];
+  let b=pick(saved[key]); if(!b||b===a) b=tapeDefault(src.order,a);
+  const D=tapeData(src,a,b), N=src.N;
+  const rkText=x=>x?(x.tie?'T':'')+ordinal(x.r):'\u2014';
+  const w=x=>x?Math.max(4,(N-x.r+1)/N*100).toFixed(1):0;
+  const place=c=>ordinal(src.order.indexOf(c)+1);
+  const opts=(sel,not)=>T.filter(t=>t!==not).map(t=>`<option value="${htmlEsc(t)}"${t===sel?' selected':''}>${htmlEsc(t)}</option>`).join('');
+  const side=(c,r,ctl)=>`<div class="tapeid${r?' r':''}"><div class="tapebadge" aria-hidden="true">${htmlEsc(tapeInit(c))}</div>
+    <div style="min-width:0"><div class="pjlab">${r?'Against':c===mine?'You':'Club'}</div>
+      ${ctl?`<select id="${ctl}" aria-label="${r?'Club to compare against':'Club to compare'}">${opts(c,r?a:b)}</select>`
+           :`<div class="tapenm">${htmlEsc(c)}</div>`}
+      <div class="tapemeta">${src.pts[c]!=null?`${src.pts[c]} roto pts \u00b7 ${place(c)}`:''}</div></div></div>`;
+  const html=`<section class="tape" aria-label="Tale of the tape">
+    <div class="tapehd"><h2>Tale of the tape</h2>
+      <span class="pjlab">${src.live?'Season to date':'Projected from '+htmlEsc(projSrcLabel())}</span></div>
+    <div class="tapetop">${side(a,false,mine?'':'tapeA')}<div class="tapevs" aria-hidden="true">VS</div>${side(b,true,'tapeB')}</div>
+    ${D.cats.map(c=>`<div class="taperow">
+      <span class="rk a${c.win==='a'?' win':''}">${rkText(c.a)}</span>
+      <div class="tapebar a"><span class="${c.win==='a'?'win':''}" style="width:${w(c.a)}%"></span></div>
+      <span class="lab">${c.lab}</span>
+      <div class="tapebar"><span class="${c.win==='b'?'win':''}" style="width:${w(c.b)}%"></span></div>
+      <span class="rk${c.win==='b'?' win':''}">${rkText(c.b)}</span></div>`).join('')}
+    <div class="tapefoot"><b>${htmlEsc(a)}</b> leads ${D.leadA} of 9 \u00b7 <b>${htmlEsc(b)}</b> leads ${D.leadB}
+      \u00b7 rank in the league out of ${N}; a longer bar is a better rank.</div></section>`;
+  /* Only rewrite when something changed, so the poll does not snap shut a
+     select the GM has open. */
+  if(box.dataset.h===html) return;
+  box.dataset.h=html; box.innerHTML=html;
+  const sa=$('tapeA'), sb=$('tapeB');
+  if(sa) sa.onchange=()=>{ tapeSave(key+'.a',sa.value); drawTape(); };
+  if(sb) sb.onchange=()=>{ tapeSave(key,sb.value); drawTape(); };
 }
 /* Last night's best: the latest scored night (the season's, else the
    preseason tournament's), every player a club started, ranked by a simple
