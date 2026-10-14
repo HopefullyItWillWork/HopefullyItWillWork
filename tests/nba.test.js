@@ -31,5 +31,17 @@ ok('a healthy player carries nothing', !hurt['2'].inj && !hurt['3'].inj);
 ok('day-to-day from the type when status is missing', injuryFrom({ injuries:[{ type:{ description:'Day-To-Day' } }] }).s === 'Day-To-Day');
 ok('garbage is null, not a crash', injuryFrom(null) === null && injuryFrom({ injuries:'x' }) === null);
 
+import { freshPlayers } from '../deploy/netlify/functions/lib/nba.mjs';
+{
+  /* A copy cached before injuries were read is refreshed at once; with the fetch
+     failing here it falls back to the stored copy, marked stale — proving the
+     cache was not simply returned. */
+  const mem = { v: JSON.stringify({ at: Date.now(), players: { 1: { n: 'X', t: 'BOS' } } }),
+    get: async () => mem.v, set: async (k, v) => { mem.v = v; } };
+  const realFetch = globalThis.fetch; globalThis.fetch = async () => { throw new Error('offline'); };
+  const got = await freshPlayers(mem, 6 * 3600e3);
+  globalThis.fetch = realFetch;
+  ok('a pre-injury cached copy is not served as fresh', got.stale === true);
+}
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);

@@ -2446,8 +2446,13 @@ ESPN's team rosters carry each athlete's `injuries`; `injuryFrom()` in
 refreshed with the rosters (six hours, and every morning). The page reads it into
 `NBAP.inj` through the same name route as the headshots (`injOf()`), and
 `injTag()` draws the chip — **OUT** red, **DTD**/Q/D amber — with the detail on
-hover. `addHeadshots()` adds it to every name it touches; the lineup rows and the
-player card carry it directly. **Information only**: nothing benches, cuts or
+hover. `addHeadshots()` adds it to every name it touches; the lineup rows carry it
+directly, and **the player card always has an Injury line** (`injLine()`) —
+the report, "none reported", or why there is nothing yet — so a GM knows where to
+look. A cached `nbaplayers` from before injuries were read (no `injv`) is
+refreshed at once instead of waiting out its six hours. The Commissioner tab's
+Stats and scoring panel shows **Injury report: N listed**, which is how to tell
+whether ESPN's format is being read at all. **Information only**: nothing benches, cuts or
 blocks a player because of it. Tests: `tests/nba.test.js`.
 
 ## Positions come from ESPN

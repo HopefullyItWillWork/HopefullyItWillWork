@@ -133,14 +133,18 @@ export async function fetchPlayers() {
   } else {
     elig = null;
   }
-  return { at: Date.now(), teams: teams.length, players, positions: !!elig };
+  /* `injv` marks a copy fetched since injuries were read, so a copy cached
+     before that is refreshed straight away rather than waiting out its six
+     hours with no injury report in it. */
+  const injuries = Object.values(players).filter((p) => p.inj).length;
+  return { at: Date.now(), teams: teams.length, players, positions: !!elig, injv: 1, injuries };
 }
 
 /* Refresh `nbaplayers` if it is older than `maxAge`, else return what is stored. */
 export async function freshPlayers(s, maxAge) {
   let have = null;
   try { const raw = await s.get("nbaplayers"); have = raw ? JSON.parse(raw) : null; } catch { have = null; }
-  if (have && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
+  if (have && have.injv && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
   try {
     const got = await fetchPlayers();
     /* ESPN's fantasy list failed this time: carry the last positions over. */
