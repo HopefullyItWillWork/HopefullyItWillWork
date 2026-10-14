@@ -4467,6 +4467,29 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     SC.days=keep; delete LNc[d];
   }
 
+
+  console.log('\n== chat replies and the Home chat card ==');
+  {
+    const keepMe=X.me; X.me='Osborn';
+    const C=g('CHAT'); const keepC=C.slice(); C.length=0;
+    C.push({ts:'2026-10-14T12:00:00.000Z',by:'Coulter',text:'Who wants Trae Young?'});
+    ctx.CHATLOADED=true;
+    g('chatReplyTo')(g('chatId')(C[0]));
+    ok('reply picks the post being answered', ctx.CHATRE && ctx.CHATRE.by==='Coulter');
+    await g('postChat')('Me, for the right price');
+    const R=g('CHAT')[0];
+    ok('a reply carries who and what it answers', R.re && R.re.by==='Coulter' && /Trae Young/.test(R.re.t), JSON.stringify(R));
+    ok('the reply state clears after posting', ctx.CHATRE===null);
+    g('drawChat')();
+    const h=document.getElementById('homeChat').innerHTML;
+    ok('Home shows the newest posts', /for the right price/.test(h) && /Who wants Trae Young/.test(h));
+    ok('...with the quoted original on the reply', /data-goto=/.test(h));
+    ok('...and a Reply button on each', (h.match(/data-remsg=/g)||[]).length===2);
+    ok('the summary line counts today’s posts', /post/.test(document.getElementById('homeChatSum').textContent), document.getElementById('homeChatSum').textContent);
+    ok('My notes are gone from the Chat tab', !document.getElementById('notesBox'));
+    C.length=0; keepC.forEach(x=>C.push(x)); X.me=keepMe;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

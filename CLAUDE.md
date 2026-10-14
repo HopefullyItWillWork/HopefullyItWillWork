@@ -47,7 +47,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 
 | Tab | Section id | What is on it |
 |---|---|---|
-| **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
+| **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), the chat card (`#homeChat`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
 | **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
 | **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Last night** `v-night` (every box score for a night, filterable to free agents / my team — `drawNight()`), **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
@@ -1731,9 +1731,23 @@ it is what fetches it. Do not fold it into the slice poll.
 Every post is escaped through `htmlEsc()` on the way to the screen. It is the one
 place in the app where a league-mate types text that everyone else renders.
 
-**My notes** is the opposite of the chat: nobody else can read it. It rides the
-encrypted club-private store described above, so it follows the GM between
-devices while a league-mate who fetches the key gets ciphertext.
+**My notes was taken off the Chat tab (2026-10-14, league request).** The
+encrypted `notes` box, `loadNotes()`/`saveNotes()` and the stored copies are all
+still there and still load at boot; only the textarea is gone, so putting it back
+somewhere is markup and nothing else.
+
+**Replies.** A post can answer another: `m.re = {id, by, t}` — the original's
+`chatId()`, author and first 90 characters — so the reply reads on its own even
+if the original scrolls away or is deleted. `CHATRE` is the post being answered,
+shared by both composers; the reply bar (`chatReBar()`) shows it with a ×. The
+quoted line jumps to the original on the Chat tab.
+
+**Home carries the room too**: a one-line summary (`chatSummary()` — new since
+you last opened Chat, posts today and from whom), the newest `CHATHOME` posts with
+Reply/Delete, and its own composer (`drawHomeChat()`). Reading it on Home does
+**not** mark anything seen. Because Home shows it, chat now loads at boot and the
+once-a-minute peek re-fetches the room when its revision moved — still never on
+the four-second slice poll.
 
 ## Auth
 

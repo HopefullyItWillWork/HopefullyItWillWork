@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.12">
+<meta name="ll-build" content="2026-10-14.13">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -834,6 +834,18 @@ thead th.rotot{z-index:3}
 tr.sel td.rotot{background:var(--sel)}
 .standtbl tr.sel td{background:var(--sel)}
 
+/* ---- Chat replies and the Home chat card ---- */
+.chatre{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--steel);background:var(--panel2);
+  border:1px solid var(--line);border-left:3px solid var(--amber);padding:6px 10px;margin:0 0 6px;border-radius:2px}
+.chatre b{color:var(--chalk)}
+.chatre button{margin-left:auto}
+.msg .mq{font-size:12px;color:var(--steel);border-left:3px solid var(--line);padding:2px 8px;margin:2px 0 4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.msg .mq b{color:var(--chalk)}
+.msg.flash{outline:2px solid var(--amber);outline-offset:2px}
+#homeChat .msg{padding:6px 0;border-bottom:1px solid var(--line2)}
+#homeChat .mb{font-size:13.5px}
+
 /* ---- Info buttons: the explanation behind a small "i" (2026-10-14). A
    p.note.explain is hidden until its button is pressed; infoNotes() wires them. */
 .infobtn{display:inline-grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;
@@ -1061,6 +1073,14 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="feedHelp"></div>
       </div>
       <div class="homecol narrow">
+        <h2 class="sub">League chat <span class="fcount" id="homeChatSum"></span></h2>
+        <div id="homeChat"></div>
+        <div class="chatre" id="homeChatRe" hidden></div>
+        <div class="chatbox">
+          <textarea id="homeChatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
+          <button class="btn" id="homeChatGo">Post</button>
+        </div>
+        <div class="hfoot"><button class="btn ghost" data-go="v-chat">Open chat</button></div>
         <h2 class="sub">Last night's best <span class="fcount" id="homeBestDay"></span></h2>
         <div id="homeBest"></div>
         <h2 class="sub">Around the league</h2>
@@ -1290,6 +1310,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <span class="fcount" id="chatCount"></span>
       <button class="btn ghost" id="chatRefresh">Refresh</button>
     </div>
+    <div class="chatre" id="chatRe" hidden></div>
     <div class="chatbox">
       <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
       <button class="btn" id="chatGo">Post</button>
@@ -1297,18 +1318,6 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
     <div class="chatlog" id="chatLog"></div>
 
-    <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span>
-      <span class="fcount" id="notesWho"></span></h2>
-    <p class="note explain">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
-      which trade you are working on. Nobody else can read it: it is stored under your club,
-      encrypted with a key derived from your PIN, so it follows you between devices while a
-      league-mate who fetches it gets ciphertext. That is the same honour-system bar as the rest of
-      the app &#8212; it stops someone reading your notes, not someone who digs your PIN out of the
-      league data first.</p>
-    <textarea id="notesBox" rows="10" placeholder="Nobody else can read this."></textarea>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">
-      <button class="btn ghost" id="notesClear">Clear my notes</button>
-    </div>
   </section>
 
   <section class="view" id="v-settings" role="tabpanel" hidden>
@@ -4768,12 +4777,9 @@ function drawMe(){
   const beat=hplaces.filter(p=>p===1).length;
   const a=A();
   const myEmail=(S.teams[T]||{}).email;
+  /* The pill row (contracts, cap space, to the tax, projected place, phase)
+     repeated the cap grid right under it; removed 2026-10-14. */
   $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>
-    <span class="pill">${n} of ${roster} under contract</span>
-    <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
-    <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
-    <span class="pill">projected ${fin}${sfx} of ${order.length}</span>
-    <span class="pill">${seasonLive()?'season is live':'offseason'}</span>
     <button class="btn ghost" id="meEmail" style="margin-left:auto">${
       myEmail ? 'Email \u00b7 '+([S.teams[T].daily?'daily':'',S.teams[T].weekly?'weekly':''].filter(Boolean).join(' + ')||'no digest') : 'Add your email'}</button></div>
     <dl class="capgrid">
@@ -8260,6 +8266,9 @@ function chatPeekQuery(){
 }
 function chatPeek(c){
   if(!c) return;
+  /* Home shows the room too, so a moved revision is fetched (one small read,
+     only when something changed) and both chat views redrawn. */
+  if(CHATLOADED&&c.rev!==CHATREV) loadChat().then(ch=>{ if(ch) drawChat(); });
   if(!chatSeen()){ setChatSeen(c.ts); CHATNEW=0; }   // first visit: nothing is "new"
   else CHATNEW=chatOn()?0:(c.n||0);
   drawBadges();
@@ -9477,12 +9486,24 @@ async function loadChat(force){
     return changed;
   }catch(e){ return false; }
 }
+/* A reply carries a small copy of what it answers — id, author and the first
+   words — so it reads on its own even after the original scrolls away or is
+   deleted. CHATRE is the post being answered, shared by both composers. */
+var CHATRE=null;
+function chatReplyTo(id){
+  CHATRE=CHAT.find(x=>chatId(x)===id)||null;
+  drawChat();
+  const inp=chatOn()?$('chatIn'):$('homeChatIn');
+  if(inp&&inp.focus) inp.focus();
+}
 async function postChat(text){
   const body=String(text||'').trim();
   if(!body) return;
   if(!me) return alert('Sign in to post.');
   if(body.length>CHATMAX) return alert(`Keep it under ${CHATMAX} characters — that one is ${body.length}.`);
   const m={ts:now(),by:isComm()?'Commissioner':me,text:body};
+  if(CHATRE) m.re={id:chatId(CHATRE),by:CHATRE.by,t:String(CHATRE.text||'').slice(0,90)};
+  CHATRE=null;
   CHATBUSY=true;
   let ok=false;
   if(await probeAPI()){
@@ -9559,10 +9580,58 @@ async function refreshNotes(){
 let notesTimer=null;
 function chatLine(m){
   const mine = isComm() || m.by===me;
-  return `<div class="msg${m.by===me?' own':''}">
-    <div class="mh"><b>${htmlEsc(m.by)}</b><span class="t">${fmt(m.ts)}</span>
+  const by=m.by==='Commissioner'?'':m.by;
+  return `<div class="msg${m.by===me?' own':''}" data-msgid="${htmlEsc(chatId(m))}">
+    <div class="mh">${clubBadge(by)}<b>${htmlEsc(m.by)}</b><span class="t">${htmlEsc(agoText(m.ts))}</span>
+      ${me?`<button class="act edit" data-remsg="${htmlEsc(chatId(m))}">Reply</button>`:''}
       ${mine?`<button class="act" data-delmsg="${htmlEsc(chatId(m))}">Delete</button>`:''}</div>
+    ${m.re?`<div class="mq" data-goto="${htmlEsc(m.re.id)}" title="Show the post this answers">\u21B3 <b>${htmlEsc(m.re.by)}</b>: ${htmlEsc(m.re.t)}</div>`:''}
     <div class="mb">${htmlEsc(m.text)}</div></div>`;
+}
+/* The reply bar above a composer: who is being answered, and a way out. */
+function chatReBar(id){
+  const el=$(id); if(!el) return;
+  el.hidden=!CHATRE;
+  if(!CHATRE){ el.innerHTML=''; return; }
+  el.innerHTML=`<span>Replying to <b>${htmlEsc(CHATRE.by)}</b>: ${htmlEsc(String(CHATRE.text||'').slice(0,60))}</span>
+    <button class="act" data-cancelre="1" aria-label="Cancel the reply">\u00D7</button>`;
+  el.querySelector('[data-cancelre]').onclick=()=>{ CHATRE=null; drawChat(); };
+}
+function wireChatButtons(box){
+  box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>removeChat(b.dataset.delmsg));
+  box.querySelectorAll('[data-remsg]').forEach(b=>b.onclick=()=>chatReplyTo(b.dataset.remsg));
+  box.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>{
+    if(!chatOn()) goTab('v-chat');
+    const t=[...document.querySelectorAll('#chatLog [data-msgid]')].find(x=>x.dataset.msgid===b.dataset.goto);
+    if(t){ t.scrollIntoView&&t.scrollIntoView({block:'center'}); t.classList.add('flash'); setTimeout(()=>t.classList.remove('flash'),1600); }
+  });
+}
+/* Home's chat card: a one-line summary and the newest few posts, with its own
+   composer. Reading it here does not mark anything seen — the badge still
+   counts until the Chat tab is opened. */
+const CHATHOME=5;
+function chatSummary(){
+  if(!CHATLOADED) return 'loading\u2026';
+  if(!CHAT.length) return 'quiet so far';
+  const seen=chatSeen(), mine=isComm()?'Commissioner':me;
+  const fresh=seen?CHAT.filter(m=>m.ts>seen&&m.by!==mine).length:0;
+  const day=CHAT.filter(m=>Date.now()-new Date(m.ts).getTime()<86400000);
+  const who=[...new Set(day.map(m=>m.by))];
+  return [fresh?`${fresh} new`:'',
+    day.length?`${day.length} post${day.length===1?'':'s'} today${who.length?' from '+who.slice(0,3).join(', ')+(who.length>3?` +${who.length-3}`:''):''}`
+      :`last post ${agoText(CHAT[0].ts)}`].filter(Boolean).join(' \u00b7 ');
+}
+function drawHomeChat(){
+  const box=$('homeChat'); if(!box) return;
+  if($('homeChatSum')) $('homeChatSum').textContent=chatSummary();
+  const shown=CHAT.slice(0,CHATHOME);
+  box.innerHTML=shown.length?shown.map(chatLine).join('')
+    :`<div class="empty">${CHATLOADED?'Nobody has said anything yet. Start it off.':'Loading\u2026'}</div>`;
+  wireChatButtons(box);
+  const inp=$('homeChatIn'), go=$('homeChatGo');
+  if(go) go.disabled=!me;
+  if(inp){ inp.disabled=!me; inp.placeholder=me?(CHATRE?'Your reply':'Say something'):'Sign in to post'; }
+  chatReBar('homeChatRe');
 }
 function drawChat(){
   const box=$('chatLog'); if(!box) return;
@@ -9570,14 +9639,16 @@ function drawChat(){
   const shown=CHAT.slice(0,CHATSHOW);
   box.innerHTML = shown.length ? shown.map(chatLine).join('')
     : `<div class="empty">${CHATLOADED?'Nobody has said anything yet.':'Loading…'}</div>`;
-  box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>removeChat(b.dataset.delmsg));
+  wireChatButtons(box);
+  chatReBar('chatRe');
+  drawHomeChat();
   if($('chatCount')) $('chatCount').textContent = CHAT.length
     ? `${CHAT.length} post${CHAT.length===1?'':'s'}${CHAT.length>CHATSHOW?`, newest ${CHATSHOW} shown`:''}` : '';
   const send=$('chatGo'), inp=$('chatIn');
   if(send) send.disabled=!me;
   if(inp){
     inp.disabled=!me;
-    inp.placeholder = me ? 'Say something' : 'Sign in to post';
+    inp.placeholder = me ? (CHATRE?'Your reply':'Say something') : 'Sign in to post';
   }
   if($('chatWho')) $('chatWho').textContent = me
     ? `Posting as ${isComm()?'Commissioner':me}` : 'Signed out — you can read, not post';
@@ -9601,6 +9672,10 @@ function wireChat(){
     if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey){ e.preventDefault(); $('chatGo').onclick(); }
   };
   if($('chatRefresh')) $('chatRefresh').onclick=async()=>{ await loadChat(true); drawChat(); };
+  if($('homeChatGo')) $('homeChatGo').onclick=async()=>{
+    const v=$('homeChatIn').value; $('homeChatIn').value=''; await postChat(v); };
+  if($('homeChatIn')) $('homeChatIn').onkeydown=e=>{
+    if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey){ e.preventDefault(); $('homeChatGo').onclick(); } };
   if($('notesBox')) $('notesBox').oninput=()=>{
     clearTimeout(notesTimer);
     const v=$('notesBox').value;
@@ -10113,6 +10188,7 @@ function drawHome(){
       <button class="btn ghost" data-go="v-chat">Chat${CHATNEW?` \u00b7 ${CHATNEW} new`:''}</button></div>`;
   drawTape();
   drawHomeLive();
+  drawHomeChat();
   drawHomeBest();
 }
 /* Who is around (presence from the poll, seen in the last five minutes) and
@@ -11184,6 +11260,7 @@ function netChip(){
   if(S.cfg.pre) loadPre();
   if(useProj&&LIVEW.includes(PROJSRC)) loadLive(PROJSRC).then(()=>{ RTGCACHE=null; render(); });
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
+  loadChat().then(()=>drawChat());
   loadDaily();
 })();
 </script>
