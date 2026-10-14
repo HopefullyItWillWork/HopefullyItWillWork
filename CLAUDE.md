@@ -141,6 +141,47 @@ stats period in front of the GM, and the header says which. `tapeRanks()`,
 `tapeDefault()` and `tapeData()` are pure. The panel is rewritten only when its
 HTML changed, so the poll does not snap shut a select the GM has open.
 
+### Making it read like a website, not a manual (2026-10-14)
+
+**Explanations sit behind a small "i".** A paragraph that explains how
+something works is `p.note.explain`: hidden until its button is pressed.
+`infoNotes()` wires them — the button goes in the heading right above (or in a
+`.tapehd`/`.dhead` header row above), else just before the note. It is
+idempotent and re-run by `render()` and a `MutationObserver`, because a heading
+rewritten with `textContent` (the rater's) loses its button. A note the GM
+opened stays open across a redraw (`INFOOPEN`). **Status lines stay visible** —
+anything that says what is true right now (waiting on a club, a save result, a
+warning) is a plain `p.note`. New explanatory copy should be `explain`.
+
+**Club colours.** `S.teams[t].brand = {c:'#RRGGBB', ab:'OS'}`, set by the GM on
+Settings › Team colours. It rides rosters, so it merges per club and a rename
+carries it. `clubBrand()` gives a stable colour from the name and the initials
+when nothing is set; `clubBadge(t)` is the badge every screen uses (standings,
+the tape, the club page, Home's feed and presence). `inkOn()` picks black or
+white text for the colour.
+
+**Headshots** are ESPN's (`a.espncdn.com/combiner/...headshots/nba/players/full/<id>.png`),
+by the ESPN id `/api/players` already carries (`NBAP.ids`, resolved through the
+same name route as `espnTeamOf()` — `espnIdOf()`). No id, no picture, and a
+picture that fails to load removes itself. On the lineup rows, last night's
+best and the player card.
+
+**Presence.** The once-a-minute `&chat=…&me=<club>` poll now also stamps that
+club in the `seen` blob and returns everyone's stamp (`state.mjs`, capped at 40
+names). Home's "Around the league" shows who was seen in the last five minutes
+and the latest three log entries of any kind — lineup changes included — with
+"4m ago" times (`drawHomeLive()`, `agoText()`).
+
+**Empty states** say what is coming rather than what is missing. With
+`S.cfg.opener` set (Commissioner › League settings › Opening night) the
+standings show a countdown (`daysToOpener()`). The old "What the nightly job
+needs to write" developer box on Home is gone — the feed is built.
+
+**Sharing.** `og:` and `twitter:` tags point at `deploy/og.png` (1200×630) and
+`deploy/icon-180.png` is the home-screen icon; both are drawn in the Jam look.
+`og:image` is an absolute URL on hopefullyitwill.work, so a preview deploy's
+link still shows the live image.
+
 ### Phone
 
 Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and
