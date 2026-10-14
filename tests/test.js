@@ -540,13 +540,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction.bids.unshift({t:'Brice', amt:3.00, ts:2, mle:true});
     ok('two clubs level on declared MLE bids are', g('mleTied')().sort().join() === 'Brice,Osborn',
        JSON.stringify(g('mleTied')()));
-    /* One of the two has to be on the exception — only a mid-level bid can
-       produce a level pair. With neither on it, this is not a tie. */
+    /* Every tie at the price goes to the flip, however it got there
+       (league decision, 2026-10-09) — the exception is not required. */
     CS.auction.bids[0].mle = false;
     ok('one still on the exception keeps the tie', g('mleTied')().length === 2,
        JSON.stringify(g('mleTied')()));
     CS.auction.bids[1].mle = false;
-    ok('neither on it is not a tie at all', g('mleTied')().length === 0);
+    ok('neither on it is still a tie', g('mleTied')().length === 2);
     CS.auction = null; X.me = keepMe;
   }
 
@@ -1995,7 +1995,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('no mid-level', !/Mid-level/.test(headLive));
   ok('but payroll and the cap are still there',
      /Payroll/.test(headLive) && /Room to tax/.test(headLive));
-  ok('and the game slots still show', /Game slots used/.test(headLive));
+  ok('and the games played and projected show',
+     /Games played/.test(headLive) && /Projected games, full season/.test(headLive));
   g('S').cfg.phase = 'offseason';
   g('render')();
   const headOff = document.getElementById('meHead').innerHTML;
