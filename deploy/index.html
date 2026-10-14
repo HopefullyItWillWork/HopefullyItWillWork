@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.9">
+<meta name="ll-build" content="2026-10-14.10">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1011,7 +1011,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
        see showSub(). goTab() accepts a sub-view id too and opens its group.
        "Menu" is the old More dropdown, now holding the rarely used pages. -->
   <nav role="tablist" id="tabs">
-    <button role="tab" data-v="v-home" aria-selected="true">League Home</button>
+    <button role="tab" data-v="v-home" aria-selected="true">Home</button>
     <button role="tab" data-v="v-me" aria-selected="false" id="meTab" hidden>My Team</button>
     <button role="tab" data-v="v-league" aria-selected="false">League</button>
     <button role="tab" data-v="v-players" aria-selected="false">Players</button>
@@ -3378,6 +3378,7 @@ function drawWho(){
   else{el.innerHTML=`<span>Signed in as <b>${isComm()?'Commissioner':htmlEsc(me)}</b></span>
     <span class="badge ${hasComm()?'comm':''}">${isComm()?'Full access'
       :isDeputy()?'GM \u00b7 commissioner access':'GM'}</span>
+    ${isComm()?'':'<button class="btn ghost" data-go="v-settings" title="Your club name, colours, email and PIN">Settings</button>'}
     <button class="btn ghost" id="outBtn">Sign out</button>`;}
   $('adminTab').hidden=!hasComm();
   /* Both entry points run the same open, so the header button gets the

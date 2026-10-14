@@ -47,7 +47,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 
 | Tab | Section id | What is on it |
 |---|---|---|
-| **League Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
+| **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
 | **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
 | **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
@@ -55,7 +55,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
 | **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
 | **Chat** | `v-chat` | chat and My notes, with the unread badge |
-| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14) |
+| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14). A GM also gets a **Settings** button beside Sign out (`drawWho()`): on a phone the bottom bar scrolls and the tab sat off-screen, so GMs could not find it |
 
 Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
 projections, Team trends, League history and Transactions tabs — every one of
