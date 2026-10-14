@@ -1805,14 +1805,14 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.sched = {[g('dayKey')()]: {[tm]: '00:00'}};
   ok('his club tipped off, so he is locked', g('isLocked')(withTeam) === true);
   ok('the reason names the club and the time',
-     /tipped off at 00:00/.test(g('lockOf')(withTeam).why), g('lockOf')(withTeam).why);
+     /tipped off at 12:00 AM/.test(g('lockOf')(withTeam).why), g('lockOf')(withTeam).why);
   ok('a team-mate on a LATER game is still free', g('isLocked')(other) === false,
      g('NBATM')[g('canon')(other)] + ' ' + JSON.stringify(g('lockOf')(other)));
   ok('and his row shows when he will lock', g('lockOf')(other).why === '',
      g('lockOf')(other).why);
   g('S').cfg.sched = {[g('dayKey')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
   ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
-  ok('but the screen tells him the time', /23:59/.test(g('lockOf')(other).why),
+  ok('but the screen tells him the time', /11:59 PM/.test(g('lockOf')(other).why),
      g('lockOf')(other).why);
   ok('the note counts tonight’s clubs', /2 clubs playing tonight/.test(g('lineupNote')()),
      g('lineupNote')());
@@ -2071,7 +2071,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.sched = {[night]: {[short]: '23:59'}};
   ok('his own time wins', g('isLocked')(someone) === false,
      JSON.stringify(g('lockOf')(someone)));
-  ok('and the row shows the overridden time', /23:59/.test(g('lockOf')(someone).why),
+  ok('and the row shows the overridden time', /11:59 PM/.test(g('lockOf')(someone).why),
      g('lockOf')(someone).why);
   const another = g('S').teams['N. Fink'].r.find(p => g('contracted')(p)
     && g('NBATM')[g('canon')(p.n)] && g('NBATM')[g('canon')(p.n)] !== short);
@@ -4383,6 +4383,43 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.cfg.opener=keepOp;
 
     ok('the nightly-job developer box is gone from Home', !/What the nightly job needs to write/.test(require('fs').readFileSync(require('path').join(__dirname,'..','deploy','index.html'),'utf8')));
+  }
+
+
+  console.log('\n== standings views, game times, roster stats, lineup date bar ==');
+  {
+    const SC=g('SCORE'), keep={st:SC.standings,days:SC.days};
+    const T2=g('TEAMS')(), night={};
+    T2.forEach((t,i)=>night[t]={FG:40+i,FGA:90,FT:20,FTA:25,P3:10+i,REB:50-i,AST:30,STL:8,BLK:5,TO:15,PTS:120+i,GP:10});
+    SC.days={'2026-10-21':night}; SC.standings=g('standingsFor')(SC.days);
+    ctx.STANDMODE='tot'; g('drawStandings')();
+    let h=document.getElementById('realStand').innerHTML;
+    ok('Home standings draw, with the roto total pinned right', /class="rating rotot"/.test(h) && /th data-k="tot" class="rotot"/.test(h));
+    ok('My Team has its own standings', /meStandTbl/.test(document.getElementById('meStand').innerHTML));
+    ok('three views offered', /data-sm="night"/.test(document.getElementById('standMode').innerHTML) && /data-sm="roto"/.test(document.getElementById('standMode').innerHTML));
+    ctx.STANDMODE='roto'; g('drawStandings')();
+    h=document.getElementById('realStand').innerHTML;
+    const most=T2[T2.length-1];
+    ok('roto view shows category points, not totals', !new RegExp('<td>'+(120+T2.length-1)+'</td>').test(h) && new RegExp('<td>'+T2.length+'</td>').test(h));
+    ctx.STANDMODE='night'; g('drawStandings')();
+    ok('last night view names the night', /Oct 21/.test(document.getElementById('realStandNote').innerHTML), document.getElementById('realStandNote').innerHTML);
+    ctx.STANDMODE='tot'; SC.standings=keep.st; SC.days=keep.days;
+
+    ok('12-hour clock', /^7:30 PM/.test(g('clock12')(19*60+30)) && /^12:05 AM/.test(g('clock12')(5)));
+
+    const keepR=ctx.ROSTAT; ctx.ROSTAT='act';
+    const jok=g('S').teams.Osborn.r.find(p=>/Joki/.test(p.n));
+    ok('roster stats: last season per game', g('rosVal')(jok,'PTS')>20 && g('rosVal')(jok,'g')>0, g('rosVal')(jok,'PTS'));
+    ok('roster cells: GP plus nine categories', (g('rosCells')(jok.n).match(/<td>/g)||[]).length===10);
+    ctx.ROSTAT='d7';
+    ok('a window not loaded reads as empty, not zero', g('rosVal')(jok,'PTS')===null);
+    ctx.ROSTAT=keepR;
+
+    ctx.LUVIEW.day=''; g('luGo')('2999-01-01');
+    ok('the date bar never goes past tonight', ctx.LUVIEW.day==='');
+    g('luGo')('2026-10-01');
+    ok('an earlier night is kept', ctx.LUVIEW.day==='2026-10-01');
+    g('luGo')('');
   }
 
   console.log('\n== no stray alerts ==');

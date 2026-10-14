@@ -47,8 +47,8 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 
 | Tab | Section id | What is on it |
 |---|---|---|
-| **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
-| **My Team** | `v-me` | the stats-period bar, tonight's lineup, Results, your roster; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
+| **League Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
+| **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
 | **League** | `v-league` (group) | sub-views **Clubs** `v-contracts`, **Standings & history** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
 | **Trades** | `v-trade` | unchanged |
@@ -181,6 +181,51 @@ needs to write" developer box on Home is gone — the feed is built.
 `deploy/icon-180.png` is the home-screen icon; both are drawn in the Jam look.
 `og:image` is an absolute URL on hopefullyitwill.work, so a preview deploy's
 link still shows the live image.
+
+### Standings, the lineup's date bar, roster stats (2026-10-14)
+
+**Standings are drawn twice** — League Home and My Team › Standings — by one
+function, `drawStandBox()`, keyed by `STANDBOX`. Three views (`STANDMODE`,
+remembered in `ll_standmode`): **Totals**, **Last night** (the latest scored
+night alone, through `standingsFor()`) and **Roto points** (each category's
+points instead of its total). The roto total is `td.rotot`, sticky to the
+right edge like an action column.
+
+**Lineup and results are one box.** A date bar (`drawLuNav()`, `LUVIEW`) sits
+over the lineup: tonight is the editable lineup; the arrows or the date picker
+go back to any night (or week) and show what scored — the Results code
+(`drawLastNight()`) draws it and hides its own controls (`#lnWrap.combined`).
+With lineups closed (offseason) Results stands alone as before. Game times read
+"CLE tips off at 7:30 PM ET" (`clock12()`); a starter with no game says so.
+The lineup grid carries a tenth column, **PR** (`rtg()`), so `.lurow` is
+`repeat(10, …)`.
+
+**My Roster** shows PR and a per-game line from a toggle — **T7, T15, YTD**
+(the rolling windows, `liveLine()`) or **2025–26** (`RATER`) — `ROSTAT`
+(`ll_rostat`), `rosLine()`/`rosVal()`/`rosCells()`. It is independent of the
+stats-period bar, which still drives PR.
+
+**Headshots everywhere**: `addHeadshots()` runs after drawing (with
+`infoNotes()`, from the `MutationObserver`) and puts a picture in every
+`.pname[data-player]`, every `tr[data-player]`'s first cell and every
+`[data-hs]` cell. A new table gets pictures by marking its name cell
+`data-hs="<name>"`. ESPN's rosters now load at boot in every phase.
+
+### Speed (2026-10-14)
+
+**`render()` draws only what is on screen.** It used to redraw every page —
+~0.8s per poll that changed anything, 45,000 DOM nodes — almost all of it into
+hidden pages. The heavy draw functions (`drawRater`, `drawFA`, `drawFAList`,
+`drawQuickPool`, `drawLogs`, `drawMe`, `drawAuction`, `drawStrategy`,
+`drawProjTab`, `drawLabPool`, `drawDraft`, `drawTradeLists`) call
+`offscreen(id)` first, after any side effect outside their own page (tab
+badges, tab visibility), and skip a hidden page, setting `DRAWSKIPPED`.
+`goTab()` and `showSub()` call `catchUp()`, which re-renders once when a page
+comes into view. Measured: render 784ms → 8ms, 2,700 nodes. Only in a real
+browser (`REALDOM`): the Node stub has no layout and its tests read pages
+straight after `render()`. **A new heavy draw function should gate itself the
+same way.** Boot fetches the three club boxes (projections, strategy, notes) in
+parallel rather than one after another.
 
 ### Phone
 
