@@ -51,6 +51,32 @@ export function rosterFrom(json, code) {
   return out;
 }
 
+/* Fantasy position eligibility: ESPN's own fantasy game's player list, public and
+   keyless. `eligibleSlots` are ESPN's lineup-slot ids; only the single-position
+   ones are read (0 PG, 1 SG, 2 SF, 3 PF, 4 C, 5 G, 6 F) — the combo slots
+   (7 SG/SF, 8 G/F, 9 PF/C, 10 F/C) would make a pure centre forward-eligible
+   through "F/C". The season is the year it ENDS: 2026-27 is 2027. */
+export const FANTASY = (yr) =>
+  `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/${yr}/players?view=players_wl`;
+export const fantasyYear = (d = new Date()) => d.getUTCFullYear() + (d.getUTCMonth() >= 7 ? 1 : 0);
+export function familyOf(slots) {
+  const s = new Set(slots || []), out = [];
+  if ([0, 1, 5].some((x) => s.has(x))) out.push("G");
+  if ([2, 3, 6].some((x) => s.has(x))) out.push("F");
+  if (s.has(4)) out.push("C");
+  return out.join(", ");
+}
+/* Fantasy player list -> { <espnId>: "G, F" }. The ids are ESPN's athlete ids,
+   the same ones the team rosters carry. */
+export function eligFrom(list) {
+  const out = {};
+  for (const p of Array.isArray(list) ? list : []) {
+    const f = p && familyOf(p.eligibleSlots);
+    if (f && p.id != null) out[String(p.id)] = f;
+  }
+  return out;
+}
+
 const HEAD = { "user-agent": "Mozilla/5.0 (compatible; LeagueLedger/1.0)", accept: "application/json" };
 async function getJSON(url, ms = 8000) {
   const ctl = new AbortController();
@@ -70,7 +96,23 @@ export async function fetchPlayers() {
   const rosters = await Promise.all(teams.map(async (t) =>
     rosterFrom(await getJSON(`${TEAMS}/${t.id}/roster`), t.code)));
   const players = Object.assign({}, ...rosters);
-  return { at: Date.now(), teams: teams.length, players };
+  /* Positions are a bonus: a fantasy API failure keeps the clubs and leaves
+     `el` off, and freshPlayers() keeps the last good positions. */
+  let elig = null;
+  try {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 12000);
+    try {
+      const r = await fetch(FANTASY(fantasyYear()), { signal: ctl.signal,
+        headers: { ...HEAD, "x-fantasy-filter": JSON.stringify({ players: { limit: 5000 } }) } });
+      if (r.ok) elig = eligFrom(await r.json());
+    } finally { clearTimeout(timer); }
+  } catch { elig = null; }
+  if (elig && Object.keys(elig).length > 200) {
+    for (const [id, p] of Object.entries(players)) { if (elig[id]) p.el = elig[id]; }
+  } else {
+    elig = null;
+  }
+  return { at: Date.now(), teams: teams.length, players, positions: !!elig };
 }
 
 /* Refresh `nbaplayers` if it is older than `maxAge`, else return what is stored. */
@@ -80,6 +122,13 @@ export async function freshPlayers(s, maxAge) {
   if (have && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
   try {
     const got = await fetchPlayers();
+    /* ESPN's fantasy list failed this time: carry the last positions over. */
+    if (!got.positions && have && have.players) {
+      for (const [id, p] of Object.entries(got.players)) {
+        const old = have.players[id];
+        if (old && old.el) p.el = old.el;
+      }
+    }
     await s.set("nbaplayers", JSON.stringify(got));
     return { ...got, cached: false };
   } catch (e) {

@@ -540,13 +540,13 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.auction.bids.unshift({t:'Brice', amt:3.00, ts:2, mle:true});
     ok('two clubs level on declared MLE bids are', g('mleTied')().sort().join() === 'Brice,Osborn',
        JSON.stringify(g('mleTied')()));
-    /* One of the two has to be on the exception — only a mid-level bid can
-       produce a level pair. With neither on it, this is not a tie. */
+    /* Every tie at the price goes to the flip, however it got there
+       (league decision, 2026-10-09) — the exception is not required. */
     CS.auction.bids[0].mle = false;
     ok('one still on the exception keeps the tie', g('mleTied')().length === 2,
        JSON.stringify(g('mleTied')()));
     CS.auction.bids[1].mle = false;
-    ok('neither on it is not a tie at all', g('mleTied')().length === 0);
+    ok('neither on it is still a tie', g('mleTied')().length === 2);
     CS.auction = null; X.me = keepMe;
   }
 
@@ -1995,7 +1995,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('no mid-level', !/Mid-level/.test(headLive));
   ok('but payroll and the cap are still there',
      /Payroll/.test(headLive) && /Room to tax/.test(headLive));
-  ok('and the game slots still show', /Game slots used/.test(headLive));
+  ok('and the games played and projected show',
+     /Games played/.test(headLive) && /Projected games, full season/.test(headLive));
   g('S').cfg.phase = 'offseason';
   g('render')();
   const headOff = document.getElementById('meHead').innerHTML;
@@ -2277,8 +2278,11 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      "#tabs button" — which markPhaseTabs() and goTab() both use — finds nothing
      here. What can be checked in Node is the rule; the hiding itself was
      verified in a real browser. */
-  ok('the three offseason-only views are named in one place',
-     JSON.stringify(g('OFFSEASON_TABS')) === JSON.stringify(['v-auction', 'v-fa', 'v-rookie']),
+  /* Since the 2026-10-14 layout the free agent classes are a part of Players ›
+     Free agents (drawPlayersFA() swaps them with the in-season list), so only
+     the auction and the rookie draft are offseason TABS. */
+  ok('the offseason-only views are named in one place',
+     JSON.stringify(g('OFFSEASON_TABS')) === JSON.stringify(['v-auction', 'v-rookie']),
      JSON.stringify(g('OFFSEASON_TABS')));
   g('S').cfg.phase = 'season';
   ctx.__alerts.length = 0;
@@ -2700,8 +2704,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   console.log('\n== quick sign belongs to the season ==');
   {
     ok('it is named as one', g('SEASON_TABS').join() === 'v-draft');
-    ok('and the offseason tabs are still the other three',
-       g('OFFSEASON_TABS').join() === 'v-auction,v-fa,v-rookie');
+    ok('and the offseason tabs are still the other two',
+       g('OFFSEASON_TABS').join() === 'v-auction,v-rookie');
     /* The DOM stub cannot resolve "#tabs button", so the RULE is asserted here
        and the hiding itself was confirmed in Chromium. */
     ok('the two lists do not overlap',

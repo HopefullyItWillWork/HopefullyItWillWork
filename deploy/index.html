@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-13.1">
+<meta name="ll-build" content="2026-10-14.1">
 <title>League Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -465,6 +465,31 @@ tbody tr.hasproj td:first-child::after{content:" \2022";color:var(--amber)}
 border:1px solid var(--amber);color:var(--chalk);font-family:var(--mono);font-size:12px;padding:10px 16px;
 border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;padding:0;max-width:none;overflow:visible}
+.subnav button{background:none;border:1px solid var(--line);border-radius:3px;color:var(--steel);font:600 14px var(--body);
+  padding:8px 14px;cursor:pointer;min-height:38px}
+.subnav button[aria-pressed=true]{background:var(--panel2);color:var(--chalk);border-color:var(--amber)}
+.perbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.perbar .toggle{flex-wrap:wrap}
+.hsnap{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 18px}
+.hcard{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px}
+.hbig{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.1}
+.hbig .hof{font-size:16px;color:var(--steel);font-weight:600}
+.hbig .up{font-size:16px;color:var(--space)} .hbig .down{font-size:16px;color:var(--tax)}
+.hsmall{font-size:13px;color:var(--steel)}
+.homegrid{display:flex;flex-wrap:wrap;gap:24px;margin-top:8px}
+.homecol{flex:999 1 560px;min-width:0}
+.homecol.narrow{flex:1 1 320px}
+.hbest>div,.hfeed>div{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line2);font-size:14px}
+.hbest .mono{margin-left:auto;font-size:12.5px;color:var(--steel)}
+.hbest .mine{color:var(--amber)}
+.hfoot{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* Phone: the tab bar moves to the bottom of the screen, within thumb reach. */
+@media(max-width:640px){
+  nav#tabs{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--panel);border-top:1px solid var(--line);
+    padding:2px 4px calc(2px + env(safe-area-inset-bottom));overflow-x:auto;justify-content:flex-start}
+  body{padding-bottom:64px}
+}
 .updbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:210;display:flex;gap:12px;
 align-items:center;background:var(--panel);border:1px solid var(--amber);color:var(--chalk);padding:9px 10px 9px 15px;
 border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:14px;max-width:calc(100% - 32px)}
@@ -804,38 +829,80 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   </div>
   <div class="mast-in" id="projBar" hidden style="padding-top:0;border-top:1px solid var(--line);margin-top:0">
   </div>
+  <!-- ==== NAVIGATION (layout rebuilt 2026-10-14; see CLAUDE.md "Where everything lives") ====
+       Six tabs a GM uses every day, plus Auction and Rookie draft in the offseason
+       only (OFFSEASON_TABS). Each data-v names a top-level <section class="view">.
+       League and Players are GROUPS: their sections hold several old screens as
+       sub-views (data-subview), switched by the pill bar at the top of each —
+       see showSub(). goTab() accepts a sub-view id too and opens its group.
+       "Menu" is the old More dropdown, now holding the rarely used pages. -->
   <nav role="tablist" id="tabs">
+    <button role="tab" data-v="v-home" aria-selected="true">Home</button>
     <button role="tab" data-v="v-me" aria-selected="false" id="meTab" hidden>My Team</button>
-    <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
-    <button role="tab" data-v="v-contracts" aria-selected="true">Contracts</button>
-    <button role="tab" data-v="v-rater" aria-selected="false">Player rater</button>
+    <button role="tab" data-v="v-league" aria-selected="false">League</button>
+    <button role="tab" data-v="v-players" aria-selected="false">Players</button>
     <button role="tab" data-v="v-trade" aria-selected="false">Trades <span class="badge" id="tCount"></span></button>
-
+    <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
+    <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
+    <button role="tab" data-v="v-chat" aria-selected="false">Chat<span class="badge" id="chatBadge"></span></button>
     <div class="more">
-      <button type="button" id="moreBtn" aria-expanded="false" aria-haspopup="true">More<span class="badge" id="moreBadge"></span></button>
+      <button type="button" id="moreBtn" aria-expanded="false" aria-haspopup="true">Menu</button>
     </div>
   </nav>
   <div class="menuwrap"><div class="moremenu" id="moreMenu" hidden>
-        <button role="tab" data-v="v-fa" aria-selected="false">Free agent classes</button>
-        <button role="tab" data-v="v-lab" aria-selected="false" hidden>Builder</button>
-        <button role="tab" data-v="v-draft" aria-selected="false">Quick sign</button>
-        <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
-        <button role="tab" data-v="v-chat" aria-selected="false">Chat &amp; notes<span class="badge" id="chatBadge"></span></button>
-        <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
-        <button role="tab" data-v="v-proj" aria-selected="false" id="projTab" hidden>My projections</button>
-        <button role="tab" data-v="v-trends" aria-selected="false">Team trends</button>
-        <button role="tab" data-v="v-history" aria-selected="false">League history</button>
-        <button role="tab" data-v="v-log" aria-selected="false">Transactions</button>
-        <button role="tab" data-v="v-rules" aria-selected="false">Cap rules</button>
+    <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
+    <button role="tab" data-v="v-rules" aria-selected="false">Cap rules</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
   </div></div>
 </header>
 <div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
   <button type="button" class="btn" id="updGo">Reload</button></div>
 <main>
-  <section class="view" id="v-contracts" role="tabpanel">
+  <!-- ==== HOME ==== the landing page. drawHome() fills everything with an id
+       starting "home"; the standings (#realStand, drawStandings), the 15-day chart
+       (#chartWrap, drawTrend) and the preseason card (#preBox2, drawPre) are the
+       same elements that used to live on Team trends and Contracts, moved here. -->
+  <section class="view" id="v-home" role="tabpanel">
     <div id="welcome"></div>
+    <div id="homeSnap"></div>
+    <div id="homeOff"></div>
     <div id="preBox2" hidden></div>
+    <h2>Standings <select id="standPer" aria-label="Period" style="margin-left:auto;width:auto;flex:none" hidden></select></h2>
+    <p class="note" id="realStandNote"></p>
+    <div id="realStand"></div>
+    <div class="homegrid">
+      <div class="homecol">
+    <h2 class="sub">Rolling 15 days</h2>
+    <div class="filters">
+      <select id="trCat"><option value="PTS">Points</option><option value="REB">Rebounds</option>
+        <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
+        <option value="BLK">Blocks</option><option value="TO">Turnovers</option>
+        <option value="FG">FG%</option><option value="FT">FT%</option></select>
+      <span class="fcount" id="trStatus"></span>
+    </div>
+    <div id="chartWrap"></div>
+    <div id="feedHelp"></div>
+      </div>
+      <div class="homecol narrow">
+        <h2 class="sub">Last night's best <span class="fcount" id="homeBestDay"></span></h2>
+        <div id="homeBest"></div>
+        <h2 class="sub">Around the league</h2>
+        <div id="homeFeed"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==== LEAGUE ==== a group of three sub-views. Clubs is the old Contracts
+       page: the payroll ledger is the club picker (click a row), then that club's
+       lineup tonight and form (#clubLive, drawClubLive) above its contracts
+       (#detail, drawDetail). -->
+  <section class="view" id="v-league" role="tabpanel" hidden>
+    <nav class="subnav" aria-label="League sections">
+      <button type="button" data-sub="v-contracts" aria-pressed="true">Clubs</button>
+      <button type="button" data-sub="v-history" aria-pressed="false">Standings &amp; history</button>
+      <button type="button" data-sub="v-log" aria-pressed="false">Transactions</button>
+    </nav>
+  <div class="subview" id="v-contracts" data-subview>
     <h2>Payroll &#8212; committed salary</h2>
     <div class="ledger" id="ledger"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
@@ -846,8 +913,49 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <span><i style="background:var(--steel)"></i>Cap line</span>
       <span><i style="background:var(--tax)"></i>Hard cap line</span>
     </div>
+    <div data-perbar="club"></div>
+    <div id="clubLive"></div>
     <div class="detail" id="detail"></div>
+  </div>
+  <div class="subview" id="v-history" data-subview hidden>
+    <h2>Champions</h2>
+    <div class="banners" id="banners"></div>
+    <h2 class="sub">All-time</h2>
+    <p class="note">Every finish is credited to the manager, whatever the club was called that year. The names each manager has used are listed under them.</p>
+    <div class="scroller" data-cap="1"><table><thead><tr><th class="l">Manager</th><th>Seasons</th><th>Titles</th>
+      <th>Top 3</th><th>Avg finish</th><th>Avg points</th><th>Best</th><th>Worst</th></tr></thead>
+      <tbody id="alltime"></tbody></table></div>
+    <h2 class="sub">Season by season</h2>
+    <div class="filters"><select id="hSeason"></select><span class="fcount" id="hNote"></span></div>
+    <div class="scroller" data-cap="1" data-pin2="1"><table><thead><tr><th class="l">#</th><th class="l">Manager</th>
+      <th>FG%</th><th>FT%</th><th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th>
+      <th>Total</th></tr></thead><tbody id="seasonTbl"></tbody></table></div>
+    <h2 class="sub">Category profile &#8212; 2025&#8211;26 rosters</h2>
+    <p class="note">How each club's rostered players performed per player-game, so rosters that lost time to injury still
+      compare fairly. Green is a strength, red is a hole. Rating is the sum of the club's ten best player ratings.</p>
+    <div class="scroller" data-cap="1"><table id="profTbl">
+      <thead><tr><th class="l" data-k="n">Club</th><th data-k="FG">FG%</th><th data-k="FT">FT%</th>
+        <th data-k="P3">3P</th><th data-k="REB">REB</th><th data-k="AST">AST</th>
+        <th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th><th data-k="PTS">PTS</th>
+        <th data-k="top10">Top 10 rating</th></tr></thead>
+      <tbody id="profBody"></tbody></table></div>
+
+  </div>
+
+  <div class="subview" id="v-log" data-subview hidden>
+    <h2>Transaction history <span class="fcount" id="logCount"></span></h2>
+    <p class="note">Signings, releases and trades, newest first &#8212; the moves that change who
+      is on a roster. Cap edits, settings changes and corrections are not roster moves and are
+      left out. The commissioner can reverse an entry.</p>
+    <div class="filters" id="logTools" hidden>
+      <button class="btn ghost" id="logExport">Export CSV</button>
+      <button class="btn danger" id="logWipe">Delete every transaction</button>
+      <span class="fcount" id="logWipeNote"></span>
+    </div>
+    <div class="log" id="logList"></div>
+  </div>
   </section>
+
 
   <section class="view" id="v-me" role="tabpanel" hidden>
     <div id="meSwitch"></div>
@@ -855,6 +963,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
     <div id="preBox" hidden></div>
+    <div data-perbar="me"></div>
     <div id="luWrap" hidden>
       <h2>Tonight's lineup</h2>
       <div id="luHead"></div>
@@ -871,12 +980,18 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <div id="lnBody" style="margin-bottom:22px"></div>
     </div>
 
-    <h2>My roster <button class="btn ghost" id="expMine" style="margin-left:auto">Export CSV</button></h2>
+    <h2>My roster <button class="btn ghost" id="toMyContracts" style="margin-left:auto">Contracts &amp; cap</button>
+      <button class="btn ghost" id="expMine">Export CSV</button></h2>
     <div class="rosterwrap" id="meRoster"></div>
 
+    <div id="bidWrap">
     <h2 class="sub">On the block</h2>
     <div id="bidPanel"></div>
+    </div>
 
+    <!-- The what-if lab: offseason only (league decision, 2026-10-14). drawMeExtras()
+         hides it once the season is live. -->
+    <div id="labWrap">
     <h2 class="sub">What-if roster</h2>
     <p class="note">A sandbox on top of your club. Load your roster, then add and drop anyone in the pool to see what it
       would do to your category totals. Nothing here touches the league.</p>
@@ -912,27 +1027,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <div class="rosterwrap" id="labRoster"></div>
       <div id="labTotals"></div>
     </div>
-  
-    <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
-    <div class="filters">
-      <input id="faSearch" placeholder="Search" data-list="faSearchList" autocomplete="off">
-      <datalist id="faSearchList"></datalist>
-      <select id="faPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
-      <select id="faAdd"><option value="">Add a stat filter&#8230;</option>
-        <option value="g">Games</option><option value="PTS">Points</option><option value="TRB">Rebounds</option>
-        <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
-        <option value="BLK">Blocks</option><option value="TOV">Turnovers</option>
-        <option value="FGP">FG%</option><option value="FTP">FT%</option><option value="rtg">Rating</option></select>
-      <span class="fcount" id="faCount"></span>
     </div>
-    <div id="faChips" class="chips"></div>
-    <!-- Full width under .rosterwrap, not a .scroller in a half column. The Sign
-         button is the last cell, and .scroller table{min-width:760px} inside
-         .twocol put it 60-220px past the right edge at every screen size — the
-         same fault that hid the roster's Cut button and the Builder's Drop. The
-         impact card goes below the table rather than beside it. -->
-    <div class="rosterwrap" id="faTable"></div>
-    <div id="faImpact" style="margin-top:16px"><div class="empty">Pick a player to see what he would do to your categories.</div></div>
+  
   </section>
 
   <section class="view" id="v-auction" role="tabpanel" hidden>
@@ -960,46 +1056,6 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="log" id="budgets"></div>
     <h2 class="sub" id="myRosterHd">My roster</h2>
     <div id="auctRoster"></div>
-  </section>
-
-  <section class="view" id="v-fa" role="tabpanel" hidden>
-    <h2>Free agent class</h2>
-    <p class="note">Every expiring contract. Restricted players finished the last year of a team, player, or rookie option &#8212; their club may match the winning bid. Bird rights let a club exceed the cap to keep its own player, but it still has to win the bidding.</p>
-    <div class="filters"><input id="faTabSearch" placeholder="Search free agents" autocomplete="off">
-      <span class="fcount">click a player for full stats and your projection</span></div>
-    <div class="fagrid" id="fagrid"></div>
-  </section>
-
-  <section class="view" id="v-draft" role="tabpanel" hidden>
-    <h2>Sign a free agent</h2>
-    <div class="sync"><span class="dot" id="dot"></span><span id="syncTxt">Shared board</span></div>
-    <!-- An in-season signing has no terms to negotiate: one year at the league
-         minimum, and the calendar decides the rights. So there is nothing to
-         type. The salary and term used to be free inputs, which invited a deal
-         the rulebook does not allow. -->
-    <div class="form f4">
-      <div><label for="fPlayer">Player</label><input id="fPlayer" data-list="falist" placeholder="Start typing&#8230;" autocomplete="off"><datalist id="falist"></datalist></div>
-      <div><label for="fTeam">Signs with</label><select id="fTeam"></select></div>
-      <div><label>Terms</label><div class="fixedterm mono" id="fTerms">&#8212;</div></div>
-      <button class="btn" id="add">Record</button>
-    </div>
-    <p class="note" id="draftNote"></p>
-
-    <h2 class="sub">The free agent pool <span class="fcount" id="qsCount"></span></h2>
-    <p class="note">Everyone not under contract for next season, which is the same list the auction
-      and the strategy board read. Pick loads a name into the form above.</p>
-    <div class="filters">
-      <input id="qsSearch" placeholder="Search players" autocomplete="off">
-      <select id="qsPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
-      <select id="qsOnly"><option value="">Everyone</option>
-        <option value="rated">Rated only</option>
-        <option value="rights">Somebody holds rights</option>
-        <option value="rookie">Undrafted rookies</option></select>
-    </div>
-    <div class="scroller" data-cap="1" id="qsTable"></div>
-
-    <h2 class="sub">Recent signings</h2>
-    <div class="log" id="recent"></div>
   </section>
 
   <section class="view" id="v-rookie" role="tabpanel" hidden>
@@ -1120,6 +1176,138 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="setPinNote"></p>
   </section>
 
+  <!-- ==== PLAYERS ==== one group for everything about players. Sub-views:
+       Rater (the old Player rater, with the stats-period bar), Free agents (in
+       season the signable list that used to sit on My Team; in the offseason
+       the free agent classes — drawPlayersFA() picks which), My projections,
+       and Quick sign (in season only, SEASON_TABS). -->
+  <section class="view" id="v-players" role="tabpanel" hidden>
+    <nav class="subnav" aria-label="Player sections">
+      <button type="button" data-sub="v-rater" aria-pressed="true">Rater</button>
+      <button type="button" data-sub="v-pfa" aria-pressed="false">Free agents</button>
+      <button type="button" data-sub="v-proj" aria-pressed="false" id="projTab" hidden>My projections</button>
+      <button type="button" data-sub="v-draft" aria-pressed="false">Quick sign</button>
+    </nav>
+  <div class="subview" id="v-rater" data-subview>
+    <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
+    <p class="note">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
+      <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
+      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
+      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
+      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
+      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
+      player passes a better one who played less, which is the 920-game cap showing up.
+      <b>Dynamic rater</b> is your own scratch version: set a games or minutes floor and choose which categories count,
+      and the whole field is re-scored against what is left. It is scored against the players who clear your filters,
+      not the league, so it is marked in blue throughout and stays on this tab &#8212; nothing it says reaches the
+      strategy board, the auction or anyone else. The club column is
+      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
+      including the men playing out the last year of a deal. This is a record of last season, not a projection.</p>
+    <div data-perbar="rater"></div>
+    <div class="filters">
+      <input id="rSearch" placeholder="Search players" autocomplete="off">
+      <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
+      <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
+      <select id="rBasis" title="Score per-game averages or season totals">
+        <option value="pg">Per game</option><option value="tot">Season totals</option></select>
+      <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
+      <span class="fcount" id="rCount"></span>
+      <button class="btn ghost" id="expRater">Export CSV</button>
+    </div>
+    <div id="rDynBox" hidden></div>
+    <div id="rDynBanner" hidden></div>
+    <div class="scroller" id="rScroll" data-cap="1" data-pin2="1"><table id="raterTbl">
+      <thead><tr>
+        <th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
+        <th class="hide2" data-k="g">G</th>
+        <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3P</th><th data-k="REB">REB</th>
+        <th data-k="AST">AST</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th>
+        <th data-k="PTS">PTS</th><th data-k="tot">Rating</th>
+      </tr></thead><tbody id="raterBody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="subview" id="v-pfa" data-subview hidden>
+    <div id="pfaSeason">
+    <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
+    <div class="filters">
+      <input id="faSearch" placeholder="Search" data-list="faSearchList" autocomplete="off">
+      <datalist id="faSearchList"></datalist>
+      <select id="faPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
+      <select id="faAdd"><option value="">Add a stat filter&#8230;</option>
+        <option value="g">Games</option><option value="PTS">Points</option><option value="TRB">Rebounds</option>
+        <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
+        <option value="BLK">Blocks</option><option value="TOV">Turnovers</option>
+        <option value="FGP">FG%</option><option value="FTP">FT%</option><option value="rtg">Rating</option></select>
+      <span class="fcount" id="faCount"></span>
+    </div>
+    <div id="faChips" class="chips"></div>
+    <!-- Full width under .rosterwrap, not a .scroller in a half column. The Sign
+         button is the last cell, and .scroller table{min-width:760px} inside
+         .twocol put it 60-220px past the right edge at every screen size — the
+         same fault that hid the roster's Cut button and the Builder's Drop. The
+         impact card goes below the table rather than beside it. -->
+    <div class="rosterwrap" id="faTable"></div>
+    <div id="faImpact" style="margin-top:16px"><div class="empty">Pick a player to see what he would do to your categories.</div></div>
+    </div>
+  <div id="v-fa">
+    <h2>Free agent class</h2>
+    <p class="note">Every expiring contract. Restricted players finished the last year of a team, player, or rookie option &#8212; their club may match the winning bid. Bird rights let a club exceed the cap to keep its own player, but it still has to win the bidding.</p>
+    <div class="filters"><input id="faTabSearch" placeholder="Search free agents" autocomplete="off">
+      <span class="fcount">click a player for full stats and your projection</span></div>
+    <div class="fagrid" id="fagrid"></div>
+  </div>
+  </div>
+  <div class="subview" id="v-proj" data-subview hidden>
+    <h2>My projections</h2>
+    <p class="note">Your own numbers for next season, private to you. Nothing here is shared with the league.
+      Edit a player and every projection on the site &#8212; impact cards, ratings, standings &#8212; switches to your
+      figures whenever a stats bar is set to <b>Mine</b>. Blank fields fall back to last season's actuals.</p>
+    <div class="filters">
+      <input id="pjSearch" placeholder="Search any player" autocomplete="off">
+      <select id="pjFilter"><option value="">All players</option><option value="edited">Edited only</option>
+        <option value="mine">My roster</option><option value="fa">Free agents</option></select>
+      <span class="fcount" id="pjCount"></span>
+      <button class="btn ghost" id="pjReset">Clear all my edits</button>
+    </div>
+    <div class="twocol wide"><div class="scroller" data-cap="1" id="pjTable"></div>
+      <div id="pjDetail"><div class="empty">Pick a player to compare last season against your projection.</div></div></div>
+  </div>
+
+  <div class="subview" id="v-draft" data-subview hidden>
+    <h2>Sign a free agent</h2>
+    <div class="sync"><span class="dot" id="dot"></span><span id="syncTxt">Shared board</span></div>
+    <!-- An in-season signing has no terms to negotiate: one year at the league
+         minimum, and the calendar decides the rights. So there is nothing to
+         type. The salary and term used to be free inputs, which invited a deal
+         the rulebook does not allow. -->
+    <div class="form f4">
+      <div><label for="fPlayer">Player</label><input id="fPlayer" data-list="falist" placeholder="Start typing&#8230;" autocomplete="off"><datalist id="falist"></datalist></div>
+      <div><label for="fTeam">Signs with</label><select id="fTeam"></select></div>
+      <div><label>Terms</label><div class="fixedterm mono" id="fTerms">&#8212;</div></div>
+      <button class="btn" id="add">Record</button>
+    </div>
+    <p class="note" id="draftNote"></p>
+
+    <h2 class="sub">The free agent pool <span class="fcount" id="qsCount"></span></h2>
+    <p class="note">Everyone not under contract for next season, which is the same list the auction
+      and the strategy board read. Pick loads a name into the form above.</p>
+    <div class="filters">
+      <input id="qsSearch" placeholder="Search players" autocomplete="off">
+      <select id="qsPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
+      <select id="qsOnly"><option value="">Everyone</option>
+        <option value="rated">Rated only</option>
+        <option value="rights">Somebody holds rights</option>
+        <option value="rookie">Undrafted rookies</option></select>
+    </div>
+    <div class="scroller" data-cap="1" id="qsTable"></div>
+
+    <h2 class="sub">Recent signings</h2>
+    <div class="log" id="recent"></div>
+  </div>
+
+  </section>
+
   <section class="view" id="v-trade" role="tabpanel" hidden>
     <h2>Trade block</h2>
     <p class="note">Players their clubs have said they will listen on. Pick one to load him straight
@@ -1155,120 +1343,6 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="proposeNote"></p>
     <h2 class="sub">Open offers</h2>
     <div class="log" id="offers"></div>
-  </section>
-
-  <section class="view" id="v-lab" role="tabpanel" hidden>
-    <div class="welcome"><p><b>The team builder now lives on My Team.</b>
-      Sign in and scroll to "What-if roster" to model changes against your own club.</p>
-      <button class="btn" id="labGo">Go to My Team</button></div>
-  </section>
-
-  <section class="view" id="v-rater" role="tabpanel" hidden>
-    <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
-    <p class="note">The field ranked the way this league counts, on whichever numbers the header toggle is showing &#8212;
-      <b>2025&#8211;26 actuals</b>, the <b>2026&#8211;27 aggregate</b>, or <b>your own projections</b>. Every category is a
-      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
-      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
-      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
-      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
-      player passes a better one who played less, which is the 920-game cap showing up.
-      <b>Dynamic rater</b> is your own scratch version: set a games or minutes floor and choose which categories count,
-      and the whole field is re-scored against what is left. It is scored against the players who clear your filters,
-      not the league, so it is marked in blue throughout and stays on this tab &#8212; nothing it says reaches the
-      strategy board, the auction or anyone else. The club column is
-      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
-      including the men playing out the last year of a deal. This is a record of last season, not a projection.</p>
-    <div class="filters">
-      <input id="rSearch" placeholder="Search players" autocomplete="off">
-      <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
-      <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
-      <select id="rBasis" title="Score per-game averages or season totals">
-        <option value="pg">Per game</option><option value="tot">Season totals</option></select>
-      <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
-      <span class="fcount" id="rCount"></span>
-      <button class="btn ghost" id="expRater">Export CSV</button>
-    </div>
-    <div id="rDynBox" hidden></div>
-    <div id="rDynBanner" hidden></div>
-    <div class="scroller" id="rScroll" data-cap="1" data-pin2="1"><table id="raterTbl">
-      <thead><tr>
-        <th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
-        <th class="hide2" data-k="g">G</th>
-        <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3P</th><th data-k="REB">REB</th>
-        <th data-k="AST">AST</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th>
-        <th data-k="PTS">PTS</th><th data-k="tot">Rating</th>
-      </tr></thead><tbody id="raterBody"></tbody>
-    </table></div>
-  </section>
-
-  <section class="view" id="v-proj" role="tabpanel" hidden>
-    <h2>My projections</h2>
-    <p class="note">Your own numbers for next season, private to you. Nothing here is shared with the league.
-      Edit a player and every projection on the site &#8212; impact cards, ratings, standings &#8212; switches to your
-      figures whenever the toggle above is on. Blank fields fall back to last season's actuals.</p>
-    <div class="filters">
-      <input id="pjSearch" placeholder="Search any player" autocomplete="off">
-      <select id="pjFilter"><option value="">All players</option><option value="edited">Edited only</option>
-        <option value="mine">My roster</option><option value="fa">Free agents</option></select>
-      <span class="fcount" id="pjCount"></span>
-      <button class="btn ghost" id="pjReset">Clear all my edits</button>
-    </div>
-    <div class="twocol wide"><div class="scroller" data-cap="1" id="pjTable"></div>
-      <div id="pjDetail"><div class="empty">Pick a player to compare last season against your projection.</div></div></div>
-  </section>
-
-  <section class="view" id="v-trends" role="tabpanel" hidden>
-    <h2>Standings <select id="standPer" aria-label="Period" style="margin-left:auto;width:auto;flex:none" hidden></select></h2>
-    <p class="note" id="realStandNote"></p>
-    <div id="realStand"></div>
-    <h2 class="sub">Category profile &#8212; 2025&#8211;26 rosters</h2>
-    <p class="note">How each club's rostered players performed per player-game, so rosters that lost time to injury still
-      compare fairly. Green is a strength, red is a hole. Rating is the sum of the club's ten best player ratings.</p>
-    <div class="scroller" data-cap="1"><table id="profTbl">
-      <thead><tr><th class="l" data-k="n">Club</th><th data-k="FG">FG%</th><th data-k="FT">FT%</th>
-        <th data-k="P3">3P</th><th data-k="REB">REB</th><th data-k="AST">AST</th>
-        <th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th><th data-k="PTS">PTS</th>
-        <th data-k="top10">Top 10 rating</th></tr></thead>
-      <tbody id="profBody"></tbody></table></div>
-
-    <h2 class="sub">Rolling 15 days</h2>
-    <div class="filters">
-      <select id="trCat"><option value="PTS">Points</option><option value="REB">Rebounds</option>
-        <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
-        <option value="BLK">Blocks</option><option value="TO">Turnovers</option>
-        <option value="FG">FG%</option><option value="FT">FT%</option></select>
-      <span class="fcount" id="trStatus"></span>
-    </div>
-    <div id="chartWrap"></div>
-    <div id="feedHelp"></div>
-  </section>
-
-  <section class="view" id="v-history" role="tabpanel" hidden>
-    <h2>Champions</h2>
-    <div class="banners" id="banners"></div>
-    <h2 class="sub">All-time</h2>
-    <p class="note">Every finish is credited to the manager, whatever the club was called that year. The names each manager has used are listed under them.</p>
-    <div class="scroller" data-cap="1"><table><thead><tr><th class="l">Manager</th><th>Seasons</th><th>Titles</th>
-      <th>Top 3</th><th>Avg finish</th><th>Avg points</th><th>Best</th><th>Worst</th></tr></thead>
-      <tbody id="alltime"></tbody></table></div>
-    <h2 class="sub">Season by season</h2>
-    <div class="filters"><select id="hSeason"></select><span class="fcount" id="hNote"></span></div>
-    <div class="scroller" data-cap="1" data-pin2="1"><table><thead><tr><th class="l">#</th><th class="l">Manager</th>
-      <th>FG%</th><th>FT%</th><th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th>
-      <th>Total</th></tr></thead><tbody id="seasonTbl"></tbody></table></div>
-  </section>
-
-  <section class="view" id="v-log" role="tabpanel" hidden>
-    <h2>Transaction history <span class="fcount" id="logCount"></span></h2>
-    <p class="note">Signings, releases and trades, newest first &#8212; the moves that change who
-      is on a roster. Cap edits, settings changes and corrections are not roster moves and are
-      left out. The commissioner can reverse an entry.</p>
-    <div class="filters" id="logTools" hidden>
-      <button class="btn ghost" id="logExport">Export CSV</button>
-      <button class="btn danger" id="logWipe">Delete every transaction</button>
-      <span class="fcount" id="logWipeNote"></span>
-    </div>
-    <div class="log" id="logList"></div>
   </section>
 
   <section class="view" id="v-rules" role="tabpanel" hidden>
@@ -2812,7 +2886,11 @@ function fillComm(team,p){
   const opts=TEAMS().map(t=>`<option${t===team?' selected':''}>${htmlEsc(t)}</option>`).join('');
   $('edClub').innerHTML=(team?'':'<option value="" selected>\u2014 not on a roster \u2014</option>')+opts;
   $('edY0').value=salPrev(p)??'';
-  $('edPos').value=p.p||'';
+  /* Prefilled with the position the app is using; only a CHANGE is saved as
+     the commissioner's override, so saving the dialog for something else never
+     freezes ESPN's answer in place. Blank it to hand the player back to ESPN. */
+  $('edPos').value=posShow(p.n)||p.p||'';
+  $('edPos').dataset.orig=$('edPos').value;
   $('edOpt').value=OPTL[p.o]?p.o:'';
   $('edOptN').value=String(p.on===2?2:1);
   /* The rights column is free text in the source spreadsheet, so an unknown
@@ -2852,8 +2930,8 @@ function openPlayerEdit(name){
    Returns the slices touched so commit() only writes what changed. */
 function saveRecord(c,pos,alias,rostered){
   S.cfg.pos=S.cfg.pos||{}; S.cfg.alias=S.cfg.alias||{};
-  const base=RIDX[c];
-  if(!rostered && pos && (!base||pos!==base.p)) S.cfg.pos[c]=pos; else delete S.cfg.pos[c];
+  const orig=($('edPos')&&$('edPos').dataset.orig)||'';
+  if(pos!==orig){ if(pos) S.cfg.pos[c]=pos; else delete S.cfg.pos[c]; }
   /* One alias field edits one mapping. Any others already pointing at this
      player are left alone rather than silently dropped. */
   const had=Object.keys(S.cfg.alias).filter(k=>S.cfg.alias[k]===c);
@@ -2924,11 +3002,11 @@ $('doEdit').onclick=async(ev)=>{
   if(cm&&!cm.hidden&&hasComm()){
     const pv=g('edY0');
     if(pv==null) delete p.y[seasonPrev(cs0)]; else p.y[seasonPrev(cs0)]=pv;
-    p.p=$('edPos').value.trim();
+    if($('edPos').value.trim()!==($('edPos').dataset.orig||'')) p.p=$('edPos').value.trim()||p.p;
     p.o=OPTL[$('edOpt').value]?$('edOpt').value:'';
     if(p.o&&p.o!=='RO'&&$('edOptN').value==='2') p.on=2; else delete p.on;
     p.b=$('edBird').value;
-    saveRecord(canon(p.n),p.p,$('edAlias').value.trim(),true);
+    saveRecord(canon(p.n),$('edPos').value.trim(),$('edAlias').value.trim(),true);
     const to=$('edClub').value;
     if(to&&to!==team&&S.teams[to]){ S.teams[team].r.splice(idx,1); S.teams[to].r.push(unlist(p)); moved=to; }
   }
@@ -3128,7 +3206,7 @@ function drawLedger(){
       <div class="amt${over?' over':''}">${money(s)}</div><div class="cnt">${n}/${S.cfg.roster}</div></div>`;
   }).join('');
   $('ledger').querySelectorAll('.row').forEach(r=>{
-    const go=()=>{activeTeam=r.dataset.t;drawLedger();drawDetail();};
+    const go=()=>{activeTeam=r.dataset.t;drawLedger();drawDetail();drawClubLive();};
     r.onclick=go;r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};
   });
 }
@@ -3159,7 +3237,7 @@ function drawDetail(){
         termOpen(t,p)?`<button class="act edit" data-tm="${i}">Length</button>`:''}${
         (mine||hasComm())&&canDecline(p)?`<button class="act edit" data-d="${i}">Decline option</button>`:''}${
         mine?`<button class="act" data-c="${i}">Cut</button>`:''}</td>
-      <td class="pos hide">${p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
+      <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2 ${exp?'exp':''}">${exp?'expiring':yrsLeft(p)+' yr'+(yrsLeft(p)===1?'':'s')}</td>
       <td class="${exp?'exp':''}">${exp?'&#8212;':money(salNow(p))}</td>
       <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':money(salOff(p,1))}</td>
@@ -3280,7 +3358,7 @@ function drawQuickPool(){
     ${shotHeads(H)}${H('rtg','Rating')}<th></th></tr></thead><tbody>${
     rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
       <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
-      <td class="pos l hide">${htmlEsc(p.p||'—')}</td>
+      <td class="pos l hide">${htmlEsc(posShow(p.n)||p.p||'—')}</td>
       <td class="l hide2" style="font-size:11.5px">${htmlEsc(p.from)}</td>
       ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
         <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
@@ -3983,7 +4061,7 @@ function drawSettings(){
   const mine = me && !isComm() && S.teams[me] ? me : null;
   if(box) box.hidden=!mine;
   if(!mine){
-    if($('v-settings')&&!$('v-settings').hidden) goTab(me?'v-me':'v-contracts');
+    if($('v-settings')&&!$('v-settings').hidden) goTab('v-home');
     return;
   }
   const d=S.teams[mine]||{};
@@ -4099,6 +4177,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
+  drawHome();drawClubLive();drawPlayersFA();drawMeExtras();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
   /* The trade machine's two club selects were built once and never again, so a
@@ -4344,7 +4423,7 @@ function drawFAList(){
       <td>${p.n}${R.rfa?`<span class="tag t-rfa">${R.club===me2?'Your RFA':'RFA'}</span>`:''}
         ${R.club===me2&&R.bird==='Yes'?'<span class="tag t-bird">Bird</span>':''}
         ${R.club===me2&&R.bird&&R.bird!=='Yes'?'<span class="tag t-eb">E.Bird</span>':''}</td>
-      <td class="pos hide">${p.p||'&#8212;'}</td>
+      <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td>
       ${hasStats(p)?`<td>${p.g}</td>
       <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
       <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
@@ -4495,7 +4574,6 @@ function drawMe(){
   sortable('meRosTbl','mine','sal',true); redraw.mine=drawMe;
   drawLastNight();
   if($('goTrades')) $('goTrades').onclick=()=>goTab('v-trade');
-  if($('labGo')) $('labGo').onclick=()=>goTab('v-me');
   drawBidPanel(); drawFilters(); drawFAList();
 }
 /* ---- bidding lives on the AUCTION tab ---------------------------------
@@ -5943,16 +6021,55 @@ let PROJ={}, useProj=false, PROJSRC='mine', RTGCACHE=null;
      agg    the 2026-27 aggregate above, the same for everybody
      mine   his own edits, over the 2025-26 baseline
    `projFor()` is the one place that decision is made. */
+/* ---- the stats period (2026-10-14) ----
+   PROJSRC grew four LIVE sources: d7, d15, d30 and szn — this season's box
+   scores over the last 7, 15 or 30 days, or the whole season so far, built each
+   morning by lib/pstats.mjs and served by GET /api/score?stats=<w>. LIVE[w]
+   holds one window once fetched ({asOf, pre, players:{<nameKey>:{n,t,g,s}}}).
+   Every stats table reads pstat(), so every table follows the period — the
+   period bar ([data-perbar], drawPerBars) is just one more switch on the same
+   state the header toggle used to set. */
+const LIVEW=['d7','d15','d30','szn'];
+const LIVE={};
+const usingLive=()=>useProj&&LIVEW.includes(PROJSRC);
+async function loadLive(w){
+  if(!LIVEW.includes(w)) return null;
+  if(LIVE[w]&&LIVE[w].day===dayKey()) return LIVE[w];
+  if(!await probeAPI()) return LIVE[w]||null;
+  try{
+    const r=await fetch(`/api/score?stats=${w}`,{cache:'no-store'});
+    if(r.ok){ const j=await r.json(); LIVE[w]={day:dayKey(),asOf:j.asOf,pre:!!j.pre,players:j.players||{}}; }
+  }catch(e){}
+  return LIVE[w]||null;
+}
+/* A roster name → its line in a live window, through the same name route as
+   espnTeamOf(): the commissioner's ESPN map, ESPNNAME, then the name itself. */
+function liveLine(name,w){
+  const L=LIVE[w]; if(!L) return null;
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{}, P=L.players;
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return (e&&P[nameKey(e)])||P[nameKey(name)]||P[nameKey(c)]||null;
+}
+/* The games floor for a rating: RMING (15) on a full season of numbers, but a
+   7-day window has three or four games at most, so a live window uses 30% of the
+   most games anyone has in it. */
+function ratedFloor(){
+  if(!usingLive()||!LIVE[PROJSRC]) return RMING;
+  const most=Math.max(0,...Object.values(LIVE[PROJSRC].players).map(x=>x.g||0));
+  return Math.max(1,Math.floor(most*0.3));
+}
 const usingMine=()=>useProj&&PROJSRC==='mine';
 const usingAgg=()=>useProj&&PROJSRC==='agg';
-const projSrcLabel=()=>usingAgg()?'2026\u201327 aggregate':usingMine()?'my projections':'2025\u201326 actuals';
+const LIVENAME={d7:'last 7 days',d15:'last 15 days',d30:'last 30 days',szn:'2026\u201327 so far'};
+const projSrcLabel=()=>usingLive()?LIVENAME[PROJSRC]:usingAgg()?'2026\u201327 aggregate':usingMine()?'my projections':'2025\u201326 actuals';
 /* The same answer as a column heading. Any table whose numbers come through
    pstat() is showing whatever the header toggle is set to, so a fixed "Last
    season" above them is a lie in two of the three modes. */
-const projSrcHead=()=>usingAgg()?'2026\u201327 proj':usingMine()?'My proj':'Last season';
+const projSrcHead=()=>usingLive()?{d7:'7 days',d15:'15 days',d30:'30 days',szn:'Season'}[PROJSRC]:usingAgg()?'2026\u201327 proj':usingMine()?'My proj':'Last season';
 function projFor(name){
   if(!useProj) return null;
   const c=canon(name);
+  if(LIVEW.includes(PROJSRC)){ const x=liveLine(name,PROJSRC); return x?{...x.s,g:x.g}:null; }
   return (PROJSRC==='agg' ? AGG[c] : PROJ[c]) || null;
 }
 /* Projections used to be local-only on purpose — a GM's numbers are his
@@ -5995,6 +6112,16 @@ function projToast(msg){
 function pstat(name){
   name=canon(name);
   const b=RIDX[name];
+  /* A live period: a player with no line in the window has played no games in
+     it, which is NOT the same as last season's line — show him with none. A
+     player with no RATER row at all (this year's rookies) still gets his live
+     line, so a rostered rookie's numbers show on the lineup and club pages. */
+  if(usingLive()){
+    const o=projFor(name);
+    if(!b) return o?{n:name,t:'',p:posShow(name),g:o.g,s:Object.fromEntries(SKEYS.map(k=>[k,o[k]??0])),rk:null}:null;
+    const pos0=POSFIX[name]!=null?POSFIX[name]:b.p;
+    if(!o) return {n:b.n,t:b.t,p:pos0,g:0,s:Object.fromEntries(SKEYS.map(k=>[k,0])),rk:b.rk};
+  }
   if(!b) return null;
   const pos=POSFIX[name]!=null?POSFIX[name]:b.p;   // commissioner's position wins
   const o=projFor(name);
@@ -6026,7 +6153,8 @@ function rtg(name){ const m=ratings(); const c=canon(name); return m[c]!=null?m[
    than trusted. */
 async function setProjMode(mode){
   const m = mode===true ? 'mine' : mode===false ? 'act'
-          : (mode==='agg'||mode==='mine') ? mode : 'act';
+          : (mode==='agg'||mode==='mine'||LIVEW.includes(mode)) ? mode : 'act';
+  if(LIVEW.includes(m)) await loadLive(m);
   useProj = m!=='act';
   PROJSRC = m==='act' ? PROJSRC : m;
   RTGCACHE=null;
@@ -6034,9 +6162,33 @@ async function setProjMode(mode){
        localStorage.setItem('ll_projsrc',PROJSRC); }catch(e){}
   render();
 }
+/* The period bar: one control, drawn into every [data-perbar] placeholder (My
+   Team, a club on League, the Players rater). It replaced the "Stats shown"
+   strip across the header. The live periods are offered once the morning job
+   has a window; "Mine" only to a signed-in GM, whose projections they are. */
+function drawPerBars(){
+  const cur=useProj?PROJSRC:'act';
+  const live=LIVE.d15||LIVE.szn||LIVE.d7||LIVE.d30;
+  const opts=[['d7','7 days'],['d15','15 days'],['d30','30 days'],['szn','Season'],
+    ['act','2025\u201326'],['agg','Projection']].concat(me&&!isComm()?[['mine','Mine']]:[]);
+  const note=usingLive()&&LIVE[PROJSRC]
+    ? (LIVE[PROJSRC].asOf?`through ${htmlEsc(shortDay(LIVE[PROJSRC].asOf))}${LIVE[PROJSRC].pre?' \u00b7 preseason games until opening night':''}`
+                         :'no games on file yet \u2014 the first night lands the morning after opening night')
+    : usingMine()?`${Object.keys(PROJ).length} players edited`:'';
+  const html=`<div class="perbar"><span class="pjlab">Stats</span><div class="toggle" role="group" aria-label="Stats period">${
+    opts.map(([v,l])=>`<button type="button" data-pm="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>
+    <span class="pjlab">${note}</span></div>`;
+  document.querySelectorAll('[data-perbar]').forEach(el=>{ if(el.innerHTML!==html) el.innerHTML=html; });
+  void live;
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-pm]'):null;
+  if(b) setProjMode(b.dataset.pm);
+});
 function drawProjBar(){
+  drawPerBars();
   const bar=$('projBar');
-  bar.hidden = !me || isComm();
+  bar.hidden = true;           // the header strip is retired; drawPerBars() is the control now
   if(bar.hidden) return;
   const n=Object.keys(PROJ).length, ag=Object.keys(AGG).length;
   bar.innerHTML=`<span class="pjlab">Stats shown</span>
@@ -6147,7 +6299,7 @@ $('pjSearch').oninput=drawProjTab; $('pjFilter').onchange=drawProjTab;
    auctioned at worst, so the buttons go. markPhaseTabs() hides them and moves
    anyone standing on one somewhere real — a hidden tab whose panel is still open
    is worse than either state. */
-const OFFSEASON_TABS=['v-auction','v-fa','v-rookie'];
+const OFFSEASON_TABS=['v-auction','v-rookie'];
 /* Quick sign is the mirror image: an in-season signing is one year at the
    minimum, and in the offseason a club adds players at auction or in the rookie
    draft, so there is nothing for the form to record. */
@@ -6155,15 +6307,50 @@ const SEASON_TABS=['v-draft'];
 function markPhaseTabs(){
   const live=seasonLive();
   const hidden=live?OFFSEASON_TABS:SEASON_TABS;
-  [...document.querySelectorAll('#tabs button'),...document.querySelectorAll('#moreMenu button')]
+  /* Top tabs carry data-v; the pills inside League and Players carry data-sub. */
+  [...document.querySelectorAll('#tabs button'),...document.querySelectorAll('#moreMenu button'),
+   ...document.querySelectorAll('[data-sub]')]
     .forEach(b=>{
-      if(OFFSEASON_TABS.includes(b.dataset.v)) b.hidden=live;
-      else if(SEASON_TABS.includes(b.dataset.v)) b.hidden=!live;
+      const v=b.dataset.v||b.dataset.sub;
+      if(OFFSEASON_TABS.includes(v)) b.hidden=live;
+      else if(SEASON_TABS.includes(v)) b.hidden=!live;
     });
-  const open=hidden.find(v=>{const el=$(v); return el&&!el.hidden;});
-  if(open) goTab(me?'v-me':'v-contracts');
+  /* Someone standing on a page that just went away is moved somewhere real. A
+     sub-view only counts as open when its group is open too. */
+  const open=hidden.find(v=>{
+    const el=$(v); if(!el||el.hidden) return false;
+    const grp=el.closest?el.closest('.view'):null;
+    return !grp||!grp.hidden;
+  });
+  if(open) goTab('v-home');
 }
+/* ---- sub-views (League and Players) ----
+   A group is one <section class="view"> holding several <div data-subview>,
+   with a pill bar (<nav class="subnav">, buttons carrying data-sub). showSub()
+   shows one sub-view of its group and presses its pill; it does not touch the
+   top tabs. The ids are the old top-level page ids (v-contracts, v-rater, …), so
+   every draw function still finds its elements, and goTab('v-rater') still works
+   — it opens the group first. */
+function showSub(id){
+  const el=$(id); if(!el) return false;
+  const grp=el.closest?el.closest('.view'):null; if(!grp) return false;
+  grp.querySelectorAll('[data-subview]').forEach(v=>{ v.hidden = v.id!==id; });
+  grp.querySelectorAll('[data-sub]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.sub===id)));
+  if(id==='v-proj'&&typeof refreshProj==='function') refreshProj();
+  return true;
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-sub]'):null;
+  if(b) showSub(b.dataset.sub);
+});
 function goTab(id){
+  /* A sub-view id opens its group, then the sub-view. */
+  const sv=$(id);
+  if(sv&&sv.hasAttribute&&sv.hasAttribute('data-subview')){
+    const grp=sv.closest('.view');
+    if(grp&&goTab(grp.id)) return showSub(id);
+    return false;
+  }
   // Tab buttons live in two places: the strip (#tabs) and the overflow menu,
   // which sits outside #tabs so it is not clipped by the strip's overflow.
   const btns=[...document.querySelectorAll('#tabs button'),
@@ -6182,7 +6369,6 @@ function goTab(id){
     loadChat(true).then(()=>drawChat());
     if(typeof refreshNotes==='function') refreshNotes();
   }
-  if(id==='v-proj'&&typeof refreshProj==='function') refreshProj();
   window.scrollTo&&window.scrollTo(0,0);
   if(typeof markMore==='function') markMore();
   return true;
@@ -8351,14 +8537,21 @@ const slotLabel=id=>({C:'C',G:'G',F:'F',U:'UTIL'})[slotKind(id)];
 /* The position a player is eligible at, as a set of G/F/C. The sheet writes
    "G, F", "F, C" and one stray "PG"; a two-letter guard or forward reads as its
    family, so PG and SG are both G. */
+/* Lineup eligibility, first answer wins (2026-10-13):
+     1. the commissioner's override (S.cfg.pos, the Position field on Edit);
+     2. ESPN's fantasy eligibility, refreshed daily with the NBA rosters —
+        so a positional change on ESPN reaches the lineup with nobody typing;
+     3. the club sheet's position on the roster entry;
+     4. the rater's position from the 2025-26 import. */
 function posSet(name){
   const c=canon(name);
-  let raw=null;
-  for(const t of TEAMS()){
+  let raw=POSFIX[c]!=null&&POSFIX[c]!==''?POSFIX[c]:null;
+  if(!raw) raw=espnPosOf(name);
+  if(!raw) for(const t of TEAMS()){
     const p=S.teams[t].r.find(x=>canon(x.n)===c);
     if(p&&p.p){ raw=p.p; break; }
   }
-  if(!raw) raw=(POSFIX[c]!=null?POSFIX[c]:(RIDX[c]&&RIDX[c].p))||'';
+  if(!raw) raw=(RIDX[c]&&RIDX[c].p)||'';
   const out=new Set();
   String(raw).split(/[,/]/).forEach(tok=>{
     const t=tok.trim().toUpperCase();
@@ -8369,6 +8562,8 @@ function posSet(name){
   });
   return out;
 }
+/* The position as a table shows it, from the same answer the lineup uses. */
+const posShow=name=>['G','F','C'].filter(k=>posSet(name).has(k)).join(', ');
 const posText=name=>[...posSet(name)].sort().join('/')||'—';
 /* Utility takes anybody. Every other slot wants its own letter. */
 function slotOk(id,name){
@@ -8474,7 +8669,7 @@ const hhmm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart
    nameKey() must match lib/nba.mjs exactly. */
 const nameKey=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+(jr|sr|ii|iii|iv)$/,'').replace(/\s+/g,'');
-let NBAP={day:'',byKey:{},n:0};
+let NBAP={day:'',byKey:{},n:0,pos:{}};
 async function loadNbaPlayers(force){
   const day=dayKey();
   if(!force&&NBAP.day===day&&NBAP.n) return NBAP;
@@ -8482,9 +8677,12 @@ async function loadNbaPlayers(force){
   try{
     const r=await fetch('/api/players',{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
-    const j=await r.json(), byKey={};
-    Object.values((j&&j.players)||{}).forEach(p=>{ if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t; });
-    NBAP={day,byKey,n:Object.keys(byKey).length,at:j&&j.at,
+    const j=await r.json(), byKey={}, pos={};
+    Object.values((j&&j.players)||{}).forEach(p=>{
+      if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t;
+      if(p&&p.n&&p.el) pos[nameKey(p.n)]=p.el;
+    });
+    NBAP={day,byKey,pos,n:Object.keys(byKey).length,at:j&&j.at,
       names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
@@ -8499,6 +8697,12 @@ function espnTeamOf(name){
   const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
   const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
   return (e&&NBAP.byKey[nameKey(e)])||NBAP.byKey[nameKey(name)]||NBAP.byKey[nameKey(c)]||null;
+}
+/* ESPN fantasy eligibility ("G, F"), through the same name resolution. */
+function espnPosOf(name){
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{}, P=NBAP.pos||{};
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return (e&&P[nameKey(e)])||P[nameKey(name)]||P[nameKey(c)]||null;
 }
 function nbaTeamOf(name){
   return espnTeamOf(name)||NBATM[canon(name)]||null;
@@ -8695,6 +8899,10 @@ function drawLineup(){
   const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T), room=Math.max(0,cap-used);
   const playing=SLOTIDS.filter(id=>lu.s[id]&&tipOf(lu.s[id]));
   const tourney=!seasonLive();          // the preseason tournament: no game cap, no IR
+  /* Starters whose position no longer fits their slot — ESPN's eligibility
+     moved under a lineup set earlier. Told, not fixed: which way to shuffle is
+     the GM's call. */
+  const misfit=SLOTIDS.filter(id=>lu.s[id]&&!slotOk(id,lu.s[id])).map(id=>`${lu.s[id]} (${slotLabel(id)}, plays ${posText(lu.s[id])})`);
   const lost=tourney?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   $('luHead').innerHTML=`<div class="dhead"><h3>Tonight &#183; ${htmlEsc(dayKey())}</h3>
     <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
@@ -8705,6 +8913,8 @@ function drawLineup(){
     ${can?`<button class="btn ghost" id="luTonight" style="margin-left:auto" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
       <button class="btn ghost" id="luAuto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
+    ${misfit.length?`<div class="warn"><b>Not eligible where they are:</b> ${misfit.map(htmlEsc).join(', ')}.
+      Positions now follow ESPN\u2019s fantasy eligibility.</div>`:''}
     ${lost.length?`<div class="warn"><b>Tonight would take ${htmlEsc(T)} past ${cap} games.</b>
       You have ${room} game${room===1?'':'s'} left and ${playing.length} starters playing tonight. Games count
       top-down \u2014 C, then G, F and UTIL \u2014 so these ${lost.length} would not count:
@@ -8729,12 +8939,15 @@ function drawLineup(){
 
   const opts=(id)=>{
     const cur=lu.s[id];
+    /* The man in the slot is always listed, even when his position no longer
+       fits it (ESPN changed it) — otherwise the select reads "empty" while he
+       is still in the lineup and still counts. */
     const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
-      .filter(p=>slotOk(id,p.n)&&!isLocked(p.n))
+      .filter(p=>(slotOk(id,p.n)||canon(p.n)===canon(cur))&&!isLocked(p.n))
       .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
     return `<option value="">&#8212; empty &#8212;</option>`
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
-        htmlEsc(p.n)}</option>`).join('');
+        htmlEsc(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('');
   };
   const slotRows=SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
@@ -9070,7 +9283,7 @@ function raterScore(pool,opts){
   const o=opts||{};
   const basis=o.basis==='tot'?'tot':'pg';
   const cats=(Array.isArray(o.cats)&&o.cats.length)?RCATS.filter(c=>o.cats.includes(c)):RCATS.slice();
-  const minG=o.minG==null?RMING:+o.minG;
+  const minG=o.minG==null?ratedFloor():+o.minG;
   const minMp=(o.minMp==null||o.minMp==='')?null:+o.minMp;
   const src=(pool||[]).filter(p=>p&&p.s);
   const rated=src.filter(p=>(+p.g||0)>=minG
@@ -9403,6 +9616,180 @@ function drawPre(){
       :`<div class="empty">${PRE.ok?'No nights scored yet \u2014 the first results arrive the morning after the first games.':'Loading\u2026'}</div>`}</div>`;
   ['preBox','preBox2'].forEach(id=>{ const b=$(id); if(b) b.innerHTML=html; });
 }
+/* ================= HOME (the landing page, 2026-10-14) =================
+   Everything here is a summary of something that lives elsewhere — nothing on
+   Home is the only place a fact can be found. Four parts:
+     #homeSnap  the signed-in GM's own numbers: place, games, tonight, offers
+     #homeOff   offseason only: the auction room and the rookie draft
+     #homeBest  last night's best lines among started players (score-<day>)
+     #homeFeed  the latest roster moves, and how many chat posts are new
+   Standings (#realStand) and the 15-day chart (#chartWrap) are drawn by their
+   own functions; they only moved here. League decision: Home states facts and
+   never suggests lineup moves — GMs set their own. */
+var HOMEBEST={day:'',rows:null};
+function homeCard(label,big,small){
+  return `<div class="hcard"><div class="pjlab">${label}</div><div class="hbig">${big}</div><div class="hsmall">${small||''}</div></div>`;
+}
+function drawHome(){
+  if(!$('homeSnap')) return;
+  const T=me&&!isComm()&&S.teams[me]?me:null;
+  const cards=[];
+  if(T){
+    const rows=SCORE.standings||[], row=rows.find(r=>r.club===T);
+    if(row&&row.tot&&row.tot.GP>0){
+      /* Movement since the night before: the same standings without the latest night. */
+      const days=Object.keys(SCORE.days||{}).sort();
+      let mv='';
+      if(days.length>1){
+        const prev=standingsFor(Object.fromEntries(days.slice(0,-1).map(d=>[d,SCORE.days[d]])));
+        const p=prev.find(r=>r.club===T); const d=p?p.rank-row.rank:0;
+        mv=d>0?` <span class="up">\u25B2${d}</span>`:d<0?` <span class="down">\u25BC${-d}</span>`:'';
+      }
+      const ahead=rows.find(r=>r.rank===row.rank-1);
+      cards.push(homeCard('Your place',`${ordinal(row.rank)}${mv}`,
+        `${row.pts} roto pts${ahead?` \u00b7 ${(ahead.pts-row.pts).toFixed(1)} behind ${htmlEsc(ahead.club)}`:''}`));
+      const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T);
+      cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,`${cap-used} left`));
+    }
+    if(lineupsOpen()){
+      const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
+      const tips=st.map(n=>tipOf(n)).filter(Boolean).map(t=>t.at);
+      cards.push(homeCard('Tonight',`${tips.length} <span class="hof">playing</span>`,
+        tips.length?`first tip ${hhmm(Math.min(...tips))}`:'no games for your starters'));
+    }
+    const offers=(S.trades||[]).filter(t=>t.status==='pending'&&t.b===T);
+    cards.push(homeCard('Waiting on you',`${offers.length} <span class="hof">offer${offers.length===1?'':'s'}</span>`,
+      offers.length?`from ${offers.map(o=>htmlEsc(o.a)).join(', ')}`:'nothing pending'));
+    if(!seasonLive())
+      cards.push(homeCard('Roster',`${headcount(T)} <span class="hof">/ ${S.cfg.roster}</span>`,
+        `${money(Math.max(0,S.cfg.tax-committed(T)))} to the hard cap`));
+  }
+  $('homeSnap').innerHTML=cards.length?`<div class="hsnap">${cards.join('')}</div>`:'';
+
+  /* Offseason: where the auction and the draft stand. */
+  let off='';
+  if(!seasonLive()){
+    const a=A(), bits=[];
+    if(a&&(a.status==='open'||a.status==='match'))
+      bits.push(`<b>${htmlEsc(a.player)}</b> is on the block at ${money(a.bid)}${a.leader?`, ${htmlEsc(a.leader)} leading`:''}.`);
+    else if(aucOpen()){ const c=nomOnClock(); bits.push(`The auction room is open${c?` \u2014 <b>${htmlEsc(c.team)}</b> is on the clock`:''}.`); }
+    else if(aucClosed()) bits.push('The auction is over.');
+    const d=S.cfg.draft;
+    if(d&&d.open) bits.push(`The ${htmlEsc(String(d.year))} rookie draft is open.`);
+    if(bits.length) off=`<div class="okbox" style="margin:0 0 14px">${bits.join(' ')}
+      ${aucOpen()||(a&&a.status!=='closed')?'<button class="btn ghost" data-go="v-auction" style="margin-left:8px">Auction</button>':''}
+      ${d&&d.open?'<button class="btn ghost" data-go="v-rookie" style="margin-left:8px">Rookie draft</button>':''}</div>`;
+  }
+  $('homeOff').innerHTML=off;
+
+  /* Around the league: the latest roster moves, newest first. */
+  const mv=rosterMoves(S.log||[]).slice(0,6);
+  $('homeFeed').innerHTML=(mv.length?`<div class="hfeed">${mv.map(e=>`<div><span class="pjlab">${htmlEsc(fmt(e.ts))}</span>
+      <b>${htmlEsc(e.team||'')}</b> ${htmlEsc(e.detail||'')}</div>`).join('')}</div>`:'<div class="empty">No moves yet.</div>')
+    +`<div class="hfoot"><button class="btn ghost" data-go="v-log">All transactions</button>
+      <button class="btn ghost" data-go="v-chat">Chat${CHATNEW?` \u00b7 ${CHATNEW} new`:''}</button></div>`;
+  drawHomeBest();
+}
+/* Last night's best: the latest scored night (the season's, else the
+   preseason tournament's), every player a club started, ranked by a simple
+   game score — points + rebounds + assists + 2×(steals + blocks) − turnovers.
+   One fetch per night, cached in HOMEBEST. */
+async function drawHomeBest(){
+  const box=$('homeBest'); if(!box) return;
+  const days=[...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})].sort();
+  const day=days[days.length-1];
+  if(!day){ box.innerHTML='<div class="empty">Nothing scored yet.</div>'; $('homeBestDay').textContent=''; return; }
+  if(HOMEBEST.day!==day){
+    HOMEBEST={day,rows:null};
+    try{
+      const r=await fetch(`/api/score?day=${day}`,{cache:'no-store'});
+      const j=r.ok?await r.json():null, clubs=(j&&j.data&&j.data.clubs)||{}, out=[];
+      Object.entries(clubs).forEach(([c,x])=>[...(x.counted||[]),...(x.over||[])].forEach(p=>{
+        const st=p.s||{}; out.push({n:p.n,club:c,s:st,gs:(st.PTS||0)+(st.TRB||0)+(st.AST||0)+2*((st.STL||0)+(st.BLK||0))-(st.TOV||0)});
+      }));
+      HOMEBEST.rows=out.sort((a,b)=>b.gs-a.gs).slice(0,6);
+    }catch(e){ HOMEBEST.rows=[]; }
+  }
+  $('homeBestDay').textContent=shortDay(day);
+  const rows=HOMEBEST.rows;
+  box.innerHTML=!rows?'<div class="empty">Loading\u2026</div>':!rows.length?'<div class="empty">No box scores for that night.</div>'
+    :`<div class="hbest">${rows.map(r=>`<div><b class="pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</b>
+        <span class="${r.club===me?'mine':''}">${htmlEsc(r.club===me?'You':r.club)}</span>
+        <span class="mono">${r.s.PTS||0} pts \u00b7 ${r.s.TRB||0} reb \u00b7 ${r.s.AST||0} ast${(r.s.STL||0)+(r.s.BLK||0)>=3?` \u00b7 ${r.s.STL||0} stl ${r.s.BLK||0} blk`:''}</span></div>`).join('')}</div>`;
+}
+const ordinal=n=>n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:(n%10<4?n%10:0)]||'th');
+/* Any button carrying data-go opens that page — Home's shortcuts use it. */
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-go]'):null;
+  if(b) goTab(b.dataset.go);
+});
+
+/* ================= LEAGUE › CLUBS: one club, live =================
+   The club picked in the payroll ledger (activeTeam): who it is starting
+   tonight with each man's numbers for the chosen stats period (pstat(), so the
+   period bar above drives it), its bench, and where it stands. Read-only — the
+   same facts My Team shows its own GM. The contracts below are drawDetail(). */
+function drawClubLive(){
+  const box=$('clubLive'); if(!box) return;
+  const t=activeTeam; if(!t||!S.teams[t]){ box.innerHTML=''; return; }
+  const row=(SCORE.standings||[]).find(r=>r.club===t&&r.tot&&r.tot.GP>0);
+  let html=`<div class="dhead"><h3>${htmlEsc(t)}</h3>${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
+    ${row?`<span class="pill">${ordinal(row.rank)} \u00b7 ${row.pts} pts</span><span class="pill">${row.tot.GP} games</span>`:''}
+    ${me&&!isComm()&&me!==t?'<button class="btn ghost" id="clubTrade" style="margin-left:auto">Propose a trade</button>':''}</div>`;
+  if(row){
+    const cats=Object.entries(row.cat||{}).sort((a,b)=>b[1]-a[1]);
+    const nm={'FG%':'FG%','FT%':'FT%',P3:'3P',REB:'REB',AST:'AST',STL:'STL',BLK:'BLK',TO:'TO',PTS:'PTS'};
+    html+=`<p class="note">Strongest: ${cats.slice(0,3).map(([k])=>nm[k]||k).join(', ')} \u00b7 weakest: ${
+      cats.slice(-2).map(([k])=>nm[k]||k).join(', ')} (season roto points by category).</p>`;
+  }
+  if(lineupsOpen()){
+    const lu=lineupOf(t), pc=(m,a)=>a?(100*m/a).toFixed(1):'&#8212;';
+    const line=n=>{
+      const r=pstat(n), s=r&&r.s;
+      if(!s) return '<td colspan="10" class="l" style="color:var(--dim)">no stats on file</td>';
+      return `<td>${r.g??'&#8212;'}</td>${['PTS','TRB','AST','P3','STL','BLK','TOV'].map(k=>`<td>${(+s[k]||0).toFixed(1)}</td>`).join('')}
+        <td>${pc(s.FG,s.FGA)}</td><td>${pc(s.FT,s.FTA)}</td>`;
+    };
+    const game=n=>{ const k=lockOf(n), tp=tipOf(n); return !tp?'<span style="color:var(--dim)">no game</span>'
+      :k.locked?`locked \u00b7 ${hhmm(tp.at)}`:hhmm(tp.at); };
+    const starters=SLOTIDS.filter(id=>lu.s[id]);
+    html+=`<h2 class="sub">Lineup tonight <span class="fcount">${starters.length} of 15 set \u00b7 stats: ${htmlEsc(projSrcLabel())}</span></h2>
+      <div class="scroller"><table id="clubLuTbl"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Game</th>
+        <th>G</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th></tr></thead><tbody>${
+        starters.map(id=>`<tr><td class="l">${slotLabel(id)}</td><td class="l pname" data-player="${htmlEsc(lu.s[id])}">${htmlEsc(lu.s[id])}</td>
+          <td class="l">${game(lu.s[id])}</td>${line(lu.s[id])}</tr>`).join('')
+        ||'<tr><td colspan="13" class="l" style="color:var(--dim)">Nobody started.</td></tr>'}
+      </tbody></table></div>`;
+    const bench=benchOf(t);
+    if(bench.length) html+=`<p class="note">Bench: ${bench.map(p=>`<span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>`).join(', ')}</p>`;
+  }
+  box.innerHTML=html;
+  if($('clubTrade')) $('clubTrade').onclick=()=>{
+    $('tA').value=me; $('tB').value=t;
+    if(typeof drawTradeLists==='function') drawTradeLists();
+    if(typeof drawTrade==='function') drawTrade();
+    goTab('v-trade');
+  };
+}
+
+/* Players › Free agents: in season the signable list (Sign, one year at the
+   minimum); in the offseason the free agent classes the auction is fought
+   over. Same sub-view, whichever answers the season's question. */
+function drawPlayersFA(){
+  if($('pfaSeason')) $('pfaSeason').hidden=!seasonLive();
+  if($('v-fa')) $('v-fa').hidden=seasonLive();
+}
+/* My Team's offseason-only parts: the what-if lab (league decision 2026-10-14)
+   and the auction impact card, which only means something with a lot open. */
+function drawMeExtras(){
+  const a=A();
+  if($('labWrap')) $('labWrap').hidden=seasonLive();
+  if($('bidWrap')) $('bidWrap').hidden=seasonLive()||!(a&&(a.status==='open'||a.status==='match'));
+  if($('toMyContracts')) $('toMyContracts').onclick=()=>{
+    activeTeam=meTeam(); goTab('v-contracts'); render();
+  };
+}
+
 /* Commissioner: start, end and rescore. */
 function drawPreAdmin(){
   const box=$('preAdmin'); if(!box) return;
@@ -10024,7 +10411,7 @@ function netChip(){
   try{ me=localStorage.getItem('ll_me');
        useProj=localStorage.getItem('ll_proj')==='1';
        const src=localStorage.getItem('ll_projsrc');
-       if(src==='agg'||src==='mine') PROJSRC=src; }catch(e){}
+       if(src==='agg'||src==='mine'||LIVEW.includes(src)) PROJSRC=src; }catch(e){}
   loadLab();
   if(me&&me!=='__comm__'&&!S.teams[me])me=null;
   $('rTeam').innerHTML='<option value="">All players</option>'
@@ -10038,6 +10425,7 @@ function netChip(){
   comboAttachAll();
   if(lineupsOpen()) Promise.all([loadSchedule(),loadNbaPlayers()]).then(()=>render());
   if(S.cfg.pre) loadPre();
+  if(useProj&&LIVEW.includes(PROJSRC)) loadLive(PROJSRC).then(()=>{ RTGCACHE=null; render(); });
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');
   loadDaily();
 })();

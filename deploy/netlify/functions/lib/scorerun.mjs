@@ -18,6 +18,7 @@
 import { scoreNight, currentName } from "./score.mjs";
 import { lineupsOn } from "./lineups.mjs";
 import { dayKey } from "./stats.mjs";
+import { compactNight, windowsFrom } from "./pstats.mjs";
 
 const BUDGET = 22000;
 
@@ -89,6 +90,43 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   idx.lastRun = { at: new Date().toISOString(), done, left, errors, notes, ms: now() - start };
   await writeKey(s, key, prevIdx, idx);
   return idx.lastRun;
+}
+
+/* Rolling player stats (lib/pstats.mjs): every stored night in the season's
+   date span — the feed's window again (corrections), plus any night plog does
+   not have yet — goes into plog-<season>, then every window is recomputed into
+   pstats-<season>, which GET /api/score?stats=<window> serves. Preseason nights
+   are kept flagged `pre`; the windows only use them until a regular-season
+   night exists. */
+export async function runPstats(s, { now = Date.now } = {}) {
+  const start = now();
+  const cfg = (await readKey(s, "settings")).data || {};
+  const season = seasonOf(cfg);
+  if (!season) return { ok: false, reason: "no season in settings" };
+  const feed = ((await readKey(s, "daily-index")).data) || {};
+  const window = new Set((feed.lastRun && feed.lastRun.window) || []);
+  const prevLog = await readKey(s, "plog-" + season.key);
+  const plog = prevLog.data || { season: season.key, nights: {} };
+  plog.nights = plog.nights || {};
+  const todo = Object.keys(feed.days || {})
+    .filter((d) => d >= season.from && d <= season.to && feed.days[d].stored && (window.has(d) || !plog.nights[d]))
+    .sort();
+  const done = [], left = [], errors = [];
+  for (const day of todo) {
+    if (now() - start > BUDGET) { left.push(day); continue; }
+    try {
+      const night = (await readKey(s, dayKey(day))).data;
+      if (!night) continue;
+      plog.nights[day] = compactNight(night, !!feed.days[day].pre);
+      done.push(day);
+    } catch (e) { errors.push({ day, error: String((e && e.message) || e) }); }
+  }
+  await writeKey(s, "plog-" + season.key, prevLog, plog);
+  const prevStats = await readKey(s, "pstats-" + season.key);
+  const w = windowsFrom(plog);
+  const lastRun = { at: new Date().toISOString(), done, left, errors, ms: now() - start };
+  await writeKey(s, "pstats-" + season.key, prevStats, { ...w, lastRun });
+  return lastRun;
 }
 
 /* The preseason tournament: the same scoring over the tournament's nights, kept
