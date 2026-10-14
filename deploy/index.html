@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.5">
+<meta name="ll-build" content="2026-10-14.8">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -276,8 +276,8 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
    name do not need 1200px, and letting it span the page either strands the name
    in a void or blows the dropdown out to half the screen. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden;max-width:1040px}
-.lurow{display:grid;grid-template-columns:44px minmax(180px,1fr) repeat(10,minmax(46px,60px));
+  border-radius:3px;overflow:hidden;max-width:1240px}
+.lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px repeat(10,minmax(46px,60px));
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 .lurow.empty{background:var(--panel2)}
 .lurow.locked{opacity:.72}
@@ -345,7 +345,7 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
 @media (max-width:1000px){
   .luslots{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .lurow,.luhdr{min-width:730px}
-  .lurow{grid-template-columns:40px minmax(170px,1fr) repeat(10,minmax(46px,56px))}
+  .lurow{grid-template-columns:40px minmax(170px,1fr) 108px repeat(10,minmax(46px,56px))}
   /* Pinned, and each variant paints its own background: a sticky cell with no
      background of its own lets the stats scroll visibly underneath it. */
   .lurow>.luslot,.luhdr>span:first-child{position:sticky;left:0;z-index:2;background:var(--panel)}
@@ -867,8 +867,13 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 .lunav .lnday{font:700 18px var(--disp);min-width:170px;text-align:center}
 .lunav input[type=date]{width:auto}
 #lnWrap.combined>h2,#lnWrap.combined>#lnCtl{display:none}
-.lutip.gt{color:var(--chalk);font-weight:600}
-.lutip.nog{color:var(--dim)}
+/* The game column: who he plays and when, or that he has no game. */
+.lugame{font-family:var(--mono);font-size:12px;line-height:1.25;color:var(--chalk);text-align:left;white-space:nowrap}
+.lugame small{display:block;font-size:10px;color:var(--steel);letter-spacing:.04em}
+.lugame.lk{color:var(--steel)}
+.lugame.lk small{color:var(--tax)}
+.lugame.nog{color:var(--dim)}
+.luhdr span:nth-child(3){text-align:left}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
@@ -1014,15 +1019,11 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
     <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
     <button role="tab" data-v="v-chat" aria-selected="false">Chat<span class="badge" id="chatBadge"></span></button>
-    <div class="more">
-      <button type="button" id="moreBtn" aria-expanded="false" aria-haspopup="true">Menu</button>
-    </div>
-  </nav>
-  <div class="menuwrap"><div class="moremenu" id="moreMenu" hidden>
+    <!-- Every page in the one bar (2026-10-14): the Menu dropdown is gone. -->
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
     <button role="tab" data-v="v-rules" aria-selected="false">Cap rules</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
-  </div></div>
+  </nav>
 </header>
 <div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
   <button type="button" class="btn" id="updGo">Reload</button></div>
@@ -1070,11 +1071,20 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
        (#detail, drawDetail). -->
   <section class="view" id="v-league" role="tabpanel" hidden>
     <nav class="subnav" aria-label="League sections">
-      <button type="button" data-sub="v-contracts" aria-pressed="true">Clubs</button>
-      <button type="button" data-sub="v-history" aria-pressed="false">Standings &amp; history</button>
+      <button type="button" data-sub="lg-stand" aria-pressed="true">Standings</button>
+      <button type="button" data-sub="v-contracts" aria-pressed="false">Clubs</button>
+      <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
       <button type="button" data-sub="v-log" aria-pressed="false">Transactions</button>
     </nav>
-  <div class="subview" id="v-contracts" data-subview>
+  <!-- The current season's table, first and by default (2026-10-14). -->
+  <div class="subview" id="lg-stand" data-subview>
+    <h2>Standings</h2>
+    <div class="filters"><span id="lgStandMode"></span>
+      <select id="lgStandPer" aria-label="Period" style="width:auto" hidden></select>
+      <span class="fcount" id="lgStandNote"></span></div>
+    <div id="lgStand"></div>
+  </div>
+  <div class="subview" id="v-contracts" data-subview hidden>
     <h2>Payroll &#8212; committed salary</h2>
     <div class="ledger" id="ledger"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
@@ -4794,8 +4804,8 @@ function drawMe(){
       ROSTATS.map(([k,l])=>`<button type="button" data-rst="${k}" aria-pressed="${k===ROSTAT}">${l}</button>`).join('')}</div>
       <span class="fcount">${htmlEsc(rosStatNote())}</span></div>
     <table id="meRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
-    <th data-k="sal">Salary</th><th data-k="rtg" title="Player rating">PR</th><th data-k="g">GP</th>
-    ${ROSCOLS.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('')}${canAct?'<th class="acts"></th>':''}</tr></thead>
+    <th data-k="sal">Salary</th><th data-k="rtg" title="Player rating">PR</th>
+    ${rosHeads()}${canAct?'<th class="acts"></th>':''}</tr></thead>
     <tbody>${mrows.map(p=>{
       const i=S.teams[T].r.findIndex(x=>x.n===p.n);
       const started=seasonLive()&&startedOn(T).some(n=>canon(n)===canon(p.n));
@@ -4804,7 +4814,7 @@ function drawMe(){
         onIR(p)?'<span class="tag t-cut">Injured reserve</span>':''}${
         started?'<span class="tag t-bird">Starting</span>':''}</td><td>${money(salNow(p))}</td>
       <td class="rating">${rtg(p.n)!=null?(rtg(p.n)>0?'+':'')+rtg(p.n):'&#8212;'}</td>
-      ${rosCells(p.n)}
+      ${rosCells(p)}
       ${canAct?`<td class="acts"><span>${
         canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}
         <button class="act edit${p.blk?' on':''}" data-mrb="${i}">${p.blk?'Unlist':'Block'}</button>
@@ -6559,9 +6569,13 @@ const OFFSEASON_TABS=['v-auction','v-rookie'];
    minimum, and in the offseason a club adds players at auction or in the rookie
    draft, so there is nothing for the form to record. */
 const SEASON_TABS=['v-draft'];
+function auctionRunning(){
+  const a=A();
+  return aucOpen()||!!(a&&(a.status==='open'||a.status==='match'));
+}
 function markPhaseTabs(){
   const live=seasonLive();
-  const hidden=live?OFFSEASON_TABS:SEASON_TABS;
+  const hidden=[...(live?OFFSEASON_TABS:SEASON_TABS)];
   /* Top tabs carry data-v; the pills inside League and Players carry data-sub. */
   [...document.querySelectorAll('#tabs button'),...document.querySelectorAll('#moreMenu button'),
    ...document.querySelectorAll('[data-sub]')]
@@ -6570,6 +6584,15 @@ function markPhaseTabs(){
       if(OFFSEASON_TABS.includes(v)) b.hidden=live;
       else if(SEASON_TABS.includes(v)) b.hidden=!live;
     });
+  /* The auction and the rookie draft are tabs only while they are running:
+     the auction while its room is open (or a lot is still being settled), the
+     draft while it is open. The commissioner switches both on the Commissioner
+     tab, so nothing is lost by hiding them the rest of the year. */
+  const off=[];
+  if(!live&&!auctionRunning()) off.push('v-auction');
+  if(!live&&!(S.cfg.draft&&S.cfg.draft.open)) off.push('v-rookie');
+  off.forEach(v=>{ const b=document.querySelector(`#tabs [data-v="${v}"]`); if(b) b.hidden=true; });
+  hidden.push(...off);
   /* Someone standing on a page that just went away is moved somewhere real. A
      sub-view only counts as open when its group is open too. */
   const open=hidden.find(v=>{
@@ -9161,7 +9184,7 @@ function luLine(name){
    season — chosen here and independent of the stats period bar, which drives
    the PR column (rtg()). Per game. Lines come from the rolling windows
    (/api/score?stats=, liveLine()) or, for 2025-26, RATER. */
-var ROSTATS=[['d7','T7'],['d15','T15'],['szn','YTD'],['act','2025\u201326']];
+var ROSTATS=[['d7','T7'],['d15','T15'],['szn','YTD'],['act','Last year'],['ctr','Contract']];
 var ROSTAT=(()=>{ try{ const v=localStorage.getItem('ll_rostat'); return ROSTATS.some(([k])=>k===v)?v:'d15'; }catch(e){ return 'd15'; } })();
 var ROSTRIED={};
 var ROSCOLS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO'],['FGP','FG%'],['FTP','FT%']];
@@ -9169,15 +9192,33 @@ function rosLine(name){
   if(ROSTAT==='act'){ const r=RIDX[canon(name)]; return r&&r.s?{g:r.g,s:r.s}:null; }
   const l=liveLine(name,ROSTAT); return l&&l.s?l:null;
 }
+/* The Contract view: what he is owed this season and the three after, years
+   left, any option, the rights the club holds and the year he arrived. */
+const ROSRIGHTS={Yes:'Bird',Early:'Early Bird'};
+function rosHeads(){
+  if(ROSTAT==='ctr') return [0,1,2,3].map(n=>`<th data-k="s${n}">${htmlEsc(seasonAt(curSeason(),n))}</th>`).join('')
+    +'<th data-k="yrs">Yrs</th><th class="l" data-k="opt">Option</th><th class="l" data-k="rights">Rights</th><th data-k="acq">Acq</th>';
+  return '<th data-k="g">GP</th>'+ROSCOLS.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('');
+}
 function rosVal(p,col){
   if(col==='n') return p.n; if(col==='sal') return salNow(p); if(col==='rtg') return rtg(p.n);
+  if(/^s[0-3]$/.test(col)) return salOff(p,+col[1])||null;
+  if(col==='yrs') return yrsLeft(p); if(col==='opt') return p.o||null;
+  if(col==='rights') return ROSRIGHTS[birdRight(p)]||null; if(col==='acq') return p.acq||null;
   const L=rosLine(p.n); if(!L) return null;
   if(col==='g') return L.g||0;
   if(col==='FGP') return shotPct(L.s.FG,L.s.FGA);
   if(col==='FTP') return shotPct(L.s.FT,L.s.FTA);
   return L.s[col]!=null?L.s[col]:null;
 }
-function rosCells(name){
+function rosCells(p){
+  if(ROSTAT==='ctr'){
+    const D='&#8212;';
+    return [0,1,2,3].map(n=>{ const v=salOff(p,n); return `<td>${v?money(v):D}</td>`; }).join('')
+      +`<td>${yrsLeft(p)||D}</td><td class="l">${p.o?htmlEsc(p.o)+(optYears(p)>1?' \u00d7'+optYears(p):''):D}</td>`
+      +`<td class="l">${ROSRIGHTS[birdRight(p)]||D}</td><td>${p.acq||D}</td>`;
+  }
+  const name=typeof p==='string'?p:p.n;
   const L=rosLine(name);
   if(!L) return `<td>&#8212;</td>`+ROSCOLS.map(()=>'<td>&#8212;</td>').join('');
   const f=v=>v==null?'&#8212;':(+v).toFixed(1);
@@ -9185,6 +9226,7 @@ function rosCells(name){
     :k==='FTP'?`<td>${pctText(shotPct(L.s.FT,L.s.FTA))}</td>`:`<td>${f(L.s[k])}</td>`).join('');
 }
 function rosStatNote(){
+  if(ROSTAT==='ctr') return 'salary owed by season';
   if(ROSTAT==='act') return 'per game, 2025\u201326';
   const L=LIVE[ROSTAT];
   if(!L) return ROSTRIED[ROSTAT]?'not available yet':'loading\u2026';
@@ -9197,8 +9239,12 @@ function rosStatNote(){
 var LUVIEW={day:'',mode:'day'};
 function scoredDays(){ return [...new Set([...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})])].sort(); }
 function luGo(day){ LUVIEW.day=day&&day<dayKey()?day:''; drawLineup(); drawLastNight(); }
-function drawLuNav(){
-  const box=$('luNav'); if(!box) return;
+function drawLuNav(){ dateBar($('luNav'),LUVIEW,luGo,'luDate'); }
+/* The date bar itself, for any view state V ({day, mode}): tonight, or an
+   earlier night or week. go(day) moves it; '' is tonight. */
+function dateBar(box,V,go,dateId){
+  if(!box) return;
+  const LUVIEW=V, luGo=go;
   const today=dayKey(), days=scoredDays(), v=LUVIEW.day, past=!!v;
   const step=LUVIEW.mode==='week'?7:1;
   const prev=past?dPlus(v,-step):(days.filter(d=>d<today).pop()||dPlus(today,-1));
@@ -9208,7 +9254,7 @@ function drawLuNav(){
     <button class="btn ghost" data-lv="prev" aria-label="Earlier">\u25C0</button>
     <span class="lnday">${htmlEsc(label)}</span>
     <button class="btn ghost" data-lv="next" aria-label="Later"${past?'':' disabled'}>\u25B6</button>
-    <input type="date" class="mono" id="luDate" value="${v||today}" max="${today}" aria-label="Pick a night">
+    <input type="date" class="mono" id="${dateId}" value="${v||today}" max="${today}" aria-label="Pick a night">
     ${past?`<div class="toggle"><button data-lm="day" aria-pressed="${LUVIEW.mode==='day'}">Day</button>
       <button data-lm="week" aria-pressed="${LUVIEW.mode==='week'}">Week</button></div>
       <button class="btn" data-lv="now">Tonight</button>`:''}</div>`;
@@ -9216,7 +9262,7 @@ function drawLuNav(){
     const k=b.dataset.lv;
     luGo(k==='now'?'':k==='prev'?prev:dPlus(v,step)); });
   box.querySelectorAll('[data-lm]').forEach(b=>b.onclick=()=>{ LUVIEW.mode=b.dataset.lm; luGo(LUVIEW.day); });
-  $('luDate').onchange=e=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) luGo(e.target.value); };
+  $(dateId).onchange=e=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) luGo(e.target.value); };
 }
 function drawLineup(){
   const wrap=$('luWrap'); if(!wrap) return;
@@ -9269,8 +9315,19 @@ function drawLineup(){
      three boxes in two columns. They hold the same nine columns and a GM reads
      them together — who is in, who is out, and who cannot play — so splitting
      them across a grid made the numbers stop lining up for no gain. */
-  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span>
+  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span>
     ${LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}<span title="Player rating">PR</span></div>`;
+  /* Tonight's game for a man, as its own column: club and tip-off, "Locked"
+     once it has started, "No game" when his club is idle and the schedule is
+     known — and nothing at all when there is no schedule to say either. */
+  const known=SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length>0;
+  const game=(nm,ir)=>{
+    if(!nm||ir) return '<span class="lugame"></span>';
+    const t=tipOf(nm);
+    if(!t) return `<span class="lugame nog">${known?'No game':''}</span>`;
+    const lk=minutesNow()>=t.at;
+    return `<span class="lugame${lk?' lk':''}">${htmlEsc(t.team)} ${htmlEsc(clock12(t.at))}<small>${lk?'Locked':'Tips off'}</small></span>`;
+  };
   const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
     nm?luCell(k,luVal(L&&L.r,k)):''}${
     nm&&(k==='FGP'||k==='FTP')?luShot(k,L&&L.r):''}</span>`).join('')
@@ -9296,11 +9353,11 @@ function drawLineup(){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="luname">${htmlEsc(nm)}</span><span class="lutip lk">${htmlEsc(lk.why)}</span>`
+        ? `${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>`
         : can ? `<span class="lurowctl">${nm?headshot(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
-                +(nm?(lk.why?`<span class="lutip gt">${htmlEsc(lk.why)}</span>`:(SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length?'<span class="lutip nog">No game tonight</span>':'')):'')
+
               : `${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
-      ${stats(nm,L)}</div>`;
+      ${game(nm)}${stats(nm,L)}</div>`;
   }).join('');
 
   /* The bench carries the control that starts somebody: every open slot he is
@@ -9318,12 +9375,11 @@ function drawLineup(){
                <option value="">Start&#8230;</option>
                ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
           : '<span class="lutip">no open spot</span>') : ''}
-        ${irBtn(p.n)}</span>
-        ${lk.why?`<span class="lutip${lk.locked?' lk':' gt'}">${htmlEsc(lk.why)}</span>`:''}</span>
-      ${stats(p.n,L)}</div>`;
+        ${irBtn(p.n)}</span></span>
+      ${game(p.n)}${stats(p.n,L)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
-      ${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
+      <span class="lugame"></span>${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
 
   const irRows=ir.map(p=>{
     const L=luLine(p.n);
@@ -9333,10 +9389,10 @@ function drawLineup(){
         ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
         ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span>
-      ${stats(p.n,L)}</div>`;
+      ${game(p.n,true)}${stats(p.n,L)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lutip">Nobody on the injured reserve.</span></span>
-      ${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
+      <span class="lugame"></span>${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
 
   $('luSlots').innerHTML=hdr('Slot')+slotRows
     +hdr('Bench')+benchRows
@@ -10285,6 +10341,11 @@ document.addEventListener('click',e=>{
    tonight with each man's numbers for the chosen stats period (pstat(), so the
    period bar above drives it), its bench, and where it stands. Read-only — the
    same facts My Team shows its own GM. The contracts below are drawDetail(). */
+/* League › Clubs gets the same date bar as My Team's lineup: any club's
+   earlier nights, from the same results code. It resets to tonight when a
+   different club is picked. */
+var CLUBVIEW={team:'',day:'',mode:'day'};
+function clubGo(day){ CLUBVIEW.day=day&&day<dayKey()?day:''; drawClubLive(); }
 function drawClubLive(){
   const box=$('clubLive'); if(!box) return;
   const t=activeTeam; if(!t||!S.teams[t]){ box.innerHTML=''; return; }
@@ -10307,9 +10368,14 @@ function drawClubLive(){
         <td>${pc(s.FG,s.FGA)}</td><td>${pc(s.FT,s.FTA)}</td>`;
     };
     const game=n=>{ const k=lockOf(n), tp=tipOf(n); return !tp?'<span style="color:var(--dim)">no game</span>'
-      :k.locked?`locked \u00b7 ${hhmm(tp.at)}`:hhmm(tp.at); };
+      :k.locked?`Locked \u00b7 ${tp.team} ${clock12(tp.at)}`:`${tp.team} ${clock12(tp.at)}`; };
     const starters=SLOTIDS.filter(id=>lu.s[id]);
-    html+=`<h2 class="sub">Lineup tonight <span class="fcount">${starters.length} of 15 set \u00b7 stats: ${htmlEsc(projSrcLabel())}</span></h2>
+    if(CLUBVIEW.team!==t){ CLUBVIEW.team=t; CLUBVIEW.day=''; }
+    html+=`<h2 class="sub">Lineup</h2><div id="clubNav"></div>`;
+    if(CLUBVIEW.day){
+      html+=`<div id="clubLnHead"></div><div id="clubLnBody"></div>`;
+    } else {
+    html+=`<p class="fcount" style="margin:0 0 8px">${starters.length} of 15 set \u00b7 stats: ${htmlEsc(projSrcLabel())}</p>
       <div class="scroller"><table id="clubLuTbl"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Game</th>
         <th>G</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th></tr></thead><tbody>${
         starters.map(id=>`<tr><td class="l">${slotLabel(id)}</td><td class="l pname" data-player="${htmlEsc(lu.s[id])}">${htmlEsc(lu.s[id])}</td>
@@ -10318,8 +10384,13 @@ function drawClubLive(){
       </tbody></table></div>`;
     const bench=benchOf(t);
     if(bench.length) html+=`<p class="note">Bench: ${bench.map(p=>`<span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>`).join(', ')}</p>`;
+    }
   }
   box.innerHTML=html;
+  if(lineupsOpen()){
+    dateBar($('clubNav'),CLUBVIEW,clubGo,'clubDate');
+    if(CLUBVIEW.day) resultsInto(t,CLUBVIEW.mode,CLUBVIEW.day,'clubLnHead','clubLnBody','clubLnTbl');
+  }
   if($('clubTrade')) $('clubTrade').onclick=()=>{
     $('tA').value=me; $('tB').value=t;
     if(typeof drawTradeLists==='function') drawTradeLists();
@@ -10478,15 +10549,26 @@ async function drawLastNight(){
     drawLastNight(); });
   $('lnDate').onchange=e=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){ RES.day=e.target.value; drawLastNight(); } };
 
-  const want=RES.mode+'|'+RES.day;
+  await resultsInto(T,RES.mode,RES.day,'lnHead','lnBody','lnTbl');
+}
+/* One club's results for a night or a Monday–Sunday week, into a head and a
+   body element: the lineup's date bar on My Team (the signed-in club) and on
+   League › Clubs (any club) both draw through this. */
+var RESTOKEN={};
+async function resultsInto(T,mode,day,H,B,tbl){
+  if(!$(H)||!$(B)) return;
+  const scored=scoredDays(), latest=scored[scored.length-1];
+  const span=mode==='week'?weekOf(day):{from:day,to:day};
+  const nights=scored.filter(d=>d>=span.from&&d<=span.to);
+  const want=RESTOKEN[H]=T+'|'+mode+'|'+day;
   if(!nights.length){
-    $('lnHead').innerHTML='';
-    $('lnBody').innerHTML=`<div class="empty">Nothing scored ${RES.mode==='week'?'that week':'for '+htmlEsc(shortDay(RES.day))}${
-      RES.day>latest?' yet':''} — no games, or the morning has not scored it.</div>`;
+    $(H).innerHTML='';
+    $(B).innerHTML=`<div class="empty">Nothing scored ${mode==='week'?'that week':'for '+htmlEsc(shortDay(day))}${
+      day>latest?' yet':''} — no games, or the morning has not scored it.</div>`;
     return;
   }
   const got=await Promise.all(nights.map(d=>lnFetch(d).then(v=>({d,...v}))));
-  if(RES.mode+'|'+RES.day!==want) return;            // moved on while this loaded
+  if(RESTOKEN[H]!==want) return;            // moved on while this loaded
 
   /* Every player row for every night, tagged with what happened to it. */
   const order=['Counted','Over cap','Slot reused','Bench'];
@@ -10511,23 +10593,23 @@ async function drawLastNight(){
     });
   });
   if(!last){
-    $('lnHead').innerHTML='';
-    $('lnBody').innerHTML=`<div class="empty">${htmlEsc(T)} had nobody in a slot ${RES.mode==='week'?'that week':'that night'}.</div>`;
+    $(H).innerHTML='';
+    $(B).innerHTML=`<div class="empty">${htmlEsc(T)} had nobody in a slot ${mode==='week'?'that week':'that night'}.</div>`;
     return;
   }
   const after=last.club.gpBefore+((last.club.totals&&last.club.totals.GP)||0);
-  $('lnHead').innerHTML=`<div class="dhead">
+  $(H).innerHTML=`<div class="dhead">
     <span class="pill good">${tot.GP} game${tot.GP===1?'':'s'} counted</span>
     ${over?`<span class="pill bad">${over} over the cap</span>`:''}
     ${reused?`<span class="pill bad">${reused} slot${reused===1?'':'s'} reused</span>`:''}
-    <span class="pill">${after} / ${last.cap||920} after ${RES.mode==='week'?'this week':'this night'}</span>
+    <span class="pill">${after} / ${last.cap||920} after ${mode==='week'?'this week':'this night'}</span>
     ${benchPts?`<span class="pill">${benchPts} points on the bench</span>`:''}</div>`;
 
   const ma=(m,a)=>`${m||0}-${a||0}`;
   const tag={Counted:'t-bird','Over cap':'t-blk','Slot reused':'t-blk',Bench:'t-cut'};
   const K=['MP','FG','FGA','FT','FTA','P3','TRB','AST','STL','BLK','TOV','PTS'];
   let list;
-  if(RES.mode==='day'){
+  if(mode==='day'){
     list=rows.map(r=>({...r,g:1}));
   } else {
     /* A week sums each player's nights per outcome, so a man who counted four
@@ -10540,18 +10622,18 @@ async function drawLastNight(){
     list=Object.values(by);
   }
   list.sort((a,b)=>order.indexOf(a.st)-order.indexOf(b.st)
-    ||(RES.mode==='day'?SLOTIDS.indexOf(a.slot)-SLOTIDS.indexOf(b.slot):(b.s.PTS||0)-(a.s.PTS||0)));
-  const first=RES.mode==='day'?'<th class="l">Slot</th>':'<th>G</th>';
-  $('lnBody').innerHTML=`<div class="scroller" data-cap="1"><table id="lnTbl"><thead><tr>
+    ||(mode==='day'?SLOTIDS.indexOf(a.slot)-SLOTIDS.indexOf(b.slot):(b.s.PTS||0)-(a.s.PTS||0)));
+  const first=mode==='day'?'<th class="l">Slot</th>':'<th>G</th>';
+  $(B).innerHTML=`<div class="scroller" data-cap="1"><table id="${tbl}"><thead><tr>
     ${first}<th class="l">Player</th><th class="l">Tm</th><th>MIN</th><th>FG</th><th>FT</th>
     <th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th></tr></thead><tbody>
-    ${list.map(r=>`<tr class="${r.st==='Counted'?'':'iscut'}">${RES.mode==='day'
+    ${list.map(r=>`<tr class="${r.st==='Counted'?'':'iscut'}">${mode==='day'
         ?`<td class="l">${r.slot?htmlEsc(slotLabel(r.slot)):'—'}</td>`:`<td>${r.g}</td>`}
       <td class="l pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}<span class="tag ${tag[r.st]}">${r.st}</span></td>
       <td class="l">${htmlEsc(r.t)}</td><td>${r.s.MP||0}</td><td>${ma(r.s.FG,r.s.FGA)}</td><td>${ma(r.s.FT,r.s.FTA)}</td>
       <td>${r.s.P3||0}</td><td>${r.s.TRB||0}</td><td>${r.s.AST||0}</td><td>${r.s.STL||0}</td><td>${r.s.BLK||0}</td>
       <td>${r.s.TOV||0}</td><td>${r.s.PTS||0}</td></tr>`).join('')}
-    </tbody><tfoot><tr><td class="l" colspan="3">Counted${RES.mode==='week'?` · ${nights.length} night${nights.length===1?'':'s'}`:''}</td><td></td>
+    </tbody><tfoot><tr><td class="l" colspan="3">Counted${mode==='week'?` · ${nights.length} night${nights.length===1?'':'s'}`:''}</td><td></td>
       <td>${ma(tot.FG,tot.FGA)}</td><td>${ma(tot.FT,tot.FTA)}</td>
       <td>${tot.P3}</td><td>${tot.REB}</td><td>${tot.AST}</td><td>${tot.STL}</td><td>${tot.BLK}</td>
       <td>${tot.TO}</td><td>${tot.PTS}</td></tr></tfoot></table></div>`;
@@ -10650,8 +10732,9 @@ function standingsFor(days){
 var STANDMODE=(()=>{ try{ return localStorage.getItem('ll_standmode')||'tot'; }catch(e){ return 'tot'; } })();
 const STANDBOX={
   home:{box:'realStand',per:'standPer',note:'realStandNote',mode:'standMode',tbl:'standTbl',sort:'stand'},
-  me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'}};
-function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.me); }
+  me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'},
+  lg:{box:'lgStand',per:'lgStandPer',note:'lgStandNote',mode:'lgStandMode',tbl:'lgStandTbl',sort:'lgstand'}};
+function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.me); drawStandBox(STANDBOX.lg); }
 function drawStandBox(B){
   const box=$(B.box); if(!box) return;
   const scored=Object.keys(SCORE.days||{}).sort(), cap=SCORE.cap||920, last=scored[scored.length-1];
@@ -10879,27 +10962,12 @@ $('resetBtn').onclick=async()=>{
 };
 $('tabs').onclick=e=>{
   const b=e.target.closest('button');
-  if(!b) return;
-  if(b.id==='moreBtn'){
-    const open=$('moreMenu').hidden;
-    $('moreMenu').hidden=!open; b.setAttribute('aria-expanded',String(open));
-    if(open) placeMore();
-    return;
-  }
-  if(!b.dataset.v) return;
-  goTab(b.dataset.v);
-  closeMore();
-};
-$('moreMenu').onclick=e=>{
-  const b=e.target.closest('button');
   if(!b||!b.dataset.v) return;
   goTab(b.dataset.v);
-  closeMore();
 };
-function closeMore(){
-  $('moreMenu').hidden=true;
-  $('moreBtn').setAttribute('aria-expanded','false');
-}
+/* The Menu dropdown is gone (every page is in the one bar); these stay as
+   no-ops for anything that still calls them. */
+function closeMore(){ if($('moreMenu')) $('moreMenu').hidden=true; }
 /* Put the menu directly under the masthead, wherever the page happens to be
    scrolled to. The header is sticky, so its bottom edge in viewport coordinates
    IS "just below the bar" — reading it each time is what makes this hold on a

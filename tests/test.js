@@ -4396,6 +4396,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     let h=document.getElementById('realStand').innerHTML;
     ok('Home standings draw, with the roto total pinned right', /class="rating rotot"/.test(h) && /th data-k="tot" class="rotot"/.test(h));
     ok('My Team has its own standings', /meStandTbl/.test(document.getElementById('meStand').innerHTML));
+    ok('League has its own standings too', /lgStandTbl/.test(document.getElementById('lgStand').innerHTML));
     ok('three views offered', /data-sm="night"/.test(document.getElementById('standMode').innerHTML) && /data-sm="roto"/.test(document.getElementById('standMode').innerHTML));
     ctx.STANDMODE='roto'; g('drawStandings')();
     h=document.getElementById('realStand').innerHTML;
@@ -4413,6 +4414,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('roster cells: GP plus nine categories', (g('rosCells')(jok.n).match(/<td>/g)||[]).length===10);
     ctx.ROSTAT='d7';
     ok('a window not loaded reads as empty, not zero', g('rosVal')(jok,'PTS')===null);
+    ctx.ROSTAT='ctr';
+    ok('contract view: four seasons, years, option, rights, acquired', (g('rosCells')(jok).match(/<td/g)||[]).length===8 && g('rosVal')(jok,'s0')===g('salNow')(jok));
+    ok('contract headers name the seasons', new RegExp(g('curSeason')()).test(g('rosHeads')()));
     ctx.ROSTAT=keepR;
 
     ctx.LUVIEW.day=''; g('luGo')('2999-01-01');
@@ -4420,6 +4424,21 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     g('luGo')('2026-10-01');
     ok('an earlier night is kept', ctx.LUVIEW.day==='2026-10-01');
     g('luGo')('');
+  }
+
+
+  console.log('\n== results for any club, any night ==');
+  {
+    const SC=g('SCORE'), keep=SC.days, LNc=g('LN');
+    const d='2026-10-21';
+    SC.days={[d]:{Coulter:{PTS:30,GP:1}}};
+    LNc[d]={score:{cap:920,clubs:{Coulter:{gpBefore:0,totals:{FG:10,FGA:20,FT:5,FTA:6,P3:2,REB:8,AST:4,STL:1,BLK:1,TO:2,PTS:27,GP:1},
+      counted:[{slot:'C',n:'Victor Wembanyama',t:'SA',s:{MP:30,FG:10,FGA:20,FT:5,FTA:6,P3:2,TRB:8,AST:4,STL:1,BLK:1,TOV:2,PTS:27}}]}}},night:{players:{}}};
+    await g('resultsInto')('Coulter','day',d,'lnHead','lnBody','lnTbl');
+    const h=document.getElementById('lnBody').innerHTML;
+    ok('a club’s night draws its counted starters', /Victor Wembanyama/.test(h) && /<td>27<\/td>/.test(h), h.slice(0,200));
+    ok('...with the games pill', /1 game counted/.test(document.getElementById('lnHead').innerHTML));
+    SC.days=keep; delete LNc[d];
   }
 
   console.log('\n== no stray alerts ==');
