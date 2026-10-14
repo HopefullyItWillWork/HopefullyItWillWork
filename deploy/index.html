@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.5">
+<meta name="ll-build" content="2026-10-14.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1070,11 +1070,20 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
        (#detail, drawDetail). -->
   <section class="view" id="v-league" role="tabpanel" hidden>
     <nav class="subnav" aria-label="League sections">
-      <button type="button" data-sub="v-contracts" aria-pressed="true">Clubs</button>
-      <button type="button" data-sub="v-history" aria-pressed="false">Standings &amp; history</button>
+      <button type="button" data-sub="lg-stand" aria-pressed="true">Standings</button>
+      <button type="button" data-sub="v-contracts" aria-pressed="false">Clubs</button>
+      <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
       <button type="button" data-sub="v-log" aria-pressed="false">Transactions</button>
     </nav>
-  <div class="subview" id="v-contracts" data-subview>
+  <!-- The current season's table, first and by default (2026-10-14). -->
+  <div class="subview" id="lg-stand" data-subview>
+    <h2>Standings</h2>
+    <div class="filters"><span id="lgStandMode"></span>
+      <select id="lgStandPer" aria-label="Period" style="width:auto" hidden></select>
+      <span class="fcount" id="lgStandNote"></span></div>
+    <div id="lgStand"></div>
+  </div>
+  <div class="subview" id="v-contracts" data-subview hidden>
     <h2>Payroll &#8212; committed salary</h2>
     <div class="ledger" id="ledger"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
@@ -10650,8 +10659,9 @@ function standingsFor(days){
 var STANDMODE=(()=>{ try{ return localStorage.getItem('ll_standmode')||'tot'; }catch(e){ return 'tot'; } })();
 const STANDBOX={
   home:{box:'realStand',per:'standPer',note:'realStandNote',mode:'standMode',tbl:'standTbl',sort:'stand'},
-  me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'}};
-function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.me); }
+  me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'},
+  lg:{box:'lgStand',per:'lgStandPer',note:'lgStandNote',mode:'lgStandMode',tbl:'lgStandTbl',sort:'lgstand'}};
+function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.me); drawStandBox(STANDBOX.lg); }
 function drawStandBox(B){
   const box=$(B.box); if(!box) return;
   const scored=Object.keys(SCORE.days||{}).sort(), cap=SCORE.cap||920, last=scored[scored.length-1];

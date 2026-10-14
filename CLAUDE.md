@@ -49,7 +49,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 |---|---|---|
 | **League Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
 | **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
-| **League** | `v-league` (group) | sub-views **Clubs** `v-contracts`, **Standings & history** `v-history`, **Transactions** `v-log` |
+| **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
 | **Trades** | `v-trade` | unchanged |
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`) |
@@ -184,7 +184,7 @@ link still shows the live image.
 
 ### Standings, the lineup's date bar, roster stats (2026-10-14)
 
-**Standings are drawn twice** — League Home and My Team › Standings — by one
+**Standings are drawn three times** — League Home, My Team › Standings and League › Standings — by one
 function, `drawStandBox()`, keyed by `STANDBOX`. Three views (`STANDMODE`,
 remembered in `ll_standmode`): **Totals**, **Last night** (the latest scored
 night alone, through `standingsFor()`) and **Roto points** (each category's
