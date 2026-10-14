@@ -46,7 +46,7 @@ process.on('unhandledRejection', e=>{ bootError = bootError || e;
 /* top-level let/const live in the script's lexical scope, not on the vm global,
    so the module is asked to hand them out explicitly */
 const EPILOGUE = ';globalThis.__X={' + [
-  'S','me','STRAT','TAPECATS','THEMES','SCORE','nextTheme','tapeInit','tapeDefault','RATER','RIDX','PROJ','useProj','activeTeam','SORTS','redraw',
+  'S','me','STRAT','TAPECATS','THEMES','SCORE','nextTheme','tapeDefault','SEEN','NBAP','CLUBPAL','nameKey','RATER','RIDX','PROJ','useProj','activeTeam','SORTS','redraw',
   'TEAMS','isComm','canEdit','committed','headcount','yrsLeft','birdKind','BIRDOPTS','OPTL','cmp','money',
   'ALIAS','POSFIX','HAS_API','NOTIFY','emailing','fixing','selA','selB','PCATS','contracted','tradeable','catGood','catCell','editing',
   'ROOKIES','ROOKIES_PLACEHOLDER','PROTMAX','selPA','selPB','PICKPROT',

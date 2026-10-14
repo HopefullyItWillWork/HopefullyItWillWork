@@ -4345,6 +4345,46 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     X.me = keepMe;
   }
 
+
+  console.log('\n== club colours, headshots, info notes, presence ==');
+  {
+    const CS=g('S');
+    ok('badge letters: 1-3 letters or numbers', g('brandAbError')('OS')===null && g('brandAbError')('ABC1')!==null && g('brandAbError')('')!==null);
+    const t='Osborn', keep=CS.teams[t].brand;
+    delete CS.teams[t].brand;
+    const d=g('clubBrand')(t);
+    ok('an unset club still gets a colour and its initials', /^#[0-9A-F]{6}$/i.test(d.c) && d.ab==='O', JSON.stringify(d));
+    ok('...the same colour every time', g('clubBrand')(t).c===d.c);
+    CS.teams[t].brand={c:'#FFD60A',ab:'OZ'};
+    ok('a set brand is used', g('clubBrand')(t).c==='#FFD60A' && g('clubBrand')(t).ab==='OZ');
+    ok('dark ink on a light colour, white on a dark one', g('inkOn')('#FFD60A')==='#000' && g('inkOn')('#1D1160')==='#fff');
+    ok('the badge escapes and carries the colour', /background:#FFD60A/.test(g('clubBadge')(t)) && />OZ</.test(g('clubBadge')(t)));
+    CS.teams[t].brand={c:'red',ab:'<b>'};
+    ok('a bad stored brand falls back', g('clubBrand')(t).c!=='red' && g('clubBrand')(t).ab==='O');
+    CS.teams[t].brand=keep;
+    ok('an unknown club draws no badge', g('clubBadge')('Nobody FC')==='');
+
+    const NB=g('NBAP'); const keepIds=NB.ids;
+    NB.ids={[g('nameKey')('Nikola Jokic')]:'3112335'};
+    ok('a headshot for a player ESPN knows, through canon()', /3112335/.test(g('headshot')('Nikola Jokić')));
+    ok('none for one it does not', g('headshot')('Nobody At All')==='');
+    NB.ids={'x':'1;alert(1)'};
+    ok('a non-numeric id draws nothing', g('headshot')('x')==='');
+    NB.ids=keepIds;
+
+    const now=Date.parse('2026-10-14T12:00:00Z');
+    ok('ago: minutes, hours, days', g('agoText')('2026-10-14T11:56:00Z',now)==='4m ago'
+       && g('agoText')('2026-10-14T09:00:00Z',now)==='3h ago' && g('agoText')('2026-10-11T12:00:00Z',now)==='3d ago');
+    const keepOp=CS.cfg.opener;
+    CS.cfg.opener='2026-10-20';
+    ok('days to opening night', g('daysToOpener')(Date.parse('2026-10-14T12:00:00'))===6, g('daysToOpener')(Date.parse('2026-10-14T12:00:00')));
+    ok('none once it has passed', g('daysToOpener')(Date.parse('2026-10-21T12:00:00'))===null);
+    CS.cfg.opener=''; ok('none when unset', g('daysToOpener')()===null);
+    CS.cfg.opener=keepOp;
+
+    ok('the nightly-job developer box is gone from Home', !/What the nightly job needs to write/.test(require('fs').readFileSync(require('path').join(__dirname,'..','deploy','index.html'),'utf8')));
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

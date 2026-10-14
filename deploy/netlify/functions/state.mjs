@@ -45,6 +45,19 @@ export default async (req) => {
           const list = Array.isArray(c.data) ? c.data : [];
           out.chat = { rev: c.rev, ts: (list[0] && list[0].ts) || "",
             n: since ? list.filter((m) => m && m.ts > since && m.by !== who).length : 0 };
+          /* Presence, on the same once-a-minute ask: stamp this club as seen now
+             and hand back everyone's last stamp, so Home can say who is around.
+             Honour system like everything else here — it is a nicety, not a
+             record. Capped at 40 names so a stray caller cannot grow it. */
+          const sv = await read(store, "seen");
+          const map = sv.data && typeof sv.data === "object" && !Array.isArray(sv.data) ? sv.data : {};
+          if (who && who.length <= 40) {
+            map[who] = new Date().toISOString();
+            const keep = Object.keys(map).sort((a, b) => (map[b] > map[a] ? 1 : -1)).slice(0, 40);
+            const data = Object.fromEntries(keep.map((k) => [k, map[k]]));
+            await store.set("seen", JSON.stringify({ rev: sv.rev + 1, data }));
+            out.seen = data;
+          } else out.seen = map;
         }
         return new Response(JSON.stringify(out), { headers: H });
       }

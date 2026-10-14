@@ -3,12 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.2">
+<meta name="ll-build" content="2026-10-14.4">
 <title>League Ledger</title>
+<meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
+<meta name="theme-color" content="#0B0820">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HIWW League Ledger">
+<meta property="og:title" content="HIWW League Ledger">
+<meta property="og:description" content="Contracts, cap, auction and nightly lineups for the HIWW dynasty league.">
+<meta property="og:url" content="https://hopefullyitwill.work/">
+<meta property="og:image" content="https://hopefullyitwill.work/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2072%22%3E%3Crect%20width%3D%2264%22%20height%3D%2272%22%20rx%3D%2212%22%20fill%3D%22%230D1219%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%23E0A340%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M18%2022%20Q18%208%2032%208%20Q46%208%2046%2022%20Q46%2030%2037%2034%20Q32%2036.5%2032%2042%22%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.4%22/%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2255%22%20r%3D%229.5%22%20fill%3D%22%23E0A340%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%230D1219%22%20stroke-width%3D%221.3%22%3E%3Cpath%20d%3D%22M22.5%2055%20H41.5%22/%3E%3Cpath%20d%3D%22M32%2045.5%20V64.5%22/%3E%3Cpath%20d%3D%22M25.5%2048.2%20Q29.6%2055%2025.5%2061.8%22/%3E%3Cpath%20d%3D%22M38.5%2048.2%20Q34.4%2055%2038.5%2061.8%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Bungee&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
 /* Two themes. Dark: the arena at night. Light: the scorer's table sheet —
    cool paper rather than cream, blue-black ink, amber darkened to hold contrast. */
@@ -816,6 +828,33 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 #stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--space);margin-bottom:9px}
 @media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
+/* ---- Info buttons: the explanation behind a small "i" (2026-10-14). A
+   p.note.explain is hidden until its button is pressed; infoNotes() wires them. */
+.infobtn{display:inline-grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;
+  border:1px solid var(--line);background:none;color:var(--steel);cursor:pointer;padding:0;
+  font:italic 700 12px/1 Georgia,serif;vertical-align:middle;margin-left:6px}
+.infobtn:hover,.infobtn[aria-expanded=true]{color:var(--amber);border-color:var(--amber)}
+.infobtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+p.note.explain{display:none;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 12px}
+p.note.explain.open{display:block}
+/* ---- Club colours and badges (Settings > Team colours). ---- */
+.cbadge{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 4px;border-radius:3px;
+  font:700 11px/1 var(--disp);letter-spacing:.02em;vertical-align:middle;margin-right:7px;flex:none}
+input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
+.cbadge.lg{min-width:48px;height:48px;font-size:20px;margin:0;padding:0 6px}
+/* ---- Player headshots, from ESPN by the player's ESPN id. ---- */
+.hs{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 10%;background:var(--well);
+  flex:none;vertical-align:middle;margin-right:6px}
+.hs.lg{position:absolute;top:14px;right:16px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
+#dlgPlayerBody{position:relative}
+/* ---- Home: who is around and what just happened. ---- */
+.hlive{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:14px}
+.hlive .on{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.hlive .dot{width:8px;height:8px;border-radius:50%;background:var(--space);display:inline-block;margin-right:4px}
+.hfeed .ago,.hlive .ago{color:var(--dim);font-family:var(--mono);font-size:11px;margin-left:auto;white-space:nowrap}
+.hlive .act{display:flex;gap:8px;align-items:baseline}
+.countdown{font:700 30px var(--disp);color:var(--amber)}
+
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
 .tape{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;margin:0 0 20px}
@@ -826,9 +865,6 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 .tapetop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-bottom:12px}
 .tapeid{display:flex;gap:11px;align-items:center;min-width:0}
 .tapeid.r{flex-direction:row-reverse;text-align:right}
-.tapebadge{width:48px;height:48px;flex:none;display:grid;place-items:center;border-radius:3px;
-  font:700 20px var(--disp);color:#fff;background:var(--dyn2)}
-.tapeid.r .tapebadge{background:var(--tax2)}
 .tapenm{font:700 22px/1.1 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tapeid select{width:auto;max-width:100%;font:700 18px var(--disp);padding:4px 8px}
 .tapemeta{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
@@ -863,6 +899,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   --arcade:'Bungee','Barlow Condensed',system-ui,sans-serif;
   --pixel:'Press Start 2P',ui-monospace,monospace;
   --led:'VT323',ui-monospace,monospace;
+  /* Body text: squared-off like the cabinet lettering, still readable small. */
+  --body:'Chakra Petch','Archivo',system-ui,sans-serif;
   --ink:#0B0820; --panel:#17123A; --panel2:#201A4A; --well:#07051A;
   --line:#2E2768; --line2:rgba(46,39,104,.6);
   --chalk:#F4F1FF; --steel:#B3ABE0; --dim:#958DCB;
@@ -910,8 +948,11 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 [data-theme="jam"] thead th{color:var(--dyn)}
 [data-theme="jam"] dialog{border:3px solid #000;border-radius:0;box-shadow:8px 8px 0 #000}
 [data-theme="jam"] .tapehd h2{font-size:26px;color:#fff;text-shadow:3px 3px 0 #5B2A86,5px 5px 0 #000}
-[data-theme="jam"] .tapebadge{border:3px solid #000;border-radius:0;font-family:var(--arcade);font-weight:400;background:#00A3AD}
-[data-theme="jam"] .tapeid.r .tapebadge{background:#5B2A86}
+[data-theme="jam"] .cbadge{border:2px solid #000;border-radius:0;font-family:var(--arcade);font-weight:400}
+[data-theme="jam"] .cbadge.lg{border-width:3px}
+[data-theme="jam"] .hs{border:2px solid #000}
+[data-theme="jam"] .infobtn{border:2px solid #000;background:#5B2A86;color:#fff;border-radius:0}
+[data-theme="jam"] .countdown{font-family:var(--led);font-weight:400;font-size:44px;color:#FF6A13}
 [data-theme="jam"] .tapenm{font-family:var(--arcade);font-weight:400;font-size:20px}
 [data-theme="jam"] .tapemeta{font-family:var(--led);font-size:20px;color:var(--space)}
 [data-theme="jam"] .tapevs{font-family:var(--arcade);font-weight:400;font-size:40px;color:var(--amber);text-shadow:3px 3px 0 #C8102E}
@@ -1035,7 +1076,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <h2>Champions</h2>
     <div class="banners" id="banners"></div>
     <h2 class="sub">All-time</h2>
-    <p class="note">Every finish is credited to the manager, whatever the club was called that year. The names each manager has used are listed under them.</p>
+    <p class="note explain">Every finish is credited to the manager, whatever the club was called that year. The names each manager has used are listed under them.</p>
     <div class="scroller" data-cap="1"><table><thead><tr><th class="l">Manager</th><th>Seasons</th><th>Titles</th>
       <th>Top 3</th><th>Avg finish</th><th>Avg points</th><th>Best</th><th>Worst</th></tr></thead>
       <tbody id="alltime"></tbody></table></div>
@@ -1045,7 +1086,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <th>FG%</th><th>FT%</th><th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th>
       <th>Total</th></tr></thead><tbody id="seasonTbl"></tbody></table></div>
     <h2 class="sub">Category profile &#8212; 2025&#8211;26 rosters</h2>
-    <p class="note">How each club's rostered players performed per player-game, so rosters that lost time to injury still
+    <p class="note explain">How each club's rostered players performed per player-game, so rosters that lost time to injury still
       compare fairly. Green is a strength, red is a hole. Rating is the sum of the club's ten best player ratings.</p>
     <div class="scroller" data-cap="1"><table id="profTbl">
       <thead><tr><th class="l" data-k="n">Club</th><th data-k="FG">FG%</th><th data-k="FT">FT%</th>
@@ -1058,7 +1099,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
   <div class="subview" id="v-log" data-subview hidden>
     <h2>Transaction history <span class="fcount" id="logCount"></span></h2>
-    <p class="note">Signings, releases and trades, newest first &#8212; the moves that change who
+    <p class="note explain">Signings, releases and trades, newest first &#8212; the moves that change who
       is on a roster. Cap edits, settings changes and corrections are not roster moves and are
       left out. The commissioner can reverse an entry.</p>
     <div class="filters" id="logTools" hidden>
@@ -1082,7 +1123,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <h2>Tonight's lineup</h2>
       <div id="luHead"></div>
       <div class="luslots" id="luSlots"></div>
-      <p class="note">Anybody may sit on the bench; a benched player's stats do not count for the night.
+      <p class="note explain">Anybody may sit on the bench; a benched player's stats do not count for the night.
         The injured reserve is off the lineup entirely and sits outside the roster limit &#8212; activating
         a man from it when the club is full asks you which player to release.</p>
     </div>
@@ -1107,7 +1148,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
          hides it once the season is live. -->
     <div id="labWrap">
     <h2 class="sub">What-if roster</h2>
-    <p class="note">A sandbox on top of your club. Load your roster, then add and drop anyone in the pool to see what it
+    <p class="note explain">A sandbox on top of your club. Load your roster, then add and drop anyone in the pool to see what it
       would do to your category totals. Nothing here touches the league.</p>
     <div class="filters">
       <label for="labSeed" style="margin:0">Start from</label>
@@ -1159,7 +1200,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div id="stratWrap" hidden>
       <h2 class="sub">Auction strategy</h2>
       <div class="privnote">&#9679; private to you</div>
-      <p class="note">Your own board, stored under your sign-in and never written to the league state &#8212; no other GM
+      <p class="note explain">Your own board, stored under your sign-in and never written to the league state &#8212; no other GM
         and no commissioner can see it. Rank the players you want, flag how badly you want each one, and note the most
         you would go. That max is a planning figure only: it places no bid, sets no automatic bid, and binds nothing.</p>
       <div id="stratBox"></div>
@@ -1174,7 +1215,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
   <section class="view" id="v-rookie" role="tabpanel" hidden>
     <h2>Rookie draft</h2>
-    <p class="note">One pick each, in reverse order of finish &#8212; the champion picks last. Every
+    <p class="note explain">One pick each, in reverse order of finish &#8212; the champion picks last. Every
       selection is three years at the salary the league attached to that slot, with a rookie option
       on the last. Rookies sign after the auction and do not consume auction cap space, but the hard
       cap still binds: a club with no room passes. Anyone nobody takes becomes an ordinary free agent
@@ -1191,7 +1232,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
   <section class="view" id="v-chat" role="tabpanel" hidden>
     <h2>League chat</h2>
-    <p class="note">Anyone signed in can post, and every club sees it. This is the same
+    <p class="note explain">Anyone signed in can post, and every club sees it. This is the same
       honour-system bar as the rest of the app &#8212; posts are stored in the league database with
       no authentication in front of them, so write nothing here you would mind the whole league,
       or anyone with the link, reading. You can delete your own posts; the commissioner can delete
@@ -1207,12 +1248,12 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
       <button class="btn" id="chatGo">Post</button>
     </div>
-    <p class="note">Enter posts, shift+Enter starts a new line. 600 characters.</p>
+    <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
     <div class="chatlog" id="chatLog"></div>
 
     <h2 class="sub">My notes <span class="fcount" id="notesSaved"></span>
       <span class="fcount" id="notesWho"></span></h2>
-    <p class="note">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
+    <p class="note explain">A scratchpad for your own plans &#8212; who you are chasing, what you would pay,
       which trade you are working on. Nobody else can read it: it is stored under your club,
       encrypted with a key derived from your PIN, so it follows you between devices while a
       league-mate who fetches it gets ciphertext. That is the same honour-system bar as the rest of
@@ -1226,11 +1267,11 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
   <section class="view" id="v-settings" role="tabpanel" hidden>
     <h2>Settings <span class="fcount" id="setWho"></span></h2>
-    <p class="note">Your club, your address and your PIN. Everything here is yours to change; nobody
+    <p class="note explain">Your club, your address and your PIN. Everything here is yours to change; nobody
       else's club is reachable from this page.</p>
 
     <h2 class="sub">Who you are</h2>
-    <p class="note">Your real first and last name. A club name can change &#8212; and clubs do get renamed,
+    <p class="note explain">Your real first and last name. A club name can change &#8212; and clubs do get renamed,
       sold and handed on &#8212; so this is the league's record of <b>who actually ran this club</b>, and it
       stays with the club whatever it later calls itself.</p>
     <div class="warn" id="gmWarn"><b>You can only set this once.</b> Type it carefully: once saved it is
@@ -1251,7 +1292,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="gmNote"></p>
 
     <h2 class="sub">Club name</h2>
-    <p class="note">The name every screen calls your club, and the name league-mates offer trades to.
+    <p class="note explain">The name every screen calls your club, and the name league-mates offer trades to.
       Renaming carries your roster, your picks, your open offers and your place in the auction's
       nomination order across with it. <b>The transaction log is left as it was</b> &#8212; it is the
       record of what happened under the name you had at the time, and rewriting history to match a
@@ -1260,6 +1301,16 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <div><label for="setName">Club name</label><input id="setName" maxlength="40" autocomplete="off"></div>
       <div></div><div></div>
       <button class="btn" id="setNameGo">Rename my club</button>
+    </div>
+
+    <h2 class="sub">Team colours</h2>
+    <p class="note explain">Your club's colour and badge, shown next to its name across the league —
+      standings, the tale of the tape, the club page and Home. Up to three letters.</p>
+    <div class="form f4">
+      <div><label for="setColor">Colour</label><input id="setColor" type="color" value="#00A3AD"></div>
+      <div><label for="setAbbr">Badge letters</label><input id="setAbbr" maxlength="3" autocomplete="off" style="text-transform:uppercase"></div>
+      <div><label>Preview</label><div id="setBadgePrev" style="padding-top:6px"></div></div>
+      <button class="btn" id="setBrandGo">Save colours</button>
     </div>
 
     <h2 class="sub">Email</h2>
@@ -1277,7 +1328,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="setMailNote"></p>
 
     <h2 class="sub">PIN</h2>
-    <p class="note">Sign-in is honour-system: anyone who views the page source can read every PIN, so
+    <p class="note explain">Sign-in is honour-system: anyone who views the page source can read every PIN, so
       this stops accidents and keeps an audit trail rather than a determined league-mate. Changing it
       re-keys your notes, projections and strategy board, which are encrypted under it &#8212; they are
       carried over for you.</p>
@@ -1304,7 +1355,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </nav>
   <div class="subview" id="v-rater" data-subview>
     <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
-    <p class="note">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
+    <p class="note explain">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
       <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
       z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
       free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
@@ -1366,7 +1417,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
   <div id="v-fa">
     <h2>Free agent class</h2>
-    <p class="note">Every expiring contract. Restricted players finished the last year of a team, player, or rookie option &#8212; their club may match the winning bid. Bird rights let a club exceed the cap to keep its own player, but it still has to win the bidding.</p>
+    <p class="note explain">Every expiring contract. Restricted players finished the last year of a team, player, or rookie option &#8212; their club may match the winning bid. Bird rights let a club exceed the cap to keep its own player, but it still has to win the bidding.</p>
     <div class="filters"><input id="faTabSearch" placeholder="Search free agents" autocomplete="off">
       <span class="fcount">click a player for full stats and your projection</span></div>
     <div class="fagrid" id="fagrid"></div>
@@ -1374,7 +1425,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   </div>
   <div class="subview" id="v-proj" data-subview hidden>
     <h2>My projections</h2>
-    <p class="note">Your own numbers for next season, private to you. Nothing here is shared with the league.
+    <p class="note explain">Your own numbers for next season, private to you. Nothing here is shared with the league.
       Edit a player and every projection on the site &#8212; impact cards, ratings, standings &#8212; switches to your
       figures whenever a stats bar is set to <b>Mine</b>. Blank fields fall back to last season's actuals.</p>
     <div class="filters">
@@ -1404,7 +1455,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="draftNote"></p>
 
     <h2 class="sub">The free agent pool <span class="fcount" id="qsCount"></span></h2>
-    <p class="note">Everyone not under contract for next season, which is the same list the auction
+    <p class="note explain">Everyone not under contract for next season, which is the same list the auction
       and the strategy board read. Pick loads a name into the form above.</p>
     <div class="filters">
       <input id="qsSearch" placeholder="Search players" autocomplete="off">
@@ -1424,7 +1475,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
   <section class="view" id="v-trade" role="tabpanel" hidden>
     <h2>Trade block</h2>
-    <p class="note">Players their clubs have said they will listen on. Pick one to load him straight
+    <p class="note explain">Players their clubs have said they will listen on. Pick one to load him straight
       into the builder below. List your own from the roster table on My Team.</p>
     <div class="filters">
       <input id="blkQ" placeholder="Search the block" autocomplete="off">
@@ -1497,19 +1548,20 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <div><label for="sRoster">Active roster size</label><input id="sRoster" class="mono" type="number" min="1" max="30"></div>
       <div><label for="sMin">Minimum contract</label><input id="sMin" class="mono" type="number" step="0.25" min="0.25"></div>
       <div><label for="sDeadline">Trade deadline</label><input id="sDeadline" class="mono" placeholder="2027-02-05" autocomplete="off"></div>
+      <div><label for="sOpener">Opening night</label><input id="sOpener" class="mono" placeholder="2026-10-20" autocomplete="off"></div>
       <div><label for="sMle">Mid-level exception</label><input id="sMle" class="mono" type="number" step="0.25" min="0"></div>
       <div><label for="sMatch">Trade salary matching</label><select id="sMatch">
         <option value="">Off &#8212; any trade under the hard cap</option>
         <option value="1">On &#8212; enforce the 150% / +$5.00 / 125% bands</option></select></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
-    <p class="note">The <b>mid-level exception</b> is what a club over the salary cap may still spend, and it
+    <p class="note explain">The <b>mid-level exception</b> is what a club over the salary cap may still spend, and it
       splits across as many players as it covers &#8212; each club's remaining balance shows on its own page.
       A signing that uses any of it runs <b>two seasons</b>. It never beats the hard cap.
       <b>Salary matching</b> is off, so a trade goes through on the hard cap and the roster limit alone;
       switch it on to enforce the rulebook's outgoing-salary bands as well.</p>
     <h2 class="sub">Email the league</h2>
-    <p class="note">One message to every club that has an address on file. It goes out from the league's own
+    <p class="note explain">One message to every club that has an address on file. It goes out from the league's own
       address; addresses are never typed here and never leave the rosters slice. Plain text &#8212; blank lines
       start a new paragraph. <b>Only the commissioner login can send this</b>, and it counts against the daily
       send ceiling, so a note that would breach it sends to nobody rather than to half the league.</p>
@@ -1524,7 +1576,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">Add a player to the pool</h2>
-    <p class="note">The player list is a transcription of last season and it is a snapshot &#8212; a man signed
+    <p class="note explain">The player list is a transcription of last season and it is a snapshot &#8212; a man signed
       since, a call-up, or somebody the sheet simply missed has no row, and so cannot be nominated, drafted or
       signed. Add him here and he joins the free agent pool. <b>He carries no statistics</b>, the same as an
       undrafted rookie: nothing here invents numbers for a player nobody has any for.</p>
@@ -1538,7 +1590,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="log" id="apnList"></div>
 
     <h2 class="sub">Clubs</h2>
-    <p class="note">Add a club to the league. It starts empty, with no PIN &#8212; the first person to
+    <p class="note explain">Add a club to the league. It starts empty, with no PIN &#8212; the first person to
       sign in as it claims it. Nine clubs is the league as it stands; the cap, the tax and the
       920-game limit are all per club, so nothing else needs changing.</p>
     <div class="form f4">
@@ -1559,7 +1611,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">GM access</h2>
-    <p class="note">Set or reset each GM's PIN, and hold the address the league emails. A club with no
+    <p class="note explain">Set or reset each GM's PIN, and hold the address the league emails. A club with no
       PIN is claimed by whoever signs in first, so set them all before you share the link.</p>
     <div class="warn"><b>Email addresses are stored with the rosters.</b> Like the PINs, anyone who can
       reach the league database can read them. Use an address you are comfortable sharing with the
@@ -1571,7 +1623,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <div class="log" id="gmList"></div>
 
     <h2 class="sub">Commissioner access</h2>
-    <p class="note">A club named here keeps its own team &#8212; its own roster, its own notes, its own
+    <p class="note explain">A club named here keeps its own team &#8212; its own roster, its own notes, its own
       turn on the auction's nomination snake &#8212; and also gets this tab and everything on it,
       including awarding players at auction. It is a second commissioner who still has a club to run,
       not a second commissioner login. <b>Only the commissioner login can change this list</b>, so a
@@ -1580,7 +1632,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="deputyNote"></p>
 
     <h2 class="sub">Season phase</h2>
-    <p class="note">The offseason allows auctions, cuts that clear salary immediately, and roster building.
+    <p class="note explain">The offseason allows auctions, cuts that clear salary immediately, and roster building.
       Once the season is live, cuts keep their salary on the books until the year ends, and the injured
       reserve and nightly lineups open up. <b>Roster size is the ACTIVE limit</b> &#8212; the injured
       reserve sits outside it, so 15 active with 1 IR slot is the rulebook's sixteen men, and only while
@@ -1594,7 +1646,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">Advance the league year</h2>
-    <p class="note">Run this <b>after a season has been played</b> and before the next auction: it moves
+    <p class="note explain">Run this <b>after a season has been played</b> and before the next auction: it moves
       the league on to the following contract year. Every contract advances a year, deals with nothing
       owed in the new season become expiring, release bars from the season just gone lapse, and another
       season counts towards Bird rights. <b>Nothing is rewritten to do it</b> &#8212; a contract records
@@ -1614,7 +1666,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <p class="note" id="rollNote"></p>
 
     <h2 class="sub">Auction nomination order</h2>
-    <p class="note">Round one runs top to bottom; round two runs back up, and so on &#8212; a snake.
+    <p class="note explain">Round one runs top to bottom; round two runs back up, and so on &#8212; a snake.
       Only the club on the clock may put a player on the block, and a club already carrying a full
       roster is skipped, since it has nothing to bid with. Leave every row blank and nomination is a
       free-for-all, which is how it worked before.</p>
@@ -1626,7 +1678,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">Stats and scoring</h2>
-    <p class="note">The nightly jobs, and whether they are keeping up. Stats arrive from 5:15am Eastern and are
+    <p class="note explain">The nightly jobs, and whether they are keeping up. Stats arrive from 5:15am Eastern and are
       scored half an hour later, hourly until about 9am; every run also re-reads the five nights before, so a
       stat correction is picked up on its own. Nothing here needs pressing for the league to work &#8212; the
       buttons are for checking a fix straight away rather than waiting for the morning.</p>
@@ -1637,13 +1689,13 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <button class="btn" id="hScore">Rescore now</button>
     </div>
     <h3 class="sub" style="margin-top:14px">Names ESPN does not know</h3>
-    <p class="note">Players under contract whose name matches nobody on an NBA roster at ESPN. Most are simply
+    <p class="note explain">Players under contract whose name matches nobody on an NBA roster at ESPN. Most are simply
       unsigned or overseas. But a spelling the box scores do not use means that player <b>never scores and never
       locks</b>, so if he is in the NBA, pick his ESPN name here.</p>
     <div id="espnMiss"></div>
 
     <h2 class="sub">Tip-off times</h2>
-    <p class="note">A player is frozen the moment <em>his own</em> game tips off &#8212; a five o'clock
+    <p class="note explain">A player is frozen the moment <em>his own</em> game tips off &#8212; a five o'clock
       game locks that man at five and leaves his team-mate on a half-seven game free for another two
       and a half hours. <b>These arrive on their own</b> from the NBA's published schedule, once a day,
       and nothing below needs saving for the lock to work. The box is only an override: put a club here
@@ -1660,7 +1712,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     <textarea id="tipBox" rows="6" placeholder="DEN 19:00&#10;LAL 22:30" style="width:100%;background:var(--panel);color:var(--chalk);border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--mono);font-size:13px;line-height:1.6"></textarea>
 
     <h2 class="sub">Auction room</h2>
-    <p class="note">Nobody may nominate or bid until this is open. The rookie draft has always worked
+    <p class="note explain">Nobody may nominate or bid until this is open. The rookie draft has always worked
       this way and the auction now matches it &#8212; an offseason with the room unlocked meant any GM
       could put a player on the block days early, by accident, and the bidding was under way before
       anyone noticed. Opening and closing are both logged.</p>
@@ -1671,7 +1723,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">Rookie draft input</h2>
-    <p class="note">The order and the money are settled before anyone is on the clock, so both are
+    <p class="note explain">The order and the money are settled before anyone is on the clock, so both are
       entered here. Set a club against each slot &#8212; no. 1 is the club that finished last &#8212;
       and a salary for each. Auto-fill uses the rulebook scale: 3.57% of the cap for the first pick,
       rounded up to the next quarter, then a quarter less each pick. "Future drafts" is how many
@@ -1690,7 +1742,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">Auction demo</h2>
-    <p class="note">Open a practice auction so the league can try bidding before the real thing. It uses a real
+    <p class="note explain">Open a practice auction so the league can try bidding before the real thing. It uses a real
       free agent and seeds a few bids. Clearing it signs nobody.</p>
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:8px">
       <button class="btn" id="demoBtn">Start a demo auction</button>
@@ -1708,7 +1760,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
     </div>
 
     <h2 class="sub">Every player</h2>
-    <p class="note">Every contract in the league &#8212; the club, what he is owed, how long for, and
+    <p class="note explain">Every contract in the league &#8212; the club, what he is owed, how long for, and
       the rights that club holds &#8212; plus every unsigned free agent in the player pool. Editing
       here writes straight to the roster and is logged like any other move. Unlike the Move tool
       above, expiring players are included, so a club's Bird or restricted rights can be corrected
@@ -1732,7 +1784,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
       <button class="btn ghost" id="apCsv">Export these rows</button>
       <button class="btn ghost" id="apCsvAll">Export the whole league</button>
     </div>
-    <p class="note">The CSV carries the roster entry's own fields, not what the table draws:
+    <p class="note explain">The CSV carries the roster entry's own fields, not what the table draws:
       salaries as plain numbers, the raw option and rights text, the year acquired, the IR and
       block flags, and every spreadsheet spelling mapped onto a player. The <code>key</code>
       column is the canonical name and is what identifies a player &#8212; leave it alone if you
@@ -2201,6 +2253,7 @@ function startPolling(){
       const r=await fetch(API+'?key=all'+chatPeekQuery(),{cache:'no-store'});
       const j=await r.json();
       if(j.chat) chatPeek(j.chat);
+      if(j.seen&&typeof j.seen==='object'){ SEEN=j.seen; if(typeof drawHomeLive==='function') drawHomeLive(); }
       let changed=false;
       SLICES.forEach(k=>{
         if(j[k]&&j[k].rev!==REV[k]){ REV[k]=j[k].rev; applySlice(k,j[k].data); setBase(k,j[k].data); changed=true; }
@@ -3379,7 +3432,7 @@ function drawDetail(){
       <tfoot><tr><td>Payroll</td><td class="hide"></td><td class="hide2"></td><td class="hide2"></td>
       <td>${money(s)}</td><td class="hide"></td><td class="hide"></td></tr></tfoot></table></div>
     ${cuts.length?`<h2 class="sub">Release history &#8212; ${cuts.length} players</h2>
-    <p class="note">A released player's salary counts against the cap only for the rest of that season, then clears.
+    <p class="note explain">A released player's salary counts against the cap only for the rest of that season, then clears.
     None of this is charged to the current payroll &#8212; it is a record of past moves.
     A release <b>above the ${money(minSal())} minimum</b> also bars this club from signing him back for
     the rest of the season and the following offseason; every other club may sign him freely.</p>
@@ -3898,6 +3951,7 @@ function drawAdmin(){
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
   if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
   if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
+  if($('sOpener')) $('sOpener').value=S.cfg.opener||'';
   if($('ncGo')) $('ncGo').onclick=async()=>{
     const raw=$('ncName').value.trim();
     if(!raw) return $('ncName').focus();
@@ -4184,6 +4238,10 @@ function drawSettings(){
   if($('setEmail')&&document.activeElement!==$('setEmail')) $('setEmail').value=d.email||'';
   if($('setDaily')) $('setDaily').value=d.daily?'1':'';
   if($('setWeekly')) $('setWeekly').value=d.weekly?'1':'';
+  { const b=clubBrand(mine);
+    if($('setColor')&&document.activeElement!==$('setColor')) $('setColor').value=b.c;
+    if($('setAbbr')&&document.activeElement!==$('setAbbr')) $('setAbbr').value=b.ab;
+    if($('setBadgePrev')) $('setBadgePrev').innerHTML=clubBadge(mine)+htmlEsc(mine); }
   if($('setMailNote')) $('setMailNote').textContent = d.email
     ? `The league mails ${d.email}${digestWords(d.daily,d.weekly)}.`
     : 'No address on file, so nothing is mailed to this club.';
@@ -4227,6 +4285,20 @@ function wireSettings(){
     await commit({kind:'edit',team:to,detail:`${from} renamed to ${to}`},
       ['rosters','settings','trades','auction']);
     projToast(`Renamed to ${to}`);
+  };
+  const brandPrev=()=>{ const t=me; if(!t||!S.teams[t]||!$('setBadgePrev')) return;
+    const c=$('setColor').value, ab=($('setAbbr').value||'').trim().toUpperCase();
+    $('setBadgePrev').innerHTML=badgeHtml(/^#[0-9a-f]{6}$/i.test(c)?c:clubBrand(t).c, brandAbError(ab)?clubBrand(t).ab:ab)+htmlEsc(t); };
+  if($('setColor')) $('setColor').oninput=brandPrev;
+  if($('setAbbr')) $('setAbbr').oninput=brandPrev;
+  if($('setBrandGo')) $('setBrandGo').onclick=async()=>{
+    const t=me; if(!t||isComm()||!S.teams[t]) return;
+    const c=$('setColor').value, ab=($('setAbbr').value||'').trim().toUpperCase();
+    if(!/^#[0-9a-f]{6}$/i.test(c)) return alert('Pick a colour.');
+    const err=brandAbError(ab); if(err) return alert(err);
+    S.teams[t].brand={c:c.toUpperCase(),ab};
+    await commit({kind:'edit',team:t,detail:`Team colours set \u2014 ${ab} ${c.toUpperCase()}`},['rosters']);
+    projToast('Colours saved');
   };
   $('setEmailGo').onclick=async()=>{
     const t=me; if(!t||isComm()||!S.teams[t]) return;
@@ -4292,6 +4364,7 @@ function render(){
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
   drawHome();drawClubLive();drawPlayersFA();drawMeExtras();
+  infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
   /* The trade machine's two club selects were built once and never again, so a
@@ -6519,7 +6592,7 @@ document.getElementById('themeBtn').onclick=()=>
    so projections can be edited from wherever a player appears.        */
 function openPlayerCard(name){
   const box=$('dlgPlayerBody');
-  box.innerHTML=playerCard(name);
+  box.innerHTML=headshot(name,'lg')+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
 }
@@ -7929,7 +8002,7 @@ function drawTradeCats(v){
     }).join(''), 'netrow');
   const missing=A.unrated+B.unrated;
   box.innerHTML=`<h3 class="sub" style="margin-top:20px">What moves</h3>
-    <p class="note">Totals from ${projSrcLabel()}, counted the way the league scores. Turnovers count against
+    <p class="note explain">Totals from ${projSrcLabel()}, counted the way the league scores. Turnovers count against
       you, so shedding them shows as a gain. Percentages are weighted by attempts and do not add up
       across clubs, so they are shown per side only. Games matter on their own: the league caps a
       club at ${S.cfg.gamecap||920} player-games, and slots you cannot use are wasted.</p>
@@ -8798,12 +8871,13 @@ async function loadNbaPlayers(force){
   try{
     const r=await fetch('/api/players',{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
-    const j=await r.json(), byKey={}, pos={};
-    Object.values((j&&j.players)||{}).forEach(p=>{
+    const j=await r.json(), byKey={}, pos={}, ids={};
+    Object.entries((j&&j.players)||{}).forEach(([id,p])=>{
+      if(p&&p.n) ids[nameKey(p.n)]=id;
       if(p&&p.n&&p.t) byKey[nameKey(p.n)]=p.t;
       if(p&&p.n&&p.el) pos[nameKey(p.n)]=p.el;
     });
-    NBAP={day,byKey,pos,n:Object.keys(byKey).length,at:j&&j.at,
+    NBAP={day,byKey,pos,ids,n:Object.keys(byKey).length,at:j&&j.at,
       names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
@@ -9077,9 +9151,9 @@ function drawLineup(){
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
         ? `<span class="luname">${htmlEsc(nm)}</span><span class="lutip lk">${htmlEsc(lk.why)}</span>`
-        : can ? `<span class="lurowctl"><select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
+        : can ? `<span class="lurowctl">${nm?headshot(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
                 +(nm&&lk.why?`<span class="lutip">${htmlEsc(lk.why)}</span>`:'')
-              : `<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
+              : `${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>`}</span>
       ${stats(nm,L)}</div>`;
   }).join('');
 
@@ -9091,7 +9165,7 @@ function drawLineup(){
     return `<div class="lurow bench${lk.locked?' locked':''}">
       <span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lurowctl">
-        <span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+        ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
         ${can&&!lk.locked ? (where.length
           ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
@@ -9110,7 +9184,7 @@ function drawLineup(){
     return `<div class="lurow onir">
       <span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lurowctl">
-        <span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+        ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
         ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span>
       ${stats(p.n,L)}</div>`;
@@ -9725,7 +9799,7 @@ function drawPre(){
       <span class="pill">${htmlEsc(preSpan())}</span>
       <span class="pill">${nights.length} night${nights.length===1?'':'s'} scored</span>
       ${p.on?'':'<span class="pill">finished</span>'}</div>
-    <p class="note">A trial run of the nightly stats on the last preseason games, just for fun \u2014 none of it counts.
+    <p class="note explain">A trial run of the nightly stats on the last preseason games, just for fun \u2014 none of it counts.
       Every club\u2019s lineup was filled automatically and carries forward each night; change yours on My Team
       any time. Results post the morning after each night.</p>
     ${rows.length?`<div class="scroller"><table id="preTbl"><thead><tr><th>#</th><th class="l">Club</th><th>Roto pts</th>
@@ -9767,23 +9841,23 @@ function drawHome(){
         mv=d>0?` <span class="up">\u25B2${d}</span>`:d<0?` <span class="down">\u25BC${-d}</span>`:'';
       }
       const ahead=rows.find(r=>r.rank===row.rank-1);
-      cards.push(homeCard('Your place',`${ordinal(row.rank)}${mv}`,
-        `${row.pts} roto pts${ahead?` \u00b7 ${(ahead.pts-row.pts).toFixed(1)} behind ${htmlEsc(ahead.club)}`:''}`));
+      cards.push(homeCard('Place',`${ordinal(row.rank)}${mv}`,
+        ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`));
       const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T);
-      cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,`${cap-used} left`));
+      cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,''));
     }
     if(lineupsOpen()){
       const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
       const tips=st.map(n=>tipOf(n)).filter(Boolean).map(t=>t.at);
       cards.push(homeCard('Tonight',`${tips.length} <span class="hof">playing</span>`,
-        tips.length?`first tip ${hhmm(Math.min(...tips))}`:'no games for your starters'));
+        tips.length?`First tip ${hhmm(Math.min(...tips))}`:'No games'));
     }
     const offers=(S.trades||[]).filter(t=>t.status==='pending'&&t.b===T);
-    cards.push(homeCard('Waiting on you',`${offers.length} <span class="hof">offer${offers.length===1?'':'s'}</span>`,
-      offers.length?`from ${offers.map(o=>htmlEsc(o.a)).join(', ')}`:'nothing pending'));
+    cards.push(homeCard('Offers',`${offers.length}`,
+      offers.length?`From ${offers.map(o=>htmlEsc(o.a)).join(', ')}`:''));
     if(!seasonLive())
       cards.push(homeCard('Roster',`${headcount(T)} <span class="hof">/ ${S.cfg.roster}</span>`,
-        `${money(Math.max(0,S.cfg.tax-committed(T)))} to the hard cap`));
+        `${money(Math.max(0,S.cfg.tax-committed(T)))} under hard cap`));
   }
   $('homeSnap').innerHTML=cards.length?`<div class="hsnap">${cards.join('')}</div>`:'';
 
@@ -9805,13 +9879,118 @@ function drawHome(){
 
   /* Around the league: the latest roster moves, newest first. */
   const mv=rosterMoves(S.log||[]).slice(0,6);
-  $('homeFeed').innerHTML=(mv.length?`<div class="hfeed">${mv.map(e=>`<div><span class="pjlab">${htmlEsc(fmt(e.ts))}</span>
-      <b>${htmlEsc(e.team||'')}</b> ${htmlEsc(e.detail||'')}</div>`).join('')}</div>`:'<div class="empty">No moves yet.</div>')
+  $('homeFeed').innerHTML=`<div id="homeLive"></div>`+(mv.length?`<div class="hfeed">${mv.map(e=>`<div>${clubBadge(e.team)}
+      <b>${htmlEsc(e.team||'')}</b> ${htmlEsc(e.detail||'')}<span class="ago">${htmlEsc(agoText(e.ts))}</span></div>`).join('')}</div>`
+      :'<div class="empty">Quiet so far. The first trade of the season gets top billing here.</div>')
     +`<div class="hfoot"><button class="btn ghost" data-go="v-log">All transactions</button>
       <button class="btn ghost" data-go="v-chat">Chat${CHATNEW?` \u00b7 ${CHATNEW} new`:''}</button></div>`;
   drawTape();
+  drawHomeLive();
   drawHomeBest();
 }
+/* Who is around (presence from the poll, seen in the last five minutes) and
+   the latest thing anybody did — lineup changes included, which the moves list
+   below leaves out on purpose. */
+function drawHomeLive(){
+  const box=$('homeLive'); if(!box) return;
+  const now=Date.now();
+  const on=Object.entries(SEEN||{}).filter(([c,ts])=>now-new Date(ts).getTime()<5*60000)
+    .map(([c])=>c).filter(c=>S.teams[c]||c==='Commissioner').sort();
+  const last=(S.log||[]).filter(e=>e&&e.ts&&e.team).slice(0,3);
+  box.innerHTML=(on.length||last.length)?`<div class="hlive">
+    ${on.length?`<div class="on"><span><span class="dot" aria-hidden="true"></span>Online</span>${on.map(c=>
+      `<span>${clubBadge(c)}${htmlEsc(c===me?'You':c)}</span>`).join('')}</div>`:''}
+    ${last.map(e=>`<div class="act">${clubBadge(e.team)}<span>${htmlEsc(e.team)} ${htmlEsc(lowerFirst(e.detail||''))}</span>
+      <span class="ago">${htmlEsc(agoText(e.ts,now))}</span></div>`).join('')}</div>`:'';
+}
+function lowerFirst(t){ return t&&/^[A-Z][a-z]/.test(t)?t[0].toLowerCase()+t.slice(1):t; }
+/* ================= CLUB COLOURS (2026-10-14) =================
+   S.teams[t].brand = {c:'#RRGGBB', ab:'OS'}, set by the GM on Settings. It rides
+   rosters like everything else on the club, so it merges per club and a rename
+   carries it. A club that never set one gets a stable colour from its name and
+   its initials, so every badge still renders. */
+var CLUBPAL=['#00A3AD','#5B2A86','#C8102E','#E35205','#006BB6','#007A33','#B8860B','#1D1160','#CE1141','#00788C','#98002E','#0C2340'];
+function brandAbError(ab){ return /^[A-Z0-9]{1,3}$/.test(String(ab||''))?null:'Badge letters are one to three letters or numbers.'; }
+function nameHash(t){ let h=0; for(const ch of String(t)) h=(h*31+ch.charCodeAt(0))>>>0; return h; }
+function clubBrand(t){
+  const b=(S.teams[t]&&S.teams[t].brand)||{};
+  return {c:/^#[0-9a-f]{6}$/i.test(b.c||'')?b.c:CLUBPAL[nameHash(t)%CLUBPAL.length],
+          ab:brandAbError(b.ab)?tapeInit(t):b.ab};
+}
+/* Black or white, whichever reads on the colour. */
+function inkOn(hex){
+  const n=parseInt(String(hex).slice(1),16), r=n>>16&255, g=n>>8&255, b=n&255;
+  return (0.299*r+0.587*g+0.114*b)/255>0.6?'#000':'#fff';
+}
+function badgeHtml(c,ab,cls){ return `<span class="cbadge${cls?' '+cls:''}" style="background:${c};color:${inkOn(c)}" aria-hidden="true">${htmlEsc(ab)}</span>`; }
+function clubBadge(t,cls){ if(!t||!S.teams||!S.teams[t]) return ''; const b=clubBrand(t); return badgeHtml(b.c,b.ab,cls); }
+
+/* ================= HEADSHOTS =================
+   ESPN's own headshot for a player, by the ESPN id /api/players already
+   carries. No id, no picture — and a picture that fails to load removes itself
+   rather than leaving a broken-image box. */
+function espnIdOf(name){
+  const I=NBAP.ids||{}; if(!name) return null;
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return (e&&I[nameKey(e)])||I[nameKey(name)]||I[nameKey(c)]||null;
+}
+function headshot(name,cls){
+  const id=espnIdOf(name); if(!id||!/^\d+$/.test(id)) return '';
+  const w=cls==='lg'?160:64;
+  return `<img class="hs${cls?' '+cls:''}" alt="" loading="lazy" referrerpolicy="no-referrer"
+    src="https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=${w}&h=${Math.round(w*.73)}" onerror="this.remove()">`;
+}
+
+/* ================= INFO BUTTONS =================
+   An explanation is a p.note.explain. It is hidden; a small "i" button opens
+   it. The button goes in the heading right above the note when there is one,
+   else just before the note. Re-run after anything is drawn (render() and a
+   MutationObserver both call it); it is idempotent, and a note the GM opened
+   stays open across a redraw. */
+var INFOOPEN=new Set();
+function infoNotes(root){ try{
+  const all=(root||document).querySelectorAll?(root||document).querySelectorAll('p.note.explain'):[];
+  Array.prototype.forEach.call(all,n=>{
+    const key=(n.textContent||'').trim().slice(0,60);
+    if(INFOOPEN.has(key)) n.classList.add('open');
+    /* No early return for a wired note: a heading rewritten with textContent
+       (the rater's) loses its button, and it has to come back. */
+    const prev=n.previousElementSibling;
+    /* The heading right above, or one inside a header row right above (the
+       tape's .tapehd, a club page's .dhead). */
+    const host=prev&&/^H[2-5]$/.test(prev.tagName||'')?prev
+      :prev&&prev.querySelector&&/(^| )(tapehd|dhead)( |$)/.test(prev.className||'')?prev.querySelector('h2,h3'):null;
+    let b=host?host.querySelector('.infobtn'):(prev&&prev.classList&&prev.classList.contains('infobtn')?prev:null);
+    if(!b){
+      b=document.createElement('button'); b.type='button'; b.className='infobtn'; b.textContent='i';
+      b.setAttribute('aria-label','About this');
+      if(host) host.appendChild(b); else n.parentNode.insertBefore(b,n);
+    }
+    b.setAttribute('aria-expanded',n.classList.contains('open')?'true':'false');
+    b.onclick=()=>{ const o=!n.classList.contains('open'); n.classList.toggle('open',o);
+      o?INFOOPEN.add(key):INFOOPEN.delete(key); b.setAttribute('aria-expanded',o?'true':'false'); };
+  });
+  }catch(e){ /* a DOM without classList (the Node stub) simply shows the notes */ }
+}
+if(typeof MutationObserver!=='undefined'){
+  let infoT=null;
+  new MutationObserver(()=>{ if(infoT) return; infoT=setTimeout(()=>{ infoT=null; infoNotes(); },30); })
+    .observe(document.body,{childList:true,subtree:true});
+}
+/* "4m ago", "2h ago", "3d ago". */
+function agoText(ts,now){
+  const m=Math.max(0,Math.round(((now||Date.now())-new Date(ts).getTime())/60000));
+  return m<1?'just now':m<60?`${m}m ago`:m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`;
+}
+/* Days until opening night, or null when it is not set or has passed. */
+function daysToOpener(now){
+  const o=S.cfg&&S.cfg.opener; if(!o||!/^\d{4}-\d{2}-\d{2}$/.test(o)) return null;
+  const d=Math.ceil((new Date(o+'T00:00:00').getTime()-(now||Date.now()))/86400000);
+  return d>0?d:null;
+}
+var SEEN={};   // club -> ISO of its last poll, from /api/state (presence)
+
 /* ================= TALE OF THE TAPE (Home, 2026-10-14) =================
    Your club against any other, category by category: where each ranks in the
    league in all nine, and who is ahead in each. The GM picks the opponent; it
@@ -9862,7 +10041,7 @@ function tapeData(src,a,b){
 }
 function tapeStore(){ try{return JSON.parse(localStorage.getItem('ll_tape')||'{}')||{};}catch(e){return {};} }
 function tapeSave(k,v){ const o=tapeStore(); o[k]=v; try{localStorage.setItem('ll_tape',JSON.stringify(o));}catch(e){} }
-const tapeInit=c=>String(c).split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+function tapeInit(c){ return String(c).split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function drawTape(){
   const box=$('homeTape'); if(!box) return;
   const T=TEAMS(); if(T.length<2){ box.innerHTML=''; box.dataset.h=''; return; }
@@ -9876,14 +10055,16 @@ function drawTape(){
   const w=x=>x?Math.max(4,(N-x.r+1)/N*100).toFixed(1):0;
   const place=c=>ordinal(src.order.indexOf(c)+1);
   const opts=(sel,not)=>T.filter(t=>t!==not).map(t=>`<option value="${htmlEsc(t)}"${t===sel?' selected':''}>${htmlEsc(t)}</option>`).join('');
-  const side=(c,r,ctl)=>`<div class="tapeid${r?' r':''}"><div class="tapebadge" aria-hidden="true">${htmlEsc(tapeInit(c))}</div>
+  const side=(c,r,ctl)=>`<div class="tapeid${r?' r':''}">${clubBadge(c,'lg')}
     <div style="min-width:0"><div class="pjlab">${r?'Against':c===mine?'You':'Club'}</div>
       ${ctl?`<select id="${ctl}" aria-label="${r?'Club to compare against':'Club to compare'}">${opts(c,r?a:b)}</select>`
            :`<div class="tapenm">${htmlEsc(c)}</div>`}
-      <div class="tapemeta">${src.pts[c]!=null?`${src.pts[c]} roto pts \u00b7 ${place(c)}`:''}</div></div></div>`;
+      <div class="tapemeta">${src.pts[c]!=null?`${place(c)}, ${src.pts[c]} pts`:''}</div></div></div>`;
   const html=`<section class="tape" aria-label="Tale of the tape">
     <div class="tapehd"><h2>Tale of the tape</h2>
-      <span class="pjlab">${src.live?'Season to date':'Projected from '+htmlEsc(projSrcLabel())}</span></div>
+      <span class="pjlab">${src.live?'Season':'Projected'}</span></div>
+    <p class="note explain">${src.live?'Season to date, from the scored nights.':'Projected from '+htmlEsc(projSrcLabel())+' until the first night is scored.'}
+      Each bar is that club\u2019s rank in the league in one category, out of ${N}; a longer bar is a better rank.</p>
     <div class="tapetop">${side(a,false,mine?'':'tapeA')}<div class="tapevs" aria-hidden="true">VS</div>${side(b,true,'tapeB')}</div>
     ${D.cats.map(c=>`<div class="taperow">
       <span class="rk a${c.win==='a'?' win':''}">${rkText(c.a)}</span>
@@ -9891,12 +10072,11 @@ function drawTape(){
       <span class="lab">${c.lab}</span>
       <div class="tapebar"><span class="${c.win==='b'?'win':''}" style="width:${w(c.b)}%"></span></div>
       <span class="rk${c.win==='b'?' win':''}">${rkText(c.b)}</span></div>`).join('')}
-    <div class="tapefoot"><b>${htmlEsc(a)}</b> leads ${D.leadA} of 9 \u00b7 <b>${htmlEsc(b)}</b> leads ${D.leadB}
-      \u00b7 rank in the league out of ${N}; a longer bar is a better rank.</div></section>`;
+    <div class="tapefoot"><b>${htmlEsc(a)}</b> leads ${D.leadA} of 9. <b>${htmlEsc(b)}</b> leads ${D.leadB}.</div></section>`;
   /* Only rewrite when something changed, so the poll does not snap shut a
      select the GM has open. */
   if(box.dataset.h===html) return;
-  box.dataset.h=html; box.innerHTML=html;
+  box.dataset.h=html; box.innerHTML=html; infoNotes(box);
   const sa=$('tapeA'), sb=$('tapeB');
   if(sa) sa.onchange=()=>{ tapeSave(key+'.a',sa.value); drawTape(); };
   if(sb) sb.onchange=()=>{ tapeSave(key,sb.value); drawTape(); };
@@ -9909,7 +10089,7 @@ async function drawHomeBest(){
   const box=$('homeBest'); if(!box) return;
   const days=[...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})].sort();
   const day=days[days.length-1];
-  if(!day){ box.innerHTML='<div class="empty">Nothing scored yet.</div>'; $('homeBestDay').textContent=''; return; }
+  if(!day){ box.innerHTML='<div class="empty">No box scores yet. The best lines land here the morning after every night of games.</div>'; $('homeBestDay').textContent=''; return; }
   if(HOMEBEST.day!==day){
     HOMEBEST={day,rows:null};
     try{
@@ -9924,8 +10104,8 @@ async function drawHomeBest(){
   $('homeBestDay').textContent=shortDay(day);
   const rows=HOMEBEST.rows;
   box.innerHTML=!rows?'<div class="empty">Loading\u2026</div>':!rows.length?'<div class="empty">No box scores for that night.</div>'
-    :`<div class="hbest">${rows.map(r=>`<div><b class="pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</b>
-        <span class="${r.club===me?'mine':''}">${htmlEsc(r.club===me?'You':r.club)}</span>
+    :`<div class="hbest">${rows.map(r=>`<div>${headshot(r.n)}<b class="pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</b>
+        <span class="${r.club===me?'mine':''}">${clubBadge(r.club)}${htmlEsc(r.club===me?'You':r.club)}</span>
         <span class="mono">${r.s.PTS||0} pts \u00b7 ${r.s.TRB||0} reb \u00b7 ${r.s.AST||0} ast${(r.s.STL||0)+(r.s.BLK||0)>=3?` \u00b7 ${r.s.STL||0} stl ${r.s.BLK||0} blk`:''}</span></div>`).join('')}</div>`;
 }
 const ordinal=n=>n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:(n%10<4?n%10:0)]||'th');
@@ -9944,7 +10124,7 @@ function drawClubLive(){
   const box=$('clubLive'); if(!box) return;
   const t=activeTeam; if(!t||!S.teams[t]){ box.innerHTML=''; return; }
   const row=(SCORE.standings||[]).find(r=>r.club===t&&r.tot&&r.tot.GP>0);
-  let html=`<div class="dhead"><h3>${htmlEsc(t)}</h3>${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
+  let html=`<div class="dhead"><h3>${clubBadge(t)}${htmlEsc(t)}</h3>${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
     ${row?`<span class="pill">${ordinal(row.rank)} \u00b7 ${row.pts} pts</span><span class="pill">${row.tot.GP} games</span>`:''}
     ${me&&!isComm()&&me!==t?'<button class="btn ghost" id="clubTrade" style="margin-left:auto">Propose a trade</button>':''}</div>`;
   if(row){
@@ -10008,7 +10188,7 @@ function drawPreAdmin(){
   if(box.hidden) return;
   const p=preCfg()||{from:'2026-10-13',to:'2026-10-16',on:false};
   box.innerHTML=`<h2 class="sub">Preseason tournament</h2>
-    <p class="note">A trial run of the stats feed and scoring on preseason games. Starting it opens lineups for those nights,
+    <p class="note explain">A trial run of the stats feed and scoring on preseason games. Starting it opens lineups for those nights,
       fills every club\u2019s empty lineup automatically and records it, and tells the feed to pull preseason box scores for
       those dates. It is scored on its own and never touches the season. ${PRE.lastRun?`Last scored ${htmlEsc(fmt(PRE.lastRun.at))}.`:''}</p>
     <div class="filters"><label for="preFrom" style="margin:0">From</label><input id="preFrom" type="date" value="${p.from}">
@@ -10308,10 +10488,12 @@ function drawStandings(){
   const rows=wk?standingsFor(Object.fromEntries(scored.filter(d=>d>=wk.from&&d<=wk.to).map(d=>[d,SCORE.days[d]])))
                :(SCORE.standings||[]);
   const played=rows.some(r=>r.tot.GP>0);
-  $('realStandNote').textContent=!scored.length
-    ? 'No games scored yet. The first night is scored the morning after opening night.'
-    : wk ? `${shortDay(wk.from)} \u2013 ${shortDay(wk.to)} only: totals and roto points for that week's nights. Games are that week's.`
-    : `Through ${scored[scored.length-1]} \u00b7 scored each morning from last night's box scores and each club's lineup at tip-off.`;
+  const dto=daysToOpener();
+  $('realStandNote').innerHTML=!scored.length
+    ? (dto?`<span class="countdown">${dto}</span> day${dto===1?'':'s'} to opening night.`
+         :'The table fills in the morning after opening night.')
+    : wk ? `Week of ${shortDay(wk.from)}`
+    : `Through ${htmlEsc(shortDay(scored[scored.length-1]))}`;
   if(!played){ box.innerHTML=''; return; }
   const K=SORTS.stand||{col:'tot',desc:true};
   const sv=(r,c)=>({rank:r.rank,club:r.club,gp:r.tot.GP,fg:r.pct.FG,ft:r.pct.FT,p3:r.tot.P3,reb:r.tot.REB,
@@ -10324,7 +10506,7 @@ function drawStandings(){
       <th data-k="fg">FG%</th><th data-k="ft">FT%</th><th data-k="p3">3P</th><th data-k="reb">REB</th>
       <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
       <th data-k="pts">PTS</th><th data-k="tot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr>
-      <td class="l">${r.rank}</td><td class="l">${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+      <td class="l">${r.rank}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
       <td class="${!wk&&r.tot.GP>=cap?'bad':''}">${wk?r.tot.GP:`${r.tot.GP} / ${cap}`}</td>
       ${cell(r,'FG%',pct(r.pct.FG))}${cell(r,'FT%',pct(r.pct.FT))}${cell(r,'P3',r.tot.P3)}${cell(r,'REB',r.tot.REB)}
       ${cell(r,'AST',r.tot.AST)}${cell(r,'STL',r.tot.STL)}${cell(r,'BLK',r.tot.BLK)}${cell(r,'TO',r.tot.TO)}
@@ -10351,22 +10533,9 @@ function rolling(cat){
 function drawTrend(){
   const cat=$('trCat').value;
   if(!DAILY||!Object.keys(DAILY).length){
-    $('trStatus').textContent='waiting for the nightly feed';
-    $('chartWrap').innerHTML='<div class="empty">No daily data yet. The chart fills in automatically once the nightly job starts writing box scores.</div>';
-    $('feedHelp').innerHTML=`<div class="feed"><h5>What the nightly job needs to write</h5>
-      <p>One shared storage key, <b style="color:var(--chalk)">daily2026</b>, holding each date's club totals. The page
-      does the 15-day windowing itself, so the job only has to post one day at a time.</p>
-      <pre>{
-  "2026-10-22": {
-    "A. Daman":  { "FG":142,"FGA":301,"FT":58,"FTA":72,
-                   "P3":41,"REB":168,"AST":94,"STL":31,
-                   "BLK":19,"TO":47,"PTS":401,"GP":11 },
-    "Christman": { ... }
-  },
-  "2026-10-23": { ... }
-}</pre>
-      <p>Pull the box scores from a stats API each morning, add up each club's active players for that date, and write the
-      day's object. Nothing else on this page changes.</p></div>`;
+    $('trStatus').textContent='';
+    $('chartWrap').innerHTML=`<div class="empty">${daysToOpener()?`The race chart starts on opening night \u2014 ${daysToOpener()} day${daysToOpener()===1?'':'s'} to go.`:'The race chart starts with the first night of games.'}</div>`;
+    $('feedHelp').innerHTML='';
     return;
   }
   const {dates,series}=rolling(cat);
@@ -10467,6 +10636,9 @@ $('saveCfg').onclick=async()=>{
   const dl=($('sDeadline').value||'').trim();
   if(dl&&!/^\d{4}-\d{2}-\d{2}$/.test(dl))
     return alert('The trade deadline reads as YYYY-MM-DD, or leave it blank.');
+  const op=($('sOpener')&&$('sOpener').value||'').trim();
+  if(op&&!/^\d{4}-\d{2}-\d{2}$/.test(op))
+    return alert('Opening night reads as YYYY-MM-DD, or leave it blank.');
   const mlv=$('sMle')?parseFloat($('sMle').value):NaN;
   if($('sMle')&&!(mlv>=0)) return alert('The mid-level exception reads as a number, $0.00 or more.');
   const ln=$('sLeague')?nameClean($('sLeague').value):null;
@@ -10479,6 +10651,7 @@ $('saveCfg').onclick=async()=>{
   const mn=parseFloat($('sMin').value);
   if(mn>0) S.cfg.minSal=Math.round(mn*4)/4;
   S.cfg.deadline=dl;
+  S.cfg.opener=op;
   if(mlv>=0) S.cfg.mle=Math.round(mlv*4)/4;
   if($('sMatch')) S.cfg.match=$('sMatch').value==='1';
   await commit({kind:'edit',detail:`League settings \u2014 ${leagueName()}, cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
