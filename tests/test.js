@@ -4266,6 +4266,85 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__alerts.length = keepAlerts;
   }
 
+
+  console.log('\n== themes: dark, light and the NBA Jam theme ==');
+  {
+    const nt = g('nextTheme');
+    ok('dark -> light', nt('dark')==='light');
+    ok('light -> jam', nt('light')==='jam');
+    ok('jam -> dark', nt('jam')==='dark');
+    ok('anything unknown cycles as dark would', nt('chartreuse')==='light');
+    g('applyTheme')('nonsense');
+    ok('an unknown stored theme is applied as dark', document.documentElement.getAttribute('data-theme')==='dark');
+    g('applyTheme')('jam');
+    ok('jam is applied', document.documentElement.getAttribute('data-theme')==='jam');
+    g('applyTheme')('dark');
+  }
+
+  console.log('\n== tale of the tape ==');
+  {
+    const tr = g('tapeRanks')({A:9, B:7, C:7, D:null});
+    ok('the best value ranks first', tr.A.r===1 && !tr.A.tie, JSON.stringify(tr));
+    ok('a tie shares the rank and is marked', tr.B.r===2 && tr.C.r===2 && tr.B.tie, JSON.stringify(tr));
+    ok('no value, no rank', tr.D===null);
+    const td = g('tapeDefault');
+    ok('defaults to the club directly above', td(['A','B','C'],'B')==='A');
+    ok('the leader defaults to the club below', td(['A','B','C'],'A')==='B');
+    const src = g('tapeSource')();
+    ok('before any night is scored it is the projection', src.live===false && src.N===g('TEAMS')().length, JSON.stringify({live:src.live,N:src.N}));
+    ok('every club ranks in all nine categories',
+       Object.values(src.ranks).every(r=>g('TAPECATS').every(([l])=>r[l] && r[l].r>=1 && r[l].r<=src.N)));
+    const T = g('TEAMS')(), D = g('tapeData')(src, T[0], T[1]);
+    ok('nine categories compared', D.cats.length===9);
+    ok('leads never add past nine', D.leadA + D.leadB <= 9);
+    ok('a lead goes to the better (lower) rank',
+       D.cats.every(c=>c.win!=='a' || c.a.r < c.b.r) && D.cats.every(c=>c.win!=='b' || c.b.r < c.a.r));
+    /* Turnovers: fewer is better, so the club with the fewest ranks first. */
+    const st = g('standings')();
+    const fewest = T.slice().sort((x,y)=>st.tot[x].TOV-st.tot[y].TOV)[0];
+    ok('fewest turnovers ranks first in TO', src.ranks[fewest].TO.r===1, fewest);
+    ok('initials', g('tapeInit')('N. Daman')==='ND' && g('tapeInit')('Osborn')==='O');
+
+    /* Once a night is scored the tape reads the season's real roto points. */
+    {
+      const SC = g('SCORE'), keep = SC.standings;
+      const T2 = g('TEAMS')(), night = {};
+      T2.forEach((t,i)=>night[t]={FG:40+i,FGA:90,FT:20,FTA:25+i,P3:10+i,REB:50-i,AST:30,STL:8,BLK:5+(i%3),TO:15+i,PTS:120+i,GP:10});
+      SC.standings = g('standingsFor')({'2026-10-21':night});
+      const L = g('tapeSource')();
+      ok('a scored season reads live', L.live===true && L.N===T2.length);
+      const top = SC.standings.find(r=>r.rank===1).club;
+      ok('the order is the real standings', L.order[0]===top, L.order[0]+' vs '+top);
+      const most = T2[T2.length-1];
+      ok('most points ranks first in PTS', L.ranks[most].PTS.r===1);
+      ok('most turnovers ranks last in TO', L.ranks[most].TO.r===T2.length);
+      ok('equal blocks are a marked tie', L.ranks[T2[0]].BLK.tie===true);
+      SC.standings = keep;
+    }
+
+    const keepMe = X.me;
+    X.me = 'Osborn';
+    ctx.localStorage.removeItem && ctx.localStorage.removeItem('ll_tape');
+    g('drawTape')();
+    let h = document.getElementById('homeTape').innerHTML;
+    ok('a GM sees his own club on the left, not a picker', /You/.test(h) && !/id="tapeA"/.test(h) && /Osborn/.test(h));
+    ok('...and a picker for the other side', /id="tapeB"/.test(h));
+    ok('...which does not offer his own club', !/<option value="Osborn"/.test(h));
+    const sel = document.getElementById('tapeB');
+    const other = T.find(t=>t!=='Osborn' && !new RegExp('value="'+t.replace('.','\\.')+'"[^>]*selected').test(h));
+    sel.value = other; sel.onchange();
+    h = document.getElementById('homeTape').innerHTML;
+    ok('picking a club redraws against it', new RegExp('value="'+other.replace('.','\\.')+'" selected').test(h), other);
+    ok('...and remembers it', JSON.parse(ctx.localStorage.getItem('ll_tape')).Osborn===other);
+    g('drawTape')();
+    ok('...across a redraw', new RegExp('value="'+other.replace('.','\\.')+'" selected').test(document.getElementById('homeTape').innerHTML));
+    X.me = '__comm__';
+    g('drawTape')();
+    h = document.getElementById('homeTape').innerHTML;
+    ok('the commissioner picks both sides', /id="tapeA"/.test(h) && /id="tapeB"/.test(h));
+    X.me = keepMe;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
