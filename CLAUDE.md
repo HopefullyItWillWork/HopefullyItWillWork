@@ -195,7 +195,11 @@ right edge like an action column.
 over the lineup: tonight is the editable lineup; the arrows or the date picker
 go back to any night (or week) and show what scored — the Results code
 (`drawLastNight()`) draws it and hides its own controls (`#lnWrap.combined`).
-With lineups closed (offseason) Results stands alone as before. Game times read
+With lineups closed (offseason) Results stands alone as before. **League › Clubs has the
+same date bar** for whichever club is picked (`CLUBVIEW`, `clubGo()`), resetting to
+tonight when the club changes. Both bars are `dateBar(box, view, go, dateId)` and
+both draw a past night through `resultsInto(club, mode, day, headId, bodyId,
+tblId)`, which is what `drawLastNight()` delegates to. Game times read
 "CLE tips off at 7:30 PM ET" (`clock12()`); a starter with no game says so.
 The lineup grid carries its own **Game** column (club, tip-off, Locked / Tips
 off, No game) after the player, and a tenth stat column, **PR** (`rtg()`), so
