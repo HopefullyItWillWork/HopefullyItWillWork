@@ -124,7 +124,8 @@ claude.ai/artifact/6tT3QbD4Sd6XrNLMMEDir1.
 
 **The arcade fonts stay off the tables.** Bungee (`--arcade`) is on headings
 and the brand, Press Start 2P (`--pixel`) on tabs and the small labels, VT323
-(`--led`) on scoreboard figures (Home's cards, the tape). Table numbers keep
+(`--led`) on scoreboard figures (Home's cards, the tape). Body text is Chakra
+Petch (`--body`), squared-off like the cabinet lettering but readable small. Table numbers keep
 the ledger's mono: a pixel font at table size is unreadable on a phone. Last
 night's best line wears a "He's on fire!" call — it is the best line of the
 night and nothing more is claimed for it.
