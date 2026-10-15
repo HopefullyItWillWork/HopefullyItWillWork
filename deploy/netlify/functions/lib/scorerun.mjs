@@ -72,7 +72,7 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
       for (const [d, clubs] of Object.entries(idx.days)) {
         if (d >= day) continue;
         for (const [c, t] of Object.entries(clubs)) {
-          const now = currentName(c, renames, live);      // a night scored before a rename
+          const now = currentName(c, renames, live, d + "T23:59:59.999Z");   // a night scored before a rename
           if (now) gpBefore[now] = (gpBefore[now] || 0) + (t.GP || 0);
         }
       }

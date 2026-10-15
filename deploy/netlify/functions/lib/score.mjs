@@ -55,14 +55,24 @@ export function keysFor(name, alias, espn) {
 
 /* Old club name → the name it goes by now, following the journal in order.
    A club removed from the league (to: null) maps to null. */
-export function currentName(name, renames, live) {
+export function currentName(name, renames, live, at) {
   /* A club that exists today IS its current name, whatever the journal says.
      The live journal records N. Daman renamed three times and never back, while
      N. Daman exists under that name — so the walk alone sent every N. Daman stat
      to a club called "Hello". */
   if (live && live.includes(name)) return name;
+  /* `at` (ISO): only renames made AFTER it apply. The live journal starts with
+     September test renames — N. Daman → Hello, → Nd test, → N. Daman test —
+     after which the club went back to N. Daman with no entry, so walking it
+     from the top sent N. Daman's October lineups to "Hello" (found in the
+     preseason tournament, 2026-10-15). A lineup saved on Oct 13 under N. Daman
+     only follows the Oct 14 rename to The Kon-dors. Entries with no `at` always
+     apply. */
   let cur = name;
-  for (const r of renames || []) if (r && r.from === cur) cur = r.to;
+  for (const r of renames || []) {
+    if (!r || (at && r.at && r.at <= at)) continue;
+    if (r.from === cur) cur = r.to;
+  }
   return cur;
 }
 
@@ -89,9 +99,11 @@ export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, r
      order — a rename mid-day leaves entries under both names. */
   const byClub = {};
   for (const [club, list] of Object.entries(lineups || {})) {
-    const now = currentName(club, renames, live);
-    if (!now) continue;
-    (byClub[now] = byClub[now] || []).push(...list);
+    for (const e of list || []) {
+      const now = currentName(club, renames, live, e && e.at);    // the name it had AFTER this save
+      if (!now) continue;
+      (byClub[now] = byClub[now] || []).push(e);
+    }
   }
   for (const c of Object.keys(byClub)) byClub[c].sort((a, b) => a.at.localeCompare(b.at));
 
@@ -156,12 +168,15 @@ export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, r
    Club names are mapped through renames so a club's whole season sums under
    its current name. Points: best in a category gets as many points as there
    are clubs, down to 1; fewest turnovers is best; ties split. */
+/* The end of a night's date, for renames: a night's totals are filed under the
+   names clubs had when it was scored, which is after that date. */
+const nightAt = (day) => /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day + "T23:59:59.999Z" : undefined;
 export function seasonStandings(days, renames, clubs) {
   const tot = {};
   for (const c of clubs || []) tot[c] = zero();
-  for (const night of Object.values(days || {})) {
+  for (const [day, night] of Object.entries(days || {})) {
     for (const [club, t] of Object.entries(night || {})) {
-      const now = currentName(club, renames, clubs);
+      const now = currentName(club, renames, clubs, nightAt(day));
       if (!now) continue;
       const into = (tot[now] = tot[now] || zero());
       for (const k of CATS) into[k] += t[k] || 0;

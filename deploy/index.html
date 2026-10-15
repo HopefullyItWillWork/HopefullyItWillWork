@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-15.1">
+<meta name="ll-build" content="2026-10-15.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -480,6 +480,11 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
 /* A locked (or read-only) lineup row: name and tags side by side, not the name
    stretching and pushing the OUT/DTD tag to the far edge (2026-10-15). */
 .lurowctl.ro .luname{flex:0 1 auto;min-width:0}
+.wtag{margin-left:5px;color:var(--amber);font-size:12px}
+.act.watch{border:0;background:none;color:var(--steel);font-size:15px;padding:0 6px 0 0;cursor:pointer;line-height:1}
+.act.watch.on{color:var(--amber)}
+.watchrow{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:13px;color:var(--steel)}
+.watchrow .act.watch{font-size:20px}
 .ptag{display:inline-block;margin-left:6px;padding:0 4px;border:1px solid var(--line);border-radius:2px;
   font:600 9.5px/1.5 var(--mono);color:var(--steel);vertical-align:1px;white-space:nowrap}
 .fire{margin:0 0 18px}
@@ -1512,6 +1517,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <input id="faSearch" placeholder="Search" data-list="faSearchList" autocomplete="off">
       <datalist id="faSearchList"></datalist>
       <select id="faPos"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
+      <select id="faWatch"><option value="">All free agents</option><option value="w">My watch list</option></select>
       <select id="faAdd"><option value="">Add a stat filter&#8230;</option>
         <option value="g">Games</option><option value="PTS">Points</option><option value="TRB">Rebounds</option>
         <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
@@ -3694,7 +3700,14 @@ function entry(e,i){
 
    Pure, so the rule is one place and testable. */
 const MOVEKINDS=['sign','cut','trade'];
-const isRosterMove=e=>!!e&&MOVEKINDS.includes(e.kind);
+/* A roster move is a player joining, leaving or changing clubs. Offers,
+   declines, withdrawals and vetoes are logged as kind 'trade' but move nobody,
+   and a nomination is logged as 'sign' but signs nobody — none of them belong
+   in the transaction list (2026-10-15). Kept identical to isMove() in
+   lib/format.mjs, which the digests use. */
+const isRosterMove=e=>!!e&&MOVEKINDS.includes(e.kind)
+  &&!(e.kind==='trade'&&!/EXECUTED|Commissioner moved/.test(e.detail||''))
+  &&!(e.kind==='sign'&&(/^Nominated /.test(e.detail||'')||/may match$/.test(e.detail||'')));
 const rosterMoves=log=>(log||[]).filter(isRosterMove);
 /* Every transaction, roster move or not, as a CSV. The export is a backup, so
    it deliberately carries the whole log rather than what the screen is
@@ -4472,6 +4485,7 @@ function wireSettings(){
     if(typeof loadNotes==='function') await loadNotes();
     if(typeof loadProj==='function') await loadProj();
     if(typeof loadStrat==='function') await loadStrat();
+    if(typeof loadWatch==='function') await loadWatch();
     say('PIN changed, and your notes, projections and board were re-keyed.');
   };
 }
@@ -4725,8 +4739,9 @@ function drawFAList(){
   if(!me) return;
   if(offscreen('faTable')) return;
   const me2=meTeam();
-  const q=$('faSearch').value.trim().toLowerCase(), pf=$('faPos').value;
+  const q=$('faSearch').value.trim().toLowerCase(), pf=$('faPos').value, wf=$('faWatch')&&$('faWatch').value;
   let rows=faPool().filter(p=>{
+    if(wf&&!isWatched(p.n))return false;
     if(q&&!p.n.toLowerCase().includes(q))return false;
     if(pf&&!(p.p||'').includes(pf))return false;
     for(const f of faFilters){
@@ -4761,7 +4776,7 @@ function drawFAList(){
     rows.slice(0,160).map(p=>{
       const R=rightsOf(me2,p.n), e=hasProj(p.n);
       return `<tr data-p="${p.n}" class="${faSel===p.n?'sel':''} ${e?'hasproj':''}">
-      <td data-hs="${htmlEsc(p.n)}">${p.n}${R.rfa?`<span class="tag t-rfa">${R.club===me2?'Your RFA':'RFA'}</span>`:''}
+      <td data-hs="${htmlEsc(p.n)}">${watchBtn(p.n)}${p.n}${R.rfa?`<span class="tag t-rfa">${R.club===me2?'Your RFA':'RFA'}</span>`:''}
         ${R.club===me2&&R.bird==='Yes'?'<span class="tag t-bird">Bird</span>':''}
         ${R.club===me2&&R.bird&&R.bird!=='Yes'?'<span class="tag t-eb">E.Bird</span>':''}</td>
       <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td>
@@ -6112,6 +6127,34 @@ async function cboxRefresh(kind){
 }
 const syncWord=r=>r.synced?'synced':(r.ok?'this device only':'not saved');
 
+/* ---- the watch list (2026-10-15) ----
+   A GM's own list of free agents he is keeping an eye on. Private and
+   cross-device like notes, projections and the board: the same encrypted club
+   box, kind 'watch', holding canon names. Toggled with the ☆ on Players › Free
+   agents and on the player card; a watched player carries a ★ tag wherever his
+   name appears (addPosTags), and the free agent list can show the list alone. */
+let WATCH=[];
+const normWatch=v=>Array.isArray(v)?v.filter(x=>typeof x==='string'):[];
+async function loadWatch(){ WATCH=normWatch(await cboxLoad('watch')); }
+const isWatched=n=>!!n&&WATCH.includes(canon(n));
+async function toggleWatch(n){
+  if(!me||isComm()) return alert('Sign in as your club to keep a watch list.');
+  const c=canon(n), on=!WATCH.includes(c);
+  WATCH=on?[...WATCH,c]:WATCH.filter(x=>x!==c);
+  const r=await cboxSave('watch',WATCH);
+  projToast(`${on?'Watching':'Stopped watching'} ${c} \u00b7 ${syncWord(r)}`);
+  document.querySelectorAll('.wtag').forEach(t=>t.remove());
+  render();
+}
+const watchBtn=n=>me&&!isComm()?`<button type="button" class="act watch${isWatched(n)?' on':''}" data-watch="${htmlEsc(n)}"
+  title="${isWatched(n)?'On your watch list \u2014 click to remove':'Add to your watch list'}" aria-pressed="${isWatched(n)}">${isWatched(n)?'\u2605':'\u2606'}</button>`:'';
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-watch]'):null;
+  if(!b) return;
+  e.stopPropagation(); e.preventDefault();
+  toggleWatch(b.dataset.watch).then(()=>{ if($('dlgPlayer')&&$('dlgPlayer').open) openPlayerCard(b.dataset.watch); });
+},true);
+
 /* ---- the strategy board on top of that ---- */
 async function loadStrat(){
   STRAT=normStrat(await cboxLoad('strat'));
@@ -6771,7 +6814,9 @@ document.getElementById('themeBtn').onclick=()=>
    so projections can be edited from wherever a player appears.        */
 function openPlayerCard(name){
   const box=$('dlgPlayerBody');
-  box.innerHTML=headshot(name,'lg')+injLine(name)+playerCard(name);
+  const wb=isFreeAgent(name)||isWatched(name)?watchBtn(name):'';
+  box.innerHTML=headshot(name,'lg')+(wb?`<div class="watchrow">${wb}<span>${isWatched(name)?'On your watch list':'Watch this free agent'}</span></div>`:'')
+    +injLine(name)+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
 }
@@ -10449,15 +10494,18 @@ function posTag(name){
 function addPosTags(root){ try{
   const sel='.pname[data-player],tr[data-player]>td:first-child,[data-hs]';
   Array.prototype.forEach.call((root||document).querySelectorAll(sel),el=>{
-    if(el.querySelector('.ptag')||(el.nextElementSibling&&el.nextElementSibling.classList.contains('ptag'))) return;
     if(el.closest&&el.closest('select,option,.lurow,[data-nopos]')) return;   // these draw their own
+    const name=el.dataset.hs||el.dataset.player||(el.parentNode&&el.parentNode.dataset&&el.parentNode.dataset.player);
+    /* The watch list's star first: it belongs on every name, Pos column or not. */
+    if(name&&isWatched(name)&&!el.querySelector('.wtag,[data-watch]'))
+      el.insertAdjacentHTML('beforeend','<span class="wtag" title="On your watch list">\u2605</span>');
+    if(el.querySelector('.ptag')||(el.nextElementSibling&&el.nextElementSibling.classList.contains('ptag'))) return;
     const tb=el.closest?el.closest('table'):null;
     if(tb){
       if(tb.dataset.haspos==null) tb.dataset.haspos=[...tb.querySelectorAll('thead th')]
         .some(th=>/^pos(ition)?\b/i.test(th.textContent.trim()))?'1':'0';
       if(tb.dataset.haspos==='1') return;
     }
-    const name=el.dataset.hs||el.dataset.player||(el.parentNode&&el.parentNode.dataset&&el.parentNode.dataset.player);
     const t=posTag(name); if(!t) return;
     const inj=el.querySelector('.inj');
     if(inj) inj.insertAdjacentHTML('beforebegin',t); else el.insertAdjacentHTML('beforeend',t);
@@ -11156,6 +11204,7 @@ function drawTrend(){
 $('trCat').onchange=drawTrend;
 if($('faTabSearch'))$('faTabSearch').oninput=drawFA;
 $('faSearch').oninput=drawFAList; $('faPos').onchange=drawFAList;
+if($('faWatch')) $('faWatch').onchange=drawFAList;
 $('faAdd').onchange=()=>{const k=$('faAdd').value;if(!k)return;
   if(!faFilters.some(f=>f.k===k))faFilters.push({k,min:null,max:null});
   $('faAdd').value='';drawFilters();drawFAList();};
@@ -11189,7 +11238,7 @@ $('doSign').onclick=e=>{
     $('signErr').textContent='';
     closeModal('dlgSign');
     try{localStorage.setItem('ll_me',me);}catch(_){}
-    Promise.all([loadProj(),loadStrat(),loadNotes()])
+    Promise.all([loadProj(),loadStrat(),loadNotes(),loadWatch()])
       .then(()=>{ render(); goTab(me==='__comm__'?'v-admin':'v-me'); })
       .catch(()=>{ render(); goTab('v-me'); });
   }catch(err){
@@ -11375,7 +11424,7 @@ function netChip(){
     +TEAMS().map(t=>`<option>${t}</option>`).join('');
   rebuildPlayerFixes();
   /* The three club boxes are independent fetches: one round trip, not three. */
-  await Promise.all([loadProj(),loadStrat(),loadNotes()]);
+  await Promise.all([loadProj(),loadStrat(),loadNotes(),loadWatch()]);
   wireChat();
   comboAttachAll();
   /* ESPN's rosters always (headshots, positions); tip-offs only when lineups are open. */
