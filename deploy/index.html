@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-14.15">
+<meta name="ll-build" content="2026-10-15.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -477,6 +477,29 @@ tbody tr.hasproj td:first-child::after{content:" \2022";color:var(--amber)}
 border:1px solid var(--amber);color:var(--chalk);font-family:var(--mono);font-size:12px;padding:10px 16px;
 border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+/* A locked (or read-only) lineup row: name and tags side by side, not the name
+   stretching and pushing the OUT/DTD tag to the far edge (2026-10-15). */
+.lurowctl.ro .luname{flex:0 1 auto;min-width:0}
+.ptag{display:inline-block;margin-left:6px;padding:0 4px;border:1px solid var(--line);border-radius:2px;
+  font:600 9.5px/1.5 var(--mono);color:var(--steel);vertical-align:1px;white-space:nowrap}
+.fire{margin:0 0 18px}
+.firehd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.firet{font-family:var(--disp);font-weight:700;font-size:22px;margin:0}
+.firegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.firecard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:12px 14px;
+  display:flex;gap:12px;align-items:center;min-width:0}
+.firecard .hs.fireimg{position:static;width:64px;height:64px;margin:0;flex:none}
+.firecard .firerk{font-family:var(--disp);font-weight:700;font-size:24px;color:var(--amber);flex:none}
+.firecard .firebody{min-width:0;display:flex;flex-direction:column;gap:2px}
+.firecard .firebody b{font-size:15px}
+.firecard .firemeta{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
+.ledtbl{width:100%}
+.ledtbl tbody tr{cursor:pointer}
+.ledtbl tbody tr[aria-current=true] td{background:var(--sel)}
+.ledtbl .meter{position:relative;height:10px;min-width:120px;background:var(--well);border-radius:2px;overflow:hidden}
+.ledtbl .meter i{position:absolute;left:0;top:0;bottom:0}
+.ledtbl .meter b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--chalk)}
+.ledtbl .under{color:var(--space)} .ledtbl .overcap{color:var(--amber)} .ledtbl .overtax{color:var(--tax)}
 .subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;padding:0;max-width:none;overflow:visible}
 .subnav button{background:none;border:1px solid var(--line);border-radius:3px;color:var(--steel);font:600 14px var(--body);
   padding:8px 14px;cursor:pointer;min-height:38px}
@@ -979,11 +1002,26 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
   box-shadow:5px 5px 0 #000;outline:2px solid #00A3AD;outline-offset:-7px}
 [data-theme="jam"] .hbig{font-family:var(--led);font-weight:400;font-size:46px;line-height:1;color:#FF6A13}
 [data-theme="jam"] .hbig .hof{font-family:var(--body)}
+/* The team page's KPI cells (.capgrid, My Team and League › Clubs) as separate
+   arcade cards, the same look as Home's .hcard (2026-10-15). */
+[data-theme="jam"] .capgrid{background:none;border:0;border-radius:0;overflow:visible;gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+[data-theme="jam"] .capcell{border:3px solid #000;box-shadow:5px 5px 0 #000;outline:2px solid #00A3AD;outline-offset:-7px;padding:14px 16px}
+[data-theme="jam"] .capcell dt{font-family:var(--pixel);font-size:8px;letter-spacing:0;color:var(--steel);line-height:1.5}
+[data-theme="jam"] .capcell dd{font-family:var(--led);font-weight:400;font-size:30px;line-height:1;color:#FF6A13;white-space:nowrap}
+[data-theme="jam"] .capcell dd.good{color:var(--space)}
+[data-theme="jam"] .capcell dd.bad{color:#FF4D5E}
+[data-theme="jam"] .capcell dd .sub2{font-family:var(--body);font-size:12px;color:var(--steel)}
+[data-theme="jam"] .firecard{border:3px solid #000;border-radius:0;box-shadow:5px 5px 0 #000;outline:2px solid #00A3AD;outline-offset:-7px}
+[data-theme="jam"] .firecard .firerk{font-family:var(--led);font-size:30px;color:#FF6A13}
+[data-theme="jam"] .firet{font-family:var(--arcade);font-weight:400;font-size:20px;color:#FF6A13;text-shadow:2px 2px 0 #FFD60A,3px 3px 0 #000}
+[data-theme="jam"] .ledtbl .meter{border:2px solid #000;border-radius:0;background:#000}
 [data-theme="jam"] .btn{border:3px solid #000;border-radius:0;color:#000;
   box-shadow:inset -3px -3px 0 rgba(0,0,0,.3),inset 3px 3px 0 rgba(255,255,255,.3)}
 [data-theme="jam"] .btn.ghost{background:#5B2A86;color:#fff;border:3px solid #000}
 [data-theme="jam"] .btn.ghost:hover{color:var(--amber)}
-[data-theme="jam"] .btn.danger{background:#2A0D12;border:3px solid #000}
+[data-theme="jam"] .btn.danger{background:#C8102E;color:#fff;border:3px solid #000}
+[data-theme="jam"] .btn.danger:hover{color:var(--amber)}
 [data-theme="jam"] .subnav button{border:3px solid #000;border-radius:0;background:#241D52;color:#fff}
 [data-theme="jam"] .subnav button[aria-pressed=true]{background:var(--amber);color:#000;border-color:#000}
 [data-theme="jam"] thead th{color:var(--dyn)}
@@ -1121,12 +1159,6 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div class="ledger" id="ledger"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
       <button class="btn ghost" id="expTeam">Export this club</button></div>
-    <div class="legend">
-      <span><i style="background:var(--amber)"></i>Committed</span>
-      <span><i style="background:var(--tax)"></i>Over the tax</span>
-      <span><i style="background:var(--steel)"></i>Cap line</span>
-      <span><i style="background:var(--tax)"></i>Hard cap line</span>
-    </div>
     <div data-perbar="club"></div>
     <div id="clubLive"></div>
     <div class="detail" id="detail"></div>
@@ -1176,6 +1208,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
+    <div id="meFire"></div>
     <!-- Two sub-views (2026-10-14): the club itself, and the league table. -->
     <nav class="subnav" aria-label="My Team sections">
       <button type="button" data-sub="me-team" aria-pressed="true">Team</button>
@@ -3442,21 +3475,38 @@ function drawWho(){
   if($('outBtn'))$('outBtn').onclick=()=>{me=null;try{localStorage.removeItem('ll_me');}catch(e){}
     PROJ={};STRAT=[];NOTES='';render();};
 }
+/* The payroll ledger, and the club picker for League › Clubs. A table of
+   numbers (2026-10-15; it was a bar chart with CAP/TAX ticks nobody could read):
+   payroll, room under the soft cap (or how far over), room to the hard cap,
+   roster count, and a meter from $0 to the hard cap — green under the cap,
+   amber between cap and hard cap, red past it — with the cap marked. Click a
+   row to open that club below. */
 function drawLedger(){
-  const {cap,tax}=S.cfg, max=Math.max(tax*1.06,...TEAMS().map(committed));
-  $('ledger').innerHTML=TEAMS().map(t=>{
-    const s=committed(t),n=headcount(t),over=s>tax;
-    return `<div class="row" role="button" tabindex="0" data-t="${t}" aria-current="${t===activeTeam}">
-      <div class="tname">${t}${me===t?' &#9679;':''}</div>
-      <div class="bar"><div class="fill${over?' over':''}" style="width:${Math.min(100,s/max*100)}%"></div>
-      <div class="tick" style="left:${cap/max*100}%" data-l="CAP"></div>
-      <div class="tick hard" style="left:${tax/max*100}%" data-l="TAX"></div></div>
-      <div class="amt${over?' over':''}">${money(s)}</div><div class="cnt">${n}/${S.cfg.roster}</div></div>`;
-  }).join('');
-  $('ledger').querySelectorAll('.row').forEach(r=>{
+  const {cap,tax}=S.cfg, K=SORTS.led||{col:'n',desc:false};
+  const rows=TEAMS().map(t=>{const s=committed(t), sc=capCommitted(t); return {t,s,room:cap-sc,tax:tax-s,n:headcount(t)};});
+  const v=(r,c)=>c==='n'?r.t.toLowerCase():c==='n2'?r.n:r[c];
+  rows.sort((a,b)=>cmp(v(a,K.col),v(b,K.col),K.desc));
+  const head=(k,l,cls)=>`<th${cls?` class="${cls}"`:''} data-k="${k}">${l}</th>`;
+  $('ledger').innerHTML=`<div class="scroller"><table id="ledTbl" class="ledtbl"><thead><tr>${
+      head('n','Club','l')}${head('s','Payroll')}${head('room','Cap space')}${head('tax','To hard cap')}${head('n2','Roster')}
+      <th class="l">${money(0)} \u2192 ${money(tax)} <span style="color:var(--dim)">(| = cap ${money(cap)})</span></th></tr></thead><tbody>${
+    rows.map(r=>{
+      const cls=r.s>tax?'overtax':r.room<0?'overcap':'under';
+      const col=r.s>tax?'var(--tax)':r.room<0?'var(--amber)':'var(--space)';
+      return `<tr data-t="${htmlEsc(r.t)}" aria-current="${r.t===activeTeam}" tabindex="0">
+        <td class="l">${clubBadge(r.t)}${htmlEsc(r.t)}${me===r.t?' &#9679;':''}</td>
+        <td class="mono">${money(r.s)}</td>
+        <td class="mono ${cls}">${r.room>=0?money(r.room):'\u2212'+money(-r.room)+' over'}</td>
+        <td class="mono ${r.tax<0?'overtax':''}">${r.tax>=0?money(r.tax):'\u2212'+money(-r.tax)+' over'}</td>
+        <td class="mono">${r.n}/${S.cfg.roster}</td>
+        <td><div class="meter" title="${money(r.s)} of the ${money(tax)} hard cap"><i style="width:${Math.min(100,r.s/tax*100)}%;background:${col}"></i><b style="left:${cap/tax*100}%"></b></div></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  $('ledger').querySelectorAll('tr[data-t]').forEach(r=>{
     const go=()=>{activeTeam=r.dataset.t;drawLedger();drawDetail();drawClubLive();};
     r.onclick=go;r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};
   });
+  /* "n2" is the roster column; sort it by headcount. */
+  sortable('ledTbl','led','n',false); redraw.led=drawLedger;
 }
 function tags(p){
   let h='';
@@ -4466,7 +4516,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawPlayersFA();drawMeExtras();
+  drawHome();drawClubLive();drawPlayersFA();drawMeExtras();drawFires();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -9385,7 +9435,7 @@ function drawLineup(){
       .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
     return `<option value="">&#8212; empty &#8212;</option>`
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
-        htmlEsc(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('');
+        htmlEsc(p.n)} \u00b7 ${posText(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('');
   };
   const slotRows=SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
@@ -9393,10 +9443,10 @@ function drawLineup(){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${injTag(nm)}`
+        ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}</span>`
         : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
 
-              : `${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?injTag(nm):''}`}</span>
+              : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
       ${game(nm)}${stats(nm,L)}</div>`;
   }).join('');
 
@@ -10377,7 +10427,7 @@ function infoNotes(root){ try{
 }
 if(typeof MutationObserver!=='undefined'){
   let infoT=null;
-  new MutationObserver(()=>{ if(infoT) return; infoT=setTimeout(()=>{ infoT=null; infoNotes(); addHeadshots(); },30); })
+  new MutationObserver(()=>{ if(infoT) return; infoT=setTimeout(()=>{ infoT=null; infoNotes(); addHeadshots(); addPosTags(); },30); })
     .observe(document.body,{childList:true,subtree:true});
 }
 /* Every player name gets his headshot, wherever he is listed: a .pname cell, a
@@ -10386,6 +10436,33 @@ if(typeof MutationObserver!=='undefined'){
    table gets pictures by marking its name cell. A cell already done for this
    load of ESPN's ids is skipped (data-hsd); one whose picture sits beside it
    (the lineup, last night's best) is left alone. */
+/* ---- positions everywhere (2026-10-15) ----
+   Every player name the app draws (.pname, a data-player row's first cell, a
+   [data-hs] cell — the same set addHeadshots() reaches) gets a small G/F/C tag
+   from posSet(), i.e. the ESPN eligibility the lineup uses. Skipped inside a
+   table that already has a Pos column, and never added twice. Runs from the
+   same MutationObserver as the headshots, so new tables need nothing. */
+function posTag(name){
+  const t=name?['G','F','C'].filter(k=>posSet(name).has(k)).join('/'):'';
+  return t?`<span class="ptag">${t}</span>`:'';
+}
+function addPosTags(root){ try{
+  const sel='.pname[data-player],tr[data-player]>td:first-child,[data-hs]';
+  Array.prototype.forEach.call((root||document).querySelectorAll(sel),el=>{
+    if(el.querySelector('.ptag')||(el.nextElementSibling&&el.nextElementSibling.classList.contains('ptag'))) return;
+    if(el.closest&&el.closest('select,option,.lurow,[data-nopos]')) return;   // these draw their own
+    const tb=el.closest?el.closest('table'):null;
+    if(tb){
+      if(tb.dataset.haspos==null) tb.dataset.haspos=[...tb.querySelectorAll('thead th')]
+        .some(th=>/^pos(ition)?\b/i.test(th.textContent.trim()))?'1':'0';
+      if(tb.dataset.haspos==='1') return;
+    }
+    const name=el.dataset.hs||el.dataset.player||(el.parentNode&&el.parentNode.dataset&&el.parentNode.dataset.player);
+    const t=posTag(name); if(!t) return;
+    const inj=el.querySelector('.inj');
+    if(inj) inj.insertAdjacentHTML('beforebegin',t); else el.insertAdjacentHTML('beforeend',t);
+  });
+}catch(e){} }
 function addHeadshots(root){ try{
   if(!NBAP.ids) return;
   const v=String(NBAP.n), sel='.pname[data-player],tr[data-player]>td:first-child,[data-hs]';
@@ -10563,6 +10640,7 @@ function drawClubLive(){
     html+=`<p class="note">Strongest: ${cats.slice(0,3).map(([k])=>nm[k]||k).join(', ')} \u00b7 weakest: ${
       cats.slice(-2).map(([k])=>nm[k]||k).join(', ')} (season roto points by category).</p>`;
   }
+  html+=fireHtml(t);
   if(lineupsOpen()){
     const lu=lineupOf(t), pc=(m,a)=>a?(100*m/a).toFixed(1):'&#8212;';
     const line=n=>{
@@ -10603,6 +10681,31 @@ function drawClubLive(){
   };
 }
 
+/* ---- He's on fire (2026-10-15) ----
+   A club's three best players right now: rated by rtg() under the stats period
+   in front of the viewer (7/15/30 days, season, projection…), so it moves with
+   the period bar. On My Team (#meFire) and every club on League › Clubs. Only
+   men under contract and off the injured reserve. */
+function fireHtml(t){
+  if(!t||!S.teams[t]) return '';
+  const top=S.teams[t].r.filter(p=>contracted(p)&&!onIR(p))
+    .map(p=>({n:p.n,r:rtg(p.n)})).filter(x=>x.r!=null).sort((a,b)=>b.r-a.r).slice(0,3);
+  if(!top.length) return '';
+  const card=(x,i)=>{
+    const st=pstat(x.n), s=st&&st.s, tm=nbaTeamOf(x.n);
+    return `<div class="firecard"><span class="firerk">${i+1}</span>${headshot(x.n,'fireimg')}
+      <div class="firebody" data-nopos><b class="pname" data-player="${htmlEsc(x.n)}" data-hsd="${htmlEsc(String(NBAP.n))}">${htmlEsc(x.n)}</b>
+        <span class="firemeta">${[posTag(x.n).replace(/<[^>]+>/g,''),tm].filter(Boolean).join(' \u00b7 ')}${injTag(x.n)}</span>
+        ${s?`<span class="firemeta">${(+s.PTS||0).toFixed(1)} pts \u00b7 ${(+s.TRB||0).toFixed(1)} reb \u00b7 ${(+s.AST||0).toFixed(1)} ast</span>`:''}
+        <span class="firemeta">rating ${x.r>0?'+':''}${x.r}</span></div></div>`;
+  };
+  return `<div class="fire"><div class="firehd"><h3 class="firet">He's on fire</h3>
+    <span class="pill">top 3 \u00b7 ${htmlEsc(projSrcLabel())}</span></div>
+    <div class="firegrid">${top.map(card).join('')}</div></div>`;
+}
+function drawFires(){
+  const box=$('meFire'); if(box){ const h=me?fireHtml(meTeam()):''; if(box.innerHTML!==h) box.innerHTML=h; }
+}
 /* Players › Free agents: in season the signable list (Sign, one year at the
    minimum); in the offseason the free agent classes the auction is fought
    over. Same sub-view, whichever answers the season's question. */

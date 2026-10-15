@@ -243,6 +243,27 @@ straight after `render()`. **A new heavy draw function should gate itself the
 same way.** Boot fetches the three club boxes (projections, strategy, notes) in
 parallel rather than one after another.
 
+### Positions, He's on fire, the payroll table (2026-10-15)
+
+- **Positions everywhere.** `addPosTags()` runs beside `addHeadshots()` (same
+  MutationObserver, same element set) and puts a small G/F/C `.ptag` after every
+  player name, from `posSet()`. It skips a table whose header already has a Pos
+  column (`table.dataset.haspos`), anything inside `[data-nopos]`, and the
+  lineup, which draws its own (`posTag()` on the locked/read-only rows, and
+  "Name · G/F" in the slot selects).
+- **He's on fire** (`fireHtml(t)`): a club's top three by `rtg()` under the stats
+  period in front of the viewer — on My Team (`#meFire`, `drawFires()`) and every
+  club on League › Clubs (inside `drawClubLive()`). Contracted, off the IR.
+- **The payroll ledger is a table** (`drawLedger()`, `#ledTbl`, sortable):
+  payroll, cap space (or "over"), room to the hard cap, roster, and a meter from
+  $0 to the hard cap with the cap marked — green under the cap, amber over it,
+  red past the hard cap. Rows still pick the club.
+- **Locked lineup rows** keep headshot, name, position and injury tag on one
+  line (`.lurowctl.ro`); the OUT tag used to stretch across the cell.
+- **Jam:** `.btn.danger` (Reject, Veto) is red with white text — it was black on
+  near-black — and the team KPI cells (`.capgrid`/`.capcell`) are Home-style
+  arcade cards with LED figures.
+
 ### Phone
 
 Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and
