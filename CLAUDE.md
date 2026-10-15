@@ -264,6 +264,24 @@ parallel rather than one after another.
   near-black — and the team KPI cells (`.capgrid`/`.capcell`) are Home-style
   arcade cards with LED figures.
 
+### Watch list, renames by date, offers out of the transactions (2026-10-15)
+
+- **Watch list**: a GM's own free agents to keep an eye on — club box kind
+  `watch` (encrypted, cross-device, like notes/projections/the board), canon
+  names in `WATCH`. ☆ toggle (`watchBtn()`, delegated `[data-watch]` click) on
+  Players › Free agents and on the player card; "My watch list" filter
+  (`#faWatch`); a ★ `.wtag` beside a watched name everywhere, added by
+  `addPosTags()`. Loaded with the other boxes at boot, sign-in and PIN change.
+- **Renames apply by date.** `currentName(name, renames, live, at)` only follows
+  renames made after `at`. The live journal starts with September test renames
+  (N. Daman → Hello …) that were never reversed in the journal, so N. Daman's
+  October lineups scored as "Hello". `scoreNight()` passes each lineup entry's
+  `at`; `seasonStandings()` and `runScore()` pass the end of the night's date.
+- **Offers are not transactions.** `isRosterMove()` (page) and `isMove()`
+  (`lib/format.mjs`, the digests) drop kind `trade` entries that are not
+  `TRADE EXECUTED` / `Commissioner moved` (offers, declines, withdrawals,
+  vetoes) and `sign` entries that are nominations or "may match" notices.
+
 ### Phone
 
 Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and

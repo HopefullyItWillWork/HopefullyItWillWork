@@ -40,7 +40,11 @@ export function yesterdayIn(zone, now = new Date()) {
    "Giddey started at G" forty times a day is not a digest. */
 const ROSTERMOVE = new Set(["sign", "cut", "trade"]);
 /* A nomination is logged as kind "sign" but signs nobody. */
-const isMove = (e) => e && e.ts && ROSTERMOVE.has(e.kind) && !/^Nominated /.test(e.detail || "");
+/* Same rule as the page's isRosterMove(): offers, declines and vetoes are
+   logged as 'trade' but move nobody; nominations are logged as 'sign'. */
+const isMove = (e) => e && e.ts && ROSTERMOVE.has(e.kind)
+  && !(e.kind === "trade" && !/EXECUTED|Commissioner moved/.test(e.detail || ""))
+  && !(e.kind === "sign" && (/^Nominated /.test(e.detail || "") || /may match$/.test(e.detail || "")));
 export function movesOn(log, zone, day) {
   return (log || []).filter((e) => isMove(e) && dayIn(zone, new Date(e.ts)) === day);
 }

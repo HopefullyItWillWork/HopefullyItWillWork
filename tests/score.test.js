@@ -87,6 +87,13 @@ const liveJournal = [{ from: 'N. Daman', to: 'Hello' }, { from: 'N. Daman', to: 
 ok('a club that exists today keeps its name, whatever the journal says',
    currentName('N. Daman', liveJournal, ['N. Daman', 'Osborn']) === 'N. Daman');
 ok('...and the journal still maps a name that is gone', currentName('N. Daman', liveJournal, ['Hello']) === 'Hello');
+/* The real journal, with its dates: September test renames, then the October one. */
+const dated = [{ from: 'N. Daman', to: 'Hello', at: '2026-09-04T23:00:24Z' },
+  { from: 'N. Daman', to: 'Nd test', at: '2026-09-05T13:32:49Z' },
+  { from: 'N. Daman', to: 'The Kon-dors', at: '2026-10-14T22:16:10Z' }];
+ok('a lineup saved in October follows only later renames',
+   currentName('N. Daman', dated, ['The Kon-dors'], '2026-10-13T18:00:00Z') === 'The Kon-dors');
+ok('with no time the old walk still applies', currentName('N. Daman', dated, ['The Kon-dors']) === 'Hello');
 r = scoreNight({ night, gpBefore: {}, renames: [{ from: 'Old', to: 'New' }],
   lineups: { Old: [entry('2026-10-21T13:15:00.000Z', { C: 'Nikola Jokic' })] } });
 ok('a lineup saved under the old name scores for the new one', r.clubs.New && r.clubs.New.counted.length === 1 && !r.clubs.Old);
