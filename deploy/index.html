@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-15.2">
+<meta name="ll-build" content="2026-10-16.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -480,6 +480,8 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
 /* A locked (or read-only) lineup row: name and tags side by side, not the name
    stretching and pushing the OUT/DTD tag to the far edge (2026-10-15). */
 .lurowctl.ro .luname{flex:0 1 auto;min-width:0}
+.wvorder{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.wvorder li.mine{color:var(--amber);font-weight:600}
 .wtag{margin-left:5px;color:var(--amber);font-size:12px}
 .act.watch{border:0;background:none;color:var(--steel);font-size:15px;padding:0 6px 0 0;cursor:pointer;line-height:1}
 .act.watch.on{color:var(--amber)}
@@ -1150,7 +1152,19 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <button type="button" data-sub="v-contracts" aria-pressed="false">Clubs</button>
       <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
       <button type="button" data-sub="v-log" aria-pressed="false">Transactions</button>
+      <button type="button" data-sub="lg-waivers" aria-pressed="false">Waivers</button>
     </nav>
+  <!-- League › Waivers (2026-10-16): who is on the wire and until when, this
+       week's claim order, your own claims, and what the recent runs did.
+       drawWaivers(); the order and runs come from GET /api/waivers. -->
+  <div class="subview" id="lg-waivers" data-subview hidden>
+    <h2>Waivers</h2>
+    <p class="note explain">Every free agent is on waivers until the first week of the season is over; after that a player
+      released in season is on waivers for one day. Claims are processed every morning around 10am Eastern. The order
+      resets each Monday to the reverse of the standings, and a club that wins a claim drops to the back until the next
+      reset. A claimed player plays out the season on a minimum deal; anyone nobody claims becomes a free agent.</p>
+    <div id="wvBody"></div>
+  </div>
   <!-- The current season's table, first and by default (2026-10-14). -->
   <div class="subview" id="lg-stand" data-subview>
     <h2>Standings</h2>
@@ -1512,6 +1526,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 
   <div class="subview" id="v-pfa" data-subview hidden>
     <div id="pfaSeason">
+    <div id="faClaims"></div>
     <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
     <div class="filters">
       <input id="faSearch" placeholder="Search" data-list="faSearchList" autocomplete="off">
@@ -1645,7 +1660,8 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <div class="rule"><h5>Trades</h5><p>Over the cap, incoming salary is capped at <b>150%</b> of outgoing up to $9.75, outgoing plus <b>$5.00</b> from $10.00&#8211;$19.50, and <b>125%</b> at $19.75 and up. Offseason mismatches create a trade exception that expires after the next deadline.</p></div>
       <div class="rule"><h5>Rookie draft</h5><p>Three years with a rookie option on the last. First pick is <b>3.57%</b> of the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the auction and don't eat auction cap space, though the hard cap still binds &#8212; a club with no room passes. One pick per club, in reverse order of finish. Anyone undrafted becomes an ordinary free agent and turns up in the auction.</p></div>
       <div class="rule"><h5>Draft picks in trades</h5><p>A club may trade this year's pick or one from a later draft. A future pick can carry a protection &#8212; "top <b>N</b> protected" keeps it at home if it lands in the first N slots &#8212; and the obligation can be set to roll to the next draft instead of lapsing. Picks move $0 and take up no roster spot.</p></div>
-      <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p></div>
+      <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p>
+      <p>Every free agent is on waivers until the first week of the season is over; after that a player released in season is on waivers for <b>one day</b>. Claims are processed every morning. The order resets each Monday to the reverse of the standings (ties to the club with fewer points), and a club that wins a claim drops to the back until the next reset. A club with a full roster names a player to drop with its claim. Anyone nobody claims becomes an ordinary free agent.</p></div>
     </div>
   </section>
 
@@ -2024,6 +2040,15 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
   </div>
   <p class="note" id="edNote" hidden></p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
+</form></dialog>
+
+<dialog id="dlgClaim"><form method="dialog" class="dlg">
+  <h4 id="clTitle">Waiver claim</h4><p id="clSub"></p>
+  <div class="fields">
+    <div><label for="clDrop">Drop if the claim succeeds</label><select id="clDrop"></select></div>
+  </div>
+  <p class="note" id="clNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doClaim" value="ok">Put in the claim</button></div>
 </form></dialog>
 
 <dialog id="dlgTerm"><form method="dialog" class="dlg">
@@ -2869,6 +2894,7 @@ const deadlinePassed=()=>{
 const canSignFA=team=>seasonLive()&&canEdit(team);
 async function signFA(team,name){
   if(!canEdit(team)) return alert('You can only sign to your own club.');
+  if(seasonLive()&&onWire(name)) return openClaim(team,name);
   if(!seasonLive())
     return alert('Free agents are signed at auction in the offseason. This opens once the season is live.');
   const sal=minSal(), early=!deadlinePassed();
@@ -2935,7 +2961,10 @@ function releaseRecord(team,idx){
   S.teams[team].cuts.push({n:p.n,p:p.p,s:salNow(p)!=null?salNow(p):salPrev(p),
     blocked: yrs>=2,            // only a two-year-or-longer deal carries a re-sign block
     live: seasonLive(),         // in season the salary stays on the cap until the year ends
-    at:curSeason(), cv:CUTV});
+    at:curSeason(), cv:CUTV,
+    /* In season a release goes on waivers for one day: it clears at the
+       morning run on the next league date (lib/waivers.mjs, waivers-daily). */
+    ...(seasonLive()?{wv:{from:dayKey(),till:wvPlus(dayKey(),1)}}:{})});
   return p;
 }
 async function cutPlayer(team,idx){
@@ -4530,7 +4559,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawPlayersFA();drawMeExtras();drawFires();
+  drawHome();drawClubLive();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -4758,7 +4787,8 @@ function drawFAList(){
   const val=(p,c)=>c==='n'?p.n:c==='rtg'?p.rtg:c==='ceil'?p.ceil:c==='g'?p.g
     :sortStat(p,c);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
-  $('faCount').textContent=`${rows.length} available`;
+  $('faCount').textContent=`${rows.length} available`+(seasonLive()&&wireAll()?' \u00b7 all on waivers until the first week is over \u2014 claim, don\u2019t sign':'');
+  if($('faClaims')) $('faClaims').innerHTML=myClaimsHtml(me2);
   if($('faSignNote')) $('faSignNote').textContent = !seasonLive()
     ? 'signed at auction in the offseason'
     : `sign for ${money(minSal())} \u00b7 ${deadlinePassed()
@@ -4787,9 +4817,14 @@ function drawFAList(){
       :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
-      ${canSignFA(me2)?`<td class="acts"><span><button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button></span></td>`:''}</tr>`;}).join('')}
+      ${canSignFA(me2)?`<td class="acts"><span>${onWire(p.n)
+        ? (hasClaim(me2,p.n)?`<button class="act" data-unclaim="${htmlEsc(p.n)}" title="Withdraw your claim">Claimed \u2715</button>`
+                            :`<button class="act edit" data-fasign="${htmlEsc(p.n)}" title="${htmlEsc(wireText(p.n))}">Claim</button>`)
+        :`<button class="act edit" data-fasign="${htmlEsc(p.n)}">Sign</button>`}</span></td>`:''}</tr>`;}).join('')}
     </tbody></table>`;
   sortable('faTbl','fa','rtg',true);
+  $('faTable').querySelectorAll('[data-unclaim]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); dropClaim(me2,b.dataset.unclaim);});
   $('faTable').querySelectorAll('[data-fasign]').forEach(b=>b.onclick=e=>{
     e.stopPropagation(); signFA(me2,b.dataset.fasign);});
   $('faTable').querySelectorAll('[data-p]').forEach(tr=>tr.onclick=()=>{
@@ -6126,6 +6161,128 @@ async function cboxRefresh(kind){
   return null;
 }
 const syncWord=r=>r.synced?'synced':(r.ok?'this device only':'not saved');
+
+/* ================= THE WAIVER WIRE (2026-10-16) =================
+   The rule and the processing are server-side (lib/waivers.mjs, run each
+   morning by waivers-daily.mjs; GET/POST /api/waivers). The page only:
+     - puts an in-season release on the wire (releaseRecord writes c.wv),
+     - says who is on it (onWire, wireText) and turns Sign into Claim,
+     - stores the GM's claims on his own club: S.teams[t].claims = [{id,n,drop,at}],
+       which rides rosters and merges per club. Claims are not logged — they are
+       private until they succeed (the run logs the signing and any drop),
+     - draws League › Waivers (drawWaivers).
+   Every free agent is on the wire until opening night + 7 days (S.cfg.opener). */
+const wvPlus=(d,n)=>{ const t=new Date(d+'T12:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
+function wireAll(){
+  const o=S.cfg&&S.cfg.opener;
+  return seasonLive()&&/^\d{4}-\d{2}-\d{2}$/.test(o||'')&&dayKey()<wvPlus(o,7);
+}
+/* His open waiver record, if a release put him on the wire and it is not settled. */
+function wireRec(name){
+  if(!isFreeAgent(name)) return null;
+  const c0=canon(name);
+  for(const t of TEAMS()) for(const c of (S.teams[t].cuts||[]))
+    if(c&&c.wv&&!c.wv.done&&canon(c.n)===c0) return {club:t,rec:c};
+  return null;
+}
+const onWire=name=>seasonLive()&&isFreeAgent(name)&&(wireAll()||!!wireRec(name));
+function wireText(name){
+  const w=wireRec(name);
+  if(w) return `On waivers from ${w.club} \u2014 claims processed the morning of ${shortDay(w.rec.wv.till)}`;
+  return wireAll()?`On waivers until ${shortDay(wvPlus(S.cfg.opener,7))} \u2014 claims processed every morning`:'';
+}
+const hasClaim=(t,name)=>!!(t&&S.teams[t]&&(S.teams[t].claims||[]).some(c=>canon(c.n)===canon(name)));
+let claiming=null;
+function openClaim(team,name){
+  if(!canEdit(team)) return alert('You can only claim for your own club.');
+  if(hasClaim(team,name)) return alert(`${team} already has a claim in on ${name}.`);
+  claiming={team,name};
+  const full=headcount(team)>=S.cfg.roster;
+  $('clTitle').textContent=`Claim ${name}`;
+  $('clSub').textContent=`${team} \u00b7 ${wireText(name)}`;
+  $('clDrop').innerHTML=(full?'':'<option value="">Nobody \u2014 I have an open spot</option>')
+    +S.teams[team].r.filter(p=>contracted(p)&&!onIR(p)).sort((a,b)=>(salNow(a)||0)-(salNow(b)||0))
+      .map(p=>`<option value="${htmlEsc(p.n)}">${htmlEsc(p.n)} \u00b7 ${money(salNow(p))}</option>`).join('');
+  $('clNote').textContent=(full?'Your roster is full, so the claim has to name a player to drop. ':'')
+    +`If the claim wins, ${name} signs for the rest of the season at ${money(minSal())}`
+    +(wireRec(name)?' with no rights, then becomes a free agent.':'.')
+    +' A dropped player is released under the usual rules \u2014 his salary stays on your cap this season \u2014 and goes on waivers himself.'
+    +' Claims are private and can be withdrawn until the morning run.';
+  openModal('dlgClaim');
+}
+$('doClaim').onclick=async ev=>{
+  if(!claiming) return;
+  const {team,name}=claiming, drop=$('clDrop').value;
+  if(headcount(team)>=S.cfg.roster&&!drop){ ev.preventDefault(); return alert('Pick a player to drop \u2014 your roster is full.'); }
+  claiming=null;
+  const t=S.teams[team]; t.claims=(t.claims||[]).filter(c=>canon(c.n)!==canon(name));
+  t.claims.push({id:Math.random().toString(36).slice(2,10),n:name,drop:drop||'',at:now()});
+  await commit(null,['rosters']);
+  projToast(`Claim in on ${name}${drop?` (dropping ${drop})`:''}`);
+  render();
+};
+async function dropClaim(team,name){
+  if(!canEdit(team)) return;
+  const t=S.teams[team]; t.claims=(t.claims||[]).filter(c=>canon(c.n)!==canon(name));
+  await commit(null,['rosters']);
+  projToast(`Claim on ${name} withdrawn`); render();
+}
+function myClaimsHtml(team){
+  const cl=(team&&S.teams[team]&&S.teams[team].claims)||[];
+  if(!cl.length) return '';
+  const pos=WVSTATE&&WVSTATE.order?WVSTATE.order.indexOf(team)+1:0;
+  return `<div class="okbox" style="margin:0 0 12px"><b>Your waiver claims${pos?` \u00b7 you are ${ordinal(pos)} in the order`:''}:</b>
+    ${cl.map(c=>`${htmlEsc(c.n)}${c.drop?` (dropping ${htmlEsc(c.drop)})`:''} <button class="act" data-unclaim="${htmlEsc(c.n)}">Withdraw</button>`).join(' \u00b7 ')}</div>`;
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('#faClaims [data-unclaim],#wvBody [data-unclaim]'):null;
+  if(b&&me) dropClaim(meTeam(),b.dataset.unclaim);
+});
+/* League › Waivers. The order and the run history are the server's; everything
+   else is read from the rosters this page already has. */
+var WVSTATE=null, WVAT=0;
+async function loadWaivers(force){
+  if(!force&&WVSTATE&&Date.now()-WVAT<60000) return WVSTATE;
+  if(!await probeAPI()) return WVSTATE;
+  try{ const r=await fetch('/api/waivers',{cache:'no-store'}); if(r.ok){ WVSTATE=await r.json(); WVAT=Date.now(); } }catch(e){}
+  return WVSTATE;
+}
+function drawWaivers(){
+  const box=$('wvBody'); if(!box||offscreen('wvBody')) return;
+  if(!WVSTATE||Date.now()-WVAT>60000) loadWaivers().then(()=>{ if(WVSTATE) drawWaivers(); });
+  const W=WVSTATE||{};
+  const on=[];
+  TEAMS().forEach(t=>(S.teams[t].cuts||[]).forEach(c=>{ if(c&&c.wv&&!c.wv.done&&isFreeAgent(c.n)) on.push({n:c.n,from:t,till:c.wv.till}); }));
+  on.sort((a,b)=>a.till.localeCompare(b.till));
+  const T=me&&!isComm()?meTeam():null;
+  let h=seasonLive()?'':'<p class="note">Waivers run during the season. Nothing is on the wire in the offseason.</p>';
+  if(wireAll()) h+=`<div class="okbox" style="margin:0 0 12px"><b>Every free agent is on waivers until ${htmlEsc(shortDay(wvPlus(S.cfg.opener,7)))}.</b>
+    Put in claims from Players \u203a Free agents; they are processed every morning.</div>`;
+  if(T) h+=myClaimsHtml(T);
+  h+=`<div class="homegrid"><div class="homecol"><h2 class="sub">On waivers now</h2>${on.length
+    ?`<div class="scroller"><table id="wvTbl"><thead><tr><th class="l">Player</th><th class="l">Released by</th><th class="l">Clears</th>${T?'<th class="acts"></th>':''}</tr></thead><tbody>${
+      on.map(x=>`<tr><td class="l pname" data-player="${htmlEsc(x.n)}">${htmlEsc(x.n)}</td><td class="l">${clubBadge(x.from)}${htmlEsc(x.from)}</td>
+        <td class="l">${htmlEsc(shortDay(x.till))} morning</td>${T?`<td class="acts">${hasClaim(T,x.n)
+          ?`<button class="act" data-unclaim="${htmlEsc(x.n)}">Withdraw</button>`:`<button class="act edit" data-wvclaim="${htmlEsc(x.n)}">Claim</button>`}</td>`:''}</tr>`).join('')}
+      </tbody></table></div>`:`<div class="empty">${wireAll()?'No releases yet \u2014 every free agent is on waivers this week.':'Nobody is on waivers.'}</div>`}
+    <h2 class="sub">Recent runs</h2>${(W.runs||[]).length?(W.runs||[]).map(r=>`<div class="hfeed"><div><span class="pjlab">${htmlEsc(shortDay(r.day))}</span>
+      ${(r.results||[]).map(x=>`<b>${htmlEsc(x.to)}</b> claimed ${htmlEsc(x.n)}${x.from?` from ${htmlEsc(x.from)}`:''}${x.drop?`, dropping ${htmlEsc(x.drop)}`:''}`).join('; ')||'no claims won'}${
+      (r.cleared||[]).length?` \u00b7 cleared: ${r.cleared.map(x=>htmlEsc(x.n)).join(', ')}`:''}</div></div>`).join('')
+      :'<div class="empty">No runs yet.</div>'}</div>
+    <div class="homecol narrow"><h2 class="sub">Claim order${W.week?` \u00b7 week of ${htmlEsc(shortDay(W.week))}`:''}</h2>${(W.order||[]).length
+      ?`<ol class="wvorder">${W.order.map(c=>`<li${c===T?' class="mine"':''}>${clubBadge(c)}${htmlEsc(c)}</li>`).join('')}</ol>`
+      :'<div class="empty">Loading\u2026</div>'}
+      ${hasComm()?'<button class="btn ghost" id="wvRun" style="margin-top:10px">Process waivers now</button>':''}</div></div>`;
+  box.innerHTML=h;
+  box.querySelectorAll('[data-wvclaim]').forEach(b=>b.onclick=()=>openClaim(T,b.dataset.wvclaim));
+  if($('wvRun')) $('wvRun').onclick=async()=>{
+    if(!confirm('Process the waiver wire now? Every claim that can be decided today is decided, and anyone whose window is over clears.')) return;
+    try{ const r=await fetch('/api/waivers?run=1',{method:'POST'}); const j=await r.json();
+      projToast(r.ok&&j.ok?`Processed \u00b7 ${(j.results||[]).length} claim${(j.results||[]).length===1?'':'s'} won`:(j.reason||'Could not run waivers'));
+    }catch(e){ projToast('Could not reach the waiver run'); }
+    await loadWaivers(true); render();
+  };
+}
 
 /* ---- the watch list (2026-10-15) ----
    A GM's own list of free agents he is keeping an eye on. Private and

@@ -282,6 +282,40 @@ parallel rather than one after another.
   `TRADE EXECUTED` / `Commissioner moved` (offers, declines, withdrawals,
   vetoes) and `sign` entries that are nominations or "may match" notices.
 
+### The waiver wire (2026-10-16)
+
+League rule: claim order worst record to best, reset weekly; a claimed player
+plays out the season on a minimum deal, then is a free agent. League decisions:
+**every free agent is on waivers until opening night + 7 days**
+(`S.cfg.opener`, Commissioner › League settings › Opening night — without it
+there is no first-week wire); after that **an in-season release is on waivers
+for one day**; claims are processed **once a morning** (`waivers-daily.mjs`,
+14:00 UTC, after scoring); the order is **ESPN's inverse standings, reset every
+Monday**, ties to fewer points, and **a club that wins a claim drops to the back
+until Monday** (before any night is scored: the rookie draft order); a full
+roster must **name a drop**.
+
+- The rule is pure: `lib/waivers.mjs` (`processWaivers`, `weeklyOrder`,
+  `onWaivers`, `allOnWaivers`; `tests/waivers.test.js`). It restates the page's
+  hard cap (`committed`, dead money included — an in-season drop frees no
+  money), active headcount and the release bar (`barredFrom`).
+- I/O: `lib/waiverrun.mjs` reads rosters/settings/standings, writes rosters back
+  **with a revision check** (rerun on a conflict), appends the signings and drops
+  to the log, records a dropped starter's new lineup, and keeps
+  `waivers` = `{week, order, runs}`. `GET /api/waivers` (state), `POST
+  /api/waivers?run=1` (commissioner's "Process waivers now").
+- Data rides **rosters**: a cut record carries `wv = {from, till, done?, to?}`
+  (written by `releaseRecord()` in season; `till` is the league date of the run
+  that clears him), and a club's claims are `S.teams[t].claims = [{id,n,drop,at}]`
+  — its own, merged per club, **not logged** (private until they win).
+- Page: `onWire()`/`wireText()`; Sign becomes **Claim** (`openClaim()`,
+  `#dlgClaim`), "Claimed ✕" withdraws; `#faClaims` lists your claims and your
+  place in the order; **League › Waivers** (`lg-waivers`, `drawWaivers()`) shows
+  who is on the wire and when he clears, the order, recent runs.
+- A released man claimed off waivers signs `$min × 1`, **no rights**, `p.wv` set;
+  a first-week claim of a plain free agent is an ordinary in-season signing
+  (Early Bird before the deadline). Unclaimed: `wv.done='cleared'`, a free agent.
+
 ### Phone
 
 Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and
