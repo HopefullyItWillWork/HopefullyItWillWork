@@ -270,7 +270,7 @@ parallel rather than one after another.
   `watch` (encrypted, cross-device, like notes/projections/the board), canon
   names in `WATCH`. ☆ toggle (`watchBtn()`, delegated `[data-watch]` click) on
   Players › Free agents and on the player card; "My watch list" filter
-  (`#faWatch`); a ★ `.wtag` beside a watched name everywhere, added by
+  (`#faWatch`); a **Watch list table at the bottom of My Team** (`#meWatch`, `drawWatchTable()`: held by, pos, GP, the nine categories and PR under the stats-period bar, sortable, ★ to remove); a ★ `.wtag` beside a watched name everywhere, added by
   `addPosTags()`. Loaded with the other boxes at boot, sign-in and PIN change.
 - **Renames apply by date.** `currentName(name, renames, live, at)` only follows
   renames made after `at`. The live journal starts with September test renames

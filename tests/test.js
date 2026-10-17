@@ -4567,6 +4567,25 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.trades = keepTr; CS.log = keepLog; X.me = keepMe; X.activeTeam = keepAt;
   }
 
+  console.log('\n== My Team carries a watch list table ==');
+  {
+    const keepMe = X.me, keepW = X.WATCH, T0 = g('TEAMS')()[0];
+    X.me = T0; X.WATCH = [];
+    g('drawWatchTable')();
+    let h = document.getElementById('meWatch').innerHTML;
+    ok('empty: it says how to start', /Watch list/.test(h) && /Nobody yet/.test(h), h.slice(0, 120));
+    const star = g('RATER').find(p => p.s && p.g > 40);
+    X.WATCH = [g('canon')(star.n)];
+    g('drawWatchTable')();
+    h = document.getElementById('meWatch').innerHTML;
+    ok('a watched player is listed with his name and a star to remove him', h.includes(star.n) && /data-watch=/.test(h));
+    ok('...with his line: games, the nine categories and PR', /id="watchTbl"/.test(h) && /<th[^>]*>PR<\/th>/.test(h) && /<th[^>]*>FG%<\/th>/.test(h) && /<th[^>]*>GP<\/th>/.test(h));
+    ok('...and who holds him', /Free agent|expiring|<td class="l">[A-Z]/.test(h));
+    X.me = '__comm__'; g('drawWatchTable')();
+    ok('the commissioner login has none', document.getElementById('meWatch').innerHTML === '');
+    X.me = keepMe; X.WATCH = keepW; g('drawWatchTable')();
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
