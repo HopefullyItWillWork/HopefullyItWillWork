@@ -90,16 +90,21 @@ export function barredFrom(team, name, season, minSal) {
 }
 
 /* ---- the order ---- */
-/* standings: seasonStandings() rows ({club, pts, tot}). Worst first; ties to
-   fewer points. With nothing scored, the draft order (already worst first). */
-export function weeklyOrder(clubs, standings, draftOrder) {
-  const played = (standings || []).filter((r) => r && r.tot && r.tot.GP > 0 && clubs.includes(r.club));
+/* standings: seasonStandings() rows ({club, pts, tot}) of THIS app's scoring,
+   taken as of the Monday (see currentOrder), so only nights up to Sunday.
+   Worst first; ties to fewer points. Once any night has been scored every club
+   is ranked, one with no games included. Before that, the first order is the
+   auction's nomination order, as saved (the first club on it claims first),
+   then the rookie draft order, then alphabetical. */
+export function weeklyOrder(clubs, standings, nomOrder, draftOrder) {
+  const rows = (standings || []).filter((r) => r && r.tot && clubs.includes(r.club));
   let order;
-  if (played.length) {
-    order = played.slice().sort((a, b) => (a.pts - b.pts) || ((a.tot.PTS || 0) - (b.tot.PTS || 0))
+  if (rows.some((r) => r.tot.GP > 0)) {
+    order = rows.slice().sort((a, b) => (a.pts - b.pts) || ((a.tot.PTS || 0) - (b.tot.PTS || 0))
       || a.club.localeCompare(b.club)).map((r) => r.club);
   } else {
-    order = (draftOrder || []).filter((c) => clubs.includes(c));
+    order = (nomOrder || []).filter((c) => clubs.includes(c));
+    for (const c of (draftOrder || [])) if (clubs.includes(c) && !order.includes(c)) order.push(c);
   }
   for (const c of clubs.slice().sort()) if (!order.includes(c)) order.push(c);
   return order;

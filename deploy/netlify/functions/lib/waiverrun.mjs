@@ -26,7 +26,11 @@ export async function currentOrder(s, cfg, teams, today = todayIn()) {
   const week = mondayOf(today);
   const w = (await readKey(s, "waivers")).data || {};
   const clubs = Object.keys(teams || {});
-  if (w.week === week && Array.isArray(w.order)) {
+  /* An order stored before ver 2 was built from the draft order or from every
+     night to date; it is rebuilt once, unless a run this week has already
+     moved clubs down it. */
+  const legacy = w.ver !== 2 && !(w.runs || []).some((r) => (r.results || []).length);
+  if (w.week === week && Array.isArray(w.order) && !legacy) {
     const order = w.order.filter((c) => clubs.includes(c));
     for (const c of clubs.slice().sort()) if (!order.includes(c)) order.push(c);
     return { week, order, runs: w.runs || [], fresh: false };
@@ -35,10 +39,16 @@ export async function currentOrder(s, cfg, teams, today = todayIn()) {
   let standings = [];
   if (season) {
     const idx = (await readKey(s, "score-" + season.key)).data;
-    if (idx && idx.days) standings = seasonStandings(daysByName(idx.days, clubCtx(teams, cfg.renames)), cfg.renames, clubs);
+    if (idx && idx.days) {
+      /* As of the Monday: the standings through Sunday, whatever morning this
+         first runs on. A night is a date; "before the Monday" is d < week. */
+      const upTo = Object.fromEntries(Object.entries(idx.days).filter(([d]) => d < week));
+      standings = seasonStandings(daysByName(upTo, clubCtx(teams, cfg.renames)), cfg.renames, clubs);
+    }
   }
+  const nom = Array.isArray(cfg.nomOrder) ? cfg.nomOrder : [];
   const draft = (cfg.draft && Array.isArray(cfg.draft.order)) ? cfg.draft.order : [];
-  return { week, order: weeklyOrder(clubs, standings, draft), runs: w.runs || [], fresh: true };
+  return { week, order: weeklyOrder(clubs, standings, nom, draft), runs: w.runs || [], fresh: true };
 }
 
 /* What the page shows on League › Waivers. */
@@ -85,7 +95,7 @@ export async function runWaivers(s, { by = "Waivers" } = {}) {
     const run = { at: new Date().toISOString(), day: today, results: r.results, cleared: r.cleared, skipped: r.skipped };
     const prev = await readKey(s, "waivers");
     const runs = [...(((prev.data || {}).runs) || []), run].slice(-30);
-    await s.set("waivers", JSON.stringify({ rev: (prev.rev || 0) + 1, data: { week: o.week, order: r.order, runs } }));
+    await s.set("waivers", JSON.stringify({ rev: (prev.rev || 0) + 1, data: { ver: 2, week: o.week, order: r.order, runs } }));
     return { ok: true, ...run, order: r.order };
   }
   return { ok: false, reason: "rosters kept changing; try again" };
