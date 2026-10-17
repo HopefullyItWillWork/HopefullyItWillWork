@@ -3030,7 +3030,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        String(g('signBlock')(club, 'Loophole Guy', 1.00)));
 
     ctx.__alerts.length = 0;
-    await g('signFA')(club, 'Loophole Guy');
+    await g('signPlayer')('Loophole Guy', club, 1.00, 1);   // signFA() now sends a man on the wire to the Claim dialog
     ok('signing him back the same day does not happen',
        !CS.teams[club].r.some(p => p.n === 'Loophole Guy'),
        JSON.stringify(CS.teams[club].r.filter(p => p.n === 'Loophole Guy')));
@@ -3052,7 +3052,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
     ok('a minimum release bars nothing in season',
        g('cutRestriction')(club, 'Minimum Guy') === null);
-    await g('signFA')(club, 'Minimum Guy');
+    await g('signPlayer')('Minimum Guy', club, 1.00, 1);
     ok('...and he can be signed straight back',
        CS.teams[club].r.some(p => p.n === 'Minimum Guy' && g('salNow')(p) === 1.00),
        JSON.stringify(ctx.__alerts));
@@ -3864,16 +3864,17 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const IS = g('isRosterMove'), MOVES = g('rosterMoves');
     ok('a signing is a roster move', IS({kind:'sign'}) === true);
     ok('a release is a roster move', IS({kind:'cut'}) === true);
-    ok('a trade is a roster move', IS({kind:'trade'}) === true);
+    ok('an executed trade is a roster move', IS({kind:'trade', detail:'TRADE EXECUTED — x'}) === true);
+    ok('an offer is not (it moves nobody)', IS({kind:'trade', detail:'Offer made — x'}) === false);
     ok('a settings edit is not', IS({kind:'edit'}) === false);
     ok('nor is anything else', IS({kind:'test'}) === false);
     ok('and nothing at all is not a crash', IS(null) === false && IS(undefined) === false);
 
     const log = [{kind:'sign',detail:'a'},{kind:'edit',detail:'b'},{kind:'cut',detail:'c'},
-                 {kind:'test',detail:'d'},{kind:'trade',detail:'e'}];
+                 {kind:'test',detail:'d'},{kind:'trade',detail:'TRADE EXECUTED — e'}];
     const kept = MOVES(log);
     ok('the list keeps only the three move kinds', kept.length === 3, String(kept.length));
-    ok('...in the order it was given', kept.map(x=>x.detail).join('') === 'ace');
+    ok('...in the order it was given', kept.map(x=>x.kind).join() === 'sign,cut,trade');
     ok('...without touching the log itself', log.length === 5);
     ok('an empty log filters to nothing', MOVES([]).length === 0 && MOVES(null).length === 0);
 
