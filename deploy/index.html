@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.7">
+<meta name="ll-build" content="2026-10-17.8">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1300,6 +1300,8 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="bidPanel"></div>
     </div>
 
+    <div id="meWatch"></div>
+
     <!-- The what-if lab: offseason only (league decision, 2026-10-14). drawMeExtras()
          hides it once the season is live. -->
     <div id="labWrap">
@@ -1339,7 +1341,6 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <div id="labTotals"></div>
     </div>
     </div>
-    <div id="meWatch"></div>
     </div>
     <div class="subview" id="me-stand" data-subview hidden>
       <h2>Standings</h2>
@@ -11365,7 +11366,8 @@ function standingsFor(days){
   const K=['FG','FGA','FT','FTA','P3','REB','AST','STL','BLK','TO','PTS','GP'], tot={};
   TEAMS().forEach(t=>tot[t]=Object.fromEntries(K.map(k=>[k,0])));
   Object.values(days).forEach(n=>Object.entries(n||{}).forEach(([c,t])=>{
-    const into=tot[c]||(tot[c]=Object.fromEntries(K.map(k=>[k,0])));
+    const into=tot[c];   // a key that is no club today (an old test name) is not a team
+    if(!into) return;
     K.forEach(k=>into[k]+=t[k]||0); }));
   const names=Object.keys(tot);
   const val=(c,k)=>k==='FG%'?(tot[c].FGA?tot[c].FG/tot[c].FGA:0):k==='FT%'?(tot[c].FTA?tot[c].FT/tot[c].FTA:0):tot[c][k];
