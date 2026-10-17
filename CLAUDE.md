@@ -316,6 +316,27 @@ roster must **name a drop**.
   a first-week claim of a plain free agent is an ordinary in-season signing
   (Early Bird before the deadline). Unclaimed: `wv.done='cleared'`, a free agent.
 
+### Trade privacy and the Trade complete card (2026-10-17)
+
+- **An offer is private to its two clubs** (and the commissioner login / deputies,
+  who have to be able to veto). `drawOffers()` lists only offers the signed-in
+  club is in, keeping each offer's index in `S.trades` for the buttons.
+  `logPrivate(e)` / `logSeen(e)` do the same to the log: a `trade` entry that is not
+  `TRADE EXECUTED` / `Commissioner moved` (offer, decline, withdrawal, veto) is read
+  by the clubs in its `team` field ("A / B"), so old entries need no migration.
+  Home's "Around the league" and the Transactions count go through it. Emails
+  already left offers out (`isMove()`) and `/api/notify` only mails the receiving
+  club. **An executed trade stays public** — the rosters changed. This is screen-level only:
+  `/api/state` has no auth, like the PINs.
+- **Trade complete card**: `tradeNews(t)` / `drawTradeNotes()` put a card at the top
+  of My Team (`#meTradeNote`) and on the club's own page (`#clubTradeNote`) for the
+  two clubs in an accepted trade, until they press Got it
+  (`ll_tradeseen_<club>` = resolved time of the last one dismissed, per browser; a
+  browser that never dismissed one sees the last three days). Not the commissioner
+  login, not a GM looking at another club. The Jam theme makes it an arcade
+  call-out (`TRADECALLS`, scanlines, slam-in, flashing). The box is rewritten only
+  when its HTML changed, or the animation restarts on every poll.
+
 ### Phone
 
 Below 640px the tab bar is fixed to the bottom of the screen (`nav#tabs`) and

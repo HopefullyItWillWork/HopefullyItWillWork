@@ -4492,6 +4492,81 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     C.length=0; keepC.forEach(x=>C.push(x)); X.me=keepMe;
   }
 
+  console.log('\n== a trade offer is private to its two clubs; the accepted trade is announced to them only ==');
+  {
+    const CS = g('S'), keepMe = X.me, keepTr = CS.trades, keepLog = CS.log, keepAt = X.activeTeam;
+    const [A, B, C] = g('TEAMS')();
+    const offer = {kind:'trade', team:`${A} / ${B}`, detail:'Offer made — someone for someone', ts:new Date().toISOString()};
+    const done  = {kind:'trade', team:`${A} / ${B}`, detail:'TRADE EXECUTED — x', ts:new Date().toISOString()};
+    const seen = who => { X.me = who; return g('logSeen')(offer); };
+    ok('a party sees its own offer in the log', seen(A) === true && seen(B) === true);
+    ok('a third club does not', seen(C) === false);
+    ok('a signed-out visitor does not', seen(null) === false);
+    ok('the commissioner login does (he has to be able to veto)', seen('__comm__') === true);
+    ok('declines and vetoes are private too', (X.me = C, !g('logSeen')({kind:'trade', team:`${A} / ${B}`, detail:'Offer declined'})
+        && !g('logSeen')({kind:'trade', team:`${A} / ${B}`, detail:'Vetoed by the commissioner'})));
+    X.me = C;
+    ok('an executed trade stays public — the rosters changed', g('logSeen')(done) === true);
+    ok('so do ordinary entries', g('logSeen')({kind:'sign', team:A, detail:'x'}) === true);
+
+    CS.log = [offer, done]; X.me = C; g('drawHomeLive')();
+    const live = document.getElementById('homeLive').innerHTML;
+    ok('Around the league does not show a third club the offer', !/Offer made/.test(live));
+    X.me = A; g('drawHomeLive')();
+    ok('...but shows it to a party', /offer made/i.test(document.getElementById('homeLive').innerHTML));
+
+    const tr = {ts:'2026-10-17T10:00:00.000Z', by:A, a:A, b:B, give:['Aaa Player'], get:['Bbb Player'], givePk:[], getPk:[],
+                status:'pending'};
+    CS.trades = [tr];
+    X.me = C; g('drawOffers')();
+    ok('the Trades tab hides the offer from a third club', !/Aaa Player/.test(document.getElementById('offers').innerHTML));
+    X.me = B; g('drawOffers')();
+    ok('...and shows it, with its buttons, to the other party', /Aaa Player/.test(document.getElementById('offers').innerHTML)
+       && /data-acc="0"/.test(document.getElementById('offers').innerHTML));
+    X.me = '__comm__'; g('drawOffers')();
+    ok('...and to the commissioner', /Aaa Player/.test(document.getElementById('offers').innerHTML));
+
+    /* The announcement. */
+    tr.status = 'accepted'; tr.resolvedTs = new Date().toISOString(); tr.resolvedBy = B;
+    ctx.localStorage.removeItem('ll_tradeseen_' + A); ctx.localStorage.removeItem('ll_tradeseen_' + B);
+    X.me = A; X.activeTeam = A; g('drawTradeNotes')();
+    const mineA = document.getElementById('meTradeNote').innerHTML;
+    ok('the proposer gets a Trade complete card on My Team', /Trade complete/.test(mineA) && /Aaa Player/.test(mineA) && /Bbb Player/.test(mineA));
+    ok('...saying what he sends and what he gets, the right way round',
+       mineA.indexOf('You send') < mineA.indexOf('Aaa Player') && mineA.indexOf('You get') < mineA.indexOf('Bbb Player')
+       && mineA.indexOf('Aaa Player') < mineA.indexOf('You get'));
+    ok('...and on his own club page', /Trade complete/.test(document.getElementById('clubTradeNote').innerHTML));
+    ok('...with an arcade call-out for Jam to show', /class="tn-call"/.test(mineA));
+    X.activeTeam = B; g('drawTradeNotes')();
+    ok('his club page shows nothing while another club is picked', document.getElementById('clubTradeNote').innerHTML === '');
+    X.me = B; X.activeTeam = B; g('drawTradeNotes')();
+    const mineB = document.getElementById('meTradeNote').innerHTML;
+    ok('the other party gets it too, the other way round',
+       /Trade complete/.test(mineB) && mineB.indexOf('Bbb Player') < mineB.indexOf('You get') && mineB.indexOf('You get') < mineB.indexOf('Aaa Player'));
+    X.me = C; X.activeTeam = C; g('drawTradeNotes')();
+    ok('a third club gets nothing', document.getElementById('meTradeNote').innerHTML === '' && document.getElementById('clubTradeNote').innerHTML === '');
+    X.me = '__comm__'; g('drawTradeNotes')();
+    ok('the commissioner login gets nothing', document.getElementById('meTradeNote').innerHTML === '');
+    X.me = A; X.activeTeam = A; g('drawTradeNotes')();
+    ok('a trade from last month is not announced', (tr.resolvedTs = '2026-09-01T00:00:00.000Z', g('drawTradeNotes')(),
+       document.getElementById('meTradeNote').innerHTML === ''));
+    tr.resolvedTs = new Date().toISOString(); g('drawTradeNotes')();
+    ok('a pending or declined offer is not announced', (tr.status = 'rejected', g('drawTradeNotes')(),
+       document.getElementById('meTradeNote').innerHTML === ''));
+    tr.status = 'accepted'; g('drawTradeNotes')();
+    ok('it is back when accepted', /Trade complete/.test(document.getElementById('meTradeNote').innerHTML));
+    ok('dismissing writes the seen mark for that club only', (() => {
+      const before = document.getElementById('meTradeNote').innerHTML;
+      ctx.localStorage.setItem('ll_tradeseen_' + A, tr.resolvedTs);
+      g('drawTradeNotes')();
+      return before !== '' && document.getElementById('meTradeNote').innerHTML === '';
+    })());
+    X.me = B; X.activeTeam = B; g('drawTradeNotes')();
+    ok('...and A dismissing does not dismiss it for B', /Trade complete/.test(document.getElementById('meTradeNote').innerHTML));
+    ctx.localStorage.removeItem('ll_tradeseen_' + A); ctx.localStorage.removeItem('ll_tradeseen_' + B);
+    CS.trades = keepTr; CS.log = keepLog; X.me = keepMe; X.activeTeam = keepAt;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
