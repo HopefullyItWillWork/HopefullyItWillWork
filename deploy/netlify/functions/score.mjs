@@ -8,6 +8,8 @@
    POST /api/score?run=1&day=D     -> rescore just that night
    GET  /api/score?pre=1           -> the preseason tournament: { from, to, days, standings }
    POST /api/score?run=1&pre=1     -> rescore the tournament now
+   GET  /api/score?ids=1           -> what every stored club name resolves to (dry run)
+   POST /api/score?ids=1           -> file the stored history under club ids now
    GET  /api/score?stats=d15       -> one rolling window, per game: { asOf, pre, w, players:{<nameKey>:{n,t,g,s}} }
                                       (d7, d15, d30 or szn; lib/pstats.mjs)
    POST /api/score?run=1&stats=1   -> rebuild the rolling stats now
@@ -18,6 +20,8 @@
 import { store, read } from "./lib/league.mjs";
 import { runScore, runPre, runPstats, seasonOf } from "./lib/scorerun.mjs";
 import { seasonStandings } from "./lib/score.mjs";
+import { daysByName, byClubName } from "./lib/clubs.mjs";
+import { ctxFor, migrateIds } from "./lib/clubids.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: H });
@@ -48,10 +52,21 @@ export default async (req) => {
     if (req.method === "POST" && url.searchParams.get("run") && url.searchParams.get("stats")) {
       return json({ ok: true, run: await runPstats(s) });
     }
+    /* Club ids (lib/clubs.mjs): GET shows what every stored name resolves to
+       without changing anything; POST files the history under the ids now. The
+       ids themselves are never in a response meant for the page — only names. */
+    if (url.searchParams.get("ids")) {
+      if (req.method === "POST") return json({ ok: true, ...(await migrateIds(s, { seasonKeys: [season.key] })) });
+      if (req.method === "GET") {
+        const r = await migrateIds(s, { dry: true, seasonKeys: [season.key] });
+        return json({ ok: true, clubs: Object.keys(r.clubs), lineups: r.lineups, scores: r.scores, unresolved: r.unresolved });
+      }
+    }
     if (req.method === "GET" && url.searchParams.get("pre")) {
       const idx = (await read(s, "score-pre")).data || { days: {} };
-      const clubs = Object.keys((await read(s, "rosters")).data || {});
-      return json({ ...idx, pre: cfg.pre || null, standings: seasonStandings(idx.days, cfg.renames, clubs) });
+      const ctx = await ctxFor(s);
+      const days = daysByName(idx.days, ctx);
+      return json({ ...idx, days, pre: cfg.pre || null, standings: seasonStandings(days, cfg.renames, ctx.live) });
     }
     if (req.method === "POST" && url.searchParams.get("run")) {
       const idx = (await read(s, key)).data;
@@ -64,12 +79,17 @@ export default async (req) => {
     if (req.method !== "GET") return json({ error: "method not allowed" }, 405);
 
     const day = url.searchParams.get("day");
-    if (isDay(day)) return json(await read(s, "score-" + day));
+    if (isDay(day)) {
+      const n = await read(s, "score-" + day);
+      if (n.data && n.data.clubs) n.data = { ...n.data, clubs: byClubName(n.data.clubs, await ctxFor(s), day + "T23:59:59.999Z") };
+      return json(n);
+    }
 
     const idx = (await read(s, key)).data || { season: season.key, days: {} };
-    const clubs = Object.keys((await read(s, "rosters")).data || {});
-    return json({ ...idx, cap: parseInt(cfg.gamecap, 10) || 920,
-      standings: seasonStandings(idx.days, cfg.renames, clubs) });
+    const ctx = await ctxFor(s);
+    const days = daysByName(idx.days, ctx);
+    return json({ ...idx, days, cap: parseInt(cfg.gamecap, 10) || 920,
+      standings: seasonStandings(days, cfg.renames, ctx.live) });
   } catch (e) {
     return json({ ok: false, error: String((e && e.message) || e) }, 500);
   }

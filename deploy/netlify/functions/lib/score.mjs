@@ -92,15 +92,19 @@ function tipsByClub(games) {
      gpBefore { club: games already counted this season before this night }
      cap      the game cap (settings.gamecap, normally 920)
      alias, espn, renames from settings
+     resolve  (ref, at) -> the club's key; production passes the id resolver, so
+              `clubs` below is keyed by id (the page gets names via lib/clubs.mjs)
    Returns { clubs: { club: { gpBefore, counted:[…], over:[…], reused:[…], totals } },
              unmatched: [players nobody started], noTip: [players with no game] } */
-export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, renames, live }) {
+export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, renames, live, resolve }) {
   /* Lineup history grouped under each club's CURRENT name, merged in time
      order — a rename mid-day leaves entries under both names. */
   const byClub = {};
   for (const [club, list] of Object.entries(lineups || {})) {
     for (const e of list || []) {
-      const now = currentName(club, renames, live, e && e.at);    // the name it had AFTER this save
+      /* `resolve` (lib/clubs.mjs keyOf) files the entry under the club's permanent
+         id, whatever it was called when saved; without it, the old name walk. */
+      const now = resolve ? resolve(e && e.cid || club, e && e.at) : currentName(club, renames, live, e && e.at);
       if (!now) continue;
       (byClub[now] = byClub[now] || []).push(e);
     }

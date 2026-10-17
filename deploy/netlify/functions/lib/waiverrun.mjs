@@ -9,6 +9,7 @@ import { processWaivers, weeklyOrder, mondayOf, onWaivers, seasonKey, allOnWaive
 import { seasonStandings } from "./score.mjs";
 import { seasonOf } from "./scorerun.mjs";
 import { recordLineup } from "./lineups.mjs";
+import { clubCtx, daysByName } from "./clubs.mjs";
 
 const TZ = () => process.env.LEAGUE_TZ || "America/New_York";
 export const todayIn = (tz = TZ()) => new Intl.DateTimeFormat("en-CA", {
@@ -34,7 +35,7 @@ export async function currentOrder(s, cfg, teams, today = todayIn()) {
   let standings = [];
   if (season) {
     const idx = (await readKey(s, "score-" + season.key)).data;
-    if (idx && idx.days) standings = seasonStandings(idx.days, cfg.renames, clubs);
+    if (idx && idx.days) standings = seasonStandings(daysByName(idx.days, clubCtx(teams, cfg.renames)), cfg.renames, clubs);
   }
   const draft = (cfg.draft && Array.isArray(cfg.draft.order)) ? cfg.draft.order : [];
   return { week, order: weeklyOrder(clubs, standings, draft), runs: w.runs || [], fresh: true };
@@ -72,7 +73,7 @@ export async function runWaivers(s, { by = "Waivers" } = {}) {
       for (const res of r.results) {
         const t = res.drop && r.teams[res.to];
         if (t && t.lu && t.lu.s) {
-          try { await recordLineup(s, TZ(), { club: res.to, s: t.lu.s, by: by, src: "waivers" }); } catch { /* the morning carry catches it */ }
+          try { await recordLineup(s, TZ(), { club: res.to, cid: t.id, s: t.lu.s, by: by, src: "waivers" }); } catch { /* the morning carry catches it */ }
         }
       }
       if (r.log.length) {
