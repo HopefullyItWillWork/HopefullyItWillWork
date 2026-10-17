@@ -2490,8 +2490,35 @@ contract, on the IR) is cleared, and the new lineup is posted to `/api/lineups`.
 Without it a released man stayed in his slot and kept scoring for the club that
 cut him. It lives in `commit()` so a new roster path cannot forget it.
 
-History is keyed by club **name**. A club renamed mid-season has its earlier
-entries under the old name; scoring has to follow `S.cfg.renames`.
+Each entry carries `cid`, the club's permanent id (next section), beside `club`,
+the name it went by at the time. Scoring groups by `cid`.
+
+## A club's permanent id (2026-10-17)
+
+A club name is a label and changes (the preseason tournament split a club's
+stats when its manager renamed it). **`S.teams[t].id`** (`c_…`) never changes;
+lineup history, scores and game counts are filed under it, and the name is
+looked up from it only when something is displayed. It is never drawn or typed
+anywhere in the page, but it is not secret — `/api/state` has no auth.
+
+- **Stamped by the server**, not the page, so two browsers cannot invent two ids
+  for one club: `state.mjs` runs `stampIds(prev, next)` on every `rosters` write
+  (a club keeps the id the server has for that name; a new one gets a fresh id),
+  and `ensureIds()` (`lib/clubids.mjs`) covers clubs written before this. A
+  rename moves the whole club object, so the id travels with it.
+- `lib/clubs.mjs` (pure, `tests/clubs.test.js`): `keyOf(ref, ctx, at)` turns an id
+  **or a legacy name** into the id (legacy names go through the rename journal,
+  `currentName()`, dated by `at`); `daysByName()`/`byClubName()` turn stored
+  id-keyed records back into current names for the page and the digests.
+- `recordLineup()` writes `cid`; `scoreNight({resolve})` groups lineups, and keys
+  its `clubs`, by id; `score-<season>`, `score-pre` and `score-YYYY-MM-DD` hold id
+  keys. **`/api/score` and the digests return names**, so the page did not change.
+- **Backfill**: `migrateIds()` stamps `cid` on every old `luh/…` blob and re-keys
+  the score indexes, resolving old names once (marker `clubids-migrated`; it runs
+  at the start of `runScore`/`runPre`). `GET /api/score?ids=1` is a dry run that
+  lists what every old name resolved to; `POST` runs it now. Anything it cannot
+  resolve is listed under `unresolved` and left alone.
+- Do not key new stored records by club name. Use `rosters[name].id`.
 
 ## Which NBA club a player is on
 

@@ -10,7 +10,8 @@
    No auth, like the rest of /api: the honour-system PINs live in the page. The
    clock is the part that matters, and the client never supplies it. */
 
-import { store, read } from "./lib/league.mjs";
+import { store } from "./lib/league.mjs";
+import { ensureIds } from "./lib/clubids.mjs";
 import { recordLineup, lineupsOn } from "./lib/lineups.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
@@ -27,9 +28,9 @@ export default async (req) => {
       if (!club || !body.s || typeof body.s !== "object") return json({ ok: false, error: "club and s required" }, 400);
       /* Only a club that exists. A typo or a stale tab after a rename must not
          start a history under a name scoring will never look up. */
-      const teams = (await read(s, "rosters")).data || {};
+      const teams = await ensureIds(s);
       if (!teams[club]) return json({ ok: false, error: `no club named ${club}` }, 404);
-      const entry = await recordLineup(s, TZ(), { club, s: body.s, by: String(body.by || "").slice(0, 60) });
+      const entry = await recordLineup(s, TZ(), { club, cid: teams[club].id, s: body.s, by: String(body.by || "").slice(0, 60) });
       return json({ ok: true, at: entry.at, day: entry.day });
     }
     if (req.method === "GET") {

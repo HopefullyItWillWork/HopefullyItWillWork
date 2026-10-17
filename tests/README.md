@@ -11,6 +11,7 @@ node tests/mail.test.js             # the mail functions' pure logic
 node tests/stats.test.js            # the stats feed's parsing, date window and tip-offs
 node tests/lineups.test.js          # lineup history: append-only, carry, lineup at tip-off
 node tests/nba.test.js              # NBA club per player: ESPN parsing and name folding
+node tests/clubs.test.js            # club ids: a rename never splits a club's stats, and the backfill
 node tests/score.test.js            # scoring: lineup at tip-off, one game per slot, the 920 cap top-down
 node tests/tweets.test.js           # the weekly's tweets: which moves, what parses (npm install in deploy/ first)
 ```

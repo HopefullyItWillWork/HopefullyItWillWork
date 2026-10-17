@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { stampIds } from "./lib/clubs.mjs";
 
 /* League storage, split by key so hot paths never collide.
      settings   league config, rarely written
@@ -86,7 +87,10 @@ export default async (req) => {
           { status: 409, headers: H }
         );
       }
-      const next = { rev: prev.rev + 1, data: body.data, at: new Date().toISOString() };
+      /* Every club carries a permanent id (lib/clubs.mjs). A write that arrives
+         without one — a new club, a stale tab — keeps the one the server has. */
+      const data = key === "rosters" ? stampIds(prev.data, body.data) : body.data;
+      const next = { rev: prev.rev + 1, data, at: new Date().toISOString() };
       await store.set(key, JSON.stringify(next));
       return new Response(JSON.stringify({ ok: true, rev: next.rev }), { headers: H });
     }

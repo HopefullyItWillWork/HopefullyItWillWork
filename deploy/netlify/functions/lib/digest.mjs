@@ -16,6 +16,7 @@
 import { seasonOf } from "./scorerun.mjs";
 import { seasonStandings, keysFor } from "./score.mjs";
 import { SLOTS } from "./lineups.mjs";
+import { clubCtx, daysByName, byClubName } from "./clubs.mjs";
 import { nameKey } from "./nba.mjs";
 import { SB, ymd, tipsFrom, daysBefore } from "./stats.mjs";
 
@@ -76,6 +77,9 @@ export function tradeAngles(standings, club, gmOf) {
   })).filter((a) => a.clubs.length);
 }
 
+const byScoredName = (n, day, ctx) => n && n.clubs
+  ? { ...n, clubs: byClubName(n.clubs, ctx, day + "T23:59:59.999Z") } : n;
+
 /* Shared reads, once per run however many clubs are mailed. */
 async function base(s, cache) {
   if (cache.base) return cache.base;
@@ -83,7 +87,9 @@ async function base(s, cache) {
   const season = seasonOf(cfg);
   const idx = season ? (await read(s, "score-" + season.key)).data : null;
   const teams = (await read(s, "rosters")).data || {};
-  cache.base = { cfg, season, days: (idx && idx.days) || {}, teams, clubs: Object.keys(teams),
+  /* Scores are filed under club ids; the digest reads current names. */
+  const ctx = clubCtx(teams, cfg.renames);
+  cache.base = { cfg, season, ctx, days: daysByName((idx && idx.days) || {}, ctx), teams, clubs: Object.keys(teams),
     cap: parseInt(cfg.gamecap, 10) || 920 };
   return cache.base;
 }
@@ -175,7 +181,7 @@ async function tonightFor(s, clubEntry, cfg, season, today, cache) {
 /* ---------------- the daily ---------------- */
 export async function digestDaily(s, club, day, cache = {}) {
   const b = await base(s, cache);
-  const { cfg, days, teams, clubs, cap, season } = b;
+  const { cfg, days, teams, clubs, cap, season, ctx } = b;
   const seasonKey = season ? season.key : null;
   const now = seasonStandings(days, cfg.renames, clubs);
   const was = seasonStandings(Object.fromEntries(Object.entries(days).filter(([d]) => d < day)), cfg.renames, clubs);
@@ -185,7 +191,7 @@ export async function digestDaily(s, club, day, cache = {}) {
   let last = null;
   if (days[day]) {
     if (!cache["n" + day]) cache["n" + day] = {
-      scored: (await read(s, "score-" + day)).data, night: (await read(s, "daily-" + day)).data };
+      scored: byScoredName((await read(s, "score-" + day)).data, day, ctx), night: (await read(s, "daily-" + day)).data };
     const { scored, night } = cache["n" + day];
     const c = scored && scored.clubs && scored.clubs[club];
     if (c) {
@@ -210,7 +216,7 @@ export async function digestDaily(s, club, day, cache = {}) {
 /* ---------------- the weekly ---------------- */
 export async function digestWeekly(s, club, from, to, cache = {}) {
   const b = await base(s, cache);
-  const { cfg, days, teams, clubs, cap, season } = b;
+  const { cfg, days, teams, clubs, cap, season, ctx } = b;
   const inWeek = Object.fromEntries(Object.entries(days).filter(([d]) => d >= from && d <= to));
   const before = Object.fromEntries(Object.entries(days).filter(([d]) => d < from));
   const now = seasonStandings(days, cfg.renames, clubs);
@@ -247,7 +253,7 @@ export async function digestWeekly(s, club, from, to, cache = {}) {
   const score = (x) => (x.PTS || 0) + (x.TRB || 0) + (x.AST || 0) + (x.STL || 0) + (x.BLK || 0) + (x.P3 || 0) - (x.TOV || 0);
   const mine = {}, league = {};
   for (const d of Object.keys(inWeek)) {
-    const det = (await read(s, "score-" + d)).data;
+    const det = byScoredName((await read(s, "score-" + d)).data, d, ctx);
     for (const [c, x] of Object.entries((det && det.clubs) || {})) {
       for (const p of x.counted || []) {
         const add = (into) => {

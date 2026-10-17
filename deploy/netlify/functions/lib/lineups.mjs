@@ -40,12 +40,14 @@ export function cleanSlots(s) {
   return out;
 }
 
-export async function recordLineup(store, tz, { club, s, by, src }) {
+export async function recordLineup(store, tz, { club, cid, s, by, src }) {
   const at = new Date();
   const day = dayIn(tz, at);
   const iso = at.toISOString();
   const key = `luh/${day}/${clubSeg(club)}/${iso}-${Math.random().toString(36).slice(2, 8)}`;
-  const entry = { at: iso, day, club, by: by || "", src: src || "save", s: cleanSlots(s) };
+  /* `cid` is the club's permanent id (lib/clubs.mjs); `club` is only the name it
+     went by when this was saved, kept for reading the record. */
+  const entry = { at: iso, day, club, cid: cid || "", by: by || "", src: src || "save", s: cleanSlots(s) };
   await store.set(key, JSON.stringify(entry));
   return entry;
 }
@@ -75,11 +77,16 @@ export function lineupAt(entries, when) {
 export async function carryLineups(store, tz, teams) {
   const day = dayIn(tz);
   const have = await lineupsOn(store, day);
+  /* Who has an entry today, by id — a club renamed this morning still has one. */
+  const haveId = new Set();
+  for (const [name, list] of Object.entries(have))
+    for (const e of list) haveId.add(e.cid || (teams[name] && teams[name].id) || name);
   const done = [];
   for (const club of Object.keys(teams || {})) {
     const lu = teams[club] && teams[club].lu;
-    if (!lu || !lu.s || have[club]) continue;
-    await recordLineup(store, tz, { club, s: lu.s, by: "nightly", src: "carry" });
+    const cid = teams[club] && teams[club].id;
+    if (!lu || !lu.s || have[club] || (cid && haveId.has(cid))) continue;
+    await recordLineup(store, tz, { club, cid, s: lu.s, by: "nightly", src: "carry" });
     done.push(club);
   }
   return done;
