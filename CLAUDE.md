@@ -334,7 +334,7 @@ roster must **name a drop**.
   (`ll_tradeseen_<club>` = resolved time of the last one dismissed, per browser; a
   browser that never dismissed one sees the last three days). Not the commissioner
   login, not a GM looking at another club. The Jam theme makes it an arcade
-  call-out (`TRADECALLS`, scanlines, slam-in, flashing). The box is rewritten only
+  call-out (always BOOMSHAKALAKA!, `TRADECALL`; scanlines, slam-in, flashing). The box is rewritten only
   when its HTML changed, or the animation restarts on every poll.
 
 ### Phone
