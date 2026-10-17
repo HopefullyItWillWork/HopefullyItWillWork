@@ -4567,6 +4567,20 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.trades = keepTr; CS.log = keepLog; X.me = keepMe; X.activeTeam = keepAt;
   }
 
+  console.log('\n== the watch list filters the offseason free agent class too ==');
+  {
+    const keepMe = X.me; X.me = g('TEAMS')()[0];
+    const sel = document.getElementById('faTabWatch');
+    ok('the class view has a watch list filter', !!sel);
+    g('drawFA')();
+    const all = document.getElementById('fagrid').innerHTML;
+    ok('each row carries the star', /data-watch=/.test(all) && /class="fabox"/.test(all));
+    sel.value = 'w'; g('drawFA')();
+    const none = document.getElementById('fagrid').innerHTML;
+    ok('with nobody watched the filter says so', !/class="fabox"/.test(none) && /watch list/i.test(none), none.slice(0, 120));
+    sel.value = ''; X.me = keepMe; g('drawFA')();
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
