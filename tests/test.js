@@ -3030,7 +3030,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
        String(g('signBlock')(club, 'Loophole Guy', 1.00)));
 
     ctx.__alerts.length = 0;
-    await g('signFA')(club, 'Loophole Guy');
+    await g('signPlayer')('Loophole Guy', club, 1.00, 1);   // signFA() now sends a man on the wire to the Claim dialog
     ok('signing him back the same day does not happen',
        !CS.teams[club].r.some(p => p.n === 'Loophole Guy'),
        JSON.stringify(CS.teams[club].r.filter(p => p.n === 'Loophole Guy')));
@@ -3052,7 +3052,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     g('releaseRecord')(club, CS.teams[club].r.indexOf(cheap));
     ok('a minimum release bars nothing in season',
        g('cutRestriction')(club, 'Minimum Guy') === null);
-    await g('signFA')(club, 'Minimum Guy');
+    await g('signPlayer')('Minimum Guy', club, 1.00, 1);
     ok('...and he can be signed straight back',
        CS.teams[club].r.some(p => p.n === 'Minimum Guy' && g('salNow')(p) === 1.00),
        JSON.stringify(ctx.__alerts));
@@ -3864,16 +3864,17 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const IS = g('isRosterMove'), MOVES = g('rosterMoves');
     ok('a signing is a roster move', IS({kind:'sign'}) === true);
     ok('a release is a roster move', IS({kind:'cut'}) === true);
-    ok('a trade is a roster move', IS({kind:'trade'}) === true);
+    ok('an executed trade is a roster move', IS({kind:'trade', detail:'TRADE EXECUTED — x'}) === true);
+    ok('an offer is not (it moves nobody)', IS({kind:'trade', detail:'Offer made — x'}) === false);
     ok('a settings edit is not', IS({kind:'edit'}) === false);
     ok('nor is anything else', IS({kind:'test'}) === false);
     ok('and nothing at all is not a crash', IS(null) === false && IS(undefined) === false);
 
     const log = [{kind:'sign',detail:'a'},{kind:'edit',detail:'b'},{kind:'cut',detail:'c'},
-                 {kind:'test',detail:'d'},{kind:'trade',detail:'e'}];
+                 {kind:'test',detail:'d'},{kind:'trade',detail:'TRADE EXECUTED — e'}];
     const kept = MOVES(log);
     ok('the list keeps only the three move kinds', kept.length === 3, String(kept.length));
-    ok('...in the order it was given', kept.map(x=>x.detail).join('') === 'ace');
+    ok('...in the order it was given', kept.map(x=>x.kind).join() === 'sign,cut,trade');
     ok('...without touching the log itself', log.length === 5);
     ok('an empty log filters to nothing', MOVES([]).length === 0 && MOVES(null).length === 0);
 
@@ -4565,6 +4566,25 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('...and A dismissing does not dismiss it for B', /Trade complete/.test(document.getElementById('meTradeNote').innerHTML));
     ctx.localStorage.removeItem('ll_tradeseen_' + A); ctx.localStorage.removeItem('ll_tradeseen_' + B);
     CS.trades = keepTr; CS.log = keepLog; X.me = keepMe; X.activeTeam = keepAt;
+  }
+
+  console.log('\n== My Team carries a watch list table ==');
+  {
+    const keepMe = X.me, keepW = X.WATCH, T0 = g('TEAMS')()[0];
+    X.me = T0; X.WATCH = [];
+    g('drawWatchTable')();
+    let h = document.getElementById('meWatch').innerHTML;
+    ok('empty: it says how to start', /Watch list/.test(h) && /Nobody yet/.test(h), h.slice(0, 120));
+    const star = g('RATER').find(p => p.s && p.g > 40);
+    X.WATCH = [g('canon')(star.n)];
+    g('drawWatchTable')();
+    h = document.getElementById('meWatch').innerHTML;
+    ok('a watched player is listed with his name and a star to remove him', h.includes(star.n) && /data-watch=/.test(h));
+    ok('...with his line: games, the nine categories and PR', /id="watchTbl"/.test(h) && /<th[^>]*>PR<\/th>/.test(h) && /<th[^>]*>FG%<\/th>/.test(h) && /<th[^>]*>GP<\/th>/.test(h));
+    ok('...and who holds him', /Free agent|expiring|<td class="l">[A-Z]/.test(h));
+    X.me = '__comm__'; g('drawWatchTable')();
+    ok('the commissioner login has none', document.getElementById('meWatch').innerHTML === '');
+    X.me = keepMe; X.WATCH = keepW; g('drawWatchTable')();
   }
 
   console.log('\n== no stray alerts ==');

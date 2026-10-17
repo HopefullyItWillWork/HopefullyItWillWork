@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.2">
+<meta name="ll-build" content="2026-10-17.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1339,6 +1339,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <div id="labTotals"></div>
     </div>
     </div>
+    <div id="meWatch"></div>
     </div>
     <div class="subview" id="me-stand" data-subview hidden>
       <h2>Standings</h2>
@@ -4609,7 +4610,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawTradeNotes();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();
+  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -11013,6 +11014,37 @@ function fireHtml(t){
   return `<div class="fire"><div class="firehd"><h3 class="firet">He's on fire</h3>
     <span class="pill">top 3 \u00b7 ${htmlEsc(projSrcLabel())}</span></div>
     <div class="firegrid">${top.map(card).join('')}</div></div>`;
+}
+/* My Team's watch list: every player on the GM's list with his line under the
+   stats period in front of him (the same bar that drives PR), whoever holds him
+   — a free agent, a rival's man, or his own. The ★ takes him off. Rows open the
+   player card. */
+function drawWatchTable(){
+  const box=$('meWatch'); if(!box) return;
+  if(offscreen('meWatch')) return;
+  const mine=me&&!isComm()&&S.teams[me];
+  if(!mine){ if(box.innerHTML) box.innerHTML=''; return; }
+  const RG=ratings(), S0=SORTS.watch||{col:'rtg',desc:true};
+  const rows=WATCH.map(n=>{ const v=pstat(n);
+    return {n,own:ownerOf(n),pos:posShow(n)||'',g:v?v.g:null,s:v&&v.s?v.s:null,rtg:RG[canon(n)]}; });
+  const val=(p,c)=>c==='n'?p.n:c==='own'?p.own:c==='pos'?p.pos:c==='rtg'?p.rtg:c==='g'?p.g
+    :c==='FGP'?(p.s?shotPct(p.s.FG,p.s.FGA):null):c==='FTP'?(p.s?shotPct(p.s.FT,p.s.FTA):null):(p.s?p.s[c]:null);
+  rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
+  const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
+  const f=v=>v==null?'&#8212;':(+v).toFixed(1);
+  const head=`<h2>Watch list <span class="fcount">${rows.length} player${rows.length===1?'':'s'} \u00b7 ${htmlEsc(projSrcLabel())}</span></h2>`;
+  const html=head+(rows.length?`<div class="scroller" data-cap="1"><table class="fatab" id="watchTbl"><thead><tr>
+    ${H('n','Player','l')}${H('own','Held by','l')}${H('pos','Pos','l')}${H('g','GP')}
+    ${ROSCOLS.map(([k,l])=>H(k,l)).join('')}${H('rtg','PR')}</tr></thead><tbody>${rows.map(p=>
+    `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td class="l" data-hs="${htmlEsc(p.n)}">${watchBtn(p.n)}${htmlEsc(p.n)}</td>
+      <td class="l">${htmlEsc(p.own)}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
+      ${p.s?`<td>${p.g||0}</td>`+ROSCOLS.map(([k])=>k==='FGP'?`<td>${pctText(shotPct(p.s.FG,p.s.FGA))}</td>`
+        :k==='FTP'?`<td>${pctText(shotPct(p.s.FT,p.s.FTA))}</td>`:`<td>${f(p.s[k])}</td>`).join('')
+        :`<td colspan="${ROSCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
+      <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div class="empty">Nobody yet. Press the \u2606 beside a player on Players \u203a Free agents or on his card to watch him.</div>');
+  if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
+  sortable('watchTbl','watch','rtg',true); redraw.watch=drawWatchTable;
 }
 function drawFires(){
   const box=$('meFire'); if(box){ const h=me?fireHtml(meTeam()):''; if(box.innerHTML!==h) box.innerHTML=h; }
