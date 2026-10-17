@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.6">
+<meta name="ll-build" content="2026-10-17.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1591,6 +1591,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <h2>Free agent class</h2>
     <p class="note explain">Every expiring contract. Restricted players finished the last year of a team, player, or rookie option &#8212; their club may match the winning bid. Bird rights let a club exceed the cap to keep its own player, but it still has to win the bidding.</p>
     <div class="filters"><input id="faTabSearch" placeholder="Search free agents" autocomplete="off">
+      <select id="faTabWatch"><option value="">All free agents</option><option value="w">My watch list</option></select>
       <span class="fcount">click a player for full stats and your projection</span></div>
     <div class="fagrid" id="fagrid"></div>
   </div>
@@ -3659,6 +3660,7 @@ function drawFA(){
   if(offscreen('v-fa','fPlayer')) return;
   const fa=freeAgents(), RG=ratings();
   const q=($('faTabSearch')&&$('faTabSearch').value.trim().toLowerCase())||'';
+  const wf=$('faTabWatch')&&$('faTabWatch').value;
   const groups=[['Restricted','Their club sits out the bidding, then decides whether to match.',p=>p.restricted],
     ['Bird rights','Old club can exceed the cap to keep them, but must win the bidding.',p=>!p.restricted&&p.b==='Yes'],
     ['Early Bird','Old club can go up to $7.00 over the cap.',p=>!p.restricted&&p.b&&p.b!=='Yes'],
@@ -3668,7 +3670,7 @@ function drawFA(){
     const fv=(p,c)=>{const v=pstat(p.n);
       return c==='n'?p.n:c==='from'?p.from:c==='last'?(salPrev(p)||0):c==='rtg'?RG[canon(p.n)]
         :c==='g'?(v?v.g:null):sortStat(v,c);};
-    const list=fa.filter(f).filter(p=>!q||p.n.toLowerCase().includes(q))
+    const list=fa.filter(f).filter(p=>!q||p.n.toLowerCase().includes(q)).filter(p=>!wf||isWatched(p.n))
       .sort((x,y)=>cmp(fv(x,FS.col),fv(y,FS.col),FS.desc));
     if(!list.length)return '';
     return `<div class="fabox" style="grid-column:1/-1"><h4>${title}</h4><p>${desc} &#183; ${list.length} players</p>
@@ -3681,7 +3683,7 @@ function drawFA(){
         <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
         <th data-k="rtg">Rating</th></tr></thead>
       <tbody>${list.map(p=>{const v=pstat(p.n); const r=RG[canon(p.n)];
-        return `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td>${p.n}</td>
+        return `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td>${watchBtn(p.n)}${p.n}</td>
         <td class="l hide">${p.from}</td><td class="hide2">${salPrev(p)?money(salPrev(p)):'&#8212;'}</td>
         ${v&&v.g?`<td>${v.g}</td><td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
           <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
@@ -3695,6 +3697,7 @@ function drawFA(){
      card — the same thing clicking a name does on the Players tab. It used to
      render into a panel pinned under the whole grid, which on this tab meant
      scrolling past four sorted tables to read the stats you just asked for. */
+  if(wf&&!$('fagrid').innerHTML.trim()) $('fagrid').innerHTML='<div class="empty" style="grid-column:1/-1">Nobody on your watch list is in the free agent class. Press the &#9734; beside a player to add him.</div>';
   $('falist').innerHTML=fa.map(p=>`<option value="${p.n}">${p.from}${salPrev(p)?' &#183; last '+money(salPrev(p)):''}</option>`).join('');
 }
 /* The Quick sign pool: the same free agent class every other screen reads, with
@@ -11498,6 +11501,7 @@ function drawTrend(){
 }
 $('trCat').onchange=drawTrend;
 if($('faTabSearch'))$('faTabSearch').oninput=drawFA;
+if($('faTabWatch'))$('faTabWatch').onchange=drawFA;
 $('faSearch').oninput=drawFAList; $('faPos').onchange=drawFAList;
 if($('faWatch')) $('faWatch').onchange=drawFAList;
 $('faAdd').onchange=()=>{const k=$('faAdd').value;if(!k)return;
