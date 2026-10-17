@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.4">
+<meta name="ll-build" content="2026-10-17.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10525,7 +10525,7 @@ function drawHomeLive(){
    (ll_tradeseen_<club>) — like the chat badge — and a browser that has never
    dismissed one is shown the last three days, not the whole season. In the Jam
    theme the card is an arcade call-out. */
-const TRADECALLS=['BOOMSHAKALAKA!','HE\u2019S ON FIRE!','FROM DOWNTOWN!','IS IT THE SHOES?','RAZZLE DAZZLE!','TRADE ALERT!'];
+const TRADECALL='BOOMSHAKALAKA!';
 const tradeSeenGet=t=>{ try{ return localStorage.getItem('ll_tradeseen_'+t)||''; }catch(e){ return ''; } };
 const tradeSeenSet=(t,ts)=>{ try{ if(ts) localStorage.setItem('ll_tradeseen_'+t,ts); }catch(e){} };
 /* Accepted trades t was part of that it has not dismissed, oldest first. */
@@ -10542,7 +10542,7 @@ function tradeNoteHtml(t){
     const inn=(sends?tr.get:tr.give)||[], inPk=(sends?tr.getPk:tr.givePk)||[];
     const list=(ns,ks)=>{ const a=ns.map(n=>htmlEsc(n)).concat(ks.map(k=>htmlEsc(pickName(k.y,k.from))));
       return a.length?a.map(x=>`<div>${x}</div>`).join(''):'<div class="none">nothing</div>'; };
-    const call=TRADECALLS[nameHash(tr.resolvedTs)%TRADECALLS.length];
+    const call=TRADECALL;
     return `<div class="tradenote" role="status">
       <div class="tn-call" aria-hidden="true">${call}</div>
       <div class="tn-title">Trade complete</div>
