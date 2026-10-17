@@ -182,6 +182,10 @@ export function seasonStandings(days, renames, clubs) {
     for (const [club, t] of Object.entries(night || {})) {
       const now = currentName(club, renames, clubs, nightAt(day));
       if (!now) continue;
+      /* Only a club that exists today is a row. A stored key that resolves to no
+         live club (a September test name such as "Hello") used to become its own
+         team in the table. */
+      if (clubs && clubs.length && !tot[now]) continue;
       const into = (tot[now] = tot[now] || zero());
       for (const k of CATS) into[k] += t[k] || 0;
     }
