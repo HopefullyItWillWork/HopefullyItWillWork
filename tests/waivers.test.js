@@ -18,8 +18,13 @@ console.log('== order ==');
 ok('Monday of a Wednesday', mondayOf('2026-11-04') === '2026-11-02');
 const stand = [{ club: 'Alpha', pts: 20, tot: { GP: 5, PTS: 100 } }, { club: 'Beta', pts: 10, tot: { GP: 5, PTS: 90 } },
   { club: 'Gamma', pts: 10, tot: { GP: 5, PTS: 80 } }];
-ok('worst first, ties to fewer points', weeklyOrder(['Alpha', 'Beta', 'Gamma'], stand, []).join() === 'Gamma,Beta,Alpha');
-ok('nothing scored: the draft order', weeklyOrder(['Alpha', 'Beta', 'Gamma'], [], ['Beta', 'Alpha', 'Gamma']).join() === 'Beta,Alpha,Gamma');
+ok('worst first, ties to fewer points', weeklyOrder(['Alpha', 'Beta', 'Gamma'], stand, [], []).join() === 'Gamma,Beta,Alpha');
+ok('nothing scored: the auction nomination order, as saved', weeklyOrder(['Alpha', 'Beta', 'Gamma'], [], ['Gamma', 'Alpha', 'Beta'], ['Beta', 'Alpha', 'Gamma']).join() === 'Gamma,Alpha,Beta');
+ok('...a club missing from it follows in draft order, then alphabetical', weeklyOrder(['Alpha', 'Beta', 'Gamma'], [], ['Gamma'], ['Beta', 'Alpha']).join() === 'Gamma,Beta,Alpha');
+ok('...no nomination order at all: the draft order', weeklyOrder(['Alpha', 'Beta', 'Gamma'], [], [], ['Beta', 'Alpha', 'Gamma']).join() === 'Beta,Alpha,Gamma');
+ok('standings with no games yet still use the nomination order', weeklyOrder(['Alpha', 'Beta'], [{ club: 'Alpha', pts: 0, tot: { GP: 0 } }, { club: 'Beta', pts: 0, tot: { GP: 0 } }], ['Beta', 'Alpha'], []).join() === 'Beta,Alpha');
+ok('a club with no games yet is ranked with the rest, not sent to the back', weeklyOrder(['Alpha', 'Beta', 'Gamma'],
+  [{ club: 'Alpha', pts: 20, tot: { GP: 5, PTS: 100 } }, { club: 'Beta', pts: 10, tot: { GP: 5, PTS: 90 } }, { club: 'Gamma', pts: 0, tot: { GP: 0, PTS: 0 } }], [], []).join() === 'Gamma,Beta,Alpha');
 ok('first week: all on waivers', allOnWaivers(cfg, '2026-10-25') && !allOnWaivers(cfg, '2026-10-27'));
 
 console.log('== a claim ==');

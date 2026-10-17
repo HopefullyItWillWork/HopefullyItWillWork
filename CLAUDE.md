@@ -290,9 +290,10 @@ plays out the season on a minimum deal, then is a free agent. League decisions:
 (`S.cfg.opener`, Commissioner › League settings › Opening night — without it
 there is no first-week wire); after that **an in-season release is on waivers
 for one day**; claims are processed **once a morning** (`waivers-daily.mjs`,
-14:00 UTC, after scoring); the order is **ESPN's inverse standings, reset every
-Monday**, ties to fewer points, and **a club that wins a claim drops to the back
-until Monday** (before any night is scored: the rookie draft order); a full
+14:00 UTC, after scoring); the order is **the inverse of this app's own standings as of Monday (nights
+through Sunday only), reset every Monday**, ties to fewer points, the first
+order (nothing scored yet) is **the auction nomination order**, as saved, and **a club that wins a claim drops to the back
+until Monday** ; a full
 roster must **name a drop**.
 
 - The rule is pure: `lib/waivers.mjs` (`processWaivers`, `weeklyOrder`,
