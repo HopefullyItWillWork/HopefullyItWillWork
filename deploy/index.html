@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-19.1">
+<meta name="ll-build" content="2026-10-19.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2091,7 +2091,9 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <input id="edAlias" placeholder="the spelling the league spreadsheet uses" autocomplete="off"></div>
   </div>
   <p class="note" id="edNote" hidden></p>
-  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doEdit" value="ok">Save</button></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="button" class="btn danger" id="edFree" hidden>Make free agent</button>
+    <button class="btn" id="doEdit" value="ok">Save</button></div>
 </form></dialog>
 
 <dialog id="dlgClaim"><form method="dialog" class="dlg">
@@ -3246,6 +3248,7 @@ function fillComm(team,p){
   const cm=$('edComm');
   if(!cm) return;
   cm.hidden=!hasComm();
+  if($('edFree')) $('edFree').hidden=!(hasComm()&&team);
   if(!hasComm()) return;
   /* "Not on a roster" is only offered to a player who is already unrostered, so
      the dialog can assign him without ever becoming a way to release somebody —
@@ -3382,6 +3385,20 @@ $('doEdit').onclick=async(ev)=>{
     ? {kind:'trade',team:`${team} / ${moved}`,detail:`Commissioner moved ${p.n} to ${moved}`}
     : {kind:'edit',team,detail:`${p.n} \u2014 ${before==null?'expiring':money(before)} \u2192 ${salNow(p)==null?'expiring':money(salNow(p))}`},
     hasComm()?['rosters','settings']:undefined);
+};
+/* Commissioner correction: take a man off a roster entirely. No release record
+   (so no bar and no dead money) and his rights go with him; for a real release
+   with the waiver rules, Cut is the path. */
+$('edFree').onclick=async()=>{
+  if(!hasComm()||!editing||editing.fa||!editing.team) return;
+  const {team,idx}=editing, p=S.teams[team]&&S.teams[team].r[idx];
+  if(!p) return;
+  if(!confirm(`Make ${p.n} a free agent?\n\nHe comes off ${team}'s roster with no release record, `
+    +'no dead money and no rights. This cannot be undone from here.')) return;
+  S.teams[team].r.splice(idx,1);
+  editing=null;
+  $('dlgEdit').close();
+  await commit({kind:'cut',team,detail:`Commissioner made ${p.n} a free agent`},['rosters']);
 };
 /* ---- outgoing mail ----
    The client never holds a mail credential and never names an address: it posts
