@@ -28,7 +28,7 @@ ok('yesterdayIn is the day before, in zone',
 console.log('\n== the digest picks up exactly one day ==');
 const log = [
   {ts:'2026-09-03T01:00:00Z', kind:'sign',  detail:'evening of the 2nd', team:'Coulter'},
-  {ts:'2026-09-02T16:00:00Z', kind:'trade', detail:'midday of the 2nd',  team:'Brice'},
+  {ts:'2026-09-02T16:00:00Z', kind:'trade', detail:'TRADE EXECUTED — midday of the 2nd',  team:'Brice'},   // an offer would not count (isMove)
   {ts:'2026-09-03T16:00:00Z', kind:'cut',   detail:'the 3rd',            team:'Osborn'},
   {ts:'2026-09-02T03:00:00Z', kind:'edit',  detail:'evening of the 1st', team:'Schwab'},
   {ts:null,                   kind:'sign',  detail:'no timestamp'},
@@ -106,7 +106,7 @@ ok('a point at risk, in percentage points', /0.2 pts of FG% ahead of N. Fink/.te
 ok('surplus to trade', /Comfortably clear in assists/.test(wk));
 ok('who has what you need: managers, not players', /Mark Brice \(Brice\) has more than they need/.test(wk));
 ok('games pace, warned when games will be wasted', /roughly 28 games will go to waste/.test(wk));
-ok('pickups left', /3 more minimum pickups/.test(wk));
+ok('pickups left: the hard-cap room, not the open spots', /40 more minimum pickups/.test(wk) && /3 roster spots open/.test(wk));
 ok('gap text', gapText('PTS', 12.4) === '12 points' && gapText('REB', 1) === '1 rebound' && gapText('FT%', 0.0123) === '1.2 pts of FT%');
 
 console.log('\n== the wrapper ==');

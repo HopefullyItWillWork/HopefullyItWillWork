@@ -228,8 +228,9 @@ export function weeklyBody(w, moves, zone) {
           : over < -10 ? `<b style="color:#c8922e">On pace for about ${w.pace.projected}: roughly ${-over} games unused.</b> Fill your slots.`
           : `On pace for about ${w.pace.projected}.`)));
     }
-    if (w.pickups) out.push(P(`You can afford <b>${w.pickups.left} more minimum pickup${w.pickups.left === 1 ? "" : "s"}</b> this season `
-      + `(${w.pickups.spots} roster spot${w.pickups.spots === 1 ? "" : "s"} open, room under the hard cap for ${w.pickups.money}).`));
+    if (w.pickups) out.push(P(`You can afford <b>${w.pickups.money} more minimum pickup${w.pickups.money === 1 ? "" : "s"}</b> this season under the hard cap. `
+      + (w.pickups.spots ? `${w.pickups.spots} roster spot${w.pickups.spots === 1 ? "" : "s"} open.`
+                         : `Your roster is full, so each one means releasing someone.`)));
   }
 
   const perf = (x) => { const s = x.s || {};
