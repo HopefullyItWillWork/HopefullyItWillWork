@@ -224,8 +224,9 @@ export function weeklyBody(w, moves, zone) {
     if (w.pace) {
       const over = w.pace.projected - w.pace.cap;
       out.push(P(`${w.pace.used} of ${w.pace.cap} games used; about ${w.pace.expected} would be on schedule. `
-        + (over > 0 ? `<b style="color:#d9614a">On pace for about ${w.pace.projected}: roughly ${over} games will go to waste.</b> Start fewer low-value players.`
-          : over < -10 ? `<b style="color:#c8922e">On pace for about ${w.pace.projected}: roughly ${-over} games unused.</b> Fill your slots.`
+        /* Facts only — no lineup advice (league decision, 2026-10-19). */
+        + (over > 0 ? `<b style="color:#d9614a">On pace for about ${w.pace.projected}: roughly ${over} games will go to waste.</b>`
+          : over < -10 ? `<b style="color:#c8922e">On pace for about ${w.pace.projected}: roughly ${-over} games unused.</b>`
           : `On pace for about ${w.pace.projected}.`)));
     }
     if (w.pickups) out.push(P(`You can afford <b>${w.pickups.money} more minimum pickup${w.pickups.money === 1 ? "" : "s"}</b> this season under the hard cap. `
