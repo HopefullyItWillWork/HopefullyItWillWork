@@ -1523,6 +1523,11 @@ on the club page and My Team, and the trade machine's over-the-cap test all read
 `capCommitted()`. Next season he counts against both. Before 2026-10-09 every
 pick ate the club's auction cap room.
 
+**The exemption ends with the draft** (`rookieWindow()`): only in the offseason
+and only until the commissioner closes the draft — once it is closed, or the
+season goes live, a rookie counts against the soft cap too and the "rookies'
+$X not counted" note disappears (league decision, 2026-10-19).
+
 ### How the draft is stored
 Two pieces of state, in different slices on purpose:
 

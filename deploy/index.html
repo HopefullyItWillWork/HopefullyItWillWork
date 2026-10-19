@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.8">
+<meta name="ll-build" content="2026-10-19.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2693,8 +2693,15 @@ const committed=t=>S.teams[t].r.reduce((s,p)=>s+(salNow(p)||0),0)+deadSalary(t);
    not use its cap room (league rule). committed() is the hard-cap total and
    includes him; capCommitted() is the soft-cap total and leaves him out. Next
    season, with leagueYear() moved on, he counts against both like anybody else.
-   `rookie` and `acq` are written by makePick() and travel with him in a trade. */
-const capExempt=p=>!!(p&&p.rookie&&String(p.acq)===String(leagueYear()));
+   `rookie` and `acq` are written by makePick() and travel with him in a trade.
+
+   The exemption exists for the AUCTION — rookies sign after it and do not eat
+   auction cap room — so it ends when the draft does: once the commissioner
+   closes the draft, or the season goes live, whichever comes first (league
+   decision, 2026-10-19). From then on a rookie counts against the soft cap
+   like anybody else, and the "rookies' $X not counted" note goes away. */
+const rookieWindow=()=>!seasonLive()&&!(S.cfg&&S.cfg.draft&&S.cfg.draft.closed);
+const capExempt=p=>!!(p&&p.rookie&&String(p.acq)===String(leagueYear())&&rookieWindow());
 const rookieExempt=t=>S.teams[t].r.reduce((s,p)=>s+(capExempt(p)?(salNow(p)||0):0),0);
 const capCommitted=t=>committed(t)-rookieExempt(t);
 const onIR=p=>!!p.ir;
