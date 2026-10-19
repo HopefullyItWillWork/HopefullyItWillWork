@@ -100,15 +100,21 @@ const gmName = (teams, club) => {
 const contracted = (p, season) => !!(p && p.y && p.y[season] != null);
 
 /* Minimum pickups still affordable: room under the hard cap at the minimum
-   salary, and open active roster spots — whichever runs out first. */
+   salary. Open roster spots are reported beside it but do not limit it — the
+   league has no add limit, and a full roster just means releasing someone
+   (2026-10-19: it used to take the smaller of the two, so a full roster read
+   "0 more pickups" with money for five). A released player's salary stays on
+   the cap for the season it was cut in, so it counts here too. */
 export function pickupsLeft(club, cfg, season) {
   const minSal = parseFloat(cfg.minSal) > 0 ? parseFloat(cfg.minSal) : 1;
   const r = (club && club.r) || [];
   const active = r.filter((p) => contracted(p, season) && !p.ir).length;
-  const committed = r.reduce((a, p) => a + (contracted(p, season) ? p.y[season] : 0), 0);
+  const dead = (cfg.phase === "season" ? (club && club.cuts) || [] : [])
+    .reduce((a, c) => a + (c && c.live && String(c.at || "").startsWith(season.slice(0, 4)) ? (c.s || 0) : 0), 0);
+  const committed = r.reduce((a, p) => a + (contracted(p, season) ? p.y[season] : 0), 0) + dead;
   const spots = Math.max(0, (parseInt(cfg.roster, 10) || 15) - active);
   const money = Math.max(0, Math.floor(((cfg.tax || 0) - committed) / minSal + 1e-9));
-  return { left: Math.min(spots, money), spots, money };
+  return { left: money, spots, money };
 }
 
 /* Where a club stands: rank, points, and the gap to the clubs either side. */
