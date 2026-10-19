@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.8">
+<meta name="ll-build" content="2026-10-19.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1839,6 +1839,18 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
         so stepping back undoes it exactly</span>
     </div>
     <p class="note" id="rollNote"></p>
+
+    <h2 class="sub">Clear last season's leftovers</h2>
+    <p class="note explain">Manual clean-up for after the season goes live. <b>Clear release history</b>
+      deletes every club's release records (the bars on signing a man back and any released salary
+      still charged). <b>Clear expired players</b> removes every player with no salary this season from
+      his club's roster, which takes his Bird, Early Bird and restricted rights with him; he becomes
+      an ordinary free agent. Neither can be undone from here &#8212; both are logged.</p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn danger" id="clrCuts">Clear release history</button>
+      <button class="btn danger" id="clrExp">Clear expired players</button>
+    </div>
+    <p class="note" id="clrNote"></p>
 
     <h2 class="sub">Auction nomination order</h2>
     <p class="note explain">Round one runs top to bottom; round two runs back up, and so on &#8212; a snake.
@@ -4090,6 +4102,13 @@ function drawAdmin(){
     $('rollGo').onclick=rollSeason;
     $('rollBack').onclick=unrollSeason;
     $('rollBack').textContent='Step back to '+seasonPrev(v.cur);
+  }
+  if($('clrCuts')){
+    const c=leftoverCounts();
+    $('clrNote').textContent=`Right now: ${c.cuts} release record${c.cuts===1?'':'s'} and `
+      +`${c.exp} expired player${c.exp===1?'':'s'} on rosters.`;
+    $('clrCuts').onclick=clearReleaseHistory;
+    $('clrExp').onclick=clearExpiredPlayers;
   }
   if($('deputyRows')){
     const dep=deputies(), grant=canGrantComm();
@@ -7946,6 +7965,37 @@ async function unrollSeason(){
   S.cfg.season=back;
   await commit({kind:'edit',detail:`League year stepped back from ${cur} to ${back}`},['settings']);
   alert(`The league is back on ${back}.`);
+}
+/* Manual clean-up after the season goes live: release history, and players
+   whose deal ran out (with the rights they carried). Commissioner only. */
+function leftoverCounts(){
+  let cuts=0, exp=0;
+  TEAMS().forEach(t=>{
+    cuts+=(S.teams[t].cuts||[]).length;
+    exp+=S.teams[t].r.filter(p=>!contracted(p)).length;
+  });
+  return {cuts,exp};
+}
+async function clearReleaseHistory(){
+  if(!hasComm()) return alert('Only the commissioner can clear release history.');
+  const n=leftoverCounts().cuts;
+  if(!n) return alert('There is no release history to clear.');
+  if(!confirm(`Delete all ${n} release record${n===1?'':'s'} for every club?\n\n`
+    +'Release bars and any released salary still charged to a cap go with them. This cannot be undone.')) return;
+  TEAMS().forEach(t=>{ S.teams[t].cuts=[]; });
+  await commit({kind:'edit',detail:`Release history cleared — ${n} record${n===1?'':'s'} (commissioner)`},['rosters']);
+}
+async function clearExpiredPlayers(){
+  if(!hasComm()) return alert('Only the commissioner can clear expired players.');
+  const gone=[];
+  TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!contracted(p)) gone.push(`${p.n} (${t})`); }));
+  if(!gone.length) return alert('No player on a roster is without a salary this season.');
+  if(!confirm(`Remove ${gone.length} expired player${gone.length===1?'':'s'} from their rosters?\n\n`
+    +gone.slice(0,12).join(', ')+(gone.length>12?`, and ${gone.length-12} more`:'')
+    +'\n\nTheir Bird, Early Bird and restricted rights go with them and they become free agents. '
+    +'This cannot be undone.')) return;
+  TEAMS().forEach(t=>{ S.teams[t].r=S.teams[t].r.filter(p=>contracted(p)); });
+  await commit({kind:'edit',detail:`Expired players cleared — ${gone.length} removed (commissioner)`},['rosters']);
 }
 async function rollSeason(){
   if(!hasComm()) return alert('Only the commissioner can advance the league year.');
