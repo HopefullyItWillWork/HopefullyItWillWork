@@ -2040,6 +2040,24 @@ the key fell back to `proj_anon`.
 
 ---
 
+## ESPN's column order (2026-10-19)
+
+**Every per-player stats table reads the line the way ESPN does: MIN, FGM/FGA,
+FG%, FTM/FTA, FT%, 3PM, REB, AST, STL, BLK, TO, PTS** — then the app's PR /
+Rating. One list, `ESPNCOLS`, and its helpers: `espnVal(s,k)` (a number to sort
+by — makes for the FGM/FGA and FTM/FTA columns, the rate for the percentages),
+`espnCell(s,k)` (per-game text: `8.0/16.4`, `50.1%`), `espnHeads(H)`,
+`espnTds(s)`, and `espnSumTds(s,dp)` for totals (0 decimals) or per-game sums.
+`sortStat()` understands the new keys. The lineup grid (`LUCATS = ESPNCOLS`) has
+its own column widths (the two makes/attempts tracks are wider) and a 1440px cap.
+Club-level tables (standings, the preseason card, history, the tape) use ESPN's
+category order: FG%, FT%, 3PM, REB, AST, STL, BLK, TO, PTS.
+
+**This supersedes "inside the cell" below for those tables**: the makes and
+attempts are their own columns now, not the small line under the rate. The rule
+that a rate is never shown without its volume still holds — the volume just
+sits beside it. A new stats table should use `espnHeads()`/`espnTds()`.
+
 ## A shooting rate is never shown without its volume
 
 FG% and FT% are scored **weighted by attempts**, so a percentage on its own is
