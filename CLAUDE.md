@@ -1523,6 +1523,11 @@ on the club page and My Team, and the trade machine's over-the-cap test all read
 `capCommitted()`. Next season he counts against both. Before 2026-10-09 every
 pick ate the club's auction cap room.
 
+**The exemption ends with the draft** (`rookieWindow()`): only in the offseason
+and only until the commissioner closes the draft — once it is closed, or the
+season goes live, a rookie counts against the soft cap too and the "rookies'
+$X not counted" note disappears (league decision, 2026-10-19).
+
 ### How the draft is stored
 Two pieces of state, in different slices on purpose:
 
@@ -2034,6 +2039,24 @@ the key fell back to `proj_anon`.
   `placeMore()` and `markMore()` survive as no-ops.
 
 ---
+
+## ESPN's column order (2026-10-19)
+
+**Every per-player stats table reads the line the way ESPN does: MIN, FGM/FGA,
+FG%, FTM/FTA, FT%, 3PM, REB, AST, STL, BLK, TO, PTS** — then the app's PR /
+Rating. One list, `ESPNCOLS`, and its helpers: `espnVal(s,k)` (a number to sort
+by — makes for the FGM/FGA and FTM/FTA columns, the rate for the percentages),
+`espnCell(s,k)` (per-game text: `8.0/16.4`, `50.1%`), `espnHeads(H)`,
+`espnTds(s)`, and `espnSumTds(s,dp)` for totals (0 decimals) or per-game sums.
+`sortStat()` understands the new keys. The lineup grid (`LUCATS = ESPNCOLS`) has
+its own column widths (the two makes/attempts tracks are wider) and a 1440px cap.
+Club-level tables (standings, the preseason card, history, the tape) use ESPN's
+category order: FG%, FT%, 3PM, REB, AST, STL, BLK, TO, PTS.
+
+**This supersedes "inside the cell" below for those tables**: the makes and
+attempts are their own columns now, not the small line under the rate. The rule
+that a rate is never shown without its volume still holds — the volume just
+sits beside it. A new stats table should use `espnHeads()`/`espnTds()`.
 
 ## A shooting rate is never shown without its volume
 

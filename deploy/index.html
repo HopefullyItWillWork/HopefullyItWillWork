@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.8">
+<meta name="ll-build" content="2026-10-19.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -276,8 +276,9 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
    name do not need 1200px, and letting it span the page either strands the name
    in a void or blows the dropdown out to half the screen. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden;max-width:1240px}
-.lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px repeat(10,minmax(46px,60px));
+  border-radius:3px;overflow:hidden;max-width:1440px}
+/* ESPN's columns: MIN, FGM/FGA (wide), FG%, FTM/FTA (wide), FT%, 3PM … PTS, PR. */
+.lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px minmax(40px,52px) minmax(74px,90px) minmax(46px,60px) minmax(66px,80px) repeat(9,minmax(44px,58px));
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 .lurow.empty{background:var(--panel2)}
 .lurow.locked{opacity:.72}
@@ -345,7 +346,7 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
 @media (max-width:1000px){
   .luslots{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .lurow,.luhdr{min-width:730px}
-  .lurow{grid-template-columns:40px minmax(170px,1fr) 108px repeat(10,minmax(46px,56px))}
+  .lurow{grid-template-columns:40px minmax(170px,1fr) 108px minmax(40px,48px) minmax(74px,84px) minmax(46px,56px) minmax(66px,76px) repeat(9,minmax(44px,54px))}
   /* Pinned, and each variant paints its own background: a sticky cell with no
      background of its own lets the stats scroll visibly underneath it. */
   .lurow>.luslot,.luhdr>span:first-child{position:sticky;left:0;z-index:2;background:var(--panel)}
@@ -1229,14 +1230,14 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <h2 class="sub">Season by season</h2>
     <div class="filters"><select id="hSeason"></select><span class="fcount" id="hNote"></span></div>
     <div class="scroller" data-cap="1" data-pin2="1"><table><thead><tr><th class="l">#</th><th class="l">Manager</th>
-      <th>FG%</th><th>FT%</th><th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th>
+      <th>FG%</th><th>FT%</th><th>3PM</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th>
       <th>Total</th></tr></thead><tbody id="seasonTbl"></tbody></table></div>
     <h2 class="sub">Category profile &#8212; 2025&#8211;26 rosters</h2>
     <p class="note explain">How each club's rostered players performed per player-game, so rosters that lost time to injury still
       compare fairly. Green is a strength, red is a hole. Rating is the sum of the club's ten best player ratings.</p>
     <div class="scroller" data-cap="1"><table id="profTbl">
       <thead><tr><th class="l" data-k="n">Club</th><th data-k="FG">FG%</th><th data-k="FT">FT%</th>
-        <th data-k="P3">3P</th><th data-k="REB">REB</th><th data-k="AST">AST</th>
+        <th data-k="P3">3PM</th><th data-k="REB">REB</th><th data-k="AST">AST</th>
         <th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th><th data-k="PTS">PTS</th>
         <th data-k="top10">Top 10 rating</th></tr></thead>
       <tbody id="profBody"></tbody></table></div>
@@ -1556,7 +1557,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <thead><tr>
         <th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
         <th class="hide2" data-k="g">G</th>
-        <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3P</th><th data-k="REB">REB</th>
+        <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3PM</th><th data-k="REB">REB</th>
         <th data-k="AST">AST</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th>
         <th data-k="PTS">PTS</th><th data-k="tot">Rating</th>
       </tr></thead><tbody id="raterBody"></tbody>
@@ -2693,8 +2694,15 @@ const committed=t=>S.teams[t].r.reduce((s,p)=>s+(salNow(p)||0),0)+deadSalary(t);
    not use its cap room (league rule). committed() is the hard-cap total and
    includes him; capCommitted() is the soft-cap total and leaves him out. Next
    season, with leagueYear() moved on, he counts against both like anybody else.
-   `rookie` and `acq` are written by makePick() and travel with him in a trade. */
-const capExempt=p=>!!(p&&p.rookie&&String(p.acq)===String(leagueYear()));
+   `rookie` and `acq` are written by makePick() and travel with him in a trade.
+
+   The exemption exists for the AUCTION — rookies sign after it and do not eat
+   auction cap room — so it ends when the draft does: once the commissioner
+   closes the draft, or the season goes live, whichever comes first (league
+   decision, 2026-10-19). From then on a rookie counts against the soft cap
+   like anybody else, and the "rookies' $X not counted" note goes away. */
+const rookieWindow=()=>!seasonLive()&&!(S.cfg&&S.cfg.draft&&S.cfg.draft.closed);
+const capExempt=p=>!!(p&&p.rookie&&String(p.acq)===String(leagueYear())&&rookieWindow());
 const rookieExempt=t=>S.teams[t].r.reduce((s,p)=>s+(capExempt(p)?(salNow(p)||0):0),0);
 const capCommitted=t=>committed(t)-rookieExempt(t);
 const onIR=p=>!!p.ir;
@@ -3677,19 +3685,13 @@ function drawFA(){
     return `<div class="fabox" style="grid-column:1/-1"><h4>${title}</h4><p>${desc} &#183; ${list.length} players</p>
       <div class="scroller" data-cap="1"><table class="fatab" id="${key}Tbl"><thead><tr>
         <th class="l" data-k="n">Player</th><th class="l hide" data-k="from">From</th>
-        <th class="hide2" data-k="last">Last</th><th data-k="g">G</th><th data-k="PTS">PTS</th>
-        <th data-k="TRB">REB</th><th data-k="AST">AST</th><th data-k="P3">3P</th>
-        <th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
-        <th class="hide2" data-k="TOV">TO</th>
-        <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
+        <th class="hide2" data-k="last">Last</th><th data-k="g">G</th>${espnHeads((k,l)=>`<th data-k="${k}">${l}</th>`)}
         <th data-k="rtg">Rating</th></tr></thead>
       <tbody>${list.map(p=>{const v=pstat(p.n); const r=RG[canon(p.n)];
         return `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td>${watchBtn(p.n)}${p.n}</td>
         <td class="l hide">${p.from}</td><td class="hide2">${salPrev(p)?money(salPrev(p)):'&#8212;'}</td>
-        ${v&&v.g?`<td>${v.g}</td><td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
-          <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
-          ${shotCells(v.s)}`
-         :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
+        ${v&&v.g?`<td>${v.g}</td>${espnTds(v.s)}`
+         :`<td colspan="${ESPNCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
         <td class="rating">${r==null?'&#8212;':(r>0?'+':'')+r}</td></tr>`;}).join('')}
       </tbody></table></div></div>`;
   }).join('');
@@ -3730,17 +3732,13 @@ function drawQuickPool(){
   const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
   box.innerHTML=`<table class="fatab" id="qsTbl"><thead><tr>
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('from','Rights','l hide2')}
-    ${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}${H('AST','AST')}${H('P3','3P')}
-    ${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}${H('TOV','TO','hide2')}
-    ${shotHeads(H)}${H('rtg','Rating')}<th></th></tr></thead><tbody>${
+    ${H('g','G')}${espnHeads(H)}${H('rtg','Rating')}<th></th></tr></thead><tbody>${
     rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
       <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
       <td class="pos l hide">${htmlEsc(posShow(p.n)||p.p||'—')}</td>
       <td class="l hide2" style="font-size:11.5px">${htmlEsc(p.from)}</td>
-      ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
-        <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
-        <td class="hide2">${p.s.TOV}</td>${shotCells(p.s)}`
-       :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
+      ${hasStats(p)?`<td>${p.g}</td>${espnTds(p.s)}`
+       :`<td colspan="${ESPNCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td><button class="act edit" data-qs="${htmlEsc(p.n)}">Pick</button></td></tr>`).join('')}
     </tbody></table>`;
@@ -4778,6 +4776,7 @@ function sortStat(row,c){
   if(c==='FGP') return shotPct(s&&s.FG,s&&s.FGA);
   if(c==='FTP') return shotPct(s&&s.FT,s&&s.FTA);
   if(!s) return null;
+  if(c==='FGMA'||c==='FTMA') return espnVal(s,c);   // ESPN's makes/attempts columns sort by makes
   const v=s[c];
   return v==null?null:v;
 }
@@ -4854,9 +4853,7 @@ function drawFAList(){
   $('faSearchList').innerHTML=faPool().map(p=>`<option value="${htmlEsc(p.n)}">`).join('');
   const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
   $('faTable').innerHTML=`<table class="fatab" id="faTbl"><thead><tr>
-    ${H('n','Player','l')}<th class="l hide">Pos</th>${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}
-    ${H('AST','AST')}${H('P3','3P')}${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}
-    ${H('TOV','TO','hide2')}${shotHeads(H)}${H('rtg','Rating')}${H('ceil','Max bid')}${
+    ${H('n','Player','l')}<th class="l hide">Pos</th>${H('g','G')}${espnHeads(H)}${H('rtg','Rating')}${H('ceil','Max bid')}${
       canSignFA(me2)?'<th class="acts"></th>':''}</tr></thead><tbody>${
     rows.slice(0,160).map(p=>{
       const R=rightsOf(me2,p.n), e=hasProj(p.n);
@@ -4865,11 +4862,8 @@ function drawFAList(){
         ${R.club===me2&&R.bird==='Yes'?'<span class="tag t-bird">Bird</span>':''}
         ${R.club===me2&&R.bird&&R.bird!=='Yes'?'<span class="tag t-eb">E.Bird</span>':''}</td>
       <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td>
-      ${hasStats(p)?`<td>${p.g}</td>
-      <td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td><td>${p.s.P3}</td>
-      <td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td><td class="hide2">${p.s.TOV}</td>
-      ${shotCells(p.s)}`
-      :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
+      ${hasStats(p)?`<td>${p.g}</td>${espnTds(p.s)}`
+      :`<td colspan="${ESPNCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
       <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
       ${canSignFA(me2)?`<td class="acts"><span>${onWire(p.n)
@@ -5353,7 +5347,7 @@ function rosterTable(team,into){
   const rows=S.teams[team].r.filter(contracted)
     .map(p=>({c:p,r:pstat(p.n)}))
     .sort((a,b)=>((b.r&&b.r.tot)??-99)-((a.r&&a.r.tot)??-99));
-  const agg={FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0}; let gp=0;
+  const agg={MP:0,FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0}; let gp=0;
   rows.forEach(({r})=>{if(!r||!r.g)return;gp+=r.g;Object.keys(agg).forEach(k=>agg[k]+=(r.s[k]||0)*r.g);});
   const a=A();
   const cand=a&&a.status==='open'?pstat(a.player):null;
@@ -5364,41 +5358,21 @@ function rosterTable(team,into){
   rows.sort((a,b)=>cmp(rv(a,S0.col),rv(b,S0.col),S0.desc));
   $(into).innerHTML=`<div class="scroller" data-cap="1"><table id="${into}Tbl"><thead><tr>
       <th class="l" data-k="n">Player</th><th class="hide" data-k="sal">Salary</th><th data-k="g">G</th>
-      <th data-k="PTS">PTS</th><th data-k="TRB">REB</th><th data-k="AST">AST</th>
-      <th data-k="P3">3P</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TOV">TO</th>
-      <th class="hide2" data-k="FGP">FG%</th><th class="hide2" data-k="FTP">FT%</th>
+      ${espnHeads((k,l)=>`<th data-k="${k}">${l}</th>`)}
       <th data-k="rtg">Rating</th></tr></thead>
     <tbody>${rows.map(({c,r})=>r&&r.g?`<tr>
-      <td>${c.n}</td><td class="hide">${money(salNow(c))}</td><td>${r.g}</td>
-      <td>${r.s.PTS}</td><td>${r.s.TRB}</td><td>${r.s.AST}</td><td>${r.s.P3}</td>
-      <td>${r.s.STL}</td><td>${r.s.BLK}</td><td>${r.s.TOV}</td>
-      ${shotCells(r.s)}
+      <td>${c.n}</td><td class="hide">${money(salNow(c))}</td><td>${r.g}</td>${espnTds(r.s)}
       <td class="rating">${rtg(c.n)==null?'&#8212;':(rtg(c.n)>0?'+':'')+rtg(c.n)}</td></tr>`
       :`<tr><td>${c.n}</td><td class="hide">${money(salNow(c))}</td>
-        <td colspan="11" class="unrated" style="text-align:center">no stats on file</td></tr>`).join('')}
+        <td colspan="${ESPNCOLS.length+2}" class="unrated" style="text-align:center">no stats on file</td></tr>`).join('')}
       ${cand?`<tr style="background:#1E2A1F"><td><b>+ ${cand.n}</b>
         <span class="tag t-bird">on the block</span></td><td class="hide">${money(a.bid)}</td>
-        <td>${cand.g}</td><td>${cand.s.PTS}</td><td>${cand.s.TRB}</td><td>${cand.s.AST}</td>
-        <td>${cand.s.P3}</td><td>${cand.s.STL}</td><td>${cand.s.BLK}</td><td>${cand.s.TOV}</td>
-        ${shotCells(cand.s)}
+        <td>${cand.g}</td>${espnTds(cand.s)}
         <td class="rating">${(rtg(cand.n)??0)>0?'+':''}${rtg(cand.n)??'&#8212;'}</td></tr>`:''}
     </tbody>
-    <tfoot><tr><td>Season totals</td><td class="hide"></td><td>${Math.round(gp)}</td>
-      <td>${Math.round(agg.PTS).toLocaleString()}</td><td>${Math.round(agg.TRB).toLocaleString()}</td>
-      <td>${Math.round(agg.AST).toLocaleString()}</td><td>${Math.round(agg.P3).toLocaleString()}</td>
-      <td>${Math.round(agg.STL).toLocaleString()}</td><td>${Math.round(agg.BLK).toLocaleString()}</td>
-      <td>${Math.round(agg.TOV).toLocaleString()}</td>
-      <td class="shot"><b>${pctText(shotPct(agg.FG,agg.FGA))}</b><small>${
-        Math.round(agg.FG).toLocaleString()}\u2011${Math.round(agg.FGA).toLocaleString()}</small></td>
-      <td class="shot"><b>${pctText(shotPct(agg.FT,agg.FTA))}</b><small>${
-        Math.round(agg.FT).toLocaleString()}\u2011${Math.round(agg.FTA).toLocaleString()}</small></td>
-      <td></td></tr>
-    <tr><td>Per game at ${GC.toLocaleString()}</td><td class="hide"></td><td></td>
-      <td>${(agg.PTS/GC).toFixed(2)}</td><td>${(agg.TRB/GC).toFixed(2)}</td><td>${(agg.AST/GC).toFixed(2)}</td>
-      <td>${(agg.P3/GC).toFixed(2)}</td><td>${(agg.STL/GC).toFixed(2)}</td><td>${(agg.BLK/GC).toFixed(2)}</td>
-      <td>${(agg.TOV/GC).toFixed(2)}</td>
-      <td class="shot"><b></b><small>${(agg.FG/GC).toFixed(1)}\u2011${(agg.FGA/GC).toFixed(1)}</small></td>
-      <td class="shot"><b></b><small>${(agg.FT/GC).toFixed(1)}\u2011${(agg.FTA/GC).toFixed(1)}</small></td>
+    <tfoot><tr><td>Season totals</td><td class="hide"></td><td>${Math.round(gp)}</td>${espnSumTds(agg,0)}<td></td></tr>
+    <tr><td>Per game at ${GC.toLocaleString()}</td><td class="hide"></td><td></td>${
+      espnSumTds(Object.fromEntries(Object.entries(agg).map(([k,v])=>[k,v/GC])),2)}
       <td></td></tr></tfoot></table></div>`;
   sortable(into+'Tbl','ros','rtg',true);
   redraw.ros=()=>rosterTable(team,into);
@@ -5508,28 +5482,19 @@ function drawLab(){
   }
   const rows=LAB.map(n=>({n,r:pstat(n)})).filter(x=>x.r&&x.r.g)
     .sort((a,b)=>(rtg(b.n)??-99)-(rtg(a.n)??-99));
-  const agg={FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0}; let gp=0;
+  const agg={MP:0,FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0}; let gp=0;
   rows.forEach(({r})=>{if(!r.g)return;gp+=r.g;Object.keys(agg).forEach(k=>agg[k]+=(r.s[k]||0)*r.g);});
   const LR=SORTS.labros||{col:'rtg',desc:true};
   const lrv=(x,c)=>c==='n'?x.n:c==='rtg'?rtg(x.n):c==='g'?(x.r?x.r.g:null)
     :sortStat(x.r,c);
   rows.sort((a,b)=>cmp(lrv(a,LR.col),lrv(b,LR.col),LR.desc));
   $('labRoster').innerHTML=`<table id="labRosTbl"><thead><tr><th class="l" data-k="n">Player</th>
-    <th data-k="g">G</th><th data-k="PTS">PTS</th><th data-k="TRB">REB</th>
-    <th data-k="AST">AST</th><th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th>
-    <th class="hide2" data-k="BLK">BLK</th><th class="hide2" data-k="TOV">TO</th>
+    <th data-k="g">G</th>${espnHeads((k,l)=>`<th data-k="${k}">${l}</th>`)}
     <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
-    rows.map(({n,r})=>`<tr><td class="pname" data-player="${n}">${n}</td><td>${r.g}</td><td>${r.s.PTS}</td><td>${r.s.TRB}</td>
-      <td>${r.s.AST}</td><td>${r.s.P3}</td><td class="hide2">${r.s.STL}</td>
-      <td class="hide2">${r.s.BLK}</td><td class="hide2">${r.s.TOV}</td>
+    rows.map(({n,r})=>`<tr><td class="pname" data-player="${n}">${n}</td><td>${r.g}</td>${espnTds(r.s)}
       <td class="rating">${rtg(n)==null?'&#8212;':(rtg(n)>0?'+':'')+rtg(n)}</td>
       <td><button class="act" data-lx="${n}">Drop</button></td></tr>`).join('')}
-    </tbody><tfoot><tr><td>Totals</td><td>${Math.round(gp)}</td>
-      <td>${Math.round(agg.PTS).toLocaleString()}</td><td>${Math.round(agg.TRB).toLocaleString()}</td>
-      <td>${Math.round(agg.AST).toLocaleString()}</td><td>${Math.round(agg.P3).toLocaleString()}</td>
-      <td class="hide2">${Math.round(agg.STL).toLocaleString()}</td>
-      <td class="hide2">${Math.round(agg.BLK).toLocaleString()}</td>
-      <td class="hide2">${Math.round(agg.TOV).toLocaleString()}</td><td></td><td></td></tr></tfoot></table>`;
+    </tbody><tfoot><tr><td>Totals</td><td>${Math.round(gp)}</td>${espnSumTds(agg,0)}<td></td><td></td></tr></tfoot></table>`;
   sortable('labRosTbl','labros','rtg',true); redraw.labros=drawLab;
   $('labRoster').querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{
     LAB=LAB.filter(x=>x!==b.dataset.lx);saveLab();drawLab();});
@@ -5639,18 +5604,12 @@ function drawLabPool(){
   rows.sort((a,b)=>cmp(lv(a,LS0.col),lv(b,LS0.col),LS0.desc));
   $('labPool').innerHTML=`<table class="fatab" id="labPoolTbl"><thead><tr>
     <th class="l" data-k="n">Player</th><th class="l" data-k="own">Club</th><th class="l hide">Pos</th>
-    <th data-k="g">G</th><th data-k="PTS">PTS</th><th data-k="TRB">REB</th><th data-k="AST">AST</th>
-    <th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
-    <th class="hide2" data-k="TOV">TO</th>
-    <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
+    <th data-k="g">G</th>${espnHeads((k,l)=>`<th data-k="${k}">${l}</th>`)}
     <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
     rows.slice(0,140).map(p=>{const v=pstat(p.n)||p; const own=ownerOf(p.n);
       return `<tr><td class="pname" data-player="${p.n}">${p.n}</td>
       <td class="l" style="font-size:12px;color:${isFreeAgent(p.n)?'var(--space)':'var(--steel)'}">${own}</td>
-      <td class="pos hide">${p.p||'&#8212;'}</td><td>${v.g}</td>
-      <td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
-      <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
-      ${shotCells(v.s)}
+      <td class="pos hide">${p.p||'&#8212;'}</td><td>${v.g}</td>${espnTds(v.s)}
       <td class="rating">${RG[canon(p.n)]==null?'&#8212;':(RG[canon(p.n)]>0?'+':'')+RG[canon(p.n)]}</td>
       <td><button class="act edit" data-la="${p.n}">Add</button></td></tr>`;}).join('')}
     </tbody></table>`;
@@ -6862,10 +6821,7 @@ function drawProjTab(){
   $('pjCount').textContent=`${rows.length} players \u00b7 ${Object.keys(PROJ).length} edited \u00b7 showing ${projSrcLabel()}`;
   $('pjTable').innerHTML=`<table class="fatab" id="pjTbl"><thead><tr><th class="l" data-k="n">Player</th>
     <th class="l hide" data-k="t">Club</th>
-    <th data-k="g">G</th><th data-k="PTS">PTS</th><th data-k="TRB">REB</th><th data-k="AST">AST</th>
-    <th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
-    <th class="hide2" data-k="TOV">TO</th>
-    <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
+    <th data-k="g">G</th>${espnHeads((k,l)=>`<th data-k="${k}">${l}</th>`)}
     <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
     rows.slice(0,160).map(p=>{const v=pstat(p.n)||{g:p.g,s:p.s},e=hasProj(p.n),r=useProj?R[canon(p.n)]:p.tot;
       /* The amber "edited" mark means the GM changed it. On the aggregate
@@ -6876,10 +6832,10 @@ function drawProjTab(){
       return `<tr class="${e?'hasproj':''}"><td data-hs="${htmlEsc(p.n)}">${p.n}</td>
         <td class="l hide">${raterClub(p.n)}</td>
         <td>${mk&&v.g!==RIDX[p.n].g?`<span class="edited">${v.g}</span>`:v.g}</td>
-        <td>${d('PTS',v.s.PTS)}</td><td>${d('TRB',v.s.TRB)}</td><td>${d('AST',v.s.AST)}</td>
-        <td>${d('P3',v.s.P3)}</td><td class="hide2">${d('STL',v.s.STL)}</td>
-        <td class="hide2">${d('BLK',v.s.BLK)}</td><td class="hide2">${d('TOV',v.s.TOV)}</td>
-        ${shotCellsVs(v.s,RIDX[p.n].s,mk)}
+        ${(()=>{ /* each ESPN column; amber where his projection differs from 2025-26 */
+          const base=RIDX[p.n].s, cur={...v.s,MP:v.s.MP!=null?v.s.MP:base.MP};
+          return ESPNCOLS.map(([k])=>{ const c=espnCell(cur,k);
+            return `<td>${mk&&c!==espnCell(base,k)?`<span class="edited">${c}</span>`:c}</td>`; }).join(''); })()}
         <td class="rating">${r==null?'\u2014':(r>0?'+':'')+r}</td>
         <td><button class="act edit" data-pj="${p.n}">Edit</button></td></tr>`;}).join('')}
     </tbody></table>`;
@@ -7197,7 +7153,7 @@ function cmp(a,b,desc){
    Season totals = per-game stat x games played, summed over a club's roster.
    Used to show what a signing does to a club's category ranks.          */
 const RIDX={}; RATER.forEach(p=>RIDX[p.n]=p);
-const PCATS=[["FG","FG%"],["FT","FT%"],["P3","3P"],["TRB","REB"],["AST","AST"],
+const PCATS=[["FG","FG%"],["FT","FT%"],["P3","3PM"],["TRB","REB"],["AST","AST"],
              ["STL","STL"],["BLK","BLK"],["TOV","TO"],["PTS","PTS"]];
 function clubTotals(team,add){
   const names=S.teams[team].r.filter(contracted).map(p=>p.n);
@@ -9498,30 +9454,46 @@ async function tonightLineup(team){
   await logLineup(team);
 }
 
-/* The nine scoring categories as the lineup shows them, in the order the league
-   reads a box score. Percentages last: they are rates, everything else is a
-   count, and mixing them up the row makes the numbers harder to scan. */
-const LUCATS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],
-  ['STL','STL'],['BLK','BLK'],['TOV','TO'],['FGP','FG%'],['FTP','FT%']];
-function luVal(r,k){
-  if(!r||!r.s) return null;
-  if(k==='FGP') return r.s.FGA?r.s.FG/r.s.FGA:null;
-  if(k==='FTP') return r.s.FTA?r.s.FT/r.s.FTA:null;
-  return r.s[k];
+/* ---- ESPN's stat columns (league decision, 2026-10-19) ----
+   Every per-player stats table reads the line the way ESPN's fantasy pages do:
+   MIN, FGM/FGA, FG%, FTM/FTA, FT%, 3PM, REB, AST, STL, BLK, TO, PTS — then the
+   app's own PR. The makes and attempts are columns of their own here, not the
+   small line under the percentage they used to be. One list, one value
+   function (for sorting) and one cell formatter, so the tables cannot drift
+   apart again. Keys are RATER's (`s`): MP, FG/FGA, FT/FTA, P3, TRB, …, TOV. */
+const ESPNCOLS=[['MP','MIN'],['FGMA','FGM/FGA'],['FGP','FG%'],['FTMA','FTM/FTA'],['FTP','FT%'],
+  ['P3','3PM'],['TRB','REB'],['AST','AST'],['STL','STL'],['BLK','BLK'],['TOV','TO'],['PTS','PTS']];
+/* A number to sort by: makes for FGM/FGA and FTM/FTA, the rate for the percentages. */
+function espnVal(st,k){
+  if(!st) return null;
+  if(k==='FGP') return st.FGA?st.FG/st.FGA:null;
+  if(k==='FTP') return st.FTA?st.FT/st.FTA:null;
+  if(k==='FGMA') return st.FG!=null?+st.FG:null;
+  if(k==='FTMA') return st.FT!=null?+st.FT:null;
+  return st[k]!=null?+st[k]:null;
 }
-const luCell=(k,v)=>v==null?'&#8212;'
-  :(k==='FGP'||k==='FTP')?(v*100).toFixed(1):(+v).toFixed(1);
-/* The two shooting cells carry the makes and attempts under the rate, like
-   every other stat table — the league weights these two by attempts, so a
-   percentage with no volume behind it is half the fact. It goes inside the
-   existing cell rather than adding columns, because this grid is tuned to a
-   1040px cap and two more tracks is exactly what that cap exists to prevent. */
-function luShot(k,r){
-  if(!r||!r.s) return '';
-  const m=k==='FGP'?r.s.FG:r.s.FT, a=k==='FGP'?r.s.FGA:r.s.FTA;
-  if(m==null||a==null) return '';
-  return `<small class="luma">${madeAtt(m,a)}</small>`;
+/* The cell text: per-game numbers to one decimal, "8.0/16.4" for makes and
+   attempts, "50.1%" for the rates, an em dash for nothing. */
+function espnCell(st,k){
+  const f1=v=>v==null||isNaN(+v)?'&#8212;':(+v).toFixed(1);
+  if(!st) return '&#8212;';
+  if(k==='FGMA') return st.FGA==null?'&#8212;':`${f1(st.FG)}/${f1(st.FGA)}`;
+  if(k==='FTMA') return st.FTA==null?'&#8212;':`${f1(st.FT)}/${f1(st.FTA)}`;
+  if(k==='FGP'||k==='FTP') return pctText(espnVal(st,k));
+  return f1(st[k]);
 }
+const espnHeads=H=>ESPNCOLS.map(([k,l])=>H(k,l)).join('');
+const espnTds=(st,cls)=>ESPNCOLS.map(([k])=>`<td${cls?` class="${cls}"`:''}>${espnCell(st,k)}</td>`).join('');
+/* The same columns for a sum (a club's season totals, or totals divided per
+   game): `dp` decimals — 0 for totals, 1 or 2 per game. Rates stay rates. */
+function espnSumTds(st,dp){
+  const n=v=>v==null||isNaN(+v)?'&#8212;':(+v).toFixed(dp);
+  return ESPNCOLS.map(([k])=>`<td>${k==='FGMA'?`${n(st.FG)}/${n(st.FGA)}`:k==='FTMA'?`${n(st.FT)}/${n(st.FTA)}`
+    :k==='FGP'||k==='FTP'?pctText(espnVal(st,k)):n(st[k])}</td>`).join('');
+}
+const LUCATS=ESPNCOLS;
+const luVal=(r,k)=>r&&r.s?espnVal(r.s,k):null;
+const luCell=(k,v,r)=>r&&r.s?espnCell(r.s,k):'&#8212;';
 /* Tonight's actual box score, once the stats feed writes one. Until then every
    row shows the per-game line the rest of the app is showing, which is what a
    GM is choosing between anyway. */
@@ -9536,7 +9508,7 @@ function luLine(name){
 var ROSTATS=[['d7','T7'],['d15','T15'],['szn','YTD'],['act','Last year'],['ctr','Contract']];
 var ROSTAT=(()=>{ try{ const v=localStorage.getItem('ll_rostat'); return ROSTATS.some(([k])=>k===v)?v:'d15'; }catch(e){ return 'd15'; } })();
 var ROSTRIED={};
-var ROSCOLS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO'],['FGP','FG%'],['FTP','FT%']];
+var ROSCOLS=ESPNCOLS;
 function rosLine(name){
   if(ROSTAT==='act'){ const r=RIDX[canon(name)]; return r&&r.s?{g:r.g,s:r.s}:null; }
   const l=liveLine(name,ROSTAT); return l&&l.s?l:null;
@@ -9556,9 +9528,7 @@ function rosVal(p,col){
   if(col==='rights') return ROSRIGHTS[birdRight(p)]||null; if(col==='acq') return p.acq||null;
   const L=rosLine(p.n); if(!L) return null;
   if(col==='g') return L.g||0;
-  if(col==='FGP') return shotPct(L.s.FG,L.s.FGA);
-  if(col==='FTP') return shotPct(L.s.FT,L.s.FTA);
-  return L.s[col]!=null?L.s[col]:null;
+  return espnVal(L.s,col);
 }
 function rosCells(p){
   if(ROSTAT==='ctr'){
@@ -9570,9 +9540,7 @@ function rosCells(p){
   const name=typeof p==='string'?p:p.n;
   const L=rosLine(name);
   if(!L) return `<td>&#8212;</td>`+ROSCOLS.map(()=>'<td>&#8212;</td>').join('');
-  const f=v=>v==null?'&#8212;':(+v).toFixed(1);
-  return `<td>${L.g||0}</td>`+ROSCOLS.map(([k])=>k==='FGP'?`<td>${pctText(shotPct(L.s.FG,L.s.FGA))}</td>`
-    :k==='FTP'?`<td>${pctText(shotPct(L.s.FT,L.s.FTA))}</td>`:`<td>${f(L.s[k])}</td>`).join('');
+  return `<td>${L.g||0}</td>`+espnTds(L.s);
 }
 function rosStatNote(){
   if(ROSTAT==='ctr') return 'salary owed by season';
@@ -9678,8 +9646,7 @@ function drawLineup(){
     return `<span class="lugame${lk?' lk':''}">${htmlEsc(t.team)} ${htmlEsc(clock12(t.at))}<small>${lk?'Locked':'Tips off'}</small></span>`;
   };
   const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
-    nm?luCell(k,luVal(L&&L.r,k)):''}${
-    nm&&(k==='FGP'||k==='FTP')?luShot(k,L&&L.r):''}</span>`).join('')
+    nm?luCell(k,null,L&&L.r):''}</span>`).join('')
     +`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
   const irBtn=nm=>can&&!isLocked(nm)&&ir.length<irMax
     ? `<button class="act" data-toir="${htmlEsc(nm)}" title="Move to the injured reserve">IR</button>` : '';
@@ -10421,10 +10388,10 @@ function drawPre(){
       Every club\u2019s lineup was filled automatically and carries forward each night; change yours on My Team
       any time. Results post the morning after each night.</p>
     ${rows.length?`<div class="scroller"><table id="preTbl"><thead><tr><th>#</th><th class="l">Club</th><th>Roto pts</th>
-      <th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th><th>Games</th></tr></thead>
+      <th>FG%</th><th>FT%</th><th>3PM</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th><th>Games</th></tr></thead>
       <tbody>${rows.map(r=>`<tr${me===r.club?' class="sel"':''}><td>${r.rank}</td><td class="l">${htmlEsc(r.club)}</td>
-        <td class="mono"><b>${r.pts}</b></td>${['PTS','REB','AST','P3','STL','BLK','TO'].map(k=>`<td class="mono">${r.tot[k]}</td>`).join('')}
-        <td class="mono">${pc(r.pct.FG)}</td><td class="mono">${pc(r.pct.FT)}</td><td class="mono">${r.tot.GP}</td></tr>`).join('')}
+        <td class="mono"><b>${r.pts}</b></td><td class="mono">${pc(r.pct.FG)}</td><td class="mono">${pc(r.pct.FT)}</td>${
+          ['P3','REB','AST','STL','BLK','TO','PTS'].map(k=>`<td class="mono">${r.tot[k]}</td>`).join('')}<td class="mono">${r.tot.GP}</td></tr>`).join('')}
       </tbody></table></div>`
       :`<div class="empty">${PRE.ok?'No nights scored yet \u2014 the first results arrive the morning after the first games.':'Loading\u2026'}</div>`}</div>`;
   ['preBox','preBox2'].forEach(id=>{ const b=$(id); if(b) b.innerHTML=html; });
@@ -10657,17 +10624,15 @@ async function drawNight(){
     &&(!q||r.n.toLowerCase().includes(q))&&(!pf||(posText(r.n)||'').includes(pf)));
   const K=SORTS.night||{col:'gs',desc:true};
   const sv=(r,c)=>c==='n'?r.n:c==='t'?r.t:c==='club'?(r.club||''):c==='gs'?r.gs
-    :c==='FGP'?shotPct(r.s.FG,r.s.FGA):c==='FTP'?shotPct(r.s.FT,r.s.FTA):(r.s[c]??null);
+    :espnVal(r.s,c);
   rows.sort((a,b)=>cmp(sv(a,K.col),sv(b,K.col),K.desc));
   if($('ntCount')) $('ntCount').textContent=`${rows.length} player${rows.length===1?'':'s'}`;
-  const C=[['MP','MIN'],['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO']];
   box.innerHTML=`<table id="ntTbl"><thead><tr><th class="l" data-k="n">Player</th><th class="l" data-k="t">NBA</th>
-    <th class="l" data-k="club">Owner</th>${C.map(([k,l])=>`<th data-k="${k}">${l}</th>`).join('')}
-    <th data-k="FGP">FG</th><th data-k="FTP">FT</th><th data-k="gs" title="Game score, for sorting">GS</th></tr></thead><tbody>${
+    <th class="l" data-k="club">Owner</th>${espnHeads((k,l)=>`<th data-k="${k}">${l}</th>`)}
+    <th data-k="gs" title="Game score, for sorting">GS</th></tr></thead><tbody>${
     rows.map(r=>`<tr><td class="l pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</td><td class="l">${htmlEsc(r.t)}</td>
       <td class="l">${r.club?clubBadge(r.club)+htmlEsc(r.club)+(r.fa?' <span class="tag t-cut">expiring</span>':''):'<span class="tag t-bird">Free agent</span>'}</td>
-      ${C.map(([k])=>`<td>${r.s[k]??0}</td>`).join('')}
-      ${shotCell(r.s.FG,r.s.FGA)}${shotCell(r.s.FT,r.s.FTA)}<td class="rating">${r.gs}</td></tr>`).join('')}</tbody></table>`;
+      ${espnSumTds(r.s,0)}<td class="rating">${r.gs}</td></tr>`).join('')}</tbody></table>`;
   sortable('ntTbl','night','gs',true); redraw.night=drawNight;
 }
 
@@ -10819,8 +10784,9 @@ var SEEN={};   // club -> ISO of its last poll, from /api/state (presence)
    Season results once a night has been scored (SCORE.standings, the same roto
    points the Standings table shows); before that, the projection standings()
    gives under the stats period in front of the GM, and the header says which. */
-const TAPECATS=[['PTS','PTS','PTS'],['REB','REB','TRB'],['AST','AST','AST'],['3PM','P3','P3'],
-  ['STL','STL','STL'],['BLK','BLK','BLK'],['TO','TO','TOV'],['FG%','FG%','FG'],['FT%','FT%','FT']];
+/* ESPN's category order (2026-10-19): FG%, FT%, 3PM, REB, AST, STL, BLK, TO, PTS. */
+const TAPECATS=[['FG%','FG%','FG'],['FT%','FT%','FT'],['3PM','P3','P3'],['REB','REB','TRB'],['AST','AST','AST'],
+  ['STL','STL','STL'],['BLK','BLK','BLK'],['TO','TO','TOV'],['PTS','PTS','PTS']];
 /* {club: value, higher better} -> {club: {r, tie}}. Pure. */
 function tapeRanks(vals){
   const vs=Object.values(vals).filter(v=>v!=null), out={};
@@ -10961,9 +10927,8 @@ function drawClubLive(){
     const lu=lineupOf(t), pc=(m,a)=>a?(100*m/a).toFixed(1):'&#8212;';
     const line=n=>{
       const r=pstat(n), s=r&&r.s;
-      if(!s) return '<td colspan="10" class="l" style="color:var(--dim)">no stats on file</td>';
-      return `<td>${r.g??'&#8212;'}</td>${['PTS','TRB','AST','P3','STL','BLK','TOV'].map(k=>`<td>${(+s[k]||0).toFixed(1)}</td>`).join('')}
-        <td>${pc(s.FG,s.FGA)}</td><td>${pc(s.FT,s.FTA)}</td>`;
+      if(!s) return `<td colspan="${ESPNCOLS.length+1}" class="l" style="color:var(--dim)">no stats on file</td>`;
+      return `<td>${r.g??'&#8212;'}</td>${espnTds(s)}`;
     };
     const game=n=>{ const k=lockOf(n), tp=tipOf(n); return !tp?'<span style="color:var(--dim)">no game</span>'
       :k.locked?`Locked \u00b7 ${tp.team} ${clock12(tp.at)}`:`${tp.team} ${clock12(tp.at)}`; };
@@ -10975,10 +10940,10 @@ function drawClubLive(){
     } else {
     html+=`<p class="fcount" style="margin:0 0 8px">${starters.length} of 15 set \u00b7 stats: ${htmlEsc(projSrcLabel())}</p>
       <div class="scroller"><table id="clubLuTbl"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Game</th>
-        <th>G</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th></tr></thead><tbody>${
+        <th>G</th>${ESPNCOLS.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${
         starters.map(id=>`<tr><td class="l">${slotLabel(id)}</td><td class="l pname" data-player="${htmlEsc(lu.s[id])}">${htmlEsc(lu.s[id])}</td>
           <td class="l">${game(lu.s[id])}</td>${line(lu.s[id])}</tr>`).join('')
-        ||'<tr><td colspan="13" class="l" style="color:var(--dim)">Nobody started.</td></tr>'}
+        ||`<tr><td colspan="${ESPNCOLS.length+4}" class="l" style="color:var(--dim)">Nobody started.</td></tr>`}
       </tbody></table></div>`;
     const bench=benchOf(t);
     if(bench.length) html+=`<p class="note">Bench: ${bench.map(p=>`<span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>`).join(', ')}</p>`;
@@ -11032,7 +10997,7 @@ function drawWatchTable(){
   const rows=WATCH.map(n=>{ const v=pstat(n);
     return {n,own:ownerOf(n),pos:posShow(n)||'',g:v?v.g:null,s:v&&v.s?v.s:null,rtg:RG[canon(n)]}; });
   const val=(p,c)=>c==='n'?p.n:c==='own'?p.own:c==='pos'?p.pos:c==='rtg'?p.rtg:c==='g'?p.g
-    :c==='FGP'?(p.s?shotPct(p.s.FG,p.s.FGA):null):c==='FTP'?(p.s?shotPct(p.s.FT,p.s.FTA):null):(p.s?p.s[c]:null);
+    :espnVal(p.s,c);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   const H=(k,l,cls)=>`<th data-k="${k}" class="${cls||''}">${l}</th>`;
   const f=v=>v==null?'&#8212;':(+v).toFixed(1);
@@ -11042,8 +11007,7 @@ function drawWatchTable(){
     ${ROSCOLS.map(([k,l])=>H(k,l)).join('')}${H('rtg','PR')}</tr></thead><tbody>${rows.map(p=>
     `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td class="l" data-hs="${htmlEsc(p.n)}">${watchBtn(p.n)}${htmlEsc(p.n)}</td>
       <td class="l">${htmlEsc(p.own)}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
-      ${p.s?`<td>${p.g||0}</td>`+ROSCOLS.map(([k])=>k==='FGP'?`<td>${pctText(shotPct(p.s.FG,p.s.FGA))}</td>`
-        :k==='FTP'?`<td>${pctText(shotPct(p.s.FT,p.s.FTA))}</td>`:`<td>${f(p.s[k])}</td>`).join('')
+      ${p.s?`<td>${p.g||0}</td>`+espnTds(p.s)
         :`<td colspan="${ROSCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td></tr>`).join('')}</tbody></table></div>`
     :'<div class="empty">Nobody yet. Press the \u2606 beside a player on Players \u203a Free agents or on his card to watch him.</div>');
@@ -11279,18 +11243,13 @@ async function resultsInto(T,mode,day,H,B,tbl){
     ||(mode==='day'?SLOTIDS.indexOf(a.slot)-SLOTIDS.indexOf(b.slot):(b.s.PTS||0)-(a.s.PTS||0)));
   const first=mode==='day'?'<th class="l">Slot</th>':'<th>G</th>';
   $(B).innerHTML=`<div class="scroller" data-cap="1"><table id="${tbl}"><thead><tr>
-    ${first}<th class="l">Player</th><th class="l">Tm</th><th>MIN</th><th>FG</th><th>FT</th>
-    <th>3P</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PTS</th></tr></thead><tbody>
+    ${first}<th class="l">Player</th><th class="l">Tm</th>${ESPNCOLS.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     ${list.map(r=>`<tr class="${r.st==='Counted'?'':'iscut'}">${mode==='day'
         ?`<td class="l">${r.slot?htmlEsc(slotLabel(r.slot)):'—'}</td>`:`<td>${r.g}</td>`}
       <td class="l pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}<span class="tag ${tag[r.st]}">${r.st}</span></td>
-      <td class="l">${htmlEsc(r.t)}</td><td>${r.s.MP||0}</td><td>${ma(r.s.FG,r.s.FGA)}</td><td>${ma(r.s.FT,r.s.FTA)}</td>
-      <td>${r.s.P3||0}</td><td>${r.s.TRB||0}</td><td>${r.s.AST||0}</td><td>${r.s.STL||0}</td><td>${r.s.BLK||0}</td>
-      <td>${r.s.TOV||0}</td><td>${r.s.PTS||0}</td></tr>`).join('')}
-    </tbody><tfoot><tr><td class="l" colspan="3">Counted${mode==='week'?` · ${nights.length} night${nights.length===1?'':'s'}`:''}</td><td></td>
-      <td>${ma(tot.FG,tot.FGA)}</td><td>${ma(tot.FT,tot.FTA)}</td>
-      <td>${tot.P3}</td><td>${tot.REB}</td><td>${tot.AST}</td><td>${tot.STL}</td><td>${tot.BLK}</td>
-      <td>${tot.TO}</td><td>${tot.PTS}</td></tr></tfoot></table></div>`;
+      <td class="l">${htmlEsc(r.t)}</td>${espnSumTds(r.s,0)}</tr>`).join('')}
+    </tbody><tfoot><tr><td class="l" colspan="3">Counted${mode==='week'?` · ${nights.length} night${nights.length===1?'':'s'}`:''}</td>${
+      espnSumTds({FG:tot.FG,FGA:tot.FGA,FT:tot.FT,FTA:tot.FTA,P3:tot.P3,TRB:tot.REB,AST:tot.AST,STL:tot.STL,BLK:tot.BLK,TOV:tot.TO,PTS:tot.PTS},0)}</tr></tfoot></table></div>`;
 }
 /* ---- stats and scoring health, for the commissioner ---- */
 let HEALTH={at:0};
@@ -11439,7 +11398,7 @@ function drawStandBox(B){
   const mine=me&&!isComm()?me:(B.sort==='mestand'?meTeam():null);
   box.innerHTML=`<div class="scroller" data-cap="1"><table id="${B.tbl}" class="standtbl"><thead><tr>
       <th class="l" data-k="rank">#</th><th class="l" data-k="club">Club</th><th data-k="gp">${mode==='night'?'G':'Games'}</th>
-      <th data-k="fg">FG%</th><th data-k="ft">FT%</th><th data-k="p3">3P</th><th data-k="reb">REB</th>
+      <th data-k="fg">FG%</th><th data-k="ft">FT%</th><th data-k="p3">3PM</th><th data-k="reb">REB</th>
       <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
       <td class="l">${r.rank}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
