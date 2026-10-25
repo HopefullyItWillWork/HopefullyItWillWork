@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-25.2">
+<meta name="ll-build" content="2026-10-25.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10664,7 +10664,7 @@ function drawHomeLive(){
   const now=Date.now();
   const on=Object.entries(SEEN||{}).filter(([c,ts])=>now-new Date(ts).getTime()<5*60000)
     .map(([c])=>c).filter(c=>S.teams[c]||c==='Commissioner').sort();
-  const last=(S.log||[]).filter(e=>e&&e.ts&&e.team&&logSeen(e)).slice(0,3);
+  const last=(S.log||[]).filter(e=>e&&e.ts&&e.team&&isRosterMove(e)&&logSeen(e)).slice(0,3);   // trades, adds and drops only — no lineup changes
   box.innerHTML=(on.length||last.length)?`<div class="hlive">
     ${on.length?`<div class="on"><span><span class="dot" aria-hidden="true"></span>Online</span>${on.map(c=>
       `<span>${clubBadge(c)}${htmlEsc(c===me?'You':c)}</span>`).join('')}</div>`:''}
