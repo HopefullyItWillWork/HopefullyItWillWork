@@ -47,6 +47,20 @@ export function keyOf(ref, ctx, at) {
   return ctx.byName[now] || now;
 }
 
+/* The club a lineup entry belongs to. Tries, in order: its saved id; the name it
+   was saved under, dated against the rename journal; and finally that name with
+   EVERY rename applied, undated — a stale browser can save a lineup under a name
+   after the club was renamed away from it (so the dated walk, which only follows
+   later renames, never moves it), and a name that is not a club today can only
+   mean the club it was renamed to. Returns an id, or null if nothing fits. */
+export function resolveEntry(ctx, cid, club, at) {
+  const live = (k) => (k && ctx.nameOf[k]) ? k : null;
+  return live(cid && keyOf(cid, ctx, at))
+    || live(club && keyOf(club, ctx, at))
+    || live(club && keyOf(club, ctx, undefined))
+    || (cid ? keyOf(cid, ctx, at) : club ? keyOf(club, ctx, at) : null);
+}
+
 /* The name to show for a key: the club's current name. */
 export const nameFor = (key, ctx) => ctx.nameOf[key] || key;
 

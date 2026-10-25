@@ -79,5 +79,20 @@ const t2 = { 'New Name': { id: 'c_1', lu: { s: { C: 'X' } } } };
 await recordLineup(s2, 'America/New_York', { club: 'Old Name', cid: 'c_1', s: { C: 'X' } });
 ok('a club renamed today already has an entry, so no second carry', (await carryLineups(s2, 'America/New_York', t2)).length === 0);
 
+console.log('\n== a renamed club keeps its lineups (Christman -> Boozer) ==');
+{
+  const { resolveEntry, clubCtx } = await import('../deploy/netlify/functions/lib/clubs.mjs');
+  const teams = { 'Boozer I hardly know her': { id: 'c_new' }, Osborn: { id: 'c_o' } };
+  const ctx = clubCtx(teams, [{ from: 'Christman', to: 'Boozer I hardly know her', at: '2026-10-20T12:00:00.000Z' }]);
+  const R = (cid, club, at) => resolveEntry(ctx, cid, club, at);
+  ok('saved before the rename, by id', R('c_new', 'Christman', '2026-10-19T12:00:00.000Z') === 'c_new');
+  ok('saved before the rename, no id, old name', R('', 'Christman', '2026-10-19T12:00:00.000Z') === 'c_new');
+  ok('stale id, old name, before the rename', R('c_gone', 'Christman', '2026-10-19T12:00:00.000Z') === 'c_new');
+  ok('stale id, old name, AFTER the rename (stale browser)', R('c_gone', 'Christman', '2026-10-21T12:00:00.000Z') === 'c_new');
+  ok('no id, old name, after the rename', R('', 'Christman', '2026-10-21T12:00:00.000Z') === 'c_new');
+  ok('saved under the new name', R('', 'Boozer I hardly know her', '2026-10-21T12:00:00.000Z') === 'c_new');
+  ok('another club is not captured', R('c_o', 'Osborn', '2026-10-21T12:00:00.000Z') === 'c_o');
+}
+
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);
