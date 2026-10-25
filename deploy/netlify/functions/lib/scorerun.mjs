@@ -16,10 +16,11 @@
    is caught up too, so a missed morning repairs itself. */
 
 import { scoreNight } from "./score.mjs";
-import { keyOf } from "./clubs.mjs";
+import { keyOf, resolveEntry } from "./clubs.mjs";
 import { ctxFor, migrateIds } from "./clubids.mjs";
 import { lineupsOn } from "./lineups.mjs";
 import { dayKey } from "./stats.mjs";
+import { applyFixes, fixesOn } from "./statfix.mjs";
 import { compactNight, windowsFrom } from "./pstats.mjs";
 
 const BUDGET = 22000;
@@ -30,6 +31,12 @@ async function readKey(s, key) {
 }
 async function writeKey(s, key, prev, data) {
   await s.set(key, JSON.stringify({ rev: (prev.rev || 0) + 1, data, at: new Date().toISOString() }));
+}
+
+/* A stored night with the commissioner's corrections laid over it (statfix.mjs). */
+async function readNight(s, day, fx) {
+  const night = (await readKey(s, dayKey(day))).data;
+  return night ? applyFixes(night, fixesOn(fx, day)) : night;
 }
 
 /* "2026–27" or "2026-27" → "2026-27"; the blob key and the date span. */
@@ -66,12 +73,13 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   const cap = parseInt(cfg.gamecap, 10) > 0 ? parseInt(cfg.gamecap, 10) : 920;
   const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
   const ctx = await ctxFor(s);
-  const resolve = (ref, at) => keyOf(ref, ctx, at);
+  const resolve = (ref, at, alt) => alt === undefined ? keyOf(ref, ctx, at) : resolveEntry(ctx, ref, alt, at);
   /* Anything stored under a club's old name is filed under its id first, so the
      rescoring below never has to guess from the rename journal again. */
   await ensureMigrated(s, season.key);
 
   const feed = ((await readKey(s, "daily-index")).data) || {};
+  const fx = (await readKey(s, "statfix")).data;
   const stored = Object.keys(feed.days || {})
     .filter((d) => d >= season.from && d <= season.to && feed.days[d].stored && !feed.days[d].pre).sort();
   const window = new Set((feed.lastRun && feed.lastRun.window) || []);
@@ -86,7 +94,7 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   for (const day of todo) {
     if (now() - start > BUDGET) { left.push(day); continue; }
     try {
-      const night = (await readKey(s, dayKey(day))).data;
+      const night = await readNight(s, day, fx);
       if (!night) { delete idx.days[day]; continue; }
       const lineups = await lineupsOn(s, day);
       /* Games already counted before this night, by club, from the index —
@@ -122,24 +130,25 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
    pstats-<season>, which GET /api/score?stats=<window> serves. Preseason nights
    are kept flagged `pre`; the windows only use them until a regular-season
    night exists. */
-export async function runPstats(s, { now = Date.now } = {}) {
+export async function runPstats(s, { now = Date.now, days = [] } = {}) {
   const start = now();
   const cfg = (await readKey(s, "settings")).data || {};
   const season = seasonOf(cfg);
   if (!season) return { ok: false, reason: "no season in settings" };
   const feed = ((await readKey(s, "daily-index")).data) || {};
+  const fx = (await readKey(s, "statfix")).data;
   const window = new Set((feed.lastRun && feed.lastRun.window) || []);
   const prevLog = await readKey(s, "plog-" + season.key);
   const plog = prevLog.data || { season: season.key, nights: {} };
   plog.nights = plog.nights || {};
   const todo = Object.keys(feed.days || {})
-    .filter((d) => d >= season.from && d <= season.to && feed.days[d].stored && (window.has(d) || !plog.nights[d]))
+    .filter((d) => d >= season.from && d <= season.to && feed.days[d].stored && (window.has(d) || !plog.nights[d] || days.includes(d)))
     .sort();
   const done = [], left = [], errors = [];
   for (const day of todo) {
     if (now() - start > BUDGET) { left.push(day); continue; }
     try {
-      const night = (await readKey(s, dayKey(day))).data;
+      const night = await readNight(s, day, fx);
       if (!night) continue;
       plog.nights[day] = compactNight(night, !!feed.days[day].pre);
       done.push(day);
@@ -165,9 +174,14 @@ export async function runPre(s, { now = Date.now } = {}) {
     return { ok: false, reason: "no tournament in settings" };
   const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
   const ctx = await ctxFor(s);
-  const resolve = (ref, at) => keyOf(ref, ctx, at);
+  /* `alt` is the club name a lineup entry was saved under. If the entry's id is
+     not a club that exists (the club was given a fresh id at some point, which
+     orphans everything filed under the old one), fall back to the name, or the
+     club's whole lineup is lost and every starter scores as bench. */
+  const resolve = (ref, at, alt) => alt === undefined ? keyOf(ref, ctx, at) : resolveEntry(ctx, ref, alt, at);
   await ensureMigrated(s, null);
   const feed = ((await readKey(s, "daily-index")).data) || {};
+  const fx = (await readKey(s, "statfix")).data;
   const nights = Object.keys(feed.days || {}).filter((d) => d >= p.from && d <= p.to && feed.days[d].stored).sort();
 
   const prevIdx = await readKey(s, "score-pre");
@@ -176,7 +190,7 @@ export async function runPre(s, { now = Date.now } = {}) {
   for (const day of nights) {
     if (now() - start > BUDGET) { left.push(day); if (prevIdx.data && prevIdx.data.days && prevIdx.data.days[day]) idx.days[day] = prevIdx.data.days[day]; continue; }
     try {
-      const night = (await readKey(s, dayKey(day))).data;
+      const night = await readNight(s, day, fx);
       if (!night) continue;
       const r = scoreNight({ night, lineups: await lineupsOn(s, day), gpBefore: {}, cap: 1e9, alias, espn, renames, resolve });
       idx.days[day] = Object.fromEntries(Object.entries(r.clubs).map(([c, x]) => [c, x.totals]));
