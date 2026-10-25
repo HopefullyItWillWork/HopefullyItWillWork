@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-25.4">
+<meta name="ll-build" content="2026-10-25.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1914,6 +1914,21 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <span class="fcount" id="sfMsg"></span>
     </div>
     <div id="sfList2"></div>
+
+    <h3 class="sub" style="margin-top:14px">Set a club&#8217;s lineup for a night</h3>
+    <p class="note explain">Sets who started for a club on one night, even a night already played, then rescores that night and
+      rebuilds the rolling stats in the same step. It beats every lineup the GM saved that day. Use it when a lineup was lost or
+      mis-recorded. Tick the box to also make it the club&#8217;s lineup from now on. The same call is available as
+      <code>POST /api/lineups?override=1</code> with <code>{from, pin, club, day, s:{C,G1&#8230;U6}}</code>.</p>
+    <div class="form f4">
+      <div><label for="loClub">Club</label><select id="loClub"></select></div>
+      <div><label for="loDay">Night</label><input id="loDay" type="date"></div>
+      <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="loKeep"> Also their lineup going forward</label></div>
+      <div><button class="btn ghost" id="loLoad" type="button">Load current lineup</button></div>
+    </div>
+    <div class="form f4" id="loSlots"></div>
+    <div class="form f4"><button class="btn" id="loSave" type="button">Save lineup &amp; refresh stats</button><span class="fcount" id="loMsg"></span></div>
+
 
 
     <h2 class="sub">Tip-off times</h2>
@@ -4251,7 +4266,7 @@ function drawAdmin(){
     $('hStats').onclick=()=>run('/api/stats?run=1','Stats fetch');
     $('hScore').onclick=()=>run('/api/score?run=1','Rescore');
   }
-  drawHealth(); sfWire();
+  drawHealth(); sfWire(); loWire();
   if($('tipBox')&&!$('tipBox').dataset.built){
     $('tipBox').dataset.built='1';
     $('tipDay').value=dayKey();
@@ -11310,6 +11325,41 @@ function sfWire(){
 function logCorrection(n,day,dnp){
   const e={ts:now(),by:isComm()?'Commissioner':me,kind:'edit',detail:`Stat line corrected: ${n}, ${day}${dnp?' (removed)':''}`};
   S.log.unshift(e); appendLog([e]).catch(()=>{});
+}
+/* Commissioner › Set a club's lineup for a night (POST /api/lineups?override=1). */
+function loFill(){
+  const t=$('loClub').value, r=(S.teams[t]&&S.teams[t].r)||[];
+  const cur=lineupOf(t).s;
+  $('loSlots').innerHTML=SLOTIDS.map(id=>`<div><label for="lo_${id}">${slotLabel(id)}</label><select id="lo_${id}">
+    <option value="">&#8212; empty &#8212;</option>${r.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur[id]||'')?' selected':''}>${htmlEsc(p.n)}</option>`).join('')}</select></div>`).join('');
+}
+function loWire(){
+  const f=$('loClub'); if(!f||f.dataset.built) return;
+  f.dataset.built='1';
+  f.innerHTML=TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+  $('loDay').value=wvPlus(dayKey(),-1);
+  loFill();
+  f.onchange=loFill; $('loLoad').onclick=loFill;
+  $('loSave').onclick=async()=>{
+    const club=f.value, day=$('loDay').value;
+    if(!day) return void($('loMsg').textContent='Pick a night');
+    const sl=Object.fromEntries(SLOTIDS.map(id=>[id,$('lo_'+id).value]));
+    const names=Object.values(sl).filter(Boolean);
+    if(new Set(names.map(canon)).size!==names.length) return void($('loMsg').textContent='A player is in two spots');
+    if(!confirm(`Set ${club}\u2019s lineup for ${day} and rescore that night?`)) return;
+    $('loMsg').textContent='Saving\u2026';
+    try{
+      const r=await fetch('/api/lineups?override=1',{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({...(await sfAuth()),club,day,s:sl})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.ok){ $('loMsg').textContent=j.error||'Could not save'; return; }
+      $('loMsg').textContent=j.rescore?`Saved, but ${j.rescore}`:'Saved \u00b7 night rescored \u00b7 stats refreshed';
+      const e={ts:now(),by:isComm()?'Commissioner':me,kind:'edit',team:club,detail:`Lineup for ${day} set by the commissioner`};
+      S.log.unshift(e); appendLog([e]).catch(()=>{});
+      if($('loKeep').checked){ S.teams[club].lu={d:dayKey(),s:sl}; await commit(null,['rosters']); await logLineup(club); }
+      loadDaily(true); drawHealth(true);
+    }catch(err){ $('loMsg').textContent='Could not reach the server'; }
+  };
 }
 /* Commissioner: start, end and rescore. */
 function drawPreAdmin(){

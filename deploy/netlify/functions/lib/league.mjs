@@ -14,6 +14,15 @@ export async function read(s, key) {
   return raw ? JSON.parse(raw) : { rev: 0, data: null };
 }
 
+/* The commissioner login (its PIN) or a deputy club (that club's PIN). Used by the
+   endpoints that change what scoring sees. */
+export async function isCommissioner(s, from, pin) {
+  const cfg = (await read(s, "settings")).data || {};
+  if (from === "__comm__") return !!pin && pin === String(cfg.commPin || "");
+  const club = ((await read(s, "rosters")).data || {})[from];
+  return !!(club && club.pin && pin === String(club.pin) && Array.isArray(cfg.deputies) && cfg.deputies.includes(from));
+}
+
 export { esc, wrap, siteUrl, dayIn, timeIn, yesterdayIn, movesOn, prettyDay }
   from "./format.mjs";
 

@@ -2759,3 +2759,11 @@ domain's DNS is at **Porkbun**. With no key, every send is a quiet no-op.
   who to drop; `signPlayer(…, {drop})` releases then signs, logging a `cut` entry.
 - **Lineup slot select** offers "Move to bench", "Move to an open spot" (`@<slot>`
   values) and the bench swaps.
+- **Lineup override.** `POST /api/lineups?override=1` `{from, pin, club, day, s}`
+  (commissioner or deputy, by PIN) records a lineup entry with `src:"override"` for
+  a whole night; `lineupAt()` prefers the newest override over every ordinary save
+  that day, and the call rescores the night and rebuilds the rolling stats before
+  returning. UI: Commissioner › Set a club's lineup for a night (`loWire()`).
+  `isCommissioner()` now lives in `lib/league.mjs`.
+- **Rights lapse** (`rightsLapsed()`): in season an unsigned player has no Bird,
+  Early Bird or restricted rights; derived, nothing rewritten.

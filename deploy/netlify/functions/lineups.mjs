@@ -7,10 +7,18 @@
    GET  /api/lineups?day=YYYY-MM-DD
                                   -> every entry that day, grouped by club.
 
-   No auth, like the rest of /api: the honour-system PINs live in the page. The
+   POST /api/lineups?override=1   body { from, pin, club, day, s, by }
+                                  -> the commissioner (or a deputy, by PIN) sets a club's
+                                     lineup for a whole NIGHT after the fact. It beats every
+                                     ordinary save that day (lineupAt), and the night is
+                                     rescored and the rolling stats rebuilt before the
+                                     call returns, so this one call is "set it and refresh".
+
+   No auth on the ordinary save, like the rest of /api: the honour-system PINs live in the page. The
    clock is the part that matters, and the client never supplies it. */
 
-import { store } from "./lib/league.mjs";
+import { store, isCommissioner } from "./lib/league.mjs";
+import { runScore, runPstats } from "./lib/scorerun.mjs";
 import { ensureIds } from "./lib/clubids.mjs";
 import { recordLineup, lineupsOn } from "./lib/lineups.mjs";
 
@@ -26,6 +34,20 @@ export default async (req) => {
       const body = await req.json().catch(() => null);
       const club = body && typeof body.club === "string" ? body.club : "";
       if (!club || !body.s || typeof body.s !== "object") return json({ ok: false, error: "club and s required" }, 400);
+      if (url.searchParams.get("override")) {
+        if (!(await isCommissioner(s, String(body.from || ""), String(body.pin || ""))))
+          return json({ ok: false, error: "commissioner only" }, 403);
+        const day = String(body.day || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json({ ok: false, error: "day=YYYY-MM-DD required" }, 400);
+        const teams = await ensureIds(s);
+        if (!teams[club]) return json({ ok: false, error: `no club named ${club}` }, 404);
+        await recordLineup(s, TZ(), { club, cid: teams[club].id, s: body.s, day,
+          by: String(body.by || body.from || "").slice(0, 60), src: "override" });
+        const out = { ok: true, day };
+        try { out.score = await runScore(s, { only: day }); out.pstats = await runPstats(s, { days: [day] }); }
+        catch (e) { out.rescore = "failed: " + String((e && e.message) || e); }
+        return json(out);
+      }
       /* Only a club that exists. A typo or a stale tab after a rename must not
          start a history under a name scoring will never look up. */
       const teams = await ensureIds(s);

@@ -19,7 +19,7 @@
 
    No auth on the reads, like the rest of /api: everything here is public NBA data. */
 
-import { store, read } from "./lib/league.mjs";
+import { store, read, isCommissioner } from "./lib/league.mjs";
 import { runFeed, fetchNight } from "./lib/feed.mjs";
 import { dayKey } from "./lib/stats.mjs";
 import { cleanFix } from "./lib/statfix.mjs";
@@ -60,14 +60,6 @@ export default async (req) => {
 };
 
 export const config = { path: "/api/stats" };
-
-/* The commissioner login (its PIN) or a deputy club (that club's PIN). */
-async function isCommissioner(s, from, pin) {
-  const cfg = (await read(s, "settings")).data || {};
-  if (from === "__comm__") return !!pin && pin === String(cfg.commPin || "");
-  const club = ((await read(s, "rosters")).data || {})[from];
-  return !!(club && club.pin && pin === String(club.pin) && Array.isArray(cfg.deputies) && cfg.deputies.includes(from));
-}
 
 async function postFix(s, req) {
   let b;
