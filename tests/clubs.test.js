@@ -94,5 +94,16 @@ console.log('\n== a renamed club keeps its lineups (Christman -> Boozer) ==');
   ok('another club is not captured', R('c_o', 'Osborn', '2026-10-21T12:00:00.000Z') === 'c_o');
 }
 
+console.log('\n== a ghost of a renamed club does not steal its id ==');
+{
+  const g = clubCtx({ Christman: { id: 'c_1' }, 'Boozer I hardly know her': { id: 'c_1' }, Osborn: { id: 'c_o' } },
+    [{ from: 'Christman', to: 'Boozer I hardly know her', at: '2026-10-20T00:00:00.000Z' }]);
+  ok('the id belongs to the real club', g.nameOf.c_1 === 'Boozer I hardly know her');
+  ok('the ghost is not a live club', !g.live.includes('Christman') && g.live.includes('Boozer I hardly know her'));
+  ok('the ghost name still resolves to the real club', keyOf('Christman', g, '2026-10-21T00:00:00.000Z') === 'c_1');
+  const back = clubCtx({ Christman: { id: 'c_1' } }, [{ from: 'Christman', to: 'X', at: 'a' }, { from: 'X', to: 'Christman', at: 'b' }]);
+  ok('a club renamed away and back is itself', back.nameOf.c_1 === 'Christman');
+}
+
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);

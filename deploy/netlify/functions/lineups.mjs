@@ -46,6 +46,19 @@ export default async (req) => {
         const out = { ok: true, day };
         try { out.score = await runScore(s, { only: day }); out.pstats = await runPstats(s, { days: [day] }); }
         catch (e) { out.rescore = "failed: " + String((e && e.message) || e); }
+        /* What the night came to for this club, so the page can say whether it
+           worked and, if not, why. */
+        try {
+          const raw = await s.get("score-" + day);
+          const night = raw ? (JSON.parse(raw).data || null) : null;
+          if (!night) out.summary = { stored: false };
+          else {
+            const c = (night.clubs || {})[teams[club].id] || null;
+            out.summary = { stored: true, counted: c ? c.counted.map((x) => x.n) : [],
+              over: c ? c.over.map((x) => x.n) : [], totals: c ? c.totals : null,
+              noTip: (night.noTip || []).length, unmatched: (night.unmatched || []).length };
+          }
+        } catch { /* the save itself succeeded */ }
         return json(out);
       }
       /* Only a club that exists. A typo or a stale tab after a rename must not
