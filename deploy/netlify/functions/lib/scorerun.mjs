@@ -205,3 +205,15 @@ export async function runPre(s, { now = Date.now } = {}) {
   await writeKey(s, "score-pre", prevIdx, idx);
   return idx.lastRun;
 }
+
+/* Rescore one night after a correction or a lineup override. A preseason-tournament
+   night (flagged `pre` in daily-index) is scored by runPre into score-pre, never
+   into the season index — runScore({only}) would file it there — so the right
+   scorer is picked by the night itself. */
+export async function rescoreNight(s, day) {
+  const feed = ((await readKey(s, "daily-index")).data) || {};
+  const pre = !!(feed.days && feed.days[day] && feed.days[day].pre);
+  const score = pre ? await runPre(s) : await runScore(s, { only: day });
+  const pstats = await runPstats(s, { days: [day] });
+  return { pre, score, pstats };
+}

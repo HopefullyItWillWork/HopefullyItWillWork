@@ -24,7 +24,7 @@ import { runFeed, fetchNight } from "./lib/feed.mjs";
 import { dayKey } from "./lib/stats.mjs";
 import { cleanFix } from "./lib/statfix.mjs";
 import { nameKey } from "./lib/nba.mjs";
-import { runScore, runPstats } from "./lib/scorerun.mjs";
+import { rescoreNight } from "./lib/scorerun.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
@@ -84,7 +84,7 @@ async function postFix(s, req) {
   await s.set("statfix", JSON.stringify({ rev: (prev.rev || 0) + 1, data, at: new Date().toISOString() }));
   /* Rescore the night and rebuild the rolling windows so the fix shows at once. */
   const out = { ok: true, fixes: data.days[day] || [] };
-  try { out.score = await runScore(s, { only: day }); out.pstats = await runPstats(s, { days: [day] }); }
+  try { Object.assign(out, await rescoreNight(s, day)); }
   catch (e) { out.rescore = "failed: " + String((e && e.message) || e); }
   return json(out);
 }

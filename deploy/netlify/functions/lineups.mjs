@@ -18,7 +18,7 @@
    clock is the part that matters, and the client never supplies it. */
 
 import { store, isCommissioner } from "./lib/league.mjs";
-import { runScore, runPstats } from "./lib/scorerun.mjs";
+import { rescoreNight } from "./lib/scorerun.mjs";
 import { ensureIds } from "./lib/clubids.mjs";
 import { recordLineup, lineupsOn } from "./lib/lineups.mjs";
 
@@ -44,7 +44,7 @@ export default async (req) => {
         await recordLineup(s, TZ(), { club, cid: teams[club].id, s: body.s, day,
           by: String(body.by || body.from || "").slice(0, 60), src: "override" });
         const out = { ok: true, day };
-        try { out.score = await runScore(s, { only: day }); out.pstats = await runPstats(s, { days: [day] }); }
+        try { Object.assign(out, await rescoreNight(s, day)); }
         catch (e) { out.rescore = "failed: " + String((e && e.message) || e); }
         /* What the night came to for this club, so the page can say whether it
            worked and, if not, why. */
