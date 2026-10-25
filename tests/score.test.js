@@ -113,4 +113,22 @@ ok('ties split', A.cat.BLK === 2 && B.cat.BLK === 2 && C.cat.BLK === 2);
 ok('ranked by roto points', st[0].rank === 1 && st[0].pts >= st[1].pts && st[1].pts >= st[2].pts);
 
 console.log(`\n${ran - fails}/${ran} passed`);
+/* A lineup entry whose cid is not a live club falls back to its saved name. */
+(async () => {
+  const { scoreNight } = await import('../deploy/netlify/functions/lib/score.mjs');
+  const nameOf = { c_new: 'Boozer' }, byName = { Boozer: 'c_new' };
+  const resolve = (ref, at, alt) => {
+    const k = nameOf[ref] ? ref : (byName[ref] || ref);
+    if (alt && !nameOf[k] && byName[alt]) return byName[alt];
+    return k;
+  };
+  const s = { C: 'Nikola Jokic' };
+  const night = { games: { g: { tip: '2026-10-25T23:00:00.000Z', home: 'DEN', away: 'LAL' } },
+    players: { 1: { n: 'Nikola Jokic', t: 'DEN', s: { PTS: 30 } } } };
+  const lineups = { Boozer: [{ at: '2026-10-25T12:00:00.000Z', club: 'Boozer', cid: 'c_old', s }] };
+  const r = scoreNight({ night, lineups, gpBefore: {}, resolve });
+  console.log(r.clubs.c_new && r.clubs.c_new.totals.PTS === 30 ? 'stale cid fallback: ok' : 'stale cid fallback: FAIL');
+  if (!(r.clubs.c_new && r.clubs.c_new.totals.PTS === 30)) process.exit(1);
+})();
+
 process.exit(fails ? 1 : 0);

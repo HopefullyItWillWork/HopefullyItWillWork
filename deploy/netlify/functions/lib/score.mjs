@@ -104,7 +104,7 @@ export function scoreNight({ night, lineups, gpBefore, cap = 920, alias, espn, r
     for (const e of list || []) {
       /* `resolve` (lib/clubs.mjs keyOf) files the entry under the club's permanent
          id, whatever it was called when saved; without it, the old name walk. */
-      const now = resolve ? resolve(e && e.cid || club, e && e.at) : currentName(club, renames, live, e && e.at);
+      const now = resolve ? resolve(e && e.cid || club, e && e.at, club) : currentName(club, renames, live, e && e.at);
       if (!now) continue;
       (byClub[now] = byClub[now] || []).push(e);
     }

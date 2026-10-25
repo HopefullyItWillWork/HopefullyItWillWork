@@ -73,7 +73,15 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   const cap = parseInt(cfg.gamecap, 10) > 0 ? parseInt(cfg.gamecap, 10) : 920;
   const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
   const ctx = await ctxFor(s);
-  const resolve = (ref, at) => keyOf(ref, ctx, at);
+  /* `alt` is the club name a lineup entry was saved under. If the entry's id is
+     not a club that exists (the club was given a fresh id at some point, which
+     orphans everything filed under the old one), fall back to the name, or the
+     club's whole lineup is lost and every starter scores as bench. */
+  const resolve = (ref, at, alt) => {
+    const k = keyOf(ref, ctx, at);
+    if (alt && !ctx.nameOf[k]) { const k2 = keyOf(alt, ctx, at); if (k2 && ctx.nameOf[k2]) return k2; }
+    return k;
+  };
   /* Anything stored under a club's old name is filed under its id first, so the
      rescoring below never has to guess from the rename journal again. */
   await ensureMigrated(s, season.key);
@@ -174,7 +182,15 @@ export async function runPre(s, { now = Date.now } = {}) {
     return { ok: false, reason: "no tournament in settings" };
   const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
   const ctx = await ctxFor(s);
-  const resolve = (ref, at) => keyOf(ref, ctx, at);
+  /* `alt` is the club name a lineup entry was saved under. If the entry's id is
+     not a club that exists (the club was given a fresh id at some point, which
+     orphans everything filed under the old one), fall back to the name, or the
+     club's whole lineup is lost and every starter scores as bench. */
+  const resolve = (ref, at, alt) => {
+    const k = keyOf(ref, ctx, at);
+    if (alt && !ctx.nameOf[k]) { const k2 = keyOf(alt, ctx, at); if (k2 && ctx.nameOf[k2]) return k2; }
+    return k;
+  };
   await ensureMigrated(s, null);
   const feed = ((await readKey(s, "daily-index")).data) || {};
   const fx = (await readKey(s, "statfix")).data;
