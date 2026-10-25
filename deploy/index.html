@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-25.5">
+<meta name="ll-build" content="2026-10-25.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -11331,7 +11331,19 @@ function loFill(){
   const t=$('loClub').value, r=(S.teams[t]&&S.teams[t].r)||[];
   const cur=lineupOf(t).s;
   $('loSlots').innerHTML=SLOTIDS.map(id=>`<div><label for="lo_${id}">${slotLabel(id)}</label><select id="lo_${id}">
-    <option value="">&#8212; empty &#8212;</option>${r.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur[id]||'')?' selected':''}>${htmlEsc(p.n)}</option>`).join('')}</select></div>`).join('');
+    <option value="">Nobody (spot empty)</option>${r.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur[id]||'')?' selected':''}>${htmlEsc(p.n)}</option>`).join('')}</select></div>`).join('')
+    +'<div style="grid-column:1/-1" class="note" id="loBench"></div>';
+  SLOTIDS.forEach(id=>$('lo_'+id).onchange=loBench);
+  loBench();
+}
+/* Anyone on the roster not in a slot is on the bench; this says who, live, so it is
+   plain that not everybody starts. To bench a starter, pick somebody else for his
+   spot or "Nobody". */
+function loBench(){
+  const t=$('loClub').value, r=(S.teams[t]&&S.teams[t].r)||[];
+  const on=new Set(SLOTIDS.map(id=>canon($('lo_'+id).value)).filter(Boolean));
+  const bench=r.filter(p=>!on.has(canon(p.n))).map(p=>p.n);
+  $('loBench').innerHTML=`<b>Bench (${bench.length}):</b> ${bench.length?bench.map(htmlEsc).join(', '):'nobody'}`;
 }
 function loWire(){
   const f=$('loClub'); if(!f||f.dataset.built) return;
@@ -11353,7 +11365,12 @@ function loWire(){
         body:JSON.stringify({...(await sfAuth()),club,day,s:sl})});
       const j=await r.json().catch(()=>({}));
       if(!r.ok||!j.ok){ $('loMsg').textContent=j.error||'Could not save'; return; }
-      $('loMsg').textContent=j.rescore?`Saved, but ${j.rescore}`:'Saved \u00b7 night rescored \u00b7 stats refreshed';
+      const sm=j.summary;
+      $('loMsg').textContent=j.rescore?`Saved, but ${j.rescore}`
+        : !sm||!sm.stored ? 'Saved, but no box scores are stored for that night yet, so nothing could be scored'
+        : sm.counted.length ? `Saved \u00b7 rescored \u00b7 ${sm.counted.length} started and played: ${sm.counted.join(', ')}${sm.over.length?` (over the game cap: ${sm.over.join(', ')})`:''}`
+        : `Saved and rescored, but none of the starters counted for ${club} that night`
+          +(sm.noTip?` (${sm.noTip} box-score players had no game time)`:'')+'. Check the night and the club.';
       const e={ts:now(),by:isComm()?'Commissioner':me,kind:'edit',team:club,detail:`Lineup for ${day} set by the commissioner`};
       S.log.unshift(e); appendLog([e]).catch(()=>{});
       if($('loKeep').checked){ S.teams[club].lu={d:dayKey(),s:sl}; await commit(null,['rosters']); await logLineup(club); }

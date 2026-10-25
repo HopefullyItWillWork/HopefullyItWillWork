@@ -32,8 +32,28 @@ export function stampIds(prev, next) {
 /* Lookup tables from the live rosters. */
 export function clubCtx(teams, renames) {
   const byName = {}, nameOf = {};
-  for (const [n, t] of Object.entries(teams || {})) if (t && t.id) { byName[n] = t.id; nameOf[t.id] = n; }
-  return { teams: teams || {}, renames: Array.isArray(renames) ? renames : [], live: Object.keys(teams || {}), byName, nameOf };
+  const journal = Array.isArray(renames) ? renames : [];
+  const names = Object.keys(teams || {});
+  /* A ghost: a name the journal says the club was renamed away from, whose
+     successor exists. A stale browser can write the old name back, and the ghost
+     then carries the SAME id as the real club — so the id would resolve to
+     whichever of the two came last, and a club's whole history could be filed
+     under a name nobody sees. Ghosts never own an id; they resolve to their
+     successor. */
+  const successor = (n) => {
+    const to = currentName(n, journal, undefined, undefined);
+    return to && to !== n && teams[to] && teams[to].id ? to : null;
+  };
+  for (const n of names) {
+    const t = teams[n];
+    if (!t || !t.id || successor(n)) continue;
+    byName[n] = t.id; nameOf[t.id] = n;
+  }
+  for (const n of names) {
+    const to = successor(n);
+    if (to) byName[n] = teams[to].id;
+  }
+  return { teams: teams || {}, renames: journal, live: names.filter((n) => !successor(n)), byName, nameOf };
 }
 
 /* Anything a stored record calls a club — an id, or a name as it was then —
