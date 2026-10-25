@@ -13,6 +13,10 @@
    GET  /api/score?stats=d15       -> one rolling window, per game: { asOf, pre, w, players:{<nameKey>:{n,t,g,s}} }
                                       (d7, d15, d30 or szn; lib/pstats.mjs)
    POST /api/score?run=1&stats=1   -> rebuild the rolling stats now
+   GET  /api/score?log=<nameKey>[,<nameKey>…]
+                                   -> a player's last five games: { games:[{day,t,s}] } newest first
+                                      (the first key that has any line wins; preseason only if no
+                                      regular-season night exists yet)
 
    Standings are computed on read from the per-night totals, so they can never
    disagree with them. */
@@ -42,6 +46,23 @@ export default async (req) => {
       if (last && Date.now() - last < 2 * 60 * 1000)
         return json({ ok: false, reason: "ran less than two minutes ago", lastRun: idx.lastRun }, 429);
       return json({ ok: true, run: await runPre(s) });
+    }
+    if (req.method === "GET" && url.searchParams.get("log")) {
+      const keys = String(url.searchParams.get("log")).split(",").map((k) => k.trim()).filter(Boolean).slice(0, 6);
+      const plog = (await read(s, "plog-" + season.key)).data || { nights: {} };
+      const all = Object.entries(plog.nights || {});
+      const reg = all.filter(([, n]) => !n.pre);
+      const nights = (reg.length ? reg : all).sort((a, b) => b[0].localeCompare(a[0]));
+      for (const k of keys) {
+        const games = [];
+        for (const [day, n] of nights) {
+          const x = n.p && n.p[k];
+          if (x) games.push({ day, t: x.t || "", s: x.s });
+          if (games.length >= 5) break;
+        }
+        if (games.length) return json({ ok: true, games });
+      }
+      return json({ ok: true, games: [] });
     }
     if (req.method === "GET" && url.searchParams.get("stats")) {
       const w = String(url.searchParams.get("stats"));

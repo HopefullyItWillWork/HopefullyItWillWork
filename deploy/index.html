@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-25.1">
+<meta name="ll-build" content="2026-10-25.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -686,7 +686,35 @@ color:#fff;font:700 10px/17px var(--mono);text-align:center;vertical-align:1px;l
 .feed p{font-size:12.5px;color:var(--steel);line-height:1.55;margin-bottom:10px}
 pre{background:var(--well);border:1px solid var(--line);border-radius:2px;padding:11px 13px;overflow-x:auto;
 font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
-#dlgPlayer{max-width:460px;width:94%}
+#dlgPlayer{max-width:460px;width:94%;overflow:visible}
+#dlgPlayer .dlg{position:relative}
+.xclose{position:absolute;top:6px;right:6px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+  background:var(--panel);color:var(--chalk);font-size:24px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.glog{margin-top:10px}
+.glog h5{font-family:var(--mono);font-size:9px;letter-spacing:.11em;color:var(--dim);margin-bottom:4px;font-weight:400}
+.glog table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.glog th{font-size:8.5px;color:var(--dim);font-weight:400;text-align:right;padding:2px 3px}
+.glog td{text-align:right;padding:3px;border-top:1px solid var(--line);white-space:nowrap}
+.glog th:first-child,.glog td:first-child{text-align:left}
+.glog .none{font-size:11px;color:var(--dim)}
+/* One screen on a phone: the card scrolls inside itself, the X stays put, and the
+   stat rows are tightened so the whole card normally fits without scrolling. */
+@media (max-width:640px){
+  #dlgPlayer{width:100%;max-width:100%;max-height:100dvh;height:100dvh;margin:0;border-radius:0;overflow:auto}
+  #dlgPlayer .dlg{padding:10px 12px}
+  #dlgPlayer .acts{display:none}
+  #dlgPlayer .impact{padding:8px 10px;border:0;box-shadow:none}
+  #dlgPlayer .impact h4{font-size:16px;margin-bottom:1px;padding-right:44px}
+  #dlgPlayer .impact .sub2{margin-bottom:5px}
+  #dlgPlayer .drow{padding:1px 0;gap:4px;font-size:11.5px;grid-template-columns:1fr 52px 52px 46px}
+  #dlgPlayer .drow .cat{font-size:10.5px}
+  #dlgPlayer .tot2{margin-top:5px;padding-top:5px}
+  #dlgPlayer .tot2 b{font-size:16px}
+  #dlgPlayer .hs.lg{width:44px;height:44px;top:8px;right:52px}
+  #dlgPlayer .injline{margin:0 100px 4px 0;font-size:11.5px}
+  #dlgPlayer .glog{margin-top:6px}
+  #dlgPlayer .glog td{padding:2px}
+}
 /* ---- the player search box ----
    These six fields were <input list=...> bound to a <datalist> of 326-390
    players. On a phone that is not a dropdown: iOS Safari renders a datalist as
@@ -896,7 +924,7 @@ input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
 /* ---- Player headshots, from ESPN by the player's ESPN id. ---- */
 .hs{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 10%;background:var(--well);
   flex:none;vertical-align:middle;margin-right:6px}
-.hs.lg{position:absolute;top:14px;right:16px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
+.hs.lg{position:absolute;top:14px;right:52px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
 #dlgPlayerBody{position:relative}
 .injline{margin:0 90px 12px 0;font-size:13px}
 .injline .t{color:var(--steel);font-size:11px;margin-left:4px}
@@ -2027,6 +2055,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 </form></dialog>
 
 <dialog id="dlgPlayer"><div class="dlg" style="max-width:none">
+  <button type="button" class="xclose" id="dlgPlayerX" aria-label="Close">&times;</button>
   <div id="dlgPlayerBody"></div>
   <div class="acts" style="margin-top:14px">
     <button class="btn ghost" id="dlgPlayerClose">Close</button></div>
@@ -2722,7 +2751,8 @@ const committed=t=>S.teams[t].r.reduce((s,p)=>s+(salNow(p)||0),0)+deadSalary(t);
    includes him; capCommitted() is the soft-cap total and leaves him out. Next
    season, with leagueYear() moved on, he counts against both like anybody else.
    `rookie` and `acq` are written by makePick() and travel with him in a trade. */
-const capExempt=p=>!!(p&&p.rookie&&String(p.acq)===String(leagueYear()));
+/* In season a rookie counts against the cap like anybody else (league decision, 2026-10-25). */
+const capExempt=p=>!seasonLive()&&!!(p&&p.rookie&&String(p.acq)===String(leagueYear()));
 const rookieExempt=t=>S.teams[t].r.reduce((s,p)=>s+(capExempt(p)?(salNow(p)||0):0),0);
 const capCommitted=t=>committed(t)-rookieExempt(t);
 const onIR=p=>!!p.ir;
@@ -4339,6 +4369,7 @@ function openPin(t){
   openModal('dlgPin');
 }
 if($('dlgPlayerClose')) $('dlgPlayerClose').onclick=()=>closeModal('dlgPlayer');
+if($('dlgPlayerX')) $('dlgPlayerX').onclick=()=>closeModal('dlgPlayer');
 $('pinSave').onclick=async e=>{
   const a=$('pinA').value.trim(), b=$('pinB').value.trim();
   if(a.length<3){ e.preventDefault(); $('pinErr').textContent='Use at least 3 characters.'; return; }
@@ -6705,7 +6736,9 @@ let PROJ={}, useProj=false, PROJSRC='mine', RTGCACHE=null;
    state the header toggle used to set. */
 const LIVEW=['d7','d15','d30','szn'];
 const LIVE={};
-const usingLive=()=>useProj&&LIVEW.includes(PROJSRC);
+/* Only once the window has actually loaded: until then (or if the fetch fails) every
+   table reads the 2025–26 record rather than showing nobody with a game. */
+const usingLive=()=>useProj&&LIVEW.includes(PROJSRC)&&!!LIVE[PROJSRC];
 async function loadLive(w){
   if(!LIVEW.includes(w)) return null;
   if(LIVE[w]&&LIVE[w].day===dayKey()) return LIVE[w];
@@ -6832,8 +6865,7 @@ async function setProjMode(mode){
   useProj = m!=='act';
   PROJSRC = m==='act' ? PROJSRC : m;
   RTGCACHE=null;
-  try{ localStorage.setItem('ll_proj',useProj?'1':'0');
-       localStorage.setItem('ll_projsrc',PROJSRC); }catch(e){}
+  try{ localStorage.setItem('ll_per',m); }catch(e){}
   render();
 }
 /* The period bar: one control, drawn into every [data-perbar] placeholder (My
@@ -7151,7 +7183,7 @@ function playerCard(name,opts){
       ${mine?'\u00b7 <span class="edited">you have edited this player</span>'
         :(has&&usingAgg()?'\u00b7 <span style="color:var(--space)">2026\u201327 aggregate</span>':'')}</div>
     <div class="drow dhead2"><span class="cat">PER GAME</span><span class="av">2025\u201326</span>
-      <span class="pv">${usingAgg()?'2026\u201327':'MY PROJ'}</span><span class="dv">DIFF</span></div>
+      <span class="pv">${useProj?htmlEsc(projSrcHead()):'MY PROJ'}</span><span class="dv">DIFF</span></div>
     ${rows}
     <div class="drow"><span class="cat">FG%</span><span class="av">${aFG}</span>
       <span class="pv ${mine&&aFG!==pFG?'edited':''}">${pFG}</span><span class="dv"></span></div>
@@ -7160,12 +7192,52 @@ function playerCard(name,opts){
     <div class="tot2"><span>Rating</span>
       <span><span style="color:var(--steel);font-size:13px">${baseR==null?'\u2014':(baseR>0?'+':'')+baseR}</span>
       <b style="margin-left:12px">${projR==null?'\u2014':(projR>0?'+':'')+projR}</b></span></div>
+    <div class="glog" data-glog="${htmlEsc(name)}"></div>
     ${opts.actions!==false&&me&&!isComm()?`<div style="display:flex;gap:8px;margin-top:13px;flex-wrap:wrap">
       <button class="btn ghost" data-editproj="${c}">${has?'Edit projection':'Add projection'}</button>
       ${has?`<button class="btn ghost" data-clrproj="${c}">Reset</button>`:''}</div>`:''}
   </div>`;
 }
+/* A player's last five games, from the nightly box scores (GET /api/score?log=…).
+   Filled in after the card is drawn so opening it never waits on the network. The
+   keys go through the same name route as liveLine(): the commissioner's ESPN map,
+   ESPNNAME, the name itself, then the canon spelling. */
+const GLOG={};
+function glogKeys(name){
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
+  const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
+  return [...new Set([e,name,c].filter(Boolean).map(nameKey))];
+}
+async function glogLoad(name){
+  const keys=glogKeys(name), id=keys.join(',');
+  const hit=GLOG[id];
+  if(hit&&Date.now()-hit.at<5*60*1000) return hit.games;
+  if(!await probeAPI()) return null;
+  try{
+    const r=await fetch('/api/score?log='+encodeURIComponent(id),{cache:'no-store'});
+    if(!r.ok) return null;
+    const j=await r.json(); GLOG[id]={at:Date.now(),games:j.games||[]};
+    return GLOG[id].games;
+  }catch(e){ return null; }
+}
+function glogHtml(games){
+  if(games==null) return '';
+  if(!games.length) return '<h5>LAST 5 GAMES</h5><div class="none">No games on file yet this season.</div>';
+  const mk=(m,a)=>`${Math.round(m||0)}\u2011${Math.round(a||0)}`;
+  const d=day=>{ const [,m,dd]=day.split('-'); return `${+m}/${+dd}`; };
+  return `<h5>LAST 5 GAMES</h5><table><thead><tr><th>Date</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th>
+    <th>STL</th><th>BLK</th><th>TO</th><th>FG</th><th>FT</th></tr></thead><tbody>${games.map(g=>{const s=g.s||{};
+    return `<tr><td>${d(g.day)}</td><td>${Math.round(s.MP||0)}</td><td>${s.PTS||0}</td><td>${s.TRB||0}</td><td>${s.AST||0}</td>
+      <td>${s.P3||0}</td><td>${s.STL||0}</td><td>${s.BLK||0}</td><td>${s.TOV||0}</td><td>${mk(s.FG,s.FGA)}</td><td>${mk(s.FT,s.FTA)}</td></tr>`;}).join('')}</tbody></table>`;
+}
+function glogFill(root){
+  root.querySelectorAll('[data-glog]').forEach(el=>{
+    const n=el.dataset.glog;
+    glogLoad(n).then(g=>{ if(el.isConnected) el.innerHTML=glogHtml(g); });
+  });
+}
 function wirePlayerCard(root){
+  glogFill(root);
   root.querySelectorAll('[data-editproj]').forEach(b=>b.onclick=()=>openProj(b.dataset.editproj));
   root.querySelectorAll('[data-clrproj]').forEach(b=>b.onclick=async()=>{
     delete PROJ[b.dataset.clrproj]; await saveProj(); render();});
@@ -11870,9 +11942,12 @@ function netChip(){
   if(S===loaded) anchorBase();
   seedTopUp();
   try{ me=localStorage.getItem('ll_me');
-       useProj=localStorage.getItem('ll_proj')==='1';
-       const src=localStorage.getItem('ll_projsrc');
-       if(src==='agg'||src==='mine'||LIVEW.includes(src)) PROJSRC=src; }catch(e){}
+       /* The default period is the current season (2026-10-25); a choice a GM has made
+          is kept. The older ll_proj/ll_projsrc pair is ignored on purpose: it defaulted
+          to last season's record and most browsers still carry that default. */
+       const per=localStorage.getItem('ll_per');
+       if(per==null){ useProj=true; PROJSRC='szn'; }
+       else { useProj=per!=='act'; if(per==='agg'||per==='mine'||LIVEW.includes(per)) PROJSRC=per; } }catch(e){}
   loadLab();
   if(me&&me!=='__comm__'&&!S.teams[me])me=null;
   $('rTeam').innerHTML='<option value="">All players</option>'
