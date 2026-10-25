@@ -40,9 +40,9 @@ export function cleanSlots(s) {
   return out;
 }
 
-export async function recordLineup(store, tz, { club, cid, s, by, src }) {
+export async function recordLineup(store, tz, { club, cid, s, by, src, day: forDay }) {
   const at = new Date();
-  const day = dayIn(tz, at);
+  const day = forDay || dayIn(tz, at);
   const iso = at.toISOString();
   const key = `luh/${day}/${clubSeg(club)}/${iso}-${Math.random().toString(36).slice(2, 8)}`;
   /* `cid` is the club's permanent id (lib/clubs.mjs); `club` is only the name it
@@ -64,10 +64,17 @@ export async function lineupsOn(store, day) {
   return out;
 }
 
-/* The lineup in force at `when` (ISO): the last entry at or before it. */
+/* The lineup in force at `when` (ISO): the last entry at or before it. A
+   commissioner override (src "override", written by /api/lineups?override=1 for a
+   whole night) beats every ordinary entry that day: it is how a lineup is set for
+   a GM after the fact, so a later save by the GM must not displace it. The newest
+   override wins. */
 export function lineupAt(entries, when) {
+  const list = entries || [];
+  const ov = list.filter((e) => e.src === "override");
+  if (ov.length) return ov.reduce((a, b) => (a.at >= b.at ? a : b));
   let hit = null;
-  for (const e of entries || []) if (e.at <= when) hit = e;
+  for (const e of list) if (e.at <= when) hit = e;
   return hit;
 }
 

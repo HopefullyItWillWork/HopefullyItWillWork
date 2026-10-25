@@ -49,6 +49,20 @@ const tick = () => new Promise(r => setTimeout(r, 3));
   const e = (await lineupsOn(t, dayIn(TZ)))['N. Fink'][0];
   ok('marked as a carry', e.src === 'carry' && e.by === 'nightly');
 
+  console.log('\n== a commissioner override beats the GM\u2019s own saves ==');
+  {
+    const e = [{ at: '2026-10-25T12:00:00.000Z', src: 'save', s: { C: 'A' } },
+      { at: '2026-10-25T13:00:00.000Z', src: 'override', s: { C: 'B' } },
+      { at: '2026-10-25T20:00:00.000Z', src: 'save', s: { C: 'C' } }];
+    ok('the override is used, even against a later save', lineupAt(e, '2026-10-25T23:00:00.000Z').s.C === 'B');
+    ok('with no override the last save before the tip is used', lineupAt(e.filter(x => x.src !== 'override'), '2026-10-25T23:00:00.000Z').s.C === 'C');
+    const st = (() => { const m = new Map(); return { get: async k => m.get(k) ?? null, set: async (k, v) => { m.set(k, v); },
+      list: async ({ prefix }) => ({ blobs: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({ key })) }) }; })();
+    await recordLineup(st, TZ, { club: 'X', cid: 'c1', s: { C: 'Z' }, day: '2026-10-20', src: 'override', by: 'comm' });
+    const on = await lineupsOn(st, '2026-10-20');
+    ok('an override is filed under the night it is for', on.X && on.X.length === 1 && on.X[0].src === 'override' && on.X[0].day === '2026-10-20');
+  }
+
   console.log(`\n${ran - fails}/${ran} passed`);
   process.exit(fails ? 1 : 0);
 })();
