@@ -11,11 +11,20 @@
                                        scores is harmless, but nobody needs to
                                        hammer ESPN from the league's account.
 
-   No auth, like the rest of /api: everything here is public NBA data. */
+   GET  /api/stats?fixes=1          -> the commissioner's corrections (lib/statfix.mjs)
+   POST /api/stats?fix=1            -> { from, pin, day, action:'set'|'remove', n, t?, s?, del? }
+                                       lay a correction over one player's night (or
+                                       take it off), then rescore that night. Only
+                                       the commissioner login or a deputy, by PIN.
+
+   No auth on the reads, like the rest of /api: everything here is public NBA data. */
 
 import { store, read } from "./lib/league.mjs";
 import { runFeed, fetchNight } from "./lib/feed.mjs";
 import { dayKey } from "./lib/stats.mjs";
+import { cleanFix } from "./lib/statfix.mjs";
+import { nameKey } from "./lib/nba.mjs";
+import { runScore, runPstats } from "./lib/scorerun.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
@@ -32,7 +41,9 @@ export default async (req) => {
         return json({ ok: false, reason: "ran less than five minutes ago", lastRun: idx.lastRun }, 429);
       return json({ ok: true, run: await runFeed(s, { force: !!url.searchParams.get("force") }) });
     }
+    if (req.method === "POST" && url.searchParams.get("fix")) return await postFix(s, req);
     if (req.method !== "GET") return json({ error: "method not allowed" }, 405);
+    if (url.searchParams.get("fixes")) return json(await read(s, "statfix"));
 
     const test = url.searchParams.get("test");
     if (isDay(test)) {
@@ -49,3 +60,39 @@ export default async (req) => {
 };
 
 export const config = { path: "/api/stats" };
+
+/* The commissioner login (its PIN) or a deputy club (that club's PIN). */
+async function isCommissioner(s, from, pin) {
+  const cfg = (await read(s, "settings")).data || {};
+  if (from === "__comm__") return !!pin && pin === String(cfg.commPin || "");
+  const club = ((await read(s, "rosters")).data || {})[from];
+  return !!(club && club.pin && pin === String(club.pin) && Array.isArray(cfg.deputies) && cfg.deputies.includes(from));
+}
+
+async function postFix(s, req) {
+  let b;
+  try { b = await req.json(); } catch { return json({ ok: false, reason: "bad json" }, 400); }
+  if (!(await isCommissioner(s, String(b.from || ""), String(b.pin || ""))))
+    return json({ ok: false, reason: "commissioner only" }, 403);
+  const day = String(b.day || "");
+  if (!isDay(day)) return json({ ok: false, reason: "day=YYYY-MM-DD required" }, 400);
+  const prev = await read(s, "statfix");
+  const data = prev.data || { days: {} };
+  data.days = data.days || {};
+  const list = (data.days[day] || []).slice();
+  const key = nameKey(b.n);
+  const rest = list.filter((f) => nameKey(f.n) !== key);
+  if (b.action === "remove") {
+    if (rest.length) data.days[day] = rest; else delete data.days[day];
+  } else {
+    const c = cleanFix(b);
+    if (c.error) return json({ ok: false, reason: c.error }, 400);
+    data.days[day] = [...rest, { ...c.fix, by: String(b.from).slice(0, 60), at: new Date().toISOString() }];
+  }
+  await s.set("statfix", JSON.stringify({ rev: (prev.rev || 0) + 1, data, at: new Date().toISOString() }));
+  /* Rescore the night and rebuild the rolling windows so the fix shows at once. */
+  const out = { ok: true, fixes: data.days[day] || [] };
+  try { out.score = await runScore(s, { only: day }); out.pstats = await runPstats(s, { days: [day] }); }
+  catch (e) { out.rescore = "failed: " + String((e && e.message) || e); }
+  return json(out);
+}

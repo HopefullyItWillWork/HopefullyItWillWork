@@ -48,7 +48,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | Tab | Section id | What is on it |
 |---|---|---|
 | **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), the chat card (`#homeChat`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
-| **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; offseason only: the auction impact card (`#bidWrap`) and the what-if lab (`#labWrap`) — `drawMeExtras()` hides them |
+| **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; the what-if lab (`#labWrap`, all year since 2026-10-25) and, offseason only, the auction impact card (`#bidWrap`) — `drawMeExtras()` |
 | **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Last night** `v-night` (every box score for a night, filterable to free agents / my team — `drawNight()`), **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
 | **Trades** | `v-trade` | unchanged |
@@ -2738,3 +2738,24 @@ domain's DNS is at **Porkbun**. With no key, every send is a quiet no-op.
 - Deriving rosters from the transaction log rather than storing them directly.
   The log is already a complete append-only record, so this is possible whenever
   it is worth the rewrite. Do not attempt it during a draft.
+
+
+---
+
+## Added 2026-10-25
+
+- **Stat corrections.** `lib/statfix.mjs` (pure, `tests/statfix.test.js`): the
+  commissioner's per-night, per-player overrides live in the `statfix` blob and are
+  laid over a stored night by `readNight()` in `scorerun.mjs` every time it is
+  scored or fed to the rolling stats. They are kept apart because the feed rewrites
+  a night whenever ESPN's copy changes. `POST /api/stats?fix=1` (commissioner login
+  or a deputy, by PIN) sets/removes one and rescores that night; `GET
+  /api/stats?fixes=1` lists them. UI: Commissioner › Stats and scoring › Correct a
+  stat line (`sfWire()`).
+- **Free agent list** is drawn by `render()` itself, not by `drawMe()`, which skips
+  while My Team is hidden — that left Players › Free agents empty until a filter
+  was touched.
+- **Signing onto a full roster** opens `dlgSignDrop` (`openSignDrop()`): the GM picks
+  who to drop; `signPlayer(…, {drop})` releases then signs, logging a `cut` entry.
+- **Lineup slot select** offers "Move to bench", "Move to an open spot" (`@<slot>`
+  values) and the bench swaps.

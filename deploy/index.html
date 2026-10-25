@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-17.8">
+<meta name="ll-build" content="2026-10-25.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1302,8 +1302,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 
     <div id="meWatch"></div>
 
-    <!-- The what-if lab: offseason only (league decision, 2026-10-14). drawMeExtras()
-         hides it once the season is live. -->
+    <!-- The what-if lab: all year (offseason-only until 2026-10-25). -->
     <div id="labWrap">
     <h2 class="sub">What-if roster</h2>
     <p class="note explain">A sandbox on top of your club. Load your roster, then add and drop anyone in the pool to see what it
@@ -1869,6 +1868,26 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       locks</b>, so if he is in the NBA, pick his ESPN name here.</p>
     <div id="espnMiss"></div>
 
+    <h3 class="sub" style="margin-top:14px">Correct a stat line</h3>
+    <p class="note explain">If a box score is wrong, or a player was missed, fix that player&#8217;s line for one night here.
+      The correction sits on top of the feed (the feed re-reads recent nights and would overwrite a direct edit), is
+      kept in the list below, and the night is rescored the moment you save. Only the numbers you change are replaced.
+      To add a player the feed has no line for, fill in his NBA club code as well. &#8220;Did not play&#8221; removes his line.</p>
+    <div class="form f4" id="sfForm">
+      <div><label for="sfDay">Night</label><input id="sfDay" type="date"></div>
+      <div><label for="sfName">Player</label><input id="sfName" placeholder="Player name" data-list="sfList" autocomplete="off"><datalist id="sfList"></datalist></div>
+      <div><label for="sfTeam">NBA club (only to add a line)</label><input id="sfTeam" placeholder="e.g. DEN" maxlength="4"></div>
+      <div><button class="btn ghost" id="sfLoad" type="button">Load his line</button></div>
+    </div>
+    <div class="form f4" id="sfStats"></div>
+    <div class="form f4">
+      <button class="btn" id="sfSave" type="button">Save correction</button>
+      <button class="btn danger" id="sfDnp" type="button">Did not play</button>
+      <span class="fcount" id="sfMsg"></span>
+    </div>
+    <div id="sfList2"></div>
+
+
     <h2 class="sub">Tip-off times</h2>
     <p class="note explain">A player is frozen the moment <em>his own</em> game tips off &#8212; a five o'clock
       game locks that man at five and leaves his team-mate on a half-seven game free for another two
@@ -2089,6 +2108,15 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
   </div>
   <p class="note" id="clNote"></p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="doClaim" value="ok">Put in the claim</button></div>
+</form></dialog>
+
+<dialog id="dlgSignDrop"><form method="dialog" class="dlg">
+  <h4 id="sdTitle">Sign a free agent</h4><p id="sdSub"></p>
+  <div class="fields">
+    <div><label for="sdDrop">Drop to make room</label><select id="sdDrop"></select></div>
+  </div>
+  <p class="note" id="sdNote"></p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="sdGo" value="ok">Drop and sign</button></div>
 </form></dialog>
 
 <dialog id="dlgTerm"><form method="dialog" class="dlg">
@@ -2938,11 +2966,39 @@ async function signFA(team,name){
   if(!seasonLive())
     return alert('Free agents are signed at auction in the offseason. This opens once the season is live.');
   const sal=minSal(), early=!deadlinePassed();
+  /* A full roster does not end the signing: the GM names who goes. */
+  if(headcount(team)>=S.cfg.roster) return openSignDrop(team,name);
   if(!confirm(`Sign ${name} for the rest of the season at ${money(sal)}?\n\n`
     +(early ? 'Signed before the trade deadline, so your club earns Early Bird rights on him.'
             : 'Signed after the trade deadline \u2014 this is a rental. No rights, and he leaves in the summer.'))) return;
   await signPlayer(name,team,sal,1,{bird:early?'Early':'', why:early?'in-season, Early Bird':'in-season rental'});
 }
+/* Signing onto a full roster: pick the player to release from a dropdown, then
+   the release and the signing go in one save. */
+let signDropping=null;
+function openSignDrop(team,name){
+  const early=!deadlinePassed();
+  signDropping={team,name};
+  $('sdTitle').textContent=`Sign ${name}`;
+  $('sdSub').textContent=`${team} already carries ${headcount(team)} active players, the limit. Pick who to drop to make room.`;
+  $('sdDrop').innerHTML=S.teams[team].r.map((p,i)=>({p,i}))
+    .filter(({p})=>contracted(p)&&!onIR(p))
+    .sort((a,b)=>(salNow(a.p)||0)-(salNow(b.p)||0))
+    .map(({p,i})=>`<option value="${i}">${htmlEsc(p.n)} \u00b7 ${money(salNow(p))}</option>`).join('');
+  $('sdNote').textContent=`${name} signs for the rest of the season at ${money(minSal())}`
+    +(early?', with Early Bird rights.':' as a rental, with no rights.')
+    +' The dropped player is released under the usual rules \u2014 his salary stays on your cap this season \u2014 and goes on waivers.';
+  openModal('dlgSignDrop');
+}
+$('sdGo').onclick=async e=>{
+  if(!signDropping) return;
+  const {team,name}=signDropping, i=parseInt($('sdDrop').value);
+  const out=S.teams[team].r[i];
+  if(!out){ if(e&&e.preventDefault) e.preventDefault(); return alert('Pick a player to drop.'); }
+  signDropping=null;
+  const early=!deadlinePassed();
+  await signPlayer(name,team,minSal(),1,{bird:early?'Early':'', why:early?'in-season, Early Bird':'in-season rental', drop:out.n});
+};
 async function signPlayer(name,team,price,years,opts){
   opts=opts||{};
   /* `force` is the auction award: the caller has already established who may do
@@ -2957,7 +3013,17 @@ async function signPlayer(name,team,price,years,opts){
   }
   const cap=S.cfg.cap, tax=S.cfg.tax, cur=committed(team);
   if(cur+price>tax) return alert(`That puts ${team} at ${money(cur+price)}, past the ${money(tax)} hard cap. Not permitted.`);
-  if(headcount(team)>=S.cfg.roster) return alert(`${team} already has ${S.cfg.roster} players under contract.`);
+  const dropIdx=opts.drop?S.teams[team].r.findIndex(p=>p.n===opts.drop&&contracted(p)&&!onIR(p)):-1;
+  if(opts.drop&&dropIdx<0) return alert(`${opts.drop} is no longer on ${team}'s active roster.`);
+  if(dropIdx<0&&headcount(team)>=S.cfg.roster) return alert(`${team} already has ${S.cfg.roster} players under contract.`);
+  /* Release first, then sign: the other order leaves the club over the limit for
+     the length of a statement. The release is logged as its own cut. */
+  if(dropIdx>=0){
+    const out=releaseRecord(team,dropIdx);
+    const ce={ts:now(),by:isComm()?'Commissioner':me,kind:'cut',team,
+      detail:`${out.n} released \u2014 ${money(salNow(out)!=null?salNow(out):salPrev(out))} \u2014 to sign ${name}`};
+    S.log.unshift(ce); await appendLog([ce]);
+  }
   const y=termFrom(price,years);
   // if he is an existing free agent, move him; otherwise create
   let moved=false;
@@ -4143,7 +4209,7 @@ function drawAdmin(){
     $('hStats').onclick=()=>run('/api/stats?run=1','Stats fetch');
     $('hScore').onclick=()=>run('/api/score?run=1','Rescore');
   }
-  drawHealth();
+  drawHealth(); sfWire();
   if($('tipBox')&&!$('tipBox').dataset.built){
     $('tipBox').dataset.built='1';
     $('tipDay').value=dayKey();
@@ -4643,6 +4709,9 @@ function render(){
   exportBtn('expLab','team-builder.csv','labRoster');
   exportBtn('expMine','my-roster.csv','meRoster');
   exportBtn('expTeam','club-contracts.csv','detail');drawProjBar();drawProjTab();drawMe();drawAuction();
+  /* The free agent list lives on Players, not My Team: drawMe() skips itself while
+     My Team is hidden, which left this list empty until a filter was touched. */
+  drawFilters();drawFAList();
   capScrollers();
 }
 /* ---- give a long table its own scroll box ----
@@ -5026,7 +5095,7 @@ function drawMe(){
   sortable('meRosTbl','mine','sal',true); redraw.mine=drawMe;
   drawLastNight();
   if($('goTrades')) $('goTrades').onclick=()=>goTab('v-trade');
-  drawBidPanel(); drawFilters(); drawFAList();
+  drawBidPanel();
 }
 /* ---- bidding lives on the AUCTION tab ---------------------------------
    The controls used to sit on My Team, two tabs from the bid history, the money
@@ -9692,9 +9761,16 @@ function drawLineup(){
     const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
       .filter(p=>(slotOk(id,p.n)||canon(p.n)===canon(cur))&&!isLocked(p.n))
       .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
-    return `<option value="">&#8212; empty &#8212;</option>`
+    /* A starter can be sent to the bench or to any other open spot he fits, not
+       only swapped for somebody off the bench. `@<slot>` values are moves. */
+    const moves=cur?SLOTIDS.filter(k=>k!==id&&!lu.s[k]&&slotOk(k,cur)):[];
+    return `<option value="">${cur?'Move to bench':'&#8212; empty &#8212;'}</option>`
+      +(moves.length?`<optgroup label="Move to an open spot">${moves.map(k=>
+        `<option value="@${k}">${slotLabel(k)}</option>`).join('')}</optgroup>`:'')
+      +`<optgroup label="${cur?'Swap with the bench':'Start from the bench'}">`
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
-        htmlEsc(p.n)} \u00b7 ${posText(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('');
+        htmlEsc(p.n)} \u00b7 ${posText(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('')
+      +'</optgroup>';
   };
   const slotRows=SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
@@ -9748,8 +9824,10 @@ function drawLineup(){
     +hdr('IR')+irRows;
 
   if(can){
-    $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>
-      setSlot(T,sel.dataset.slot,sel.value));
+    $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>{
+      const v=sel.value, from=sel.dataset.slot;
+      if(v[0]==='@') return setSlot(T,v.slice(1),lu.s[from]);   // move to another open spot
+      setSlot(T,from,v); });
     $('luSlots').querySelectorAll('[data-start]').forEach(sel=>sel.onchange=()=>{
       if(sel.value) setSlot(T,sel.value,sel.dataset.start); });
     $('luSlots').querySelectorAll('[data-toir]').forEach(b=>b.onclick=()=>{
@@ -11060,17 +11138,94 @@ function drawPlayersFA(){
   if($('pfaSeason')) $('pfaSeason').hidden=!seasonLive();
   if($('v-fa')) $('v-fa').hidden=seasonLive();
 }
-/* My Team's offseason-only parts: the what-if lab (league decision 2026-10-14)
-   and the auction impact card, which only means something with a lot open. */
+/* My Team's phase-dependent parts: the what-if lab is there all year (it was
+   offseason-only until 2026-10-25); the auction impact card only means
+   something with a lot open. */
 function drawMeExtras(){
   const a=A();
-  if($('labWrap')) $('labWrap').hidden=seasonLive();
+  if($('labWrap')) $('labWrap').hidden=false;
   if($('bidWrap')) $('bidWrap').hidden=seasonLive()||!(a&&(a.status==='open'||a.status==='match'));
   if($('toMyContracts')) $('toMyContracts').onclick=()=>{
     activeTeam=meTeam(); goTab('v-contracts'); render();
   };
 }
 
+/* Commissioner › Correct a stat line. Corrections live server-side in `statfix`
+   (lib/statfix.mjs) and are laid over a night whenever it is scored. */
+const SFKEYS=[['MP','Min'],['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3PM'],['STL','STL'],['BLK','BLK'],
+  ['TOV','TO'],['FG','FGM'],['FGA','FGA'],['FT','FTM'],['FTA','FTA']];
+let SFDATA=null;
+async function sfAuth(){
+  return {from:isComm()?'__comm__':me, pin:isComm()?(S.cfg.commPin||''):((S.teams[me]||{}).pin||'')};
+}
+async function sfLoadFixes(){
+  try{ const r=await fetch('/api/stats?fixes=1',{cache:'no-store'}); const j=await r.json(); SFDATA=(j&&j.data)||{days:{}}; }
+  catch(e){ SFDATA=SFDATA||{days:{}}; }
+  sfDrawList();
+}
+function sfDrawList(){
+  const box=$('sfList2'); if(!box) return;
+  const rows=[];
+  Object.keys((SFDATA&&SFDATA.days)||{}).sort().reverse().forEach(d=>SFDATA.days[d].forEach(f=>rows.push({d,f})));
+  box.innerHTML=rows.length
+    ? `<table class="fatab"><thead><tr><th class="l">Night</th><th class="l">Player</th><th class="l">Correction</th><th></th></tr></thead><tbody>${
+        rows.map(({d,f})=>`<tr><td class="l">${htmlEsc(d)}</td><td class="l">${htmlEsc(f.n)}</td>
+          <td class="l">${f.del?'did not play':Object.entries(f.s||{}).map(([k,v])=>`${htmlEsc(k)} ${v}`).join(', ')+(f.t?` \u00b7 ${htmlEsc(f.t)}`:'')}</td>
+          <td><button class="act" data-sfx="${htmlEsc(d)}|${htmlEsc(f.n)}">Remove</button></td></tr>`).join('')}</tbody></table>`
+    : '<p class="note">No corrections yet.</p>';
+  box.querySelectorAll('[data-sfx]').forEach(b=>b.onclick=async()=>{
+    const [day,n]=b.dataset.sfx.split('|');
+    await sfPost({day,n,action:'remove'},`Correction removed`);
+  });
+}
+async function sfPost(body,okMsg){
+  $('sfMsg').textContent='Saving\u2026';
+  try{
+    const r=await fetch('/api/stats?fix=1',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({...(await sfAuth()),...body})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.ok){ $('sfMsg').textContent=j.reason||'Could not save'; return false; }
+    $('sfMsg').textContent=okMsg+(j.rescore?` (${j.rescore})`:' \u00b7 night rescored');
+    await sfLoadFixes(); loadDaily(true); drawHealth(true);
+    return true;
+  }catch(e){ $('sfMsg').textContent='Could not reach the server'; return false; }
+}
+function sfWire(){
+  const f=$('sfForm'); if(!f||f.dataset.built) return;
+  f.dataset.built='1';
+  $('sfStats').innerHTML=SFKEYS.map(([k,l])=>`<div><label for="sf_${k}">${l}</label><input id="sf_${k}" type="number" step="any" min="0"></div>`).join('');
+  $('sfDay').value=wvPlus(dayKey(),-1);
+  $('sfList').innerHTML=RATER.map(p=>`<option value="${htmlEsc(p.n)}">`).join('');
+  const vals=()=>Object.fromEntries(SFKEYS.map(([k])=>[k,$('sf_'+k).value]).filter(([,v])=>v!==''));
+  $('sfLoad').onclick=async()=>{
+    const day=$('sfDay').value, n=$('sfName').value.trim();
+    if(!day||!n) return void($('sfMsg').textContent='Pick a night and a player');
+    try{
+      const r=await fetch('/api/stats?day='+day,{cache:'no-store'}), j=await r.json(), N=j&&j.data;
+      const k=nameKey(canon(n)), k2=nameKey(n);
+      const row=N&&Object.values(N.players||{}).find(p=>[nameKey(p.n)].some(x=>x===k||x===k2));
+      SFKEYS.forEach(([c])=>{ $('sf_'+c).value=row&&row.s[c]!=null?row.s[c]:''; });
+      if(row) $('sfTeam').value=row.t||'';
+      $('sfMsg').textContent=row?`Loaded ${row.n}\u2019s line for ${day}`:`No line for him on ${day} \u2014 fill the stats and his NBA club to add one`;
+    }catch(e){ $('sfMsg').textContent='Could not load that night'; }
+  };
+  $('sfSave').onclick=async()=>{
+    const day=$('sfDay').value, n=$('sfName').value.trim();
+    if(!day||!n) return void($('sfMsg').textContent='Pick a night and a player');
+    if(await sfPost({day,n,t:$('sfTeam').value,s:vals()},'Correction saved')) logCorrection(n,day);
+  };
+  $('sfDnp').onclick=async()=>{
+    const day=$('sfDay').value, n=$('sfName').value.trim();
+    if(!day||!n) return void($('sfMsg').textContent='Pick a night and a player');
+    if(!confirm(`Remove ${n}\u2019s line for ${day}? He will count as not having played that night.`)) return;
+    if(await sfPost({day,n,del:true},'Line removed')) logCorrection(n,day,true);
+  };
+  sfLoadFixes();
+}
+function logCorrection(n,day,dnp){
+  const e={ts:now(),by:isComm()?'Commissioner':me,kind:'edit',detail:`Stat line corrected: ${n}, ${day}${dnp?' (removed)':''}`};
+  S.log.unshift(e); appendLog([e]).catch(()=>{});
+}
 /* Commissioner: start, end and rescore. */
 function drawPreAdmin(){
   const box=$('preAdmin'); if(!box) return;
