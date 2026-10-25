@@ -4514,7 +4514,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     const live = document.getElementById('homeLive').innerHTML;
     ok('Around the league does not show a third club the offer', !/Offer made/.test(live));
     X.me = A; g('drawHomeLive')();
-    ok('...but shows it to a party', /offer made/i.test(document.getElementById('homeLive').innerHTML));
+    ok('...and, now that it lists only trades and adds/drops, not even to a party', !/offer made/i.test(document.getElementById('homeLive').innerHTML));
 
     const tr = {ts:'2026-10-17T10:00:00.000Z', by:A, a:A, b:B, give:['Aaa Player'], get:['Bbb Player'], givePk:[], getPk:[],
                 status:'pending'};
@@ -4599,6 +4599,21 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     X.me = '__comm__'; g('drawWatchTable')();
     ok('the commissioner login has none', document.getElementById('meWatch').innerHTML === '');
     X.me = keepMe; X.WATCH = keepW; g('drawWatchTable')();
+  }
+
+  console.log('\n== in season an unsigned player has no rights; he is a free agent ==');
+  {
+    const CS = g('S'), keep = CS.cfg.phase;
+    const club = 'Christman', name = 'Mikal Bridges';
+    const p = CS.teams[club].r.find(x => x.n === name);
+    CS.cfg.phase = 'offseason';
+    ok('offseason: his club still holds Bird on an expiring deal', g('rightsOf')('Osborn', name).bird === 'Yes' && !!g('tradeRight')(p));
+    ok('offseason: he reads as expiring', /expiring/.test(g('ownerOf')(name)));
+    CS.cfg.phase = 'season';
+    ok('season: no rights', g('rightsOf')('Osborn', name).bird === '' && g('rightsOf')('Osborn', name).club === null);
+    ok('season: not tradeable on the strength of rights', g('tradeRight')(p) === null);
+    ok('season: he is a plain free agent', g('ownerOf')(name) === 'Free agent' && g('isFreeAgent')(name));
+    CS.cfg.phase = keep;
   }
 
   console.log('\n== no stray alerts ==');

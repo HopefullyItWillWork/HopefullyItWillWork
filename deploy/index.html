@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-25.3">
+<meta name="ll-build" content="2026-10-25.4">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2667,6 +2667,18 @@ const salPrev=p=>salIn(p,seasonPrev(curSeason()));       // was y[0]
 const salOff=(p,n)=>salIn(p,seasonAt(curSeason(),n));    // y[1+n]
 /* Under contract for the season the league is on. */
 const contracted=p=>salNow(p)!=null;
+/* Rights lapse. An unsigned player is a free agent: once the season is live, every
+   expiring contract has lost its Bird, Early Bird and restricted rights (league
+   decision, 2026-10-25); and in any phase, a contract that ran out before the
+   season just finished has long since lapsed — without that, a man unsigned all
+   year would get his rights back when the next offseason opens. Derived, nothing
+   is rewritten, so the rights still on the sheet are only ever hidden. */
+function rightsLapsed(p){
+  if(!p||contracted(p)) return false;
+  if(seasonLive()) return true;
+  const ks=Object.keys(normContract(p.y,curSeason()));
+  return ks.length>0 && Math.max(...ks.map(seasonStart))<seasonStart(seasonPrev(curSeason()));
+}
 /* Seasons still owed, counting the current one. */
 const yrsLeft=p=>{
   if(!p||!p.y) return 0;
@@ -2726,7 +2738,7 @@ function tenureOf(p){
 }
 /* The rights a roster entry actually carries: '' , 'Early' or 'Yes'. */
 function birdRight(p){
-  if(!p) return '';
+  if(!p||rightsLapsed(p)) return '';
   const ten=tenureOf(p);
   if(ten==null) return birdKind(p.b);        // nothing to compute from
   if(ten>=birdYears()) return 'Yes';
@@ -2888,7 +2900,7 @@ function freeAgents(){
   TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{ if(!p.cut&&contracted(p)) signed.add(canon(p.n)); }));
   TEAMS().forEach(t=>S.teams[t].r.forEach(p=>{
     const c=canon(p.n);
-    if(!contracted(p)&&!signed.has(c)&&!seen.has(c)){ out.push({...p,from:t,restricted:!!p.o}); seen.add(c); }
+    if(!contracted(p)&&!signed.has(c)&&!seen.has(c)){ out.push({...p,from:t,restricted:!!p.o&&!rightsLapsed(p)}); seen.add(c); }
   }));
   // Everyone in the player pool who has never been on a league roster is also
   // a free agent — they belong on the open market, not nowhere.
@@ -3759,9 +3771,9 @@ function drawFA(){
   const q=($('faTabSearch')&&$('faTabSearch').value.trim().toLowerCase())||'';
   const wf=$('faTabWatch')&&$('faTabWatch').value;
   const groups=[['Restricted','Their club sits out the bidding, then decides whether to match.',p=>p.restricted],
-    ['Bird rights','Old club can exceed the cap to keep them, but must win the bidding.',p=>!p.restricted&&p.b==='Yes'],
-    ['Early Bird','Old club can go up to $7.00 over the cap.',p=>!p.restricted&&p.b&&p.b!=='Yes'],
-    ['Open market','No club holds retention rights.',p=>!p.restricted&&!p.b]];
+    ['Bird rights','Old club can exceed the cap to keep them, but must win the bidding.',p=>!p.restricted&&!rightsLapsed(p)&&p.b==='Yes'],
+    ['Early Bird','Old club can go up to $7.00 over the cap.',p=>!p.restricted&&!rightsLapsed(p)&&p.b&&p.b!=='Yes'],
+    ['Open market','No club holds retention rights.',p=>!p.restricted&&(rightsLapsed(p)||!p.b)]];
   $('fagrid').innerHTML=groups.map(([title,desc,f],gi)=>{
     const key='fag'+gi, FS=SORTS[key]||{col:'rtg',desc:true};
     const fv=(p,c)=>{const v=pstat(p.n);
@@ -5581,7 +5593,7 @@ function ownerOf(name){
   const t=signedClub(name);
   if(t) return t;
   const e=liveClub(name);
-  return e ? e+' (expiring)' : 'Free agent';
+  return e&&!seasonLive() ? e+' (expiring)' : 'Free agent';
 }
 /* The same thing in the lower case the player cards use. */
 const ownerLabel=name=>{const o=ownerOf(name); return o==='Free agent'?'free agent':o;};
@@ -7542,6 +7554,7 @@ function rightsOf(team,name){
   const n=canon(name);
   for(const t of TEAMS()){
     const p=S.teams[t].r.find(x=>canon(x.n)===n && !contracted(x));
+    if(p&&rightsLapsed(p)) return {club:null,bird:'',opt:'',rfa:false};
     if(p) return {club:t, bird:birdRight(p), opt:p.o, rfa:!!p.o, acq:p.acq??null, ten:tenureOf(p)};
   }
   return {club:null,bird:'',opt:'',rfa:false};
@@ -8387,7 +8400,7 @@ const salOf=p=>salNow(p)!=null?salNow(p):0;
    club holds nothing; an expiring player with no rights at all is an
    unrestricted free agent nobody can trade. */
 function tradeRight(p){
-  if(contracted(p)||p.cut) return null;
+  if(contracted(p)||p.cut||rightsLapsed(p)) return null;
   if(p.b==='Yes') return 'Bird';
   if(p.b) return 'Early Bird';
   if(p.o) return 'Restricted';
