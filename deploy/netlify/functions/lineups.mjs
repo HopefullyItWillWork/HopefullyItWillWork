@@ -17,7 +17,8 @@
    No auth on the ordinary save, like the rest of /api: the honour-system PINs live in the page. The
    clock is the part that matters, and the client never supplies it. */
 
-import { store, isCommissioner } from "./lib/league.mjs";
+import { store, read, isCommissioner } from "./lib/league.mjs";
+import { clubCtx } from "./lib/clubs.mjs";
 import { runScore, runPstats } from "./lib/scorerun.mjs";
 import { ensureIds } from "./lib/clubids.mjs";
 import { recordLineup, lineupsOn } from "./lib/lineups.mjs";
@@ -25,6 +26,15 @@ import { recordLineup, lineupsOn } from "./lib/lineups.mjs";
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const TZ = () => process.env.LEAGUE_TZ || "America/New_York";
 const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: H });
+
+/* The club a posted name means: itself, or the club it was renamed to. */
+async function clubNamed(s, teams, club) {
+  if (teams[club]) return club;
+  const cfg = (await read(s, "settings")).data || {};
+  const ctx = clubCtx(teams, cfg.renames);
+  const id = ctx.byName[club];
+  return id && ctx.nameOf[id] ? ctx.nameOf[id] : "";
+}
 
 export default async (req) => {
   const s = store();
@@ -40,8 +50,9 @@ export default async (req) => {
         const day = String(body.day || "");
         if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json({ ok: false, error: "day=YYYY-MM-DD required" }, 400);
         const teams = await ensureIds(s);
-        if (!teams[club]) return json({ ok: false, error: `no club named ${club}` }, 404);
-        await recordLineup(s, TZ(), { club, cid: teams[club].id, s: body.s, day,
+        const oname = await clubNamed(s, teams, club);
+        if (!oname) return json({ ok: false, error: `no club named ${club}` }, 404);
+        await recordLineup(s, TZ(), { club: oname, cid: teams[oname].id, s: body.s, day,
           by: String(body.by || body.from || "").slice(0, 60), src: "override" });
         const out = { ok: true, day };
         try { out.score = await runScore(s, { only: day }); out.pstats = await runPstats(s, { days: [day] }); }
@@ -53,7 +64,7 @@ export default async (req) => {
           const night = raw ? (JSON.parse(raw).data || null) : null;
           if (!night) out.summary = { stored: false };
           else {
-            const c = (night.clubs || {})[teams[club].id] || null;
+            const c = (night.clubs || {})[teams[oname].id] || null;
             out.summary = { stored: true, counted: c ? c.counted.map((x) => x.n) : [],
               over: c ? c.over.map((x) => x.n) : [], totals: c ? c.totals : null,
               noTip: (night.noTip || []).length, unmatched: (night.unmatched || []).length };
@@ -64,8 +75,10 @@ export default async (req) => {
       /* Only a club that exists. A typo or a stale tab after a rename must not
          start a history under a name scoring will never look up. */
       const teams = await ensureIds(s);
-      if (!teams[club]) return json({ ok: false, error: `no club named ${club}` }, 404);
-      const entry = await recordLineup(s, TZ(), { club, cid: teams[club].id, s: body.s, by: String(body.by || "").slice(0, 60) });
+      /* A name the club used to have (a stale tab after a rename) still means that club. */
+      const name = await clubNamed(s, teams, club);
+      if (!name || !teams[name]) return json({ ok: false, error: `no club named ${club}` }, 404);
+      const entry = await recordLineup(s, TZ(), { club: name, cid: teams[name].id, s: body.s, by: String(body.by || "").slice(0, 60) });
       return json({ ok: true, at: entry.at, day: entry.day });
     }
     if (req.method === "GET") {
