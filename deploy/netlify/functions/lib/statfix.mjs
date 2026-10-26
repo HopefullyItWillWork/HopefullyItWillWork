@@ -51,3 +51,38 @@ export function applyFixes(night, fixes) {
 }
 
 export const fixesOn = (data, day) => ((data && data.days && data.days[day]) || []);
+
+/* ---- a club's whole night -------------------------------------------------
+   The last resort when something odd happens: set a club's totals for one night
+   directly, whatever scoring made of it (or failed to). Stored in `clubfix`,
+   filed by the club's permanent id —
+
+     clubfix = { rev, data: { days: { 'YYYY-MM-DD': { <clubId>: { FG, FGA, …, GP, by, at } } } } }
+
+   — and laid over the score index every time it is written, so a later rescore
+   cannot undo it. Only the categories given replace the scored ones. */
+export const CLUBCATS = ["FG", "FGA", "FT", "FTA", "P3", "REB", "AST", "STL", "BLK", "TO", "PTS", "GP"];
+
+export function cleanClubFix(t) {
+  const out = {};
+  for (const k of CLUBCATS) {
+    const v = t && t[k];
+    if (v == null || v === "") continue;
+    const x = Number(v);
+    if (!Number.isFinite(x) || x < 0 || x > 100000) return { error: `${k} must be a number from 0 to 100000` };
+    out[k] = Math.round(x * 100) / 100;
+  }
+  return Object.keys(out).length ? { fix: out } : { error: "set at least one total" };
+}
+
+/* days: the score index's { date: { clubId: totals } }; mutated and returned. */
+export function applyClubFix(days, data) {
+  for (const [day, clubs] of Object.entries((data && data.days) || {})) {
+    for (const [id, f] of Object.entries(clubs || {})) {
+      days[day] = days[day] || {};
+      const base = days[day][id] || Object.fromEntries(CLUBCATS.map((k) => [k, 0]));
+      days[day][id] = { ...base, ...Object.fromEntries(CLUBCATS.filter((k) => f[k] != null).map((k) => [k, f[k]])) };
+    }
+  }
+  return days;
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-25.6">
+<meta name="ll-build" content="2026-10-26.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1928,6 +1928,24 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     </div>
     <div class="form f4" id="loSlots"></div>
     <div class="form f4"><button class="btn" id="loSave" type="button">Save lineup &amp; refresh stats</button><span class="fcount" id="loMsg"></span></div>
+
+    <h3 class="sub" style="margin-top:14px">Adjust a club&#8217;s totals for a night</h3>
+    <p class="note explain">The last resort when something odd happens: set a club&#8217;s own totals for any past night directly,
+      whatever scoring made of it. Only the boxes you fill in replace the scored numbers, and the fix survives every later rescore.
+      &#8220;Load scored totals&#8221; shows what scoring has for that club and night. &#8220;Check scoring&#8221; reports what the server sees
+      for that club &#8212; which club the name resolves to, the lineups it found, and whether each starter matched a box score &#8212; so a missing score
+      can be diagnosed rather than guessed at.</p>
+    <div class="form f4">
+      <div><label for="cfClub">Club</label><select id="cfClub"></select></div>
+      <div><label for="cfDay">Night</label><input id="cfDay" type="date"></div>
+      <div><button class="btn ghost" id="cfLoad" type="button">Load scored totals</button></div>
+      <div><button class="btn ghost" id="cfDiag" type="button">Check scoring</button></div>
+    </div>
+    <div class="form f4" id="cfCats"></div>
+    <div class="form f4"><button class="btn" id="cfSave" type="button">Save totals</button>
+      <button class="btn danger" id="cfRemove" type="button">Remove my fix for this night</button><span class="fcount" id="cfMsg"></span></div>
+    <pre id="cfOut" hidden style="white-space:pre-wrap"></pre>
+
 
 
 
@@ -4266,7 +4284,7 @@ function drawAdmin(){
     $('hStats').onclick=()=>run('/api/stats?run=1','Stats fetch');
     $('hScore').onclick=()=>run('/api/score?run=1','Rescore');
   }
-  drawHealth(); sfWire(); loWire();
+  drawHealth(); sfWire(); loWire(); cfWire();
   if($('tipBox')&&!$('tipBox').dataset.built){
     $('tipBox').dataset.built='1';
     $('tipDay').value=dayKey();
@@ -11376,6 +11394,63 @@ function loWire(){
       if($('loKeep').checked){ S.teams[club].lu={d:dayKey(),s:sl}; await commit(null,['rosters']); await logLineup(club); }
       loadDaily(true); drawHealth(true);
     }catch(err){ $('loMsg').textContent='Could not reach the server'; }
+  };
+}
+/* Commissioner › Adjust a club's totals for a night, and Check scoring. */
+const CFCATS=[['PTS','PTS'],['REB','REB'],['AST','AST'],['P3','3PM'],['STL','STL'],['BLK','BLK'],['TO','TO'],
+  ['FG','FGM'],['FGA','FGA'],['FT','FTM'],['FTA','FTA'],['GP','Games']];
+function cfWire(){
+  const f=$('cfClub'); if(!f||f.dataset.built) return;
+  f.dataset.built='1';
+  f.innerHTML=TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
+  $('cfDay').value=wvPlus(dayKey(),-1);
+  $('cfCats').innerHTML=CFCATS.map(([k,l])=>`<div><label for="cf_${k}">${l}</label><input id="cf_${k}" type="number" step="any" min="0"></div>`).join('');
+  $('cfLoad').onclick=async()=>{
+    const day=$('cfDay').value, club=f.value;
+    try{
+      const r=await fetch('/api/score?day='+day,{cache:'no-store'}), j=await r.json(), c=j&&j.data&&j.data.clubs&&j.data.clubs[club];
+      CFCATS.forEach(([k])=>{ $('cf_'+k).value=c&&c.totals&&c.totals[k]!=null?Math.round(c.totals[k]*100)/100:''; });
+      $('cfMsg').textContent=c?'Loaded what scoring has for that night':'Scoring has nothing for that club on that night';
+    }catch(e){ $('cfMsg').textContent='Could not load that night'; }
+  };
+  const post=async(body,ok)=>{
+    $('cfMsg').textContent='Saving\u2026';
+    try{
+      const r=await fetch('/api/score?clubfix=1',{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({...(await sfAuth()),day:$('cfDay').value,club:f.value,...body})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.ok){ $('cfMsg').textContent=j.reason||'Could not save'; return; }
+      $('cfMsg').textContent=ok; loadDaily(true); drawHealth(true);
+      const e={ts:now(),by:isComm()?'Commissioner':me,kind:'edit',team:f.value,detail:`Totals for ${$('cfDay').value} ${body.remove?'fix removed':'adjusted by the commissioner'}`};
+      S.log.unshift(e); appendLog([e]).catch(()=>{});
+    }catch(e){ $('cfMsg').textContent='Could not reach the server'; }
+  };
+  $('cfSave').onclick=()=>{
+    const totals=Object.fromEntries(CFCATS.map(([k])=>[k,$('cf_'+k).value]).filter(([,v])=>v!==''));
+    if(!Object.keys(totals).length) return void($('cfMsg').textContent='Fill in at least one total');
+    if(confirm(`Set ${f.value}\u2019s totals for ${$('cfDay').value}?`)) post({totals},'Saved \u00b7 standings updated');
+  };
+  $('cfRemove').onclick=()=>{ if(confirm('Remove the fix and let scoring decide again?')) post({remove:true},'Removed \u00b7 night rescored'); };
+  $('cfDiag').onclick=async()=>{
+    const out=$('cfOut'); out.hidden=false; out.textContent='Checking\u2026';
+    try{
+      const r=await fetch(`/api/score?diag=1&club=${encodeURIComponent(f.value)}&day=${$('cfDay').value}`,{cache:'no-store'});
+      const j=await r.json();
+      if(!j.ok){ out.textContent=j.error||'The check failed'; return; }
+      const L=[];
+      L.push(j.problem?`PROBLEM: ${j.problem}`:'No problem found for that night.');
+      L.push(`Club: ${j.club} \u2192 server id ${j.clubId||'NONE'}`);
+      if(j.renames&&j.renames.length) L.push('Renames: '+j.renames.map(x=>`${x.from} \u2192 ${x.to}`).join('; '));
+      L.push('Clubs on the server: '+(j.serverClubs||[]).map(c=>c.name+(c.live?'':' (old name)')).join(', '));
+      L.push('Lineup on the server now: '+(j.serverLineup?j.serverLineup.length+' players':'none'));
+      L.push(`Lineup entries for ${j.day} that resolve to this club: ${(j.lineupEntries||[]).length}`);
+      (j.lineupEntries||[]).forEach(e=>L.push(`  ${e.at} (${e.src}) saved as "${e.savedAs}" \u2014 ${e.starters.length} starters`));
+      if(j.lineupEntriesElsewhere) L.push('All lineup entries that day, by saved name: '+j.lineupEntriesElsewhere.map(x=>`${x.savedAs} ${x.entries}`).join(', '));
+      if(j.box) L.push(`Box scores: ${j.box.players} players, ${j.box.games} games (${j.box.gamesWithTip} with a tip-off)`);
+      if(j.starterCheck) L.push('Starters: '+j.starterCheck.map(x=>x.name+(x.inBoxScore?' \u2713':' \u2717 (no box-score line)')).join(', '));
+      if(j.scored) L.push(`Counted: ${j.scored.counted.length} \u2014 ${j.scored.counted.join(', ')||'nobody'}`);
+      out.textContent=L.join('\n');
+    }catch(e){ out.textContent='Could not reach the server'; }
   };
 }
 /* Commissioner: start, end and rescore. */

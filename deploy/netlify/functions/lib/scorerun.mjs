@@ -20,7 +20,7 @@ import { keyOf, resolveEntry } from "./clubs.mjs";
 import { ctxFor, migrateIds } from "./clubids.mjs";
 import { lineupsOn } from "./lineups.mjs";
 import { dayKey } from "./stats.mjs";
-import { applyFixes, fixesOn } from "./statfix.mjs";
+import { applyFixes, fixesOn, applyClubFix } from "./statfix.mjs";
 import { compactNight, windowsFrom } from "./pstats.mjs";
 
 const BUDGET = 22000;
@@ -119,6 +119,7 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
       errors.push({ day, error: String((e && e.message) || e) });
     }
   }
+  applyClubFix(idx.days, (await readKey(s, "clubfix")).data);
   idx.lastRun = { at: new Date().toISOString(), done, left, errors, notes, ms: now() - start };
   await writeKey(s, key, prevIdx, idx);
   return idx.lastRun;
@@ -202,6 +203,7 @@ export async function runPre(s, { now = Date.now } = {}) {
     }
   }
   idx.lastRun = { at: new Date().toISOString(), done, left, errors, ms: now() - start };
+  applyClubFix(idx.days, (await readKey(s, "clubfix")).data);
   await writeKey(s, "score-pre", prevIdx, idx);
   return idx.lastRun;
 }

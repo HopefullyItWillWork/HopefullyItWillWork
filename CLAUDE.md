@@ -2767,3 +2767,12 @@ domain's DNS is at **Porkbun**. With no key, every send is a quiet no-op.
   `isCommissioner()` now lives in `lib/league.mjs`.
 - **Rights lapse** (`rightsLapsed()`): in season an unsigned player has no Bird,
   Early Bird or restricted rights; derived, nothing rewritten.
+- **Club-night totals and the scoring check.** `POST /api/score?clubfix=1`
+  `{from, pin, day, club, totals|remove}` sets a club's own totals for one night in the
+  `clubfix` blob (by club id); `applyClubFix()` lays it over the score index on every
+  write, so a rescore cannot undo it. `GET /api/score?diag=1&club=&day=`
+  (`lib/scorediag.mjs`) reports what scoring sees for one club — the id its name
+  resolves to, the lineup entries that resolve to it, each starter's box-score match
+  — and the first problem found. UI: Commissioner › Adjust a club's totals for a night
+  (`cfWire()`). `/api/lineups` now resolves a stale club name through the rename
+  journal instead of answering 404.
