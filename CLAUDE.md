@@ -2512,6 +2512,17 @@ contract, on the IR) is cleared, and the new lineup is posted to `/api/lineups`.
 Without it a released man stayed in his slot and kept scoring for the club that
 cut him. It lives in `commit()` so a new roster path cannot forget it.
 
+**A blob key must never hold `?`, `#` or `%` (2026-10-27).** `@netlify/blobs`
+puts the key into the request URL as it is, so the server percent-decodes it on
+the way in. The club segment was `encodeURIComponent(name)`, which stored
+"Boozer? I Hardly Know Her." (Christman, renamed 2026-10-19) with a literal
+`?`, and every read of that key cut it off at the `?` and found nothing. All
+of that club's lineups were written and none could be read: its saves, its
+morning carries and the commissioner's overrides. So it scored zero every
+night, and Oct 20–25 were patched by hand with `clubfix`. The segment is now
+letters, digits and `. _ -` only, and `getListed()` reads the old keys by
+escaping them. Use `getListed()` for any key that came back from `list()`.
+
 Each entry carries `cid`, the club's permanent id (next section), beside `club`,
 the name it went by at the time. Scoring groups by `cid`.
 

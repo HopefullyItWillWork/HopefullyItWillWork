@@ -10,6 +10,7 @@
    Both are safe to run any number of times. */
 
 import { stampIds, clubCtx, keyOf, nameFor } from "./clubs.mjs";
+import { getListed, listedKey } from "./lineups.mjs";
 
 async function readKey(s, key) {
   const raw = await s.get(key);
@@ -47,7 +48,7 @@ export async function migrateIds(s, { dry = false, seasonKeys = [], skipLineups 
   /* Lineup history: stamp `cid` on every entry that has none. */
   const { blobs } = skipLineups ? { blobs: [] } : await s.list({ prefix: "luh/" });
   for (const b of blobs) {
-    let e; try { e = JSON.parse(await s.get(b.key)); } catch { continue; }
+    let e; try { e = JSON.parse(await getListed(s, b.key)); } catch { continue; }
     if (!e) continue;
     report.lineups.total++;
     if (e.cid && ctx.nameOf[e.cid]) continue;
@@ -55,7 +56,7 @@ export async function migrateIds(s, { dry = false, seasonKeys = [], skipLineups 
     seen(report.lineups.names, e.club, ctx.nameOf[id] ? id : null);
     if (!ctx.nameOf[id]) { report.unresolved.push({ kind: "lineup", club: e.club, at: e.at }); continue; }
     report.lineups.changed++;
-    if (!dry) await s.set(b.key, JSON.stringify({ ...e, cid: id }));
+    if (!dry) await s.set(listedKey(b.key), JSON.stringify({ ...e, cid: id }));
   }
 
   /* Score indexes: re-key each night's totals by id. */

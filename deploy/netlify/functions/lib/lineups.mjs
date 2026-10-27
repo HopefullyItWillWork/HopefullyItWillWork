@@ -27,7 +27,24 @@ export const SLOTS = ["C", "G1", "G2", "G3", "G4", "F1", "F2", "F3", "F4",
 export const dayIn = (tz, at = new Date()) => new Intl.DateTimeFormat("en-CA", {
   timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
 
-const clubSeg = (club) => encodeURIComponent(club);
+/* The club's part of the key. @netlify/blobs puts a key into the request URL
+   as it is, so the server percent-decodes it on the way in: a name encoded with
+   encodeURIComponent() is STORED with its "?" or "#" literal, and reading that
+   key back starts a query string and finds nothing. "Boozer? I Hardly Know Her."
+   lost every lineup that way from the rename on (2026-10-19) — saves, morning
+   carries and the commissioner's overrides were all written and none could be
+   read. Nothing reads the club out of the key (the entry carries `club` and
+   `cid`), so the segment only has to be safe: letters, digits and . _ - */
+const clubSeg = (club) => String(club).replace(/[^A-Za-z0-9._-]+/g, "_") || "_";
+
+/* Read a key that came back from list(). Keys written before the fix above can
+   hold a literal "?", "#" or "%", which must be escaped to survive the URL. */
+export const listedKey = (key) => key.replace(/[?#%]/g, (c) => encodeURIComponent(c));
+export async function getListed(store, key) {
+  const v = await store.get(key);
+  if (v != null || !/[?#%]/.test(key)) return v;
+  return store.get(listedKey(key));
+}
 
 /* Only known slots, only strings, nothing absurd. Anything else is dropped, so
    a malformed save records an empty slot rather than junk. */
@@ -56,7 +73,7 @@ export async function recordLineup(store, tz, { club, cid, s, by, src, day: forD
 export async function lineupsOn(store, day) {
   const { blobs } = await store.list({ prefix: `luh/${day}/` });
   const entries = await Promise.all(blobs.map(async (b) => {
-    try { return JSON.parse(await store.get(b.key)); } catch { return null; }
+    try { return JSON.parse(await getListed(store, b.key)); } catch { return null; }
   }));
   const out = {};
   for (const e of entries.filter(Boolean)) (out[e.club] = out[e.club] || []).push(e);
