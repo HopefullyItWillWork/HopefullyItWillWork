@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-26.1">
+<meta name="ll-build" content="2026-10-27.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2049,7 +2049,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 
     <h2 class="sub">Danger zone</h2>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn ghost" id="exportBtn">Export league as JSON</button>
+      <button class="btn ghost" id="exportBtn">Export everything as JSON (backup)</button>
       <button class="btn danger" id="resetBtn">Reset to the original spreadsheet</button>
     </div>
   </section>
@@ -11977,9 +11977,37 @@ $('saveCfg').onclick=async()=>{
     +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}, `
     +`mid-level ${money(mleAmt())}, salary matching ${matchOn()?'on':'off'}`});
 };
-$('exportBtn').onclick=()=>{
-  const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='league-ledger.json';a.click();
+/* The backup. The league slices as this page holds them (the file's old shape,
+   kept at the top level), plus `server`: every blob in the store from
+   /api/backup — standings and nightly scores, box scores, rolling stats, lineup
+   history, corrections, chat, waivers. Fetched in batches, since a season of it
+   is several megabytes. If the server half fails the file still downloads, and
+   `server.error` says why. */
+$('exportBtn').onclick=async()=>{
+  const btn=$('exportBtn'), label=btn.textContent;
+  const out={...S, exported:new Date().toISOString(), build:(document.querySelector('meta[name="ll-build"]')||{}).content||''};
+  if(HAS_API){
+    btn.disabled=true;
+    try{
+      const r=await fetch('/api/backup',{cache:'no-store'}), j=await r.json();
+      if(!j.ok) throw new Error(j.error||'http '+r.status);
+      const blobs={};
+      for(let i=0;i<j.keys.length;i+=40){
+        btn.textContent=`Exporting… ${i}/${j.keys.length}`;
+        const rr=await fetch('/api/backup',{method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify({keys:j.keys.slice(i,i+40)})});
+        const jj=await rr.json();
+        if(!jj.ok) throw new Error(jj.error||'http '+rr.status);
+        Object.assign(blobs,jj.blobs);
+      }
+      out.server={keys:j.keys.length, blobs};
+    }catch(e){ out.server={error:String((e&&e.message)||e)}; }
+    btn.disabled=false; btn.textContent=label;
+  }
+  const b=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download=`league-ledger-${dayKey()}.json`;a.click();
+  if(out.server&&out.server.error) alert('The league slices were saved, but the server data could not be fetched: '+out.server.error);
 };
 $('resetBtn').onclick=async()=>{
   /* The reset keeps the commissioner's settings — cap, tax, PINs, deputies — and

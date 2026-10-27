@@ -2787,3 +2787,10 @@ domain's DNS is at **Porkbun**. With no key, every send is a quiet no-op.
   — and the first problem found. UI: Commissioner › Adjust a club's totals for a night
   (`cfWire()`). `/api/lineups` now resolves a stale club name through the rename
   journal instead of answering 404.
+- **Backup.** Commissioner › Danger zone › "Export everything as JSON" downloads
+  `league-ledger-<date>.json`: the league slices as the page holds them (the old
+  export's shape, at the top level) plus `server.blobs`, every key in the Blobs
+  store — score indexes, nightly box scores, rolling stats, lineup history,
+  corrections, chat, waivers. `backup.mjs`: `GET /api/backup` lists the keys,
+  `POST {keys}` returns up to 60 at a time; the page batches by 40 because a
+  function response is capped at 6MB. Read-only. Restoring from it is not built.
