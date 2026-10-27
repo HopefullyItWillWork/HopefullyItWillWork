@@ -146,6 +146,28 @@ export function diffDay(before, after) {
    that is not being played must not lock anybody. A club playing twice in a
    day (it does not happen, but the feed cannot promise it) keeps the earlier
    time, so a lock can never land later than the game a GM is watching. */
+/* Tonight's opponent for each club, the way ESPN's lineup screen writes it: the
+   other club's code for a home game ("DET"), "@" and the home club for a road
+   game ("@SA"). Postponed games are left out, as in tipsFrom(); a club with two
+   games (it does not happen in the NBA) keeps its earliest. */
+export function oppsFrom(scoreboard) {
+  const out = {}, at = {};
+  for (const e of (scoreboard && scoreboard.events) || []) {
+    const name = String((e.status && e.status.type && e.status.type.name) || "");
+    if (/POSTPONED|CANCELED|CANCELLED|SUSPENDED/.test(name)) continue;
+    const when = String(e.date || "");
+    const cs = ((e.competitions && e.competitions[0]) || {}).competitors || [];
+    const home = cs.find((c) => c.homeAway === "home"), away = cs.find((c) => c.homeAway === "away");
+    const h = home && home.team && home.team.abbreviation, a = away && away.team && away.team.abbreviation;
+    if (!h || !a) continue;
+    for (const [code, opp] of [[h, a], [a, "@" + h]]) {
+      if (at[code] && at[code] <= when) continue;
+      out[code] = opp; at[code] = when;
+    }
+  }
+  return out;
+}
+
 export function tipsFrom(scoreboard, tz) {
   const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
   const out = {};

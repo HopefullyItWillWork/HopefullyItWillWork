@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-27.1">
+<meta name="ll-build" content="2026-10-27.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -9456,7 +9456,7 @@ async function loadSchedule(force){
     const r=await fetch(`/api/schedule?day=${encodeURIComponent(day)}`,{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
     const j=await r.json();
-    SCHED={day,tips:(j&&j.tips)||{},ok:!(j&&j.reason),reason:(j&&j.reason)||''};
+    SCHED={day,tips:(j&&j.tips)||{},opp:(j&&j.opp)||{},ok:!(j&&j.reason),reason:(j&&j.reason)||''};
   }catch(e){ SCHED={day,tips:{},ok:false,reason:'schedule unavailable'}; }
   return SCHED;
 }
@@ -9473,6 +9473,14 @@ function tipFor(team,day){
     if(alt&&src[alt]!=null) return src[alt];
   }
   return null;
+}
+/* Tonight's opponent, ESPN's way: "DET" at home, "@SA" on the road. From the feed
+   only (the commissioner's override carries times, not match-ups), so a club the
+   override alone knows about has a time and no opponent. Codes are ESPN's. */
+function oppFor(team,day){
+  const o=(SCHED.day===day&&SCHED.opp)||{}, alt=TRICODE[team];
+  const back=Object.keys(TRICODE).find(k=>TRICODE[k]===team);
+  return o[team]||(alt&&o[alt])||(back&&o[back])||'';
 }
 /* A tip-off is 'HH:MM' in league time, which is how a human reads a schedule and
    what the feed returns. A full timestamp is accepted too, so anything already
@@ -9542,7 +9550,7 @@ function tipOf(name,at){
   const v=tipFor(tm,dayKey(at));
   if(v==null) return null;
   const m=tipMinutes(v);
-  return m==null?null:{team:tm,at:m};
+  return m==null?null:{team:tm,at:m,opp:oppFor(tm,dayKey(at))};
 }
 function lockOf(name,at){
   const t=tipOf(name,at);
@@ -9865,7 +9873,9 @@ function drawLineup(){
     const t=tipOf(nm);
     if(!t) return `<span class="lugame nog">${known?'No game':''}</span>`;
     const lk=minutesNow()>=t.at;
-    return `<span class="lugame${lk?' lk':''}">${htmlEsc(t.team)} ${htmlEsc(clock12(t.at))}<small>${lk?'Locked':'Tips off'}</small></span>`;
+    /* The opponent leads, as on ESPN ("@SA 5:00 PM"); his own club moves to the small line. */
+    const vs=t.opp?(t.opp[0]==='@'?`${t.team} at ${t.opp.slice(1)}`:`${t.team} vs ${t.opp}`):'';
+    return `<span class="lugame${lk?' lk':''}"${vs?` title="${htmlEsc(vs)}"`:''}>${htmlEsc(t.opp||t.team)} ${htmlEsc(clock12(t.at))}<small>${t.opp?htmlEsc(t.team)+' \u00b7 ':''}${lk?'Locked':'Tips off'}</small></span>`;
   };
   const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
     nm?luCell(k,luVal(L&&L.r,k)):''}${
@@ -11165,7 +11175,7 @@ function drawClubLive(){
         <td>${pc(s.FG,s.FGA)}</td><td>${pc(s.FT,s.FTA)}</td>`;
     };
     const game=n=>{ const k=lockOf(n), tp=tipOf(n); return !tp?'<span style="color:var(--dim)">no game</span>'
-      :k.locked?`Locked \u00b7 ${tp.team} ${clock12(tp.at)}`:`${tp.team} ${clock12(tp.at)}`; };
+      :(k.locked?'Locked \u00b7 ':'')+`${tp.team}${tp.opp?' '+tp.opp:''} ${clock12(tp.at)}`; };
     const starters=SLOTIDS.filter(id=>lu.s[id]);
     if(CLUBVIEW.team!==t){ CLUBVIEW.team=t; CLUBVIEW.day=''; }
     html+=`<h2 class="sub">Lineup</h2><div id="clubNav"></div>`;
