@@ -63,6 +63,26 @@ const tick = () => new Promise(r => setTimeout(r, 3));
     ok('an override is filed under the night it is for', on.X && on.X.length === 1 && on.X[0].src === 'override' && on.X[0].day === '2026-10-20');
   }
 
+  console.log('\n== a club name with ? in it (Netlify puts the key in a URL) ==');
+  {
+    /* Like the real store: the key is the URL path, so it is percent-decoded on
+       the way in and a "?" or "#" in it ends the path. */
+    const path = (k) => decodeURIComponent(k.split(/[?#]/)[0]);
+    const m = new Map();
+    const st = { m, async set(k, v) { m.set(path(k), v); }, async get(k) { const p = path(k); return m.has(p) ? m.get(p) : null; },
+      async list({ prefix }) { return { blobs: [...m.keys()].filter(k => k.startsWith(prefix)).map(key => ({ key })) }; } };
+    const club = 'Boozer? I Hardly Know Her.';
+    await recordLineup(st, TZ, { club, cid: 'c_b', s: { C: 'Sengun' }, day: '2026-10-21' });
+    ok('the key holds nothing a URL would cut', [...m.keys()].every(k => !/[?#%]/.test(k)), [...m.keys()].join());
+    let on = await lineupsOn(st, '2026-10-21');
+    ok('and it reads back', on[club] && on[club][0].s.C === 'Sengun', JSON.stringify(Object.keys(on)));
+    /* A blob written the old way: encodeURIComponent, decoded by the server. */
+    m.set(path('luh/2026-10-21/' + encodeURIComponent(club) + '/2026-10-21T20:00:00.000Z-abc'),
+      JSON.stringify({ at: '2026-10-21T20:00:00.000Z', day: '2026-10-21', club, cid: 'c_b', src: 'save', s: cleanSlots({ C: 'Jokic' }) }));
+    on = await lineupsOn(st, '2026-10-21');
+    ok('an entry saved before the fix is read too', on[club] && on[club].length === 2 && on[club].some(e => e.s.C === 'Jokic'), JSON.stringify(on[club]));
+  }
+
   console.log(`\n${ran - fails}/${ran} passed`);
   process.exit(fails ? 1 : 0);
 })();
