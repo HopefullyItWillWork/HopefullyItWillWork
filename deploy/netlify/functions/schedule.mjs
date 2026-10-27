@@ -1,4 +1,4 @@
-/* GET /api/schedule?day=YYYY-MM-DD  ->  { day, tips:{ DEN:"19:00", ... }, ... }
+/* GET /api/schedule?day=YYYY-MM-DD  ->  { day, tips:{ DEN:"19:00", ... }, opp:{ DEN:"@LAL", LAL:"DEN" }, ... }
 
    Tonight's tip-off times, so a GM's lineup locks when his own player's game
    starts and nobody has to type a schedule in.
@@ -18,7 +18,7 @@
    screen — the same rule the mail functions follow. */
 
 import { store } from "./lib/league.mjs";
-import { SB, ymd, tipsFrom } from "./lib/stats.mjs";
+import { SB, ymd, tipsFrom, oppsFrom } from "./lib/stats.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const TZ = () => process.env.LEAGUE_TZ || "America/New_York";
@@ -38,14 +38,16 @@ export default async (req) => {
   try { const raw = await s.get(key); have = raw ? JSON.parse(raw) : null; } catch { have = null; }
   /* A past day cannot change any more, so a cached copy of one is final. */
   const settled = have && day < todayIn(TZ());
-  const fresh = have && (settled || Date.now() - (have.at || 0) < MAXAGE);
+  /* A copy cached before opponents were kept (no `opp`) is refetched once. */
+  const fresh = have && (settled || (have.opp && Date.now() - (have.at || 0) < MAXAGE));
 
   if (!fresh) {
     try {
       const r = await fetch(`${SB}?dates=${ymd(day)}`, { headers: {
         "user-agent": "Mozilla/5.0 (compatible; LeagueLedger/1.0)", accept: "application/json" } });
       if (r.ok) {
-        have = { at: Date.now(), tips: tipsFrom(await r.json(), TZ()) };
+        const sb = await r.json();
+        have = { at: Date.now(), tips: tipsFrom(sb, TZ()), opp: oppsFrom(sb) };
         await s.set(key, JSON.stringify(have));
       }
     } catch { /* fall through to whatever was cached */ }
@@ -55,7 +57,7 @@ export default async (req) => {
     return new Response(JSON.stringify({ day, tips: {}, reason: "no schedule available" }), { headers: H });
   }
   return new Response(JSON.stringify({
-    day, tips: have.tips || {}, fetchedAt: have.at,
+    day, tips: have.tips || {}, opp: have.opp || {}, fetchedAt: have.at,
     stale: !settled && Date.now() - (have.at || 0) >= MAXAGE, tz: TZ()
   }), { headers: H });
 };
