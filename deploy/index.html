@@ -2539,6 +2539,9 @@ function startPolling(){
       // The schedule is a once-a-day fetch: only when the league date rolls over.
       if(S.cfg.pre && PRE.day!==dayKey()){ await loadPre(); }
       if(lineupsOpen() && (SCHED.day!==dayKey()||NBAP.day!==dayKey()||SCORE.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers(),loadDaily()]); render(); }
+      /* Standings and games played: every 30 minutes (loadDaily decides), so a tab left open
+         through the morning's scoring or a commissioner's correction catches up. */
+      else if(SCORE.ok&&Date.now()-(SCORE.got||0)>=30*60e3){ await loadDaily(); render(); }
     }catch(e){}
   }, (A()&&(A().status==='open'||A().status==='match')) ? 4000 : 12000);
 }
@@ -11510,14 +11513,17 @@ async function fillPreLineups(ask){
 }
 async function loadDaily(force){
   const day=dayKey();
-  if(!force&&SCORE.day===day&&SCORE.ok){ drawTrend(); return SCORE; }
+  /* Re-read every 30 minutes, not once a day: scoring finishes in the morning and a
+     commissioner's correction lands whenever he makes it, and a tab opened before
+     either kept showing the old standings and games played until the date changed. */
+  if(!force&&SCORE.day===day&&SCORE.ok&&Date.now()-(SCORE.got||0)<30*60e3){ drawTrend(); return SCORE; }
   if(await probeAPI()){
     try{
       const r=await fetch('/api/score',{cache:'no-store'});
       if(!r.ok) throw new Error('http '+r.status);
       const j=await r.json();
       SCORE={day,days:(j&&j.days)||{},standings:(j&&j.standings)||[],
-        cap:(j&&j.cap)||S.cfg.gamecap||920,ok:!!(j&&j.days),lastRun:j&&j.lastRun};
+        cap:(j&&j.cap)||S.cfg.gamecap||920,ok:!!(j&&j.days),lastRun:j&&j.lastRun,got:Date.now()};
     }catch(e){ /* keep what we had */ }
   }
   DAILY=Object.keys(SCORE.days).length?SCORE.days:null;
