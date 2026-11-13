@@ -31,6 +31,25 @@ ok('a healthy player carries nothing', !hurt['2'].inj && !hurt['3'].inj);
 ok('day-to-day from the type when status is missing', injuryFrom({ injuries:[{ type:{ description:'Day-To-Day' } }] }).s === 'Day-To-Day');
 ok('garbage is null, not a crash', injuryFrom(null) === null && injuryFrom({ injuries:'x' }) === null);
 
+import { injuriesFrom, athleteIdOf } from '../deploy/netlify/functions/lib/nba.mjs';
+{
+  /* ESPN's league-wide report (2026-11-13): what, return date and the news line,
+     by the id in the athlete's links. */
+  const rep = injuriesFrom({ injuries: [{ injuries: [
+    { status:'Out', date:'2026-11-12T23:10Z', shortComment:'Haliburton (hamstring) will miss at least 10 more days.',
+      details:{ type:'Hamstring', detail:'Strain', side:'Left', returnDate:'2026-11-22' },
+      athlete:{ displayName:'Tyrese Haliburton', links:[{ href:'https://www.espn.com/nba/player/_/id/4396993/tyrese-haliburton' }] } },
+    { status:'Out', athlete:{ headshot:{ href:'https://a.espncdn.com/i/headshots/nba/players/full/3975.png' } } },
+    { status:'Active', athlete:{ links:[{ href:'/id/9/x' }] } },
+    { status:'Out', athlete:{ displayName:'No Id' } } ] }] });
+  const h = rep['4396993'];
+  ok('the report carries what, return and the news line',
+     h && h.s === 'Out' && h.d === 'Left Hamstring Strain' && h.r === '2026-11-22' && h.at === '2026-11-12' && /10 more days/.test(h.note));
+  ok('an id is read from the headshot when there is no link', !!rep['3975'] && athleteIdOf({ links:[] }) === null);
+  ok('active and id-less entries are skipped', !rep['9'] && Object.keys(rep).length === 2);
+  ok('garbage is empty, not a crash', Object.keys(injuriesFrom(null)).length === 0 && Object.keys(injuriesFrom({ injuries:'x' })).length === 0);
+}
+
 import { freshPlayers } from '../deploy/netlify/functions/lib/nba.mjs';
 {
   /* A copy cached before injuries were read is refreshed at once; with the fetch

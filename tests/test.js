@@ -4024,6 +4024,22 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
          .every(n => R.some(p => p.n === n)));
   }
 
+  console.log('\n== totals rate everyone who played, against the qualified field (2026-11-13) ==');
+  {
+    const RS = g('raterScore'), R = g('RATER');
+    const pg = RS(R, {basis:'pg', minG:15});
+    const all = RS(R, {basis:'tot', minG:15, all:true});
+    const plain = RS(R, {basis:'tot', minG:15});
+    ok('the field is the same with or without all', all.pool === plain.pool);
+    ok('...and its ratings do not move', JSON.stringify(all.rows.map(p=>[p.n,p.tot])) === JSON.stringify(plain.rows.map(p=>[p.n,p.tot])));
+    const short = R.filter(p => (+p.g||0) > 0 && (+p.g||0) < 15);
+    ok('a man under the games floor is rated on totals with all', short.length > 0
+       && short.every(p => all.also.some(x => x.n === p.n && x.tot != null && x.rk == null)), `${short.length} short`);
+    ok('...but not on averages, which still needs the floor', short.every(p => !pg.rows.some(x => x.n === p.n)));
+    ok('a man with no games is not rated even with all', R.filter(p=>!(+p.g)).every(p => !all.also.some(x=>x.n===p.n)));
+    ok('the rater tab never asks for all, so its unrated list is unchanged', !g('raterOpts')().all);
+  }
+
   console.log('\n== the rater engine reproduces the shipped ratings ==');
   {
     const RS = g('raterScore'), R = g('RATER'), CATS = g('RCATS');
@@ -4407,7 +4423,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('last night view names the night', /Oct 21/.test(document.getElementById('realStandNote').innerHTML), document.getElementById('realStandNote').innerHTML);
     ctx.STANDMODE='tot'; SC.standings=keep.st; SC.days=keep.days;
 
-    ok('12-hour clock', /^7:30 PM/.test(g('clock12')(19*60+30)) && /^12:05 AM/.test(g('clock12')(5)));
+    ok('12-hour clock, said in Pacific', /^4:30 PM/.test(g('clock12')(19*60+30)) && /^9:05 PM/.test(g('clock12')(5)), g('clock12')(19*60+30));
 
     const keepR=ctx.ROSTAT; ctx.ROSTAT='act';
     const jok=g('S').teams.Osborn.r.find(p=>/Joki/.test(p.n));

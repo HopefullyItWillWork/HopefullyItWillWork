@@ -60,6 +60,43 @@ export function injuryFrom(a) {
   return out;
 }
 
+/* ESPN's league-wide injury report (2026-11-13). The roster feed above carries
+   only a status and a date; this one carries what the injury is ("Left
+   hamstring strain"), an expected return date, and the latest news line
+   (RotoWire's, via ESPN). Pure: json -> {espnId: inj}. The athlete has no id
+   field here, so it is read from his player-card link or headshot URL. */
+export const INJURIES = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
+export function athleteIdOf(a) {
+  const hrefs = [(a && a.headshot && a.headshot.href) || ""]
+    .concat(((a && a.links) || []).map((l) => (l && l.href) || ""));
+  for (const h of hrefs) {
+    const m = /\/id\/(\d+)/.exec(h) || /\/players\/full\/(\d+)\.png/.exec(h);
+    if (m) return m[1];
+  }
+  return null;
+}
+export function injuriesFrom(json) {
+  const out = {};
+  for (const team of (json && Array.isArray(json.injuries) && json.injuries) || []) {
+    for (const i of (team && team.injuries) || []) {
+      const id = athleteIdOf(i && i.athlete);
+      if (!id || out[id]) continue;               // newest first: keep the first
+      const s = String(i.status || "").trim();
+      if (!s || /^active$/i.test(s)) continue;
+      const d = i.details || {};
+      const what = [d.side, d.type, d.detail].filter(Boolean).join(" ").trim();
+      const inj = { s: s.slice(0, 30) };
+      if (what) inj.d = what.slice(0, 80);
+      if (d.returnDate) inj.r = String(d.returnDate).slice(0, 10);
+      if (i.date) inj.at = String(i.date).slice(0, 10);
+      const note = String(i.shortComment || "").trim();
+      if (note) inj.note = note.slice(0, 300);
+      out[id] = inj;
+    }
+  }
+  return out;
+}
+
 export function rosterFrom(json, code) {
   const out = {};
   for (const a of (json && json.athletes) || []) {
@@ -133,18 +170,28 @@ export async function fetchPlayers() {
   } else {
     elig = null;
   }
-  /* `injv` marks a copy fetched since injuries were read, so a copy cached
-     before that is refreshed straight away rather than waiting out its six
-     hours with no injury report in it. */
+  /* The injury report proper: what, expected return, the news line. It wins
+     over the roster's bare status for anyone it lists. A failure keeps the
+     roster's status — the chip still shows, just without the detail. */
+  let report = 0;
+  try {
+    const rep = injuriesFrom(await getJSON(INJURIES));
+    for (const [id, inj] of Object.entries(rep)) {
+      if (players[id]) { players[id].inj = inj; report++; }
+    }
+  } catch { report = 0; }
+  /* `injv` marks a copy fetched since injuries were read (2: since the report
+     with return dates was read), so an older cached copy is refreshed straight
+     away rather than waiting out its six hours. */
   const injuries = Object.values(players).filter((p) => p.inj).length;
-  return { at: Date.now(), teams: teams.length, players, positions: !!elig, injv: 1, injuries };
+  return { at: Date.now(), teams: teams.length, players, positions: !!elig, injv: 2, injuries, report };
 }
 
 /* Refresh `nbaplayers` if it is older than `maxAge`, else return what is stored. */
 export async function freshPlayers(s, maxAge) {
   let have = null;
   try { const raw = await s.get("nbaplayers"); have = raw ? JSON.parse(raw) : null; } catch { have = null; }
-  if (have && have.injv && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
+  if (have && have.injv >= 2 && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
   try {
     const got = await fetchPlayers();
     /* ESPN's fantasy list failed this time: carry the last positions over. */

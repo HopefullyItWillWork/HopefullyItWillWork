@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-10-27.2">
+<meta name="ll-build" content="2026-11-13.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -276,9 +276,17 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
    name do not need 1200px, and letting it span the page either strands the name
    in a void or blows the dropdown out to half the screen. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden;max-width:1240px}
-.lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px repeat(10,minmax(46px,60px));
+  border-radius:3px;overflow:hidden;max-width:1440px}
+.lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px 34px repeat(10,minmax(46px,60px)) var(--luacts,0px);
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
+/* The roster actions that used to sit on the My roster table (2026-11-13). */
+.luacts{display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap}
+/* The News view: one cell across the nine category tracks. */
+.lunews{grid-column:span 9;text-align:left!important;font-size:13px;line-height:1.35;color:var(--chalk);min-width:0}
+.lunews small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.luhdr .lunews{font-size:inherit;color:inherit;line-height:inherit}
+.injline .injnote{margin-top:6px;font-weight:normal}
+.luacts .act{padding:2px 6px;font-size:11px}
 .lurow.empty{background:var(--panel2)}
 .lurow.locked{opacity:.72}
 .luhdr{background:var(--panel2);font-family:var(--mono);font-size:9px;letter-spacing:.11em;
@@ -342,10 +350,16 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
    The stat tracks keep a real minimum. Letting them shrink to fit is what makes
    a per-game number wrap to two lines, and a lineup row is already two lines
    tall now that each shooting cell carries its makes and attempts. */
-@media (max-width:1000px){
+/* 1240, not 1000: with GP and the actions the grid's own minimum is ~1190px,
+   and above the breakpoint .luslots clips rather than scrolls. */
+@media (max-width:1240px){
   .luslots{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
-  .lurow,.luhdr{min-width:730px}
-  .lurow{grid-template-columns:40px minmax(170px,1fr) 108px repeat(10,minmax(46px,56px))}
+  .lurow,.luhdr{min-width:900px}
+  .lurow{grid-template-columns:40px minmax(170px,1fr) 108px 30px repeat(10,minmax(46px,56px)) var(--luacts,0px)}
+  /* The actions pin to the right edge, like td.acts on every table: a Cut button
+     past the edge of a scrolled row is the fault this app has shipped three times. */
+  .lurow>.luacts{position:sticky;right:0;z-index:2;background:var(--panel);box-shadow:-1px 0 0 var(--line)}
+  .lurow.empty>.luacts,.lurow.bench>.luacts,.lurow.onir>.luacts,.luhdr>.luacts{background:var(--panel2)}
   /* Pinned, and each variant paints its own background: a sticky cell with no
      background of its own lets the stats scroll visibly underneath it. */
   .lurow>.luslot,.luhdr>span:first-child{position:sticky;left:0;z-index:2;background:var(--panel)}
@@ -360,6 +374,11 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
 }
 @media (max-width:640px){
   .lurowctl{flex-wrap:wrap}
+  /* On a phone the pinned slot and name already take most of the screen; pinning
+     the actions too left no room for a single stat. They sit at the end of a row
+     that scrolls, so they stay reachable — the old fault was a button past the
+     edge of a row that did NOT scroll. */
+  .lurow>.luacts{position:static;box-shadow:none}
 }
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
    bottom to be read and a new post lands where the eye already is. */
@@ -894,6 +913,8 @@ th.rotot,td.rotot{position:sticky;right:0;background:var(--panel);border-left:2p
 thead th.rotot{z-index:3}
 tr.sel td.rotot{background:var(--sel)}
 .standtbl tr.sel td{background:var(--sel)}
+#raterTbl tr.mine td{background:var(--sel)}
+#raterTbl tr.mine td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 
 /* ---- Chat replies and the Home chat card ---- */
 .chatre{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--steel);background:var(--panel2);
@@ -1223,7 +1244,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
   <div class="subview" id="lg-waivers" data-subview hidden>
     <h2>Waivers</h2>
     <p class="note explain">Every free agent is on waivers until the first week of the season is over; after that a player
-      released in season is on waivers for one day. Claims are processed every morning around 10am Eastern. The order
+      released in season is on waivers for one day. Claims are processed every morning around 7am Pacific. The order
       resets each Monday to the reverse of the standings, and a club that wins a claim drops to the back until the next
       reset. A claimed player plays out the season on a minimum deal; anyone nobody claims becomes a free agent.</p>
     <div id="wvBody"></div>
@@ -1302,7 +1323,8 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="preBox" hidden></div>
     <div data-perbar="me"></div>
     <div id="luWrap" hidden>
-      <h2>Lineup</h2>
+      <h2>My team <button class="btn ghost" id="toMyContracts2" style="margin-left:auto">Contracts &amp; cap</button>
+        <button class="btn ghost" id="expMine2">Export CSV</button></h2>
       <p class="note explain">Anybody may sit on the bench; a benched player's stats do not count for the night.
         The injured reserve is off the lineup entirely and sits outside the roster limit &#8212; activating
         a man from it when the club is full asks you which player to release. Go back a night with the arrows
@@ -1319,9 +1341,11 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <div id="lnBody" style="margin-bottom:22px"></div>
     </div>
 
+    <div id="rosWrap">
     <h2>My roster <button class="btn ghost" id="toMyContracts" style="margin-left:auto">Contracts &amp; cap</button>
       <button class="btn ghost" id="expMine">Export CSV</button></h2>
     <div class="rosterwrap" id="meRoster"></div>
+    </div>
 
     <div id="bidWrap">
     <h2 class="sub">On the block</h2>
@@ -1572,7 +1596,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
       <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
       <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
       <select id="rBasis" title="Score per-game averages or season totals">
-        <option value="pg">Per game</option><option value="tot">Season totals</option></select>
+        <option value="pg">Averages</option><option value="tot">Totals</option></select>
       <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
       <span class="fcount" id="rCount"></span>
       <button class="btn ghost" id="expRater">Export CSV</button>
@@ -1880,8 +1904,8 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     </div>
 
     <h2 class="sub">Stats and scoring</h2>
-    <p class="note explain">The nightly jobs, and whether they are keeping up. Stats arrive from 5:15am Eastern and are
-      scored half an hour later, hourly until about 9am; every run also re-reads the five nights before, so a
+    <p class="note explain">The nightly jobs, and whether they are keeping up. Stats arrive from 2:15am Pacific and are
+      scored half an hour later, hourly until about 6am; every run also re-reads the five nights before, so a
       stat correction is picked up on its own. Nothing here needs pressing for the league to work &#8212; the
       buttons are for checking a fix straight away rather than waiting for the morning.</p>
     <div id="healthBox"></div>
@@ -4787,6 +4811,7 @@ function render(){
   exportBtn('expLabPool','player-pool.csv','labPoolTbl');
   exportBtn('expLab','team-builder.csv','labRoster');
   exportBtn('expMine','my-roster.csv','meRoster');
+  exportBtn('expMine2','my-roster.csv','meRoster');
   exportBtn('expTeam','club-contracts.csv','detail');drawProjBar();drawProjTab();drawMe();drawAuction();
   /* The free agent list lives on Players, not My Team: drawMe() skips itself while
      My Team is hidden, which left this list empty until a filter was touched. */
@@ -6896,13 +6921,84 @@ function hasProj(name){ return !!PROJ[canon(name)]; }
 
    Cached in RTGCACHE, which setProjMode() and the projection load/save already
    clear — those are the only things that move the pool. */
+/* PR's basis (2026-11-13, league request): Averages rates each man on his
+   per-game line against everyone over the period's games floor, as before;
+   Totals rates him on what he produced in the period — per game times games —
+   so missed games count against him, the way ESPN's rater reads a window. On
+   Totals everyone with a game is rated (raterScore's `all`), against the same
+   qualified field. One GM's way of reading the numbers: kept in this browser,
+   never in S.cfg. */
+var PRBASIS=(()=>{ try{ return localStorage.getItem('ll_prbasis')==='tot'?'tot':'pg'; }catch(e){ return 'pg'; } })();
+function setPrBasis(b){
+  PRBASIS=b==='tot'?'tot':'pg'; RTGCACHE=null;
+  try{ localStorage.setItem('ll_prbasis',PRBASIS); }catch(e){}
+  render();
+}
+/* RTGZ is the same pass's per-category values (the z-scores PR is the sum of),
+   keyed like RTGCACHE and only valid while it is. */
+var RTGZ={};
 function ratings(){
   if(RTGCACHE) return RTGCACHE;
-  const m={};
-  raterScore(raterPool(),{basis:'pg'}).rows.forEach(p=>{ m[p.n]=p.tot; });
-  RTGCACHE=m; return m;
+  const m={}, z={};
+  const R=raterScore(ratingPool(),{basis:PRBASIS,all:PRBASIS==='tot'});
+  R.rows.concat(R.also).forEach(p=>{ m[p.n]=p.tot; z[p.n]=p.z; });
+  RTGZ=z; RTGCACHE=m; return m;
 }
-function rtg(name){ const m=ratings(); const c=canon(name); return m[c]!=null?m[c]:null; }
+/* ESPN's Trending columns: one player's PR over 7, 15 and 30 days and the
+   season, all at once, whatever the Stats bar is set to. Each window is rated
+   exactly as rtg() would rate it with the bar on that window — the bar is
+   switched for the length of the computation and put back — and cached per
+   window, basis and feed day. `rk` is the season rank among rated players. */
+var TRENDCACHE={};
+function trendRatings(w){
+  const L=LIVE[w]; if(!L) return null;
+  const key=w+'|'+PRBASIS+'|'+L.day+'|'+(L.asOf||'');
+  if(TRENDCACHE[key]) return TRENDCACHE[key];
+  const keepU=useProj, keepS=PROJSRC;
+  let m={};
+  try{
+    useProj=true; PROJSRC=w;
+    const R=raterScore(ratingPool(),{basis:PRBASIS,all:PRBASIS==='tot'});
+    R.rows.concat(R.also).forEach(p=>{ m[p.n]={tot:p.tot,rk:p.rk}; });
+  } finally { useProj=keepU; PROJSRC=keepS; }
+  TRENDCACHE[key]=m; return m;
+}
+function trendOf(name,w){
+  const m=trendRatings(w); if(!m) return null;
+  const c=canon(name);
+  if(m[c]) return m[c];
+  const l=liveLine(name,w); return l&&m[l.n]?m[l.n]:null;
+}
+/* One player's rating by category, ESPN's rater breakdown: {FG,FT,P3,REB,AST,
+   STL,BLK,TO,PTS}, each a z-score, summing to rtg(). Null when he is unrated. */
+function rtgZ(name){
+  ratings();
+  const c=canon(name);
+  if(RTGZ[c]) return RTGZ[c];
+  if(usingLive()){ const l=liveLine(name,PROJSRC); if(l&&RTGZ[l.n]) return RTGZ[l.n]; }
+  return null;
+}
+/* The rater's pool, plus — in a live window — everybody who played in it with no
+   2025-26 row (this year's rookies, call-ups). Without them a rookie starting
+   every night had no PR at all. They are keyed by the feed's spelling, which is
+   what rtg() falls back to through liveLine(). */
+function ratingPool(){
+  const pool=raterPool();
+  if(!usingLive()) return pool;
+  const L=LIVE[PROJSRC], seen=new Set();
+  RATER.forEach(b=>{ const l=liveLine(b.n,PROJSRC); if(l) seen.add(l); });
+  Object.values(L.players||{}).forEach(l=>{
+    if(seen.has(l)||!l||!l.s||RIDX[canon(l.n)]) return;
+    pool.push({n:l.n,t:l.t||'',p:'',g:l.g||0,s:Object.fromEntries(SKEYS.map(k=>[k,l.s[k]??0])),rk:null});
+  });
+  return pool;
+}
+function rtg(name){
+  const m=ratings(), c=canon(name);
+  if(m[c]!=null) return m[c];
+  if(usingLive()){ const l=liveLine(name,PROJSRC); if(l&&m[l.n]!=null) return m[l.n]; }
+  return null;
+}
 /* Takes 'act', 'agg' or 'mine'. The old boolean call sites are gone; a stray
    true/false would silently mean "not act", so it is normalised here rather
    than trusted. */
@@ -6931,6 +7027,8 @@ function drawPerBars(){
     : usingMine()?`${Object.keys(PROJ).length} players edited`:'';
   const html=`<div class="perbar"><span class="pjlab">Stats</span><div class="toggle" role="group" aria-label="Stats period">${
     opts.map(([v,l])=>`<button type="button" data-pm="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>
+    <div class="toggle" role="group" aria-label="Rate players on" title="Averages: PR from each player's per-game line. Totals: PR from what he produced over the period, so missed games count against him.">${
+      [['pg','Averages'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div>
     <span class="pjlab">${note}</span></div>`;
   document.querySelectorAll('[data-perbar]').forEach(el=>{ if(el.innerHTML!==html) el.innerHTML=html; });
   void live;
@@ -6938,6 +7036,8 @@ function drawPerBars(){
 document.addEventListener('click',e=>{
   const b=e.target&&e.target.closest?e.target.closest('[data-pm]'):null;
   if(b) setProjMode(b.dataset.pm);
+  const pb=e.target&&e.target.closest?e.target.closest('[data-prb]'):null;
+  if(pb) setPrBasis(pb.dataset.prb);
 });
 function drawProjBar(){
   drawPerBars();
@@ -9559,12 +9659,12 @@ function lockOf(name,at){
     ? {locked:true,why:`Locked \u2014 ${t.team} tipped off at ${clock12(t.at)}`}
     : {locked:false,why:`${t.team} tips off at ${clock12(t.at)}`};
 }
-/* 19:30 -> "7:30 PM ET": the league's clock, said the way a GM reads it. */
+/* 19:30 league time (Eastern) -> "4:30 PM PT". The league lives on the west
+   coast, so every game time is shown three hours earlier, in Pacific. */
 function clock12(m){
-  const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0');
-  let z=''; try{ z=new Intl.DateTimeFormat('en-US',{timeZone:leagueTZ(),timeZoneName:'short'})
-    .formatToParts(new Date()).find(x=>x.type==='timeZoneName').value.replace(/^([ECMP])[DS]T$/,'$1T'); }catch(e){}
-  return `${(h%12)||12}:${mm} ${h<12?'AM':'PM'}${z?' '+z:''}`;
+  const v=((m-180)%1440+1440)%1440;
+  const h=Math.floor(v/60), mm=String(v%60).padStart(2,'0');
+  return `${(h%12)||12}:${mm} ${h<12?'AM':'PM'} PT`;
 }
 const isLocked=name=>lockOf(name).locked;
 /* Why a club cannot be edited at all, or '' when it can. */
@@ -9707,8 +9807,22 @@ function luVal(r,k){
   if(k==='FTP') return r.s.FTA?r.s.FT/r.s.FTA:null;
   return r.s[k];
 }
-const luCell=(k,v)=>v==null?'&#8212;'
-  :(k==='FGP'||k==='FTP')?(v*100).toFixed(1):(+v).toFixed(1);
+const luCell=(k,v,tot)=>v==null?'&#8212;'
+  :(k==='FGP'||k==='FTP')?(v*100).toFixed(1):tot?String(Math.round(+v)):(+v).toFixed(1);
+/* A per-game line as the period's totals: every count times games played. The
+   rates do not move — makes and attempts both scale — which is the point. */
+function luTotals(r){
+  if(!r||!r.s) return r;
+  const g=+r.g||0, s={};
+  Object.keys(r.s).forEach(k=>{ s[k]=k==='MP'?r.s[k]:(r.s[k]==null?null:r.s[k]*g); });
+  return {...r,s,tot:true};
+}
+/* My Team's one table (2026-11-13): the lineup became the roster. Stats shows the
+   stats period's line and PR; Contract swaps the nine categories for what each man
+   is owed, like the old My roster table's Contract view. Per browser. */
+var LUMODE=(()=>{ try{ const v=localStorage.getItem('ll_lumode'); return ['ctr','rtg','trend','news'].includes(v)?v:'stats'; }catch(e){ return 'stats'; } })();
+/* The lineup's category keys → the rater's (REB is TRB, TO is TOV, the rates are FG/FT). */
+const LU2R={PTS:'PTS',TRB:'REB',AST:'AST',P3:'P3',STL:'STL',BLK:'BLK',TOV:'TO',FGP:'FG',FTP:'FT'};
 /* The two shooting cells carry the makes and attempts under the rate, like
    every other stat table — the league weights these two by attempts, so a
    percentage with no volume behind it is half the fact. It goes inside the
@@ -9718,7 +9832,8 @@ function luShot(k,r){
   if(!r||!r.s) return '';
   const m=k==='FGP'?r.s.FG:r.s.FT, a=k==='FGP'?r.s.FGA:r.s.FTA;
   if(m==null||a==null) return '';
-  return `<small class="luma">${madeAtt(m,a)}</small>`;
+  /* A totals line (luTotals) is whole makes and attempts: no decimals. */
+  return `<small class="luma">${r.tot?`${Math.round(m)}\u2011${Math.round(a)}`:madeAtt(m,a)}</small>`;
 }
 /* Tonight's actual box score, once the stats feed writes one. Until then every
    row shows the per-game line the rest of the app is showing, which is what a
@@ -9814,6 +9929,9 @@ function dateBar(box,V,go,dateId){
 function drawLineup(){
   const wrap=$('luWrap'); if(!wrap) return;
   wrap.hidden = !me || !lineupsOpen();
+  /* With lineups open the lineup IS the roster; the separate table stays drawn
+     (Export CSV reads it) but out of sight. */
+  if($('rosWrap')) $('rosWrap').hidden=!wrap.hidden;
   if(wrap.hidden) return;
   drawLuNav();
   const pastView=!!LUVIEW.day;
@@ -9854,16 +9972,29 @@ function drawLineup(){
       ${lost.map(htmlEsc).join(', ')}. Bench them, or reorder, to choose who uses the last games.</div>`:''}
     ${tourney?`<p class="note"><b>Preseason tournament, ${htmlEsc(preSpan())}.</b> Your lineup was filled for you and
       carries forward each night; change it any time. Just for fun \u2014 none of it counts toward the season.</p>`:''}
+    <div class="filters" style="margin:6px 0 8px"><div class="toggle" role="group" aria-label="Columns">${
+      [['stats','Stats'],['trend','Trending'],['rtg','Ratings'],['news','News'],['ctr','Contract']].map(([v,l])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}">${l}</button>`).join('')}</div>
+      <span class="fcount">${LUMODE==='news'?'ESPN\u2019s injury report: what, expected return, the latest line':LUMODE==='ctr'?'salary owed by season':LUMODE==='trend'?`player rating over each period \u00b7 ${PRBASIS==='tot'?'totals':'averages'} \u00b7 rank is the season`:`${LUMODE==='rtg'?'each category\u2019s rating, summing to PR \u00b7 ':''}${htmlEsc(projSrcLabel())} \u00b7 ${PRBASIS==='tot'?'totals':'per game'} \u00b7 change it in the Stats bar above`}</span></div>
     <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night, scored the
-      next morning from the box scores and this lineup as it stood when his game tipped off. The numbers
-      below are each man's per-game line.</p>`;
+      next morning from the box scores and this lineup as it stood when his game tipped off.</p>`;
+  $('luHead').querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
+    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); }catch(e){} drawLineup(); });
 
   /* Lineup, bench and injured reserve are one table down the page rather than
      three boxes in two columns. They hold the same nine columns and a GM reads
      them together — who is in, who is out, and who cannot play — so splitting
      them across a grid made the numbers stop lining up for no gain. */
-  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span>
-    ${LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}<span title="Player rating">PR</span></div>`;
+  const ctr=LUMODE==='ctr', tot=PRBASIS==='tot', trend=LUMODE==='trend';
+  const TRENDW=['d7','d15','d30','szn'];
+  const TRENDH=[['PR7','Player rating, last 7 days'],['PR15','Player rating, last 15 days'],
+    ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
+  if(trend) TRENDW.forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawLineup()); } });
+  const CTRH=[0,1,2,3].map(n=>seasonAt(curSeason(),n)).concat(['Yrs','Option','Rights','Acq']);
+  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span><span title="Games played in the period">GP</span>
+    ${ctr?CTRH.map(l=>`<span>${htmlEsc(l)}</span>`).join('')+'<span></span>'
+      :LUMODE==='news'?'<span class="lunews">Injury news</span>'
+      :trend?TRENDH.map(([l,t])=>`<span title="${t}">${l}</span>`).join('')+'<span></span>'.repeat(9-TRENDH.length)
+      :LUCATS.map(([,l])=>`<span>${l}</span>`).join('')}<span title="Player rating for the period">${trend?'':'PR'}</span><span class="luacts"></span></div>`;
   /* Tonight's game for a man, as its own column: club and tip-off, "Locked"
      once it has started, "No game" when his club is idle and the schedule is
      known — and nothing at all when there is no schedule to say either. */
@@ -9877,10 +10008,59 @@ function drawLineup(){
     const vs=t.opp?(t.opp[0]==='@'?`${t.team} at ${t.opp.slice(1)}`:`${t.team} vs ${t.opp}`):'';
     return `<span class="lugame${lk?' lk':''}"${vs?` title="${htmlEsc(vs)}"`:''}>${htmlEsc(t.opp||t.team)} ${htmlEsc(clock12(t.at))}<small>${t.opp?htmlEsc(t.team)+' \u00b7 ':''}${lk?'Locked':'Tips off'}</small></span>`;
   };
-  const stats=(nm,L)=>LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
-    nm?luCell(k,luVal(L&&L.r,k)):''}${
-    nm&&(k==='FGP'||k==='FTP')?luShot(k,L&&L.r):''}</span>`).join('')
-    +`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
+  /* GP, then the nine categories (or, in the Contract view, what he is owed),
+     then PR, then the roster actions that used to live on the My roster table.
+     On Totals the numbers are the period's totals, matching what PR is read from. */
+  const rosEntry=nm=>S.teams[T].r.find(x=>canon(x.n)===canon(nm));
+  const stats=(nm,L)=>{
+    /* No games in the period is no line, not a row of zeroes. */
+    const r0=L&&L.r&&!L.live&&usingLive()&&!(+L.r.g)?null:L&&L.r;
+    const r=r0&&!L.live&&tot?luTotals(r0):r0;
+    const gp=`<span class="luv">${nm&&L&&L.r&&!L.live?(L.r.g||0):''}</span>`;
+    const pr=`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
+    if(ctr){
+      const p=nm&&rosEntry(nm), D='&#8212;';
+      const cells=p?[0,1,2,3].map(n=>{ const v=salOff(p,n); return v?money(v):D; })
+        .concat([yrsLeft(p)||D, p.o?htmlEsc(p.o)+(optYears(p)>1?' \u00d7'+optYears(p):''):D,
+          ROSRIGHTS[birdRight(p)]||D, p.acq||D, '']):Array(9).fill('');
+      return gp+cells.map(c=>`<span class="luv">${c}</span>`).join('')+pr;
+    }
+    if(LUMODE==='news'){
+      const i=nm&&injOf(nm);
+      const txt=!nm?'':!i?'<span class="lutip">No injury reported</span>'
+        :`<b>${htmlEsc(i.s)}</b>${i.d?` \u00b7 ${htmlEsc(i.d)}`:''}${i.r?` \u00b7 expected back ${htmlEsc(injBack(i.r))}`:''}${
+          i.note?`<small>${htmlEsc(i.note)}</small>`:''}`;
+      return gp+`<span class="lunews">${txt}</span>`+pr;
+    }
+    if(trend){
+      const f=v=>v==null?(nm?'&#8212;':''):v.toFixed(2);
+      const cells=TRENDW.map(w=>{ const t=nm&&trendOf(nm,w); return `<span class="luv">${f(t?t.tot:null)}</span>`; });
+      const sz=nm&&trendOf(nm,'szn');
+      cells.push(`<span class="luv">${sz&&sz.rk?sz.rk:(nm?'&#8212;':'')}</span>`);
+      return gp+cells.join('')+'<span class="luv"></span>'.repeat(9-cells.length)+'<span class="luv"></span>';
+    }
+    if(LUMODE==='rtg'){
+      /* ESPN's breakdown: what each category adds to PR, tinted like the rater,
+         with the number it came from underneath. */
+      const z=nm&&rtgZ(nm);
+      return gp+LUCATS.map(([k])=>{
+        const v=z?z[LU2R[k]]:null;
+        return `<span class="luv"${v!=null?` style="${zColor(v)}"`:''}>${v==null?(nm?'&#8212;':''):(v>0?'+':'')+v.toFixed(2)}${
+          nm&&r?`<small class="luma">${luCell(k,luVal(r,k),tot)}</small>`:''}</span>`;
+      }).join('')+pr;
+    }
+    return gp+LUCATS.map(([k])=>`<span class="luv${L&&L.live?' live':''}">${
+      nm?luCell(k,luVal(r,k),tot&&!(L&&L.live)):''}${
+      nm&&(k==='FGP'||k==='FTP')?luShot(k,r):''}</span>`).join('')+pr;
+  };
+  const acts=nm=>{
+    const p=nm&&rosEntry(nm);
+    if(!can||!p) return '<span class="luacts"></span>';
+    const i=S.teams[T].r.indexOf(p);
+    return `<span class="luacts">${canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}${
+      termOpen(T,p)?`<button class="act edit" data-mrt="${i}">Length</button>`:''}<button class="act edit${p.blk?' on':''}" data-mrb="${i}" title="${p.blk?'Take him off the trade block':'Put him on the trade block'}">${p.blk?'Unlist':'Block'}</button><button class="act" data-mrc="${i}">Cut</button></span>`;
+  };
+  const blankRow='<span class="luv"></span>'.repeat(11)+'<span class="luacts"></span>';
   const irBtn=nm=>can&&!isLocked(nm)&&ir.length<irMax
     ? `<button class="act" data-toir="${htmlEsc(nm)}" title="Move to the injured reserve">IR</button>` : '';
 
@@ -9913,7 +10093,7 @@ function drawLineup(){
         : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
 
               : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
-      ${game(nm)}${stats(nm,L)}</div>`;
+      ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
   }).join('');
 
   /* The bench carries the control that starts somebody: every open slot he is
@@ -9932,10 +10112,10 @@ function drawLineup(){
                ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
           : '<span class="lutip">no open spot</span>') : ''}
         ${irBtn(p.n)}</span></span>
-      ${game(p.n)}${stats(p.n,L)}</div>`;
+      ${game(p.n)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
-      <span class="lugame"></span>${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
+      <span class="lugame"></span>${blankRow}</div>`;
 
   const irRows=ir.map(p=>{
     const L=luLine(p.n);
@@ -9945,11 +10125,16 @@ function drawLineup(){
         ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
         ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span>
-      ${game(p.n,true)}${stats(p.n,L)}</div>`;
+      ${game(p.n,true)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lutip">Nobody on the injured reserve.</span></span>
-      <span class="lugame"></span>${LUCATS.map(()=>'<span class="luv"></span>').join('')}<span class="luv"></span></div>`;
+      <span class="lugame"></span>${blankRow}</div>`;
 
+  /* Every row is its own grid, so the actions track has one fixed width for all
+     of them (a content-sized track lined up nothing): wide enough for the buttons
+     this viewer actually gets. */
+  const anyTerm=can&&S.teams[T].r.some(p=>contracted(p)&&termOpen(T,p));
+  $('luSlots').style.setProperty('--luacts',can?(108+(canEditContract()?44:0)+(anyTerm?58:0))+'px':'0px');
   $('luSlots').innerHTML=hdr('Slot')+slotRows
     +hdr('Bench')+benchRows
     +hdr('IR')+irRows;
@@ -9967,6 +10152,11 @@ function drawLineup(){
     $('luSlots').querySelectorAll('[data-fromir]').forEach(b=>b.onclick=()=>{
       const i=S.teams[T].r.findIndex(x=>canon(x.n)===canon(b.dataset.fromir));
       if(i>=0) toggleIR(T,i); });
+    const box=$('luSlots'), idx=b=>+b.dataset[Object.keys(b.dataset)[0]];
+    box.querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,idx(b)));
+    box.querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,idx(b)));
+    box.querySelectorAll('[data-mrt]').forEach(b=>b.onclick=()=>openTerm(T,idx(b)));
+    box.querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,idx(b)));
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
     if($('luTonight')) $('luTonight').onclick=()=>tonightLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
@@ -10310,21 +10500,29 @@ function raterScore(pool,opts){
   const rated=src.filter(p=>(+p.g||0)>=minG
     &&(minMp==null||(raterMin(p)!=null&&raterMin(p)>=minMp)));
   const inPool=new Set(rated);
+  /* opts.all: everyone who played at least one game is scored too, against the
+     field the floor defines (its means and spreads), without joining it. That is
+     the totals reading of a window: a man who missed games is not dropped from
+     the table, he is rated on what he actually gave, so an injured star falls.
+     The rater tab never passes it; only ratings() does, on the totals basis. */
+  const extra=o.all?src.filter(p=>!inPool.has(p)&&(+p.g||0)>0):[];
   const zs={};
   cats.forEach(c=>{
-    let vals;
+    let lg=0;
+    const valOf=p=>{
+      if(RSHOOT[c]){ const q=raterPair(p,c,basis); return (q&&q[1]>0)?(q[0]/q[1]-lg)*q[1]:0; }
+      return raterVal(p,c,basis)||0;
+    };
     if(RSHOOT[c]){
       let tm=0,ta=0;
       rated.forEach(p=>{const q=raterPair(p,c,basis); if(q){tm+=q[0];ta+=q[1];}});
-      const lg=ta>0?tm/ta:0;
-      vals=rated.map(p=>{const q=raterPair(p,c,basis);
-        return (q&&q[1]>0)?(q[0]/q[1]-lg)*q[1]:0;});
-    } else {
-      vals=rated.map(p=>raterVal(p,c,basis)||0);
+      lg=ta>0?tm/ta:0;
     }
+    const vals=rated.map(valOf);
     const m=rMean(vals), sd=rSd(vals,m), sign=RDOWN[c]?-1:1;
     const out={};
     rated.forEach((p,i)=>{out[p.n]=sd>0?sign*(vals[i]-m)/sd:0;});
+    extra.forEach(p=>{out[p.n]=sd>0?sign*(valOf(p)-m)/sd:0;});
     zs[c]=out;
   });
   const rows=rated.map(p=>{
@@ -10334,8 +10532,14 @@ function raterScore(pool,opts){
   });
   rows.sort((a,b)=>b.tot-a.tot||cmp(a.n,b.n,false));
   rows.forEach((p,i)=>{p.rk=i+1;});
-  const unrated=src.filter(p=>!inPool.has(p)).map(p=>({...p,z:null,tot:null,rk:null}));
-  return {rows,unrated,cats,basis,minG,minMp,pool:rated.length};
+  const extraSet=new Set(extra);
+  const also=extra.map(p=>{
+    const z={}; let tot=0;
+    cats.forEach(c=>{const v=zs[c][p.n]||0; z[c]=+v.toFixed(2); tot+=v;});
+    return {...p,z,tot:+tot.toFixed(2),rk:null};
+  });
+  const unrated=src.filter(p=>!inPool.has(p)&&!extraSet.has(p)).map(p=>({...p,z:null,tot:null,rk:null}));
+  return {rows,also,unrated,cats,basis,minG,minMp,pool:rated.length};
 }
 /* The line a z-score was computed from, for the cell under it. */
 function raterRaw(p,c,basis){
@@ -10371,10 +10575,12 @@ const raterClub=n=>isFreeAgent(n)
    GM's way of reading the table, not a league setting, so they are never
    committed, never merged, never polled and never reach another browser. The
    dynamic rater in particular must not leave this tab. */
-let RBASIS='pg';
+/* The basis is the one PRBASIS switch (2026-11-13): the Stats bar's Averages /
+   Totals and this tab's select move the same thing, so PR on My Team and the
+   rater's ranking can never be read on two different bases at once. */
 const dynDefaults=()=>({on:false,minG:RMING,minMp:'',cats:RCATS.slice()});
 let RDYN=dynDefaults();
-const raterBasis=()=>RBASIS==='tot'?'tot':'pg';
+const raterBasis=()=>PRBASIS==='tot'?'tot':'pg';
 const raterDynOn=()=>!!RDYN.on;
 /* Is the dynamic rater actually saying anything different from the league's own
    field? Toggling it on and changing nothing should not claim to be an
@@ -10387,7 +10593,7 @@ function raterOpts(){
     ? {basis:raterBasis(),cats:RDYN.cats,minG:RDYN.minG,minMp:RDYN.minMp}
     : {basis:raterBasis()};
 }
-const BASISLBL=()=>raterBasis()==='tot'?'season totals':'per-game averages';
+const BASISLBL=()=>raterBasis()==='tot'?'totals':'per-game averages';
 function dynSummary(R){
   const bits=[];
   if(RDYN.minG!==RMING) bits.push(`${RDYN.minG}+ games`);
@@ -10499,6 +10705,7 @@ function drawRater(){
   if(offscreen('v-rater')) return;
   const q=$('rSearch').value.trim().toLowerCase(), tf=$('rTeam').value, pf=$('rPos').value;
   const basis=raterBasis();
+  if($('rBasis')&&$('rBasis').value!==basis) $('rBasis').value=basis;   // set from the Stats bar too
   /* Score the WHOLE pool, then filter what is shown. The search, club and
      position boxes must never re-baseline: filter to one club and a z-score
      against fifteen team-mates says a club's fourth-best guard is average, which
@@ -10521,12 +10728,15 @@ function drawRater(){
   $('rCount').textContent=`${rows.length} of ${RATER.length} players`
     +(raterDynOn()?` · scored against ${R.pool}`:'');
   const span=RCATS.length;
+  /* The signed-in GM's own players are shaded, like his club's row in the
+     standings. The commissioner login has no club, so nothing is. */
+  const myT=me&&!isComm()?me:null;
   $('raterBody').innerHTML=rows.map(p=>{
-    const oc=raterClub(p.n);
-    if(!p.z) return `<tr><td class="l">&#8212;</td><td data-hs="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
+    const oc=raterClub(p.n), tr=myT&&liveClub(p.n)===myT?'<tr class="mine">':'<tr>';
+    if(!p.z) return `${tr}<td class="l">&#8212;</td><td data-hs="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
       <td class="hide2">${p.g}</td><td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>
       <td class="unrated">&#8212;</td></tr>`;
-    return `<tr><td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
+    return `${tr}<td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
       ${RCATS.map(c=>{
         /* A category the GM has switched off keeps its column — the row would
            otherwise change width under him — but shows the number with no
@@ -10554,7 +10764,7 @@ function drawRater(){
 }
 redraw.rater=drawRater;
 ['rSearch','rTeam','rPos'].forEach(id=>$(id).oninput=drawRater);
-if($('rBasis')) $('rBasis').onchange=e=>{ RBASIS=e.target.value==='tot'?'tot':'pg'; drawRater(); };
+if($('rBasis')) $('rBasis').onchange=e=>setPrBasis(e.target.value);
 if($('rDyn')) $('rDyn').onchange=e=>{ RDYN.on=!!e.target.checked; drawRater(); };
 
 /* ================= TEAM CATEGORY PROFILE ================= */
@@ -10899,7 +11109,8 @@ function injOf(name){
 function injLine(name){
   const ij=injOf(name);
   if(ij) return `<div class="warn injline"><b>Injury: ${htmlEsc(ij.s)}</b>${ij.d?` \u2014 ${htmlEsc(ij.d)}`:''}${
-    ij.r?`. Expected back ${htmlEsc(ij.r)}.`:''}${ij.at?` <span class="t">Reported ${htmlEsc(ij.at)}.</span>`:''} <span class="t">ESPN</span></div>`;
+    ij.r?`. Expected back ${htmlEsc(injBack(ij.r))}.`:''}${ij.at?` <span class="t">Reported ${htmlEsc(ij.at)}.</span>`:''} <span class="t">ESPN</span>${
+    ij.note?`<div class="injnote">${htmlEsc(ij.note)} <span class="t">RotoWire via ESPN</span></div>`:''}</div>`;
   const why=!NBAP.n?'ESPN\u2019s report has not loaded':!NBAP.injv?'ESPN\u2019s report has not been fetched yet \u2014 it arrives with the next roster refresh'
     :!espnTeamOf(name)?'not on an NBA roster at ESPN':'none reported';
   return `<div class="okbox injline"><b>Injury:</b> ${why} <span class="t">ESPN</span></div>`;
@@ -10909,11 +11120,16 @@ function injShort(s){
   return /^out/.test(t)?'OUT':/day/.test(t)?'DTD':/question/.test(t)?'Q':/doubt/.test(t)?'D':/suspen/.test(t)?'SUSP':/probab/.test(t)?'P'
     :String(s||'').split(/\s+/)[0].toUpperCase().slice(0,5);
 }
+/* ESPN's expected return, as a GM reads it: "Sat, Nov 22". It is ESPN's
+   estimate (from the club's timetable), not a promise, and the screens say so. */
+function injBack(r){ return /^\d{4}-\d{2}-\d{2}$/.test(r||'')?shortDay(r):String(r||''); }
 function injTag(name){
   const i=injOf(name); if(!i) return '';
   const k=injShort(i.s);
-  const tip=[i.s,i.d,i.r?`expected back ${i.r}`:''].filter(Boolean).join(' \u00b7 ');
-  return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" title="${htmlEsc(tip)}">${htmlEsc(k)}</span>`;
+  const tip=[i.s,i.d,i.r?`expected back ${injBack(i.r)}`:'',i.note||''].filter(Boolean).join(' \u00b7 ');
+  /* An OUT chip carries the expected return, the one thing a GM wants from it. */
+  const back=(k==='OUT'||k==='SUSP')&&/^\d{4}-\d{2}-\d{2}$/.test(i.r||'')?` \u00b7 ${+i.r.slice(5,7)}/${+i.r.slice(8,10)}`:'';
+  return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" title="${htmlEsc(tip)}">${htmlEsc(k)}${back}</span>`;
 }
 
 /* ================= INFO BUTTONS =================
@@ -11276,9 +11492,9 @@ function drawMeExtras(){
   const a=A();
   if($('labWrap')) $('labWrap').hidden=false;
   if($('bidWrap')) $('bidWrap').hidden=seasonLive()||!(a&&(a.status==='open'||a.status==='match'));
-  if($('toMyContracts')) $('toMyContracts').onclick=()=>{
+  ['toMyContracts','toMyContracts2'].forEach(id=>{ if($(id)) $(id).onclick=()=>{
     activeTeam=meTeam(); goTab('v-contracts'); render();
-  };
+  }; });
 }
 
 /* Commissioner › Correct a stat line. Corrections live server-side in `statfix`
@@ -11421,9 +11637,16 @@ function cfWire(){
   $('cfLoad').onclick=async()=>{
     const day=$('cfDay').value, club=f.value;
     try{
+      /* A night already set by hand is what the standings count, so it loads
+         first; the scored totals only when there is no fix. Saving replaces
+         the whole night, so loading the wrong one would undo the fix. */
+      const fx=await fetch('/api/score?clubfix=1',{cache:'no-store'}).then(r=>r.json()).catch(()=>null);
+      const fix=fx&&fx.days&&fx.days[day]&&fx.days[day][club];
       const r=await fetch('/api/score?day='+day,{cache:'no-store'}), j=await r.json(), c=j&&j.data&&j.data.clubs&&j.data.clubs[club];
-      CFCATS.forEach(([k])=>{ $('cf_'+k).value=c&&c.totals&&c.totals[k]!=null?Math.round(c.totals[k]*100)/100:''; });
-      $('cfMsg').textContent=c?'Loaded what scoring has for that night':'Scoring has nothing for that club on that night';
+      const tot=fix||(c&&c.totals);
+      CFCATS.forEach(([k])=>{ $('cf_'+k).value=tot&&tot[k]!=null?Math.round(tot[k]*100)/100:''; });
+      $('cfMsg').textContent=fix?'Loaded the totals already set by hand for that night'
+        :c?'Loaded what scoring has for that night':'Scoring has nothing for that club on that night';
     }catch(e){ $('cfMsg').textContent='Could not load that night'; }
   };
   const post=async(body,ok)=>{
