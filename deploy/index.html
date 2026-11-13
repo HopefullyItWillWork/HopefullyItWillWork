@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-13.1">
+<meta name="ll-build" content="2026-11-13.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -841,6 +841,22 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   tbody td.pname{padding-top:11px;padding-bottom:11px}
 }
 /* Phone: the masthead stacked four rows before any content. */
+@media(max-width:640px){
+  /* The tab bar is fixed to the bottom here, so the header need not follow the
+     page: pinned, it took 146px of an 812px screen on every page. */
+  .mast{position:static}
+  .mast.gmin .wlab,.mast.gmin .who .badge,.mast.gmin .whoset,.mast.gmin #outBtn,.mast.gmin .themebtn{display:none}
+  .mast.gmin .whoclub{display:inline-flex;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mast.gmin .mast-in{flex-wrap:nowrap}
+  .standtbl .gpcap,.standtbl .histnames{display:none}
+  .standtbl td:nth-child(2){max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lubtns{margin-left:0}
+  .perbar .pertog,.perbar>.pjlab:first-child{display:none}
+  .perbar select.persel{display:inline-block;flex:0 0 auto}
+  /* The arrows step through nights; the picker and Export are desktop things. */
+  h2.luh .lunav input[type=date],h2.luh #expMine2{display:none}
+  .mefacts{font-size:12px;gap:3px 14px}
+}
 @media(max-width:560px){
   .mast-in{padding:9px 12px;gap:8px 10px}
   .brand{font-size:18px}
@@ -964,6 +980,20 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 /* Lineup and results share one date bar, like a box-score site: tonight is the
    editable lineup, any earlier night is what scored. */
 .lunav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+/* My Team in season (2026-11-13): the night is the heading, then one toolbar. */
+h2.luh{align-items:center;flex-wrap:wrap;gap:8px}
+h2.luh::after{display:none}
+h2.luh .lunav{margin:0;font-family:var(--body,inherit);font-size:14px;font-weight:400}
+h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
+.lutools{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin:0 0 10px}
+.lustat{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
+.lustat .bad{color:var(--tax)}
+.lubtns{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.mefacts{display:flex;flex-wrap:wrap;gap:4px 18px;font-family:var(--mono);font-size:12.5px;color:var(--steel);margin:4px 0 16px}
+.mefacts b{color:var(--chalk);font-weight:600}
+.mefacts .good{color:var(--space)}.mefacts .bad{color:var(--tax)}
+.whoclub{display:none}
+.perbar .persel{display:none;width:auto}
 .lunav .lnday{font:700 18px var(--disp);min-width:170px;text-align:center}
 .lunav input[type=date]{width:auto}
 #lnWrap.combined>h2,#lnWrap.combined>#lnCtl{display:none}
@@ -1312,7 +1342,6 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
-    <div id="meFire"></div>
     <!-- Two sub-views (2026-10-14): the club itself, and the league table. -->
     <nav class="subnav" aria-label="My Team sections">
       <button type="button" data-sub="me-team" aria-pressed="true">Team</button>
@@ -1323,13 +1352,15 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="preBox" hidden></div>
     <div data-perbar="me"></div>
     <div id="luWrap" hidden>
-      <h2>My team <button class="btn ghost" id="toMyContracts2" style="margin-left:auto">Contracts &amp; cap</button>
-        <button class="btn ghost" id="expMine2">Export CSV</button></h2>
-      <p class="note explain">Anybody may sit on the bench; a benched player's stats do not count for the night.
-        The injured reserve is off the lineup entirely and sits outside the roster limit &#8212; activating
-        a man from it when the club is full asks you which player to release. Go back a night with the arrows
-        to see what scored.</p>
-      <div id="luNav"></div>
+      <!-- One heading row: the night, the arrows back, the "i", Export (2026-11-13).
+           It used to be a heading, a date bar, a chip row, a view row and two
+           paragraphs before the first player. -->
+      <h2 class="luh"><span id="luNav"></span><button class="btn ghost" id="expMine2" style="margin-left:auto">Export CSV</button></h2>
+      <p class="note explain">Only a started player's stats count for a night, scored the next morning from the
+        box scores and this lineup as it stood when his game tipped off. Each player locks when his own game tips
+        off. Anybody may sit on the bench. The injured reserve is off the lineup entirely and sits outside the
+        roster limit &#8212; activating a man from it when the club is full asks you which player to release. Go
+        back a night with the arrows to see what scored.</p>
       <div id="luHead"></div>
       <div class="luslots" id="luSlots"></div>
     </div>
@@ -1352,6 +1383,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="bidPanel"></div>
     </div>
 
+    <div id="meFire"></div>
     <div id="meWatch"></div>
 
     <!-- The what-if lab: all year (offseason-only until 2026-10-25). -->
@@ -1474,6 +1506,10 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <h2>Settings <span class="fcount" id="setWho"></span></h2>
     <p class="note explain">Your club, your address and your PIN. Everything here is yours to change; nobody
       else's club is reachable from this page.</p>
+    <div class="filters" id="setDevice"><span class="pjlab">Theme</span>
+      <div class="toggle" role="group" aria-label="Colour theme">
+        <button type="button" data-settheme="dark">Dark</button><button type="button" data-settheme="light">Light</button><button type="button" data-settheme="jam">NBA Jam</button></div>
+      <button type="button" class="btn ghost" data-signout="1" style="margin-left:auto">Sign out</button></div>
 
     <h2 class="sub">Who you are</h2>
     <p class="note explain">Your real first and last name. A club name can change &#8212; and clubs do get renamed,
@@ -1609,7 +1645,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
         <th class="hide2" data-k="g">G</th>
         <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3P</th><th data-k="REB">REB</th>
         <th data-k="AST">AST</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th>
-        <th data-k="PTS">PTS</th><th data-k="tot">Rating</th>
+        <th data-k="PTS">PTS</th><th data-k="tot" title="Player rating">PR</th>
       </tr></thead><tbody id="raterBody"></tbody>
     </table></div>
   </div>
@@ -1618,6 +1654,9 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
     <div id="pfaSeason">
     <div id="faClaims"></div>
     <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
+    <!-- The same stats-period bar as My Team (2026-11-13): without it nobody
+         could tell which period the numbers were from. -->
+    <div data-perbar="fa"></div>
     <div class="filters">
       <input id="faSearch" placeholder="Search" data-list="faSearchList" autocomplete="off">
       <datalist id="faSearchList"></datalist>
@@ -3689,11 +3728,15 @@ function drawWho(){
     <button class="btn" id="signCTA">Sign in</button></div>`;
   const el=$('whoBar');
   if(!me){el.innerHTML=`<button class="btn ghost" id="signBtn">Sign in</button>`;}
-  else{el.innerHTML=`<span>Signed in as <b>${isComm()?'Commissioner':htmlEsc(me)}</b></span>
+  else{el.innerHTML=`<span class="wlab">Signed in as <b>${isComm()?'Commissioner':htmlEsc(me)}</b></span>
     <span class="badge ${hasComm()?'comm':''}">${isComm()?'Full access'
       :isDeputy()?'GM \u00b7 commissioner access':'GM'}</span>
-    ${isComm()?'':'<button class="btn ghost" data-go="v-settings" title="Your club name, colours, email and PIN">Settings</button>'}
+    ${isComm()?'':`<button class="btn ghost whoset" data-go="v-settings" title="Your club name, colours, email and PIN">Settings</button>
+      <button class="btn ghost whoclub" data-go="v-settings" title="Settings: your club, theme, sign out">${htmlEsc(me)}</button>`}
     <button class="btn ghost" id="outBtn">Sign out</button>`;}
+  /* On a phone a signed-in GM's header is the brand and his club, which opens
+     Settings — where Sign out and the theme now also live (2026-11-13). */
+  if($('mast')&&$('mast').classList) $('mast').classList.toggle('gmin',!!me&&!isComm());
   $('adminTab').hidden=!hasComm();
   /* Both entry points run the same open, so the header button gets the
      still-loading guard and the autofocus the welcome card already had. */
@@ -3850,7 +3893,7 @@ function drawFA(){
         <th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
         <th class="hide2" data-k="TOV">TO</th>
         <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
-        <th data-k="rtg">Rating</th></tr></thead>
+        <th data-k="rtg" title="Player rating">PR</th></tr></thead>
       <tbody>${list.map(p=>{const v=pstat(p.n); const r=RG[canon(p.n)];
         return `<tr data-player="${htmlEsc(p.n)}" style="cursor:pointer"><td>${watchBtn(p.n)}${p.n}</td>
         <td class="l hide">${p.from}</td><td class="hide2">${salPrev(p)?money(salPrev(p)):'&#8212;'}</td>
@@ -3900,7 +3943,7 @@ function drawQuickPool(){
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('from','Rights','l hide2')}
     ${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}${H('AST','AST')}${H('P3','3P')}
     ${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}${H('TOV','TO','hide2')}
-    ${shotHeads(H)}${H('rtg','Rating')}<th></th></tr></thead><tbody>${
+    ${shotHeads(H)}${H('rtg','PR')}<th></th></tr></thead><tbody>${
     rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
       <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
       <td class="pos l hide">${htmlEsc(posShow(p.n)||p.p||'—')}</td>
@@ -4098,7 +4141,7 @@ function drawAllPlayers(){
   $('apTable').innerHTML=`<table id="apTbl"><thead><tr>
     ${H('n','Player','l')}${H('club','Club','l')}${H('pos','Pos','l hide')}
     ${H('now','On books','hide2')}${H('sal','Next season')}${H('y2','+2','hide')}${H('y3','+3','hide')}
-    ${H('yrs','Years')}${H('rights','Status','l')}${H('acq','Acq','hide2')}${H('rtg','Rating','hide2')}
+    ${H('yrs','Years')}${H('rights','Status','l')}${H('acq','Acq','hide2')}${H('rtg','PR','hide2')}
     <th></th></tr></thead><tbody>${rows.map(r=>{const p=r.p;
     const D='<span style="color:var(--dim)">&#8212;</span>';
     if(r.fa) return `<tr><td class="l" data-hs="${htmlEsc(p.n)}">${htmlEsc(p.n)}${isFixed(p.n)?'<span class="tag">corrected</span>':''}</td>
@@ -5029,7 +5072,7 @@ function drawFAList(){
   $('faTable').innerHTML=`<table class="fatab" id="faTbl"><thead><tr>
     ${H('n','Player','l')}<th class="l hide">Pos</th>${H('g','G')}${H('PTS','PTS')}${H('TRB','REB')}
     ${H('AST','AST')}${H('P3','3P')}${H('STL','STL','hide2')}${H('BLK','BLK','hide2')}
-    ${H('TOV','TO','hide2')}${shotHeads(H)}${H('rtg','Rating')}${H('ceil','Max bid')}${
+    ${H('TOV','TO','hide2')}${shotHeads(H)}${H('rtg','PR')}${seasonLive()?'':H('ceil','Max bid')}${
       canSignFA(me2)?'<th class="acts"></th>':''}</tr></thead><tbody>${
     rows.slice(0,160).map(p=>{
       const R=rightsOf(me2,p.n), e=hasProj(p.n);
@@ -5044,7 +5087,7 @@ function drawFAList(){
       ${shotCells(p.s)}`
       :`<td colspan="10" class="unrated" style="text-align:center">no stats on file</td>`}
       <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td>
-      <td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>
+      ${seasonLive()?'':`<td style="color:${p.ceil<1?'var(--tax)':'var(--steel)'}">${p.ceil<1?'&#8212;':money(p.ceil)}</td>`}
       ${canSignFA(me2)?`<td class="acts"><span>${onWire(p.n)
         ? (hasClaim(me2,p.n)?`<button class="act" data-unclaim="${htmlEsc(p.n)}" title="Withdraw your claim">Claimed \u2715</button>`
                             :`<button class="act edit" data-fasign="${htmlEsc(p.n)}" title="${htmlEsc(wireText(p.n))}">Claim</button>`)
@@ -5118,6 +5161,7 @@ function drawMe(){
   $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>
     <button class="btn ghost" id="meEmail" style="margin-left:auto">${
       myEmail ? 'Email \u00b7 '+([S.teams[T].daily?'daily':'',S.teams[T].weekly?'weekly':''].filter(Boolean).join(' + ')||'no digest') : 'Add your email'}</button></div>
+    ${seasonLive()?meStrip(T,s,sc,cap,tax):`
     <dl class="capgrid">
       <div class="capcell"><dt>Payroll</dt><dd class="amb">${money(s)}</dd></div>
       ${deadSalary(T)>0?`<div class="capcell"><dt>Released salary still charged</dt><dd class="bad">${money(deadSalary(T))}</dd></div>`:''}
@@ -5125,14 +5169,13 @@ function drawMe(){
         rx>0?`<span class="sub2"> rookies' ${money(rx)} not counted</span>`:''}</dd></div>
       <div class="capcell"><dt>Room to tax</dt><dd class="${tax-s>=0?'good':'bad'}">${money(tax-s)}</dd></div>
       <div class="capcell"><dt>Roster spots open</dt><dd>${Math.max(0,roster-n)}</dd></div>
-      ${seasonLive()?`<div class="capcell"><dt>Games played</dt><dd>${gamesUsed(T)} / ${SCORE.cap||S.cfg.gamecap||920}</dd></div>`:''}
-      <div class="capcell"><dt>${seasonLive()?'Projected games, full season':'Projected games'}</dt><dd>${Math.round(F.own)} / ${S.cfg.gamecap||920}</dd></div>
+      <div class="capcell"><dt>Projected games</dt><dd>${Math.round(F.own)} / ${S.cfg.gamecap||920}</dd></div>
       ${seasonLive()?'':`<div class="capcell"><dt>Avg historical place</dt><dd class="${avgPlace<=3.5?'good':avgPlace>=6.5?'bad':''}">${avgPlace.toFixed(1)}</dd></div>
       <div class="capcell"><dt>Categories at a winning level</dt><dd class="${beat>=4?'good':beat<=1?'bad':''}">${beat} of 9</dd></div>
       <div class="capcell"><dt>Mid-level left</dt><dd>${mleLeft(T)>0?money(mleLeft(T)):'spent'}${
         mleSpent(T)>0&&mleLeft(T)>0?`<span class="sub2"> of ${money(mleAmt())}</span>`:''}</dd></div>`}
       ${seasonLive()?`<div class="capcell"><dt>Injured reserve</dt><dd>${irCount(T)} / ${S.cfg.ir??2}</dd></div>`:''}
-    </dl>
+    </dl>`}
     ${(()=>{
       const inbox=(S.trades||[]).filter(x=>x.status==='pending'&&(x.b===T||x.a===T));
       if(!inbox.length) return '';
@@ -5497,7 +5540,7 @@ function drawBarred(){
     worth watching. The bar lifts when the season rolls forward.</p>
     <div class="rosterwrap"><table id="barredTbl"><thead><tr>
       <th class="l">Player</th><th class="l hide">Pos</th><th>Released at</th>
-      <th class="hide2">Rating</th><th class="l">Now</th></tr></thead><tbody>${
+      <th class="hide2" title="Player rating">PR</th><th class="l">Now</th></tr></thead><tbody>${
     list.map(c=>`<tr class="iscut"><td class="l pname" data-player="${htmlEsc(c.n)}">${htmlEsc(c.n)}</td>
       <td class="pos l hide">${htmlEsc(c.p||'\u2014')}</td>
       <td class="mono bad">${money(c.s)}</td>
@@ -5540,7 +5583,7 @@ function rosterTable(team,into){
       <th data-k="PTS">PTS</th><th data-k="TRB">REB</th><th data-k="AST">AST</th>
       <th data-k="P3">3P</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TOV">TO</th>
       <th class="hide2" data-k="FGP">FG%</th><th class="hide2" data-k="FTP">FT%</th>
-      <th data-k="rtg">Rating</th></tr></thead>
+      <th data-k="rtg" title="Player rating">PR</th></tr></thead>
     <tbody>${rows.map(({c,r})=>r&&r.g?`<tr>
       <td>${c.n}</td><td class="hide">${money(salNow(c))}</td><td>${r.g}</td>
       <td>${r.s.PTS}</td><td>${r.s.TRB}</td><td>${r.s.AST}</td><td>${r.s.P3}</td>
@@ -5607,6 +5650,33 @@ function benchRank(k,v){
 }
 
 const WINLINE={}; ['FG','FT','P3','TRB','AST','STL','BLK','TOV','PTS'].forEach(k=>WINLINE[k]=BENCH[k]['1']);
+/* In season the cap grid was a block of eight cards above the lineup, and its
+   "Projected games, full season" summed games in the stats period in front of
+   the GM (86 of 920 on 15 days, with 145 already played). One line now: place,
+   games played and the pace, the IR, then the money. Pace is the digest's rule:
+   games per day so far, out to the regular season's end. */
+function gamesPace(used,cap,days,season,end){
+  const d=Object.keys(days||{}).sort(); if(d.length<3) return null;
+  const endD=end||`${(+String(season).slice(0,4))+1}-04-12`;
+  const span=(x,y)=>Math.max(0,Math.round((Date.parse(y)-Date.parse(x))/864e5));
+  const el=Math.max(1,span(d[0],d[d.length-1])+1), left=span(d[d.length-1],endD);
+  return {projected:Math.round(used+used/el*left), expected:Math.round(cap*el/Math.max(1,el+left))};
+}
+function meStrip(T,s,sc,cap,tax){
+  const row=(SCORE.standings||[]).find(r=>r.club===T);
+  const gc=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T);
+  const pace=gamesPace(used,gc,SCORE.days,curSeason(),S.cfg.seasonEnd);
+  const dead=deadSalary(T);
+  const f=[];
+  if(row&&row.tot&&row.tot.GP>0) f.push(`<span><b>${ordinal(row.rank)}</b> · ${row.pts} pts</span>`);
+  f.push(`<span><b>${used}</b> / ${gc} games${pace?` · <span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">on pace for ${pace.projected}</span>`:''}</span>`);
+  f.push(`<span>IR <b>${irCount(T)}</b> / ${S.cfg.ir??1}</span>`);
+  f.push(`<span>Payroll <b>${money(s)}</b></span>`);
+  f.push(cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
+  f.push(`<span class="${tax-s>=0?'':'bad'}">${money(Math.abs(tax-s))} ${tax-s>=0?'to':'past'} the hard cap</span>`);
+  if(dead>0) f.push(`<span class="bad">${money(dead)} released salary</span>`);
+  return `<div class="mefacts">${f.join('')}</div>`;
+}
 function fullTotals(names){
   const GC=S.cfg.gamecap||920;
   const rows=names.map(n=>pstat(n)).filter(p=>p&&p.g)
@@ -5691,7 +5761,7 @@ function drawLab(){
     <th data-k="g">G</th><th data-k="PTS">PTS</th><th data-k="TRB">REB</th>
     <th data-k="AST">AST</th><th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th>
     <th class="hide2" data-k="BLK">BLK</th><th class="hide2" data-k="TOV">TO</th>
-    <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
+    <th data-k="rtg" title="Player rating">PR</th><th></th></tr></thead><tbody>${
     rows.map(({n,r})=>`<tr><td class="pname" data-player="${n}">${n}</td><td>${r.g}</td><td>${r.s.PTS}</td><td>${r.s.TRB}</td>
       <td>${r.s.AST}</td><td>${r.s.P3}</td><td class="hide2">${r.s.STL}</td>
       <td class="hide2">${r.s.BLK}</td><td class="hide2">${r.s.TOV}</td>
@@ -5816,7 +5886,7 @@ function drawLabPool(){
     <th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
     <th class="hide2" data-k="TOV">TO</th>
     <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
-    <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
+    <th data-k="rtg" title="Player rating">PR</th><th></th></tr></thead><tbody>${
     rows.slice(0,140).map(p=>{const v=pstat(p.n)||p; const own=ownerOf(p.n);
       return `<tr><td class="pname" data-player="${p.n}">${p.n}</td>
       <td class="l" style="font-size:12px;color:${isFreeAgent(p.n)?'var(--space)':'var(--steel)'}">${own}</td>
@@ -6663,7 +6733,7 @@ function drawStrategy(force){
         <input id="stNote" maxlength="140" placeholder="e.g. would stretch to $12 if the guards go early"></div>
       <button class="btn" id="stAdd">Add</button></div>
     ${STRAT.length?`<div class="scroller" data-cap="1"><table id="stratTbl"><thead><tr>
-        <th class="l">Rank</th><th class="l">Player</th><th class="l">Pos</th><th>Rating</th>
+        <th class="l">Rank</th><th class="l">Player</th><th class="l">Pos</th><th title="Player rating">PR</th>
         <th class="l">Priority</th><th>Max bid</th><th class="l">Comment</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>
       <div class="filters" style="margin-top:11px">
@@ -7025,8 +7095,11 @@ function drawPerBars(){
     ? (LIVE[PROJSRC].asOf?`through ${htmlEsc(shortDay(LIVE[PROJSRC].asOf))}${LIVE[PROJSRC].pre?' \u00b7 preseason games until opening night':''}`
                          :'no games on file yet \u2014 the first night lands the morning after opening night')
     : usingMine()?`${Object.keys(PROJ).length} players edited`:'';
-  const html=`<div class="perbar"><span class="pjlab">Stats</span><div class="toggle" role="group" aria-label="Stats period">${
+  /* Seven buttons wrapped onto two lines on a phone; there it is a select. */
+  const html=`<div class="perbar"><span class="pjlab">Stats</span><div class="toggle pertog" role="group" aria-label="Stats period">${
     opts.map(([v,l])=>`<button type="button" data-pm="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>
+    <select class="persel" data-pmsel="1" aria-label="Stats period">${
+    opts.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('')}</select>
     <div class="toggle" role="group" aria-label="Rate players on" title="Averages: PR from each player's per-game line. Totals: PR from what he produced over the period, so missed games count against him.">${
       [['pg','Averages'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div>
     <span class="pjlab">${note}</span></div>`;
@@ -7038,6 +7111,9 @@ document.addEventListener('click',e=>{
   if(b) setProjMode(b.dataset.pm);
   const pb=e.target&&e.target.closest?e.target.closest('[data-prb]'):null;
   if(pb) setPrBasis(pb.dataset.prb);
+});
+document.addEventListener('change',e=>{
+  if(e.target&&e.target.dataset&&e.target.dataset.pmsel) setProjMode(e.target.value);
 });
 function drawProjBar(){
   drawPerBars();
@@ -7115,7 +7191,7 @@ function drawProjTab(){
     <th data-k="P3">3P</th><th class="hide2" data-k="STL">STL</th><th class="hide2" data-k="BLK">BLK</th>
     <th class="hide2" data-k="TOV">TO</th>
     <th class="shot" data-k="FGP">FG%</th><th class="shot" data-k="FTP">FT%</th>
-    <th data-k="rtg">Rating</th><th></th></tr></thead><tbody>${
+    <th data-k="rtg" title="Player rating">PR</th><th></th></tr></thead><tbody>${
     rows.slice(0,160).map(p=>{const v=pstat(p.n)||{g:p.g,s:p.s},e=hasProj(p.n),r=useProj?R[canon(p.n)]:p.tot;
       /* The amber "edited" mark means the GM changed it. On the aggregate
          nothing is his, so nothing is marked even though the numbers moved. */
@@ -7258,6 +7334,7 @@ function applyTheme(t){
   if(i) i.textContent = t==='light' ? '\u25D3' : t==='jam' ? '\u2605' : '\u25D2';
   const b=document.getElementById('themeBtn');
   if(b) b.title = 'Switch to '+THEMENAME[nextTheme(t)];
+  document.querySelectorAll('[data-settheme]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.settheme===t?'true':'false'));
   try{localStorage.setItem('ll_theme',t);}catch(e){}
 }
 (function(){
@@ -7268,6 +7345,12 @@ function applyTheme(t){
 })();
 document.getElementById('themeBtn').onclick=()=>
   applyTheme(nextTheme(document.documentElement.getAttribute('data-theme')));
+/* Settings carries the theme and Sign out too: on a phone the header keeps only the club. */
+document.addEventListener('click',e=>{
+  const t=e.target&&e.target.closest?e.target.closest('[data-settheme]'):null;
+  if(t) applyTheme(t.dataset.settheme);
+  if(e.target&&e.target.closest&&e.target.closest('[data-signout]')&&$('outBtn')) $('outBtn').click();
+});
 
 /* ============ PLAYER DETAIL: actuals vs my projections ============
    Any table can make a name clickable by giving the cell class="pname"
@@ -8772,7 +8855,7 @@ function drawBlock(){
   box.innerHTML=`<table id="blkTbl"><thead><tr>
     <th class="l" data-k="n">Player</th><th class="l" data-k="club">Club</th>
     <th class="l hide" data-k="pos">Pos</th><th data-k="sal">Salary</th>
-    <th data-k="rtg">Rating</th><th class="l hide2" data-k="line">${projSrcHead()}</th>
+    <th data-k="rtg" title="Player rating">PR</th><th class="l hide2" data-k="line">${projSrcHead()}</th>
     <th></th></tr></thead><tbody>${rows.map(({t,i,p})=>{
     const r=rtg(p.n), right=tradeRight(p), st=pstat(p.n);
     return `<tr><td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}${tags(p)}</td>
@@ -9955,15 +10038,19 @@ function drawLineup(){
      the GM's call. */
   const misfit=SLOTIDS.filter(id=>lu.s[id]&&!slotOk(id,lu.s[id])).map(id=>`${lu.s[id]} (${slotLabel(id)}, plays ${posText(lu.s[id])})`);
   const lost=tourney?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
-  $('luHead').innerHTML=`<div class="dhead">
-    <span class="pill ${open?'bad':'good'}">${open?open+' spot'+(open===1?'':'s')+' open':'all 15 filled'}</span>
-    <span class="pill">${bench.length} on the bench</span>
-    ${tourney?'<span class="pill good">Preseason tournament</span>':`<span class="pill">${ir.length} of ${irMax} on the IR</span>`}
-    ${lockedN?`<span class="pill">${lockedN} locked</span>`:''}
-    ${tourney?'':`<span class="pill ${used+playing.length>cap?'bad':''}" title="Games counted so far this season, out of the cap">${used} / ${cap} games</span>`}
-    ${can?`<button class="btn ghost" id="luTonight" style="margin-left:auto" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
+  /* One toolbar: the view, then what is true tonight in a line of text (games
+     and the IR are in the club strip above), then the buttons. */
+  const lustat=[open?`<b class="bad">${open} spot${open===1?'':'s'} open</b>`:'All 15 filled',
+    `${bench.length} on the bench`, tourney?'Preseason tournament':'',
+    lockedN?`${lockedN} locked`:'', `${playing.length} playing tonight`].filter(Boolean).join(' \u00b7 ');
+  $('luHead').innerHTML=`<div class="lutools"><div class="toggle" role="group" aria-label="Columns">${
+      [['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
+       ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
+       ['ctr','Contract','Salary owed by season, years, option, rights']].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+    <span class="lustat">${lustat}</span>
+    ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
       <button class="btn ghost" id="luAuto">Start all</button>
-      <button class="btn ghost" id="luClear">Bench all</button>`:''}</div>
+      <button class="btn ghost" id="luClear">Bench all</button></span>`:''}</div>
     ${misfit.length?`<div class="warn"><b>Not eligible where they are:</b> ${misfit.map(htmlEsc).join(', ')}.
       Positions now follow ESPN\u2019s fantasy eligibility.</div>`:''}
     ${lost.length?`<div class="warn"><b>Tonight would take ${htmlEsc(T)} past ${cap} games.</b>
@@ -9972,11 +10059,7 @@ function drawLineup(){
       ${lost.map(htmlEsc).join(', ')}. Bench them, or reorder, to choose who uses the last games.</div>`:''}
     ${tourney?`<p class="note"><b>Preseason tournament, ${htmlEsc(preSpan())}.</b> Your lineup was filled for you and
       carries forward each night; change it any time. Just for fun \u2014 none of it counts toward the season.</p>`:''}
-    <div class="filters" style="margin:6px 0 8px"><div class="toggle" role="group" aria-label="Columns">${
-      [['stats','Stats'],['trend','Trending'],['rtg','Ratings'],['news','News'],['ctr','Contract']].map(([v,l])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}">${l}</button>`).join('')}</div>
-      <span class="fcount">${LUMODE==='news'?'ESPN\u2019s injury report: what, expected return, the latest line':LUMODE==='ctr'?'salary owed by season':LUMODE==='trend'?`player rating over each period \u00b7 ${PRBASIS==='tot'?'totals':'averages'} \u00b7 rank is the season`:`${LUMODE==='rtg'?'each category\u2019s rating, summing to PR \u00b7 ':''}${htmlEsc(projSrcLabel())} \u00b7 ${PRBASIS==='tot'?'totals':'per game'} \u00b7 change it in the Stats bar above`}</span></div>
-    <p class="note">${htmlEsc(lineupNote())} Only a started player's stats count for the night, scored the
-      next morning from the box scores and this lineup as it stood when his game tipped off.</p>`;
+    ${SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length?'':`<p class="note">${htmlEsc(lineupNote())}</p>`}`;
   $('luHead').querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
     LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); }catch(e){} drawLineup(); });
 
@@ -10887,7 +10970,7 @@ function drawHome(){
       const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
       const tips=st.map(n=>tipOf(n)).filter(Boolean).map(t=>t.at);
       cards.push(homeCard('Tonight',`${tips.length} <span class="hof">playing</span>`,
-        tips.length?`First tip ${hhmm(Math.min(...tips))}`:'No games'));
+        tips.length?`First tip ${clock12(Math.min(...tips))}`:'No games'));
     }
     const offers=(S.trades||[]).filter(t=>t.status==='pending'&&t.b===T);
     cards.push(homeCard('Offers',`${offers.length}`,
@@ -11760,7 +11843,10 @@ async function loadDaily(force){
     }catch(e){ /* keep what we had */ }
   }
   DAILY=Object.keys(SCORE.days).length?SCORE.days:null;
-  drawTrend(); drawStandings(); drawLastNight();
+  /* Home's place card and the tale of the tape read SCORE too. Without this they
+     kept the projection they were drawn with at boot ("8th, Projected") beside a
+     standings table already showing the season, until something else redrew. */
+  drawTrend(); drawStandings(); drawLastNight(); drawHome();
   return SCORE;
 }
 /* Games counted so far this season, from the scored nights. */
@@ -12064,7 +12150,7 @@ function drawStandBox(B){
       <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
       <td class="l">${r.rank}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
-      <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP} / ${cap}`:r.tot.GP}</td>
+      <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP}<span class="gpcap"> / ${cap}</span>`:r.tot.GP}</td>
       ${Object.keys(CK).map(c=>`<td>${val(r,c)}</td>`).join('')}
       <td class="rating rotot">${r.pts}</td></tr>`).join('')}</tbody></table></div>`;
   sortable(B.tbl,B.sort,'tot',true); redraw[B.sort]=drawStandings;

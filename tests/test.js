@@ -1993,10 +1993,17 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('no historical place', !/Avg historical place/.test(headLive));
   ok('no winning-level count', !/Categories at a winning level/.test(headLive));
   ok('no mid-level', !/Mid-level/.test(headLive));
-  ok('but payroll and the cap are still there',
-     /Payroll/.test(headLive) && /Room to tax/.test(headLive));
-  ok('and the games played and projected show',
-     /Games played/.test(headLive) && /Projected games, full season/.test(headLive));
+  ok('but payroll and the cap are still there, on one line',
+     /Payroll/.test(headLive) && /hard cap/.test(headLive) && /mefacts/.test(headLive));
+  ok('and the games played show',
+     /\/ 920 games/.test(headLive));
+  ok('the period-dependent "projected games" is gone in season',
+     !/Projected games/.test(headLive));
+  console.log('\n== games pace ==');
+  const gp = g('gamesPace');
+  ok('too few nights is no pace', gp(30, 920, {'2026-10-21':1,'2026-10-22':1}, '2026-27') === null);
+  const pc = gp(100, 920, {'2026-10-21':1,'2026-10-22':1,'2026-10-30':1}, '2026-27', '2026-11-09');
+  ok('pace is games per day so far, out to the end', pc && pc.projected === 200, JSON.stringify(pc));
   g('S').cfg.phase = 'offseason';
   g('render')();
   const headOff = document.getElementById('meHead').innerHTML;
@@ -2172,9 +2179,9 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('render')();
   ok('the button is labelled for what it does', /Start all/.test(document.getElementById('luHead').innerHTML));
   ok('and its opposite is Bench all', /Bench all/.test(document.getElementById('luHead').innerHTML));
-  ok('the header counts the IR against its limit',
-     /of 1 on the IR/.test(document.getElementById('luHead').innerHTML),
-     document.getElementById('luHead').innerHTML.slice(0, 400));
+  ok('the club line counts the IR against its limit',
+     /IR <b>\d+<\/b> \/ 1/.test(document.getElementById('meHead').innerHTML),
+     document.getElementById('meHead').innerHTML.slice(0, 400));
   g('S').cfg.phase = 'offseason';
   X.me = 'Osborn';
 

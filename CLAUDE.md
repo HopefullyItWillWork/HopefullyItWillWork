@@ -55,7 +55,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
 | **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
 | **Chat** | `v-chat` | chat and My notes, with the unread badge |
-| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14). A GM also gets a **Settings** button beside Sign out (`drawWho()`): on a phone the bottom bar scrolls and the tab sat off-screen, so GMs could not find it |
+| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14). A GM also gets a **Settings** button beside Sign out (`drawWho()`): on a phone the bottom bar scrolls and the tab sat off-screen, so GMs could not find it. On a phone that button is his club's name and is the only thing in the header besides the brand (2026-11-13) |
 
 Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
 projections, Team trends, League history and Transactions tabs — every one of
@@ -275,6 +275,34 @@ parallel rather than one after another.
   **Ratings** — each category's z-score, summing to PR, ESPN's rater breakdown
   (`rtgZ()`, from the same pass as `ratings()`, in `RTGZ`); **News** — the injury
   report per player; **Contract**.
+
+### Usability pass (2026-11-13)
+
+A walk-through as a GM on a phone found the daily path buried. What changed:
+
+- **My Team in season leads with the lineup.** The cap grid is one line,
+  `meStrip()` (`.mefacts`): place, games played and the pace (`gamesPace()`,
+  pure, the digest's rule), the IR, payroll, cap space, room to the hard cap.
+  The old "Projected games, full season" summed games in the stats period — 86
+  of 920 on 15 days with 145 played — and is gone in season (the offseason grid
+  keeps "Projected games"). He's on fire (`#meFire`) moved below the table. The
+  night is the heading (`h2.luh` holds `#luNav`, Export and the "i"); the view
+  toggle, a one-line status (`.lustat`) and Best/Start/Bench share one row
+  (`.lutools`). View descriptions are button tooltips. First lineup row on a
+  phone: 1,536px down before, ~550px after.
+- **Phone header** (≤640px): not sticky (the tabs are fixed to the bottom), and a
+  signed-in GM sees the brand and one button with his club name, which opens
+  Settings (`.mast.gmin`, `.whoclub`). **Theme and Sign out are on Settings**
+  (`#setDevice`, `data-settheme`, `data-signout`). 146px → 59px.
+- **The stats-period bar is a select on a phone** (`.persel`, `data-pmsel`); the
+  seven buttons wrapped onto two lines. Players › Free agents has the bar too.
+- **Home redraws when the scores land** (`loadDaily()` calls `drawHome()`): the
+  place card and the tape showed the boot-time projection ("8th, Projected")
+  beside a standings table showing the season.
+- Free agents drops **Max bid** in season; rating columns are headed **PR**
+  everywhere; Home's first tip is `clock12()` (Pacific, 12-hour).
+- **Standings on a phone**: club names ellipsised on one line, games as "159"
+  (`.gpcap` hidden), the GM's name line hidden.
 
 ## Injury report detail (2026-11-13)
 
