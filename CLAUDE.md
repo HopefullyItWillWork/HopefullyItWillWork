@@ -48,14 +48,14 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | Tab | Section id | What is on it |
 |---|---|---|
 | **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), the chat card (`#homeChat`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
-| **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, the lineup with its date bar, your roster) and **Standings** `me-stand`; the what-if lab (`#labWrap`, all year since 2026-10-25) and, offseason only, the auction impact card (`#bidWrap`) — `drawMeExtras()` |
+| **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, one table that is the lineup and the roster in season — see 2026-11-13 — with its date bar) and **Standings** `me-stand`; the what-if lab (`#labWrap`, all year since 2026-10-25) and, offseason only, the auction impact card (`#bidWrap`) — `drawMeExtras()` |
 | **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
 | **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Last night** `v-night` (every box score for a night, filterable to free agents / my team — `drawNight()`), **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
 | **Trades** | `v-trade` | unchanged |
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
 | **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
 | **Chat** | `v-chat` | chat and My notes, with the unread badge |
-| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14). A GM also gets a **Settings** button beside Sign out (`drawWho()`): on a phone the bottom bar scrolls and the tab sat off-screen, so GMs could not find it |
+| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14). A GM also gets a **Settings** button beside Sign out (`drawWho()`): on a phone the bottom bar scrolls and the tab sat off-screen, so GMs could not find it. On a phone that button is his club's name and is the only thing in the header besides the brand (2026-11-13) |
 
 Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
 projections, Team trends, League history and Transactions tabs — every one of
@@ -242,6 +242,81 @@ browser (`REALDOM`): the Node stub has no layout and its tests read pages
 straight after `render()`. **A new heavy draw function should gate itself the
 same way.** Boot fetches the three club boxes (projections, strategy, notes) in
 parallel rather than one after another.
+
+### My Team is one table; PR on Averages or Totals (2026-11-13)
+
+- **Lineup and roster are one table** in season. `drawLineup()`'s rows carry
+  GP, the nine categories and PR for the stats period, then the roster actions
+  (Edit for the commissioner, Length, Block/Unlist, Cut) in `.luacts`, whose
+  width is set per viewer in `--luacts` (every row is its own grid, so a
+  content-sized track lined up nothing). A **Stats / Contract** toggle
+  (`LUMODE`, `ll_lumode`) swaps the categories for salary by season, years,
+  option, rights and year acquired. `#rosWrap` (the old My roster table) is
+  hidden while the lineup shows and still drawn, because Export CSV reads it;
+  in the offseason it is the roster as before. The lineup grid is now
+  `44px minmax(300px,1fr) 118px 34px repeat(10,…) var(--luacts)`, capped at
+  1440px, scrolling below 1240px; the actions pin right only above 640px.
+- **PR basis, `PRBASIS`** (`ll_prbasis`, per browser): the Stats bar's
+  **Averages / Totals** and the rater tab's select are the same switch
+  (`setPrBasis()`; `raterBasis()` reads it). Averages is the old per-game rating
+  with the period's games floor. Totals rates per game × games, so missed games
+  count against a player, and passes `raterScore(…,{all:true})`: everyone with a
+  game is scored against the field the floor defines (`R.also`, no rank) instead
+  of dropping out. The rater tab never passes `all`. On Totals the table's
+  numbers are the period's totals too (`luTotals()`).
+- **`ratingPool()`** adds, in a live window, everyone in the window with no
+  `RATER` row (this year's rookies), keyed by the feed's spelling; `rtg()`
+  falls back to it through `liveLine()`. Before this, a rookie had no PR.
+- A player with **no games in a live period** shows dashes, not zeroes.
+- **Five views on the table** (`LUMODE`): **Stats**; **Trending** — PR7, PR15,
+  PR30, Season and season rank side by side, like ESPN (`trendRatings(w)`
+  rates each window by switching `useProj`/`PROJSRC` for the computation and
+  putting them back, cached in `TRENDCACHE` per window, basis and feed day);
+  **Ratings** — each category's z-score, summing to PR, ESPN's rater breakdown
+  (`rtgZ()`, from the same pass as `ratings()`, in `RTGZ`); **News** — the injury
+  report per player; **Contract**.
+
+### Usability pass (2026-11-13)
+
+A walk-through as a GM on a phone found the daily path buried. What changed:
+
+- **My Team in season leads with the lineup.** The cap grid is one line,
+  `meStrip()` (`.mefacts`): place, games played and the pace (`gamesPace()`,
+  pure, the digest's rule), the IR, payroll, cap space, room to the hard cap.
+  The old "Projected games, full season" summed games in the stats period — 86
+  of 920 on 15 days with 145 played — and is gone in season (the offseason grid
+  keeps "Projected games"). He's on fire (`#meFire`) moved below the table. The
+  night is the heading (`h2.luh` holds `#luNav`, Export and the "i"); the view
+  toggle, a one-line status (`.lustat`) and Best/Start/Bench share one row
+  (`.lutools`). View descriptions are button tooltips. First lineup row on a
+  phone: 1,536px down before, ~550px after.
+- **Phone header** (≤640px): not sticky (the tabs are fixed to the bottom), and a
+  signed-in GM sees the brand and one button with his club name, which opens
+  Settings (`.mast.gmin`, `.whoclub`). **Theme and Sign out are on Settings**
+  (`#setDevice`, `data-settheme`, `data-signout`). 146px → 59px.
+- **The stats-period bar is a select on a phone** (`.persel`, `data-pmsel`); the
+  seven buttons wrapped onto two lines. Players › Free agents has the bar too.
+- **Home redraws when the scores land** (`loadDaily()` calls `drawHome()`): the
+  place card and the tape showed the boot-time projection ("8th, Projected")
+  beside a standings table showing the season.
+- Free agents drops **Max bid** in season; rating columns are headed **PR**
+  everywhere; Home's first tip is `clock12()` (Pacific, 12-hour).
+- **Standings on a phone**: club names ellipsised on one line, games as "159"
+  (`.gpcap` hidden), the GM's name line hidden.
+
+## Injury report detail (2026-11-13)
+
+ESPN's roster feed carries only a status and a date. `fetchPlayers()` now also
+reads ESPN's league-wide report (`INJURIES`,
+`site.api.espn.com/.../nba/injuries`): `injuriesFrom()` (pure, by the id in the
+athlete's player-card link or headshot, `athleteIdOf()`) gives `inj = {s, d
+("Left Hamstring Strain"), r (expected return), at, note}` and wins over the
+roster's bare status. `note` is the latest news line, RotoWire's via ESPN, and is
+credited so on screen. `injv` is 2, so a copy cached without the report is
+refreshed at once. A failed report fetch keeps the roster status. The OUT chip
+reads "OUT · 11/22"; the player card and the News view carry the rest. The
+return date is ESPN's estimate and is labelled "expected". Information only, as
+before.
 
 ### Positions, He's on fire, the payroll table (2026-10-15)
 
