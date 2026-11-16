@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.1">
+<meta name="ll-build" content="2026-11-16.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -964,6 +964,8 @@ p.note.explain.open{display:block}
 input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
 .cbadge.lg{min-width:48px;height:48px;font-size:var(--t4);margin:0;padding:0 6px}
 /* ---- Player headshots, from ESPN by the player's ESPN id. ---- */
+img.hs[data-player]{cursor:pointer}
+label img.hs[data-player]{cursor:inherit}
 .hs{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 10%;background:var(--well);
   flex:none;vertical-align:middle;margin-right:6px}
 .hs.lg{position:absolute;top:14px;right:52px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
@@ -7428,6 +7430,7 @@ document.addEventListener('click',e=>{
   const c=e.target.closest('[data-player]');
   if(!c) return;
   if(e.target.closest('button')) return;      // let row buttons do their own thing
+  if(c.matches('img.hs')&&c.closest('label')) return;   // a picture in a pick list ticks the pick
   openPlayerCard(c.dataset.player);
 });
 /* The card is modal, so while it is open every control behind it is inert —
@@ -11171,7 +11174,10 @@ function espnIdOf(name){
 function headshot(name,cls){
   const id=espnIdOf(name); if(!id||!/^\d+$/.test(id)) return '';
   const w=cls==='lg'?160:64;
-  return `<img class="hs${cls?' '+cls:''}" alt="" loading="lazy" referrerpolicy="no-referrer"
+  // Clickable like the name beside it: the delegated [data-player] handler opens
+  // the card. Not the card's own large picture.
+  const dp=cls==='lg'?'':` data-player="${htmlEsc(name)}"`;
+  return `<img class="hs${cls?' '+cls:''}"${dp} alt="" loading="lazy" referrerpolicy="no-referrer"
     src="https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=${w}&h=${Math.round(w*.73)}" onerror="this.remove()">`;
 }
 
