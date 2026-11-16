@@ -329,6 +329,29 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
 - **`.scroller` tables sit on `--panel`**, pinned column included; the pinned cell
   used to paint the page colour and read as an inverted block in light.
 
+### Five changes from the second mockup (2026-11-16)
+
+Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
+
+- **Game column**: a game to come is an amber time pill (`.lutime`, no "PT"; the full
+  time is the tooltip), a started one is a padlock and "Locked" (`.lulock`), and a
+  row whose man has no game is faded (`.lurow:has(.lugame.nog)`).
+- **Row actions are a ⋯ menu** (`details.rmenu` > `.rmpop`): Move to injured reserve,
+  Set contract length, Put on / Take off the trade block, Edit contract (commissioner),
+  Release…. The IR button left the name cell. The list is `position:fixed`, placed by
+  `rmenuPlace()` so a scrolling table cannot clip it (this app has shipped that bug
+  three times); one open at a time; closed by a pick, a click away, Escape or a
+  scroll; reopened on the same player after a redraw (`openNm` in `drawLineup()`).
+  `--luacts` is 40px.
+- **Fewer outlines**: `--field`/`--fieldln` for inputs (filled, faint edge kept for
+  accessibility), `--soft`/`--softtx` for ghost buttons, `.act`, chips and pills (no
+  border). Primary and Danger buttons keep theirs.
+- **My Team has no Standings sub-view**; the Place card links to League › Standings
+  (`.linkbtn`). `STANDBOX.me` no longer draws.
+- **The stats bar is one row**: Stats [period ▾] [Per game | Totals] (i) · through …
+  The sentence (`prHint()`) shows on the Players list; elsewhere the "i" toggles it
+  (`PRINFO`).
+
 ## Injury report detail (2026-11-13)
 
 ESPN's roster feed carries only a status and a date. `fetchPlayers()` now also

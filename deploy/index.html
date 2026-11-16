@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.7">
+<meta name="ll-build" content="2026-11-16.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -33,6 +33,7 @@
   --t1:11px; --t2:13px; --t3:15px; --t4:19px; --t5:26px;
   --r-s:5px; --r:8px; --r-l:12px;
   --segon:#2C384A;
+  --soft:#1F2836; --softtx:#D5DCE6; --field:#1A2230; --fieldln:#3A4860;
   color-scheme:dark;
   --ink:#0D1219; --panel:#141B25; --panel2:#1A222E; --well:#080C12;
   --line:#232E3C; --line2:rgba(35,46,60,.55);
@@ -69,6 +70,7 @@
   --bnr:linear-gradient(170deg,#FFFFFF,#F1F4F8);
   --shadow:0 1px 2px rgba(17,25,35,.06);
   --segon:#FFFFFF;
+  --soft:#E8ECF2; --softtx:#26313F; --field:#F5F7FA; --fieldln:#B9C3D0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
@@ -287,6 +289,21 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 /* The roster actions that used to sit on the My roster table (2026-11-13). */
 .luacts{display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap}
+details.rmenu>summary{list-style:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--r);color:var(--dim);cursor:pointer}
+details.rmenu>summary::-webkit-details-marker{display:none}
+details.rmenu>summary:hover,details.rmenu[open]>summary{background:var(--panel2);color:var(--chalk)}
+details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.rmpop{position:fixed;z-index:90;width:232px;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:0 12px 32px rgba(0,0,0,.4);padding:6px;display:flex;flex-direction:column}
+.rmpop button{background:none;border:0;text-align:left;font:500 var(--t3) var(--body);color:var(--chalk);
+  padding:9px 12px;border-radius:var(--r-s);cursor:pointer}
+.rmpop button:hover,.rmpop button:focus-visible{background:var(--segon);outline:none}
+.rmpop .rmdanger{color:var(--tax)}
+/* The pinned actions cell is sticky on narrower screens; the one with the open
+   menu has to sit above the rows after it, or their dots paint over the list. */
+.lurow>.luacts:has(details.rmenu[open]){z-index:30}
+.rmpop hr{border:0;height:1px;background:var(--line);margin:4px 6px}
 /* The News view: one cell across the nine category tracks. */
 .lunews{grid-column:span 9;text-align:left!important;font-size:var(--t2);line-height:1.35;color:var(--chalk);min-width:0}
 .lunews small{display:block;color:var(--dim);font-size:var(--t2);margin-top:2px}
@@ -859,8 +876,6 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .standtbl .gpcap,.standtbl .histnames{display:none}
   .standtbl td:nth-child(2){max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lubtns{margin-left:0}
-  .perbar .pertog,.perbar>.pjlab:first-child{display:none}
-  .perbar select.persel{display:inline-block;flex:0 0 auto}
   /* The arrows step through nights; the picker and Export are desktop things. */
   h2.luh .lunav input[type=date],h2.luh #expMine2{display:none}
 }
@@ -999,7 +1014,9 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lustat .bad{color:var(--tax)}
 .lubtns{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .whoclub{display:none}
-.perbar .persel{display:none;width:auto}
+.perbar .persel{width:auto;display:inline-block;padding:6px 10px;font-size:var(--t2)}
+.perbar .perlab{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:var(--t2);font-weight:500;letter-spacing:0;text-transform:none;color:var(--steel)}
+.perbar .pernote{margin-left:auto}
 .prgrp{display:inline-flex;align-items:center;gap:8px}
 .pvhead{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:0 0 14px}
 .pvhead h2{margin:0;flex:1 1 auto}
@@ -1015,8 +1032,11 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lugame{font-family:var(--body);font-size:var(--t2);line-height:1.25;color:var(--chalk);text-align:left;white-space:nowrap}
 .lugame small{display:block;font-size:var(--t1);color:var(--steel);letter-spacing:.04em}
 .lugame.lk{color:var(--steel)}
-.lugame.lk small{color:var(--tax)}
 .lugame.nog{color:var(--dim)}
+.lugame .lutime{display:inline-block;font-weight:600;font-size:var(--t1);color:var(--ink);background:var(--amber);border-radius:999px;padding:1px 8px;margin-right:2px}
+.lugame .lulock{display:inline-flex;align-items:center;gap:5px;color:var(--steel)}
+.lugame.lk small{color:var(--dim)}
+.lurow:has(.lugame.nog){opacity:.55}
 .luhdr span:nth-child(3){text-align:left}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
@@ -1091,6 +1111,20 @@ tfoot td:first-child{font-size:var(--t1)}
 .scroller{background:var(--panel)}
 .scroller tbody td:first-child,.scroller tfoot td:first-child,[data-pin2] tbody td:nth-child(2){background:var(--panel)}
 .scroller tbody tr:hover,.scroller tbody tr:hover td:first-child{background:var(--panel2)}
+/* Fewer outlines (2026-11-16): fields are filled with a faint edge (they must
+   still read as something to type in); secondary buttons, row buttons, chips
+   and pills are soft fills with no border. The primary button and Danger keep
+   theirs. */
+input,select,textarea{background:var(--field);border-color:var(--fieldln)}
+.btn.ghost,.act{background:var(--soft);color:var(--softtx);border-color:transparent}
+.btn.ghost:hover,.act:hover{background:var(--segon);color:var(--chalk);border-color:transparent}
+.act.edit:hover{color:var(--amber);border-color:transparent}
+.act.on{background:var(--tbi-b);color:var(--amber)}
+.act.watch,.act.watch:hover{background:none}
+.chip,.pill{background:var(--soft);border-color:transparent;color:var(--softtx)}
+.pill.good{background:var(--okbg);color:var(--space);border-color:transparent}
+.pill.bad{background:var(--wnbg);color:var(--tax);border-color:transparent}
+.pill.gmpill{background:var(--soft);border-color:transparent}
 /* My Team's facts: one card each, the figure first. */
 .mefacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:4px 0 20px;font-family:var(--body);font-size:var(--t2);color:var(--steel)}
 .mefact{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:5px;min-width:0}
@@ -1102,6 +1136,8 @@ tfoot td:first-child{font-size:var(--t1)}
 .tapebar:not(.a) span.win{background:var(--chalk);opacity:.7}
 .mefact.bad b{color:var(--tax)}
 .mefact .mfs{font-size:var(--t2);color:var(--steel)}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--amber);cursor:pointer}
+.linkbtn:hover{text-decoration:underline}
 .mefact .good{color:var(--space)}.mefact .bad{color:var(--tax)}
 @media(max-width:640px){
   .mefacts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -1129,6 +1165,7 @@ tfoot td:first-child{font-size:var(--t1)}
   --bnr:#17123A;
   --shadow:5px 5px 0 #000;
   --r-s:0; --r:0; --r-l:0; --segon:#3A2F8A;
+  --soft:#2A2260; --softtx:#F4F1FF; --field:#07051A; --fieldln:#3A3280;
 }
 [data-theme="jam"] .mast{background:#000;border-bottom:4px solid var(--amber)}
 [data-theme="jam"] .mast::before{content:'';display:block;height:8px;
@@ -1459,11 +1496,8 @@ tfoot td:first-child{font-size:var(--t1)}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
-    <!-- Two sub-views (2026-10-14): the club itself, and the league table. -->
-    <nav class="subnav" aria-label="My Team sections">
-      <button type="button" data-sub="me-team" aria-pressed="true">Team</button>
-      <button type="button" data-sub="me-stand" aria-pressed="false">Standings</button>
-    </nav>
+    <!-- My Team is the club only (2026-11-16): its Standings sub-view went; the
+         table is on Home and League, and the Place card links there. -->
     <div class="subview" id="me-team" data-subview>
     <div id="meTradeNote"></div>
     <div id="preBox" hidden></div>
@@ -1541,13 +1575,6 @@ tfoot td:first-child{font-size:var(--t1)}
       <div id="labTotals"></div>
     </div>
     </div>
-    </div>
-    <div class="subview" id="me-stand" data-subview hidden>
-      <h2>Standings</h2>
-      <div class="filters"><span id="meStandMode"></span>
-        <select id="meStandPer" aria-label="Period" style="width:auto" hidden></select>
-        <span class="fcount" id="meStandNote"></span></div>
-      <div id="meStand"></div>
     </div>
   </section>
 
@@ -5745,7 +5772,7 @@ function meStrip(T,s,sc,cap,tax){
   const pace=gamesPace(used,gc,SCORE.days,curSeason(),S.cfg.seasonEnd);
   const dead=deadSalary(T);
   const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
-  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points`,'me');
+  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>`,'me');
   card('Games',`${used}<small> / ${gc}</small>`,pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played');
   card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
   card(tax-s>=0?'To the hard cap':'Past the hard cap',money(Math.abs(tax-s)),`Hard cap ${money(tax)}`,tax-s>=0?'':'bad');
@@ -7173,6 +7200,7 @@ function prHint(period){
     ? `<b>Totals:</b> PR rates what each player produced over ${span}, so games he missed count against him.`
     : `<b>Per game:</b> PR rates each player\u2019s average per game over ${span} \u2014 how good he is when he plays.`;
 }
+var PRINFO=false;   // the stats bar's "i" is open (shared by every bar on the page)
 function drawPerBars(){
   const cur=useProj?PROJSRC:'act';
   const live=LIVE.d15||LIVE.szn||LIVE.d7||LIVE.d30;
@@ -7182,16 +7210,17 @@ function drawPerBars(){
     ? (LIVE[PROJSRC].asOf?`through ${htmlEsc(shortDay(LIVE[PROJSRC].asOf))}${LIVE[PROJSRC].pre?' \u00b7 preseason games until opening night':''}`
                          :'no games on file yet \u2014 the first night lands the morning after opening night')
     : usingMine()?`${Object.keys(PROJ).length} players edited`:'';
-  /* Seven buttons wrapped onto two lines on a phone; there it is a select. */
-  const html=`<div class="perbar"><span class="pjlab">Stats</span><div class="toggle pertog" role="group" aria-label="Stats period">${
-    opts.map(([v,l])=>`<button type="button" data-pm="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>
-    <select class="persel" data-pmsel="1" aria-label="Stats period">${
-    opts.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('')}</select>
-    <span class="prgrp"><span class="pjlab">PR on</span><div class="toggle" role="group" aria-label="Rate players on">${
-      [['pg','Per game'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div></span>
-    <span class="pjlab">${note}</span>
-    <span class="prhint">${prHint(cur)}</span></div>`;
-  document.querySelectorAll('[data-perbar]').forEach(el=>{ if(el.innerHTML!==html) el.innerHTML=html; });
+  /* One row (2026-11-16): the period is a dropdown everywhere, beside Per game /
+     Totals and an "i" that shows the sentence saying what PR measures. On the
+     Players list that sentence is always shown; elsewhere it waits for the "i". */
+  const row=hintOn=>`<div class="perbar"><label class="perlab">Stats <select class="persel" data-pmsel="1">${
+    opts.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('')}</select></label>
+    <div class="toggle" role="group" aria-label="Rate players on">${
+      [['pg','Per game'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div>
+    ${hintOn?'':`<button type="button" class="infobtn" data-prinfo="1" aria-label="What Per game and Totals mean" aria-expanded="${PRINFO}">i</button>`}
+    <span class="pjlab pernote">${note}</span>
+    <span class="prhint"${hintOn||PRINFO?'':' hidden'}>${prHint(cur)}</span></div>`;
+  document.querySelectorAll('[data-perbar]').forEach(el=>{ const h=row(el.dataset.perbar==='rater'); if(el.innerHTML!==h) el.innerHTML=h; });
   void live;
 }
 document.addEventListener('click',e=>{
@@ -7199,6 +7228,8 @@ document.addEventListener('click',e=>{
   if(b) setProjMode(b.dataset.pm);
   const pb=e.target&&e.target.closest?e.target.closest('[data-prb]'):null;
   if(pb) setPrBasis(pb.dataset.prb);
+  const pi=e.target&&e.target.closest?e.target.closest('[data-prinfo]'):null;
+  if(pi){ PRINFO=!PRINFO; drawPerBars(); }
 });
 document.addEventListener('change',e=>{
   if(e.target&&e.target.dataset&&e.target.dataset.pmsel) setProjMode(e.target.value);
@@ -9849,6 +9880,30 @@ function lockOf(name,at){
 }
 /* 19:30 league time (Eastern) -> "4:30 PM PT". The league lives on the west
    coast, so every game time is shown three hours earlier, in Pacific. */
+const LOCKSVG='<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
+const DOTSVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>';
+/* Row menus: one open at a time, pinned under (or above) the dots with
+   position:fixed, closed by a pick, a click elsewhere, Escape or a scroll. */
+function rmenuPlace(d){
+  const pop=d.querySelector('.rmpop'), r=d.querySelector('summary').getBoundingClientRect();
+  if(!pop) return;
+  const w=pop.offsetWidth||232, h=pop.offsetHeight||180;
+  pop.style.left=Math.max(8,Math.min(window.innerWidth-w-8,r.right-w))+'px';
+  pop.style.top=(r.bottom+6+h>window.innerHeight&&r.top-6-h>0?r.top-6-h:r.bottom+6)+'px';
+}
+const rmenuClose=keep=>document.querySelectorAll('details.rmenu[open]').forEach(d=>{ if(d!==keep) d.open=false; });
+document.addEventListener('toggle',e=>{
+  const d=e.target; if(!d.classList||!d.classList.contains('rmenu')||!d.open) return;
+  rmenuClose(d); rmenuPlace(d);
+},true);
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(!t||!t.closest) return;
+  if(t.closest('.rmpop button')){ const d=t.closest('details.rmenu'); setTimeout(()=>{ if(d) d.open=false; },0); return; }
+  if(!t.closest('details.rmenu')) rmenuClose(null);
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') rmenuClose(null); });
+window.addEventListener('scroll',()=>rmenuClose(null),true);
 function clock12(m){
   const v=((m-180)%1440+1440)%1440;
   const h=Math.floor(v/60), mm=String(v%60).padStart(2,'0');
@@ -10194,7 +10249,12 @@ function drawLineup(){
     const lk=minutesNow()>=t.at;
     /* The opponent leads, as on ESPN ("@SA 5:00 PM"); his own club moves to the small line. */
     const vs=t.opp?(t.opp[0]==='@'?`${t.team} at ${t.opp.slice(1)}`:`${t.team} vs ${t.opp}`):'';
-    return `<span class="lugame${lk?' lk':''}"${vs?` title="${htmlEsc(vs)}"`:''}>${htmlEsc(t.opp||t.team)} ${htmlEsc(clock12(t.at))}<small>${t.opp?htmlEsc(t.team)+' \u00b7 ':''}${lk?'Locked':'Tips off'}</small></span>`;
+    /* 2026-11-16: a game to come is a time pill, a started one says Locked with a
+       padlock, and a row with no game is faded (CSS, .lurow:has(.nog)). */
+    const ttl=htmlEsc((vs?vs+' \u00b7 ':'')+clock12(t.at));
+    return lk
+      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}Locked</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}</small></span>`
+      : `<span class="lugame" title="${ttl}"><span class="lutime">${htmlEsc(clock12(t.at).replace(/ PT$/,''))}</span> ${htmlEsc(t.opp||t.team)}<small>${t.opp?htmlEsc(t.team):''}</small></span>`;
   };
   /* GP, then the nine categories (or, in the Contract view, what he is owed),
      then PR, then the roster actions that used to live on the My roster table.
@@ -10245,12 +10305,16 @@ function drawLineup(){
     const p=nm&&rosEntry(nm);
     if(!can||!p) return '<span class="luacts"></span>';
     const i=S.teams[T].r.indexOf(p);
-    return `<span class="luacts">${canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}${
-      termOpen(T,p)?`<button class="act edit" data-mrt="${i}">Length</button>`:''}<button class="act edit${p.blk?' on':''}" data-mrb="${i}" title="${p.blk?'Take him off the trade block':'Put him on the trade block'}">${p.blk?'Unlist':'Block'}</button><button class="act" data-mrc="${i}">Cut</button></span>`;
+    /* One "⋯" per row (2026-11-16) instead of three or four outlined buttons.
+       A native <details>, so it opens with no script; rmenuPlace() pins the list
+       to the viewer's screen so a scrolling table cannot clip it. */
+    const irOk=can&&!isLocked(nm)&&ir.length<irMax;
+    return `<span class="luacts"><details class="rmenu" data-nm="${htmlEsc(nm)}"><summary aria-label="Actions for ${htmlEsc(nm)}">${DOTSVG}</summary><div class="rmpop" role="menu">${
+      irOk?`<button type="button" role="menuitem" data-toir="${htmlEsc(nm)}">Move to injured reserve</button>`:''}${
+      termOpen(T,p)?`<button type="button" role="menuitem" data-mrt="${i}">Set contract length</button>`:''}<button type="button" role="menuitem" data-mrb="${i}">${p.blk?'Take off the trade block':'Put on the trade block'}</button>${
+      canEditContract()?`<button type="button" role="menuitem" data-mre="${i}">Edit contract</button>`:''}<hr><button type="button" role="menuitem" class="rmdanger" data-mrc="${i}">Release\u2026</button></div></details></span>`;
   };
   const blankRow='<span class="luv"></span>'.repeat(11)+'<span class="luacts"></span>';
-  const irBtn=nm=>can&&!isLocked(nm)&&ir.length<irMax
-    ? `<button class="act" data-toir="${htmlEsc(nm)}" title="Move to the injured reserve">IR</button>` : '';
 
   const opts=(id)=>{
     const cur=lu.s[id];
@@ -10278,7 +10342,7 @@ function drawLineup(){
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
         ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}</span>`
-        : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
+        : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span>`
 
               : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
       ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
@@ -10299,7 +10363,7 @@ function drawLineup(){
                <option value="">Start&#8230;</option>
                ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
           : '<span class="lutip">no open spot</span>') : ''}
-        ${irBtn(p.n)}</span></span>
+        </span></span>
       ${game(p.n)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
@@ -10322,7 +10386,9 @@ function drawLineup(){
      of them (a content-sized track lined up nothing): wide enough for the buttons
      this viewer actually gets. */
   const anyTerm=can&&S.teams[T].r.some(p=>contracted(p)&&termOpen(T,p));
-  $('luSlots').style.setProperty('--luacts',can?(108+(canEditContract()?44:0)+(anyTerm?58:0))+'px':'0px');
+  $('luSlots').style.setProperty('--luacts',can?'40px':'0px'); void anyTerm;
+  /* The poll rewrites these rows; an open menu is reopened on the same player. */
+  const openNm=($('luSlots').querySelector('details.rmenu[open]')||{dataset:{}}).dataset.nm;
   $('luSlots').innerHTML=hdr('Slot')+slotRows
     +hdr('Bench')+benchRows
     +hdr('IR')+irRows;
@@ -10345,6 +10411,7 @@ function drawLineup(){
     box.querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,idx(b)));
     box.querySelectorAll('[data-mrt]').forEach(b=>b.onclick=()=>openTerm(T,idx(b)));
     box.querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,idx(b)));
+    if(openNm){ const d=[...box.querySelectorAll('details.rmenu')].find(x=>x.dataset.nm===openNm); if(d) d.open=true; }
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
     if($('luTonight')) $('luTonight').onclick=()=>tonightLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
@@ -12276,7 +12343,7 @@ const STANDBOX={
   home:{box:'realStand',per:'standPer',note:'realStandNote',mode:'standMode',tbl:'standTbl',sort:'stand'},
   me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'},
   lg:{box:'lgStand',per:'lgStandPer',note:'lgStandNote',mode:'lgStandMode',tbl:'lgStandTbl',sort:'lgstand'}};
-function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.me); drawStandBox(STANDBOX.lg); }
+function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.lg); }
 function drawStandBox(B){
   const box=$(B.box); if(!box) return;
   const scored=Object.keys(SCORE.days||{}).sort(), cap=SCORE.cap||920, last=scored[scored.length-1];
