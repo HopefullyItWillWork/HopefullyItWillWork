@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.1">
+<meta name="ll-build" content="2026-11-16.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -33,6 +33,7 @@
   --t1:11px; --t2:13px; --t3:15px; --t4:19px; --t5:26px;
   --r-s:5px; --r:8px; --r-l:12px;
   --segon:#2C384A;
+  --soft:#1F2836; --softtx:#D5DCE6; --field:#1A2230; --fieldln:#3A4860;
   color-scheme:dark;
   --ink:#0D1219; --panel:#141B25; --panel2:#1A222E; --well:#080C12;
   --line:#232E3C; --line2:rgba(35,46,60,.55);
@@ -69,6 +70,7 @@
   --bnr:linear-gradient(170deg,#FFFFFF,#F1F4F8);
   --shadow:0 1px 2px rgba(17,25,35,.06);
   --segon:#FFFFFF;
+  --soft:#E8ECF2; --softtx:#26313F; --field:#F5F7FA; --fieldln:#B9C3D0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
@@ -287,6 +289,21 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 /* The roster actions that used to sit on the My roster table (2026-11-13). */
 .luacts{display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap}
+details.rmenu>summary{list-style:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--r);color:var(--dim);cursor:pointer}
+details.rmenu>summary::-webkit-details-marker{display:none}
+details.rmenu>summary:hover,details.rmenu[open]>summary{background:var(--panel2);color:var(--chalk)}
+details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.rmpop{position:fixed;z-index:90;width:232px;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:0 12px 32px rgba(0,0,0,.4);padding:6px;display:flex;flex-direction:column}
+.rmpop button{background:none;border:0;text-align:left;font:500 var(--t3) var(--body);color:var(--chalk);
+  padding:9px 12px;border-radius:var(--r-s);cursor:pointer}
+.rmpop button:hover,.rmpop button:focus-visible{background:var(--segon);outline:none}
+.rmpop .rmdanger{color:var(--tax)}
+/* The pinned actions cell is sticky on narrower screens; the one with the open
+   menu has to sit above the rows after it, or their dots paint over the list. */
+.lurow>.luacts:has(details.rmenu[open]){z-index:30}
+.rmpop hr{border:0;height:1px;background:var(--line);margin:4px 6px}
 /* The News view: one cell across the nine category tracks. */
 .lunews{grid-column:span 9;text-align:left!important;font-size:var(--t2);line-height:1.35;color:var(--chalk);min-width:0}
 .lunews small{display:block;color:var(--dim);font-size:var(--t2);margin-top:2px}
@@ -535,6 +552,8 @@ border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-
 .subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;padding:0;max-width:none;overflow:visible}
 .subnav button{background:none;border:1px solid var(--line);border-radius:var(--r);color:var(--steel);font:600 var(--t3) var(--body);
   padding:8px 14px;cursor:pointer;min-height:38px}
+.subnav .subgap{flex:1 1 auto}
+#v-chat .chatlog{max-height:62vh;overflow-y:auto;overscroll-behavior:contain}
 .subnav button[aria-pressed=true]{background:var(--panel2);color:var(--chalk);border-color:var(--amber)}
 .perbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
 .perbar .toggle{flex-wrap:wrap}
@@ -857,8 +876,6 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .standtbl .gpcap,.standtbl .histnames{display:none}
   .standtbl td:nth-child(2){max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lubtns{margin-left:0}
-  .perbar .pertog,.perbar>.pjlab:first-child{display:none}
-  .perbar select.persel{display:inline-block;flex:0 0 auto}
   /* The arrows step through nights; the picker and Export are desktop things. */
   h2.luh .lunav input[type=date],h2.luh #expMine2{display:none}
 }
@@ -946,7 +963,7 @@ tr.sel td.rotot{background:var(--sel)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .msg .mq b{color:var(--chalk)}
 .msg.flash{outline:2px solid var(--amber);outline-offset:2px}
-#homeChat .msg{padding:6px 0;border-bottom:1px solid var(--line2)}
+#homeChat .msg{padding:10px 14px;border-bottom:1px solid var(--line2)}
 #homeChat .mb{font-size:var(--t2)}
 
 /* ---- Info buttons: the explanation behind a small "i" (2026-10-14). A
@@ -964,6 +981,8 @@ p.note.explain.open{display:block}
 input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
 .cbadge.lg{min-width:48px;height:48px;font-size:var(--t4);margin:0;padding:0 6px}
 /* ---- Player headshots, from ESPN by the player's ESPN id. ---- */
+img.hs[data-player]{cursor:pointer}
+label img.hs[data-player]{cursor:inherit}
 .hs{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 10%;background:var(--well);
   flex:none;vertical-align:middle;margin-right:6px}
 .hs.lg{position:absolute;top:14px;right:52px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
@@ -980,7 +999,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 .hlive .on{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .hlive .dot{width:8px;height:8px;border-radius:50%;background:var(--space);display:inline-block;margin-right:4px}
 .hfeed .ago,.hlive .ago{color:var(--dim);font-family:var(--mono);font-size:var(--t1);margin-left:auto;white-space:nowrap}
-.hlive .act{display:flex;gap:8px;align-items:baseline}
+
 .countdown{font:700 var(--t5) var(--body);color:var(--amber)}
 /* Lineup and results share one date bar, like a box-score site: tonight is the
    editable lineup, any earlier night is what scored. */
@@ -995,7 +1014,17 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lustat .bad{color:var(--tax)}
 .lubtns{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .whoclub{display:none}
-.perbar .persel{display:none;width:auto}
+.perbar .persel{width:auto;display:inline-block;padding:6px 10px;font-size:var(--t2)}
+.perbar .perlab{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:var(--t2);font-weight:500;letter-spacing:0;text-transform:none;color:var(--steel)}
+.perbar .pernote{margin-left:auto}
+.prgrp{display:inline-flex;align-items:center;gap:8px}
+.pvhead{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:0 0 14px}
+.pvhead h2{margin:0;flex:1 1 auto}
+#v-players td.zraw{font-family:var(--mono)}
+.watchrow .cardsign{margin-left:auto}
+#raterTbl td.acts>span{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.prhint{flex-basis:100%;font-size:var(--t2);color:var(--steel);margin-top:-4px}
+.prhint b{color:var(--chalk);font-weight:600}
 .lunav .lnday{font:700 var(--t4) var(--body);min-width:170px;text-align:center}
 .lunav input[type=date]{width:auto}
 #lnWrap.combined>h2,#lnWrap.combined>#lnCtl{display:none}
@@ -1003,8 +1032,11 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lugame{font-family:var(--body);font-size:var(--t2);line-height:1.25;color:var(--chalk);text-align:left;white-space:nowrap}
 .lugame small{display:block;font-size:var(--t1);color:var(--steel);letter-spacing:.04em}
 .lugame.lk{color:var(--steel)}
-.lugame.lk small{color:var(--tax)}
 .lugame.nog{color:var(--dim)}
+.lugame .lutime{display:inline-block;font-weight:600;font-size:var(--t1);color:var(--ink);background:var(--amber);border-radius:999px;padding:1px 8px;margin-right:2px}
+.lugame .lulock{display:inline-flex;align-items:center;gap:5px;color:var(--steel)}
+.lugame.lk small{color:var(--dim)}
+.lurow:has(.lugame.nog){opacity:.55}
 .luhdr span:nth-child(3){text-align:left}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
@@ -1079,6 +1111,20 @@ tfoot td:first-child{font-size:var(--t1)}
 .scroller{background:var(--panel)}
 .scroller tbody td:first-child,.scroller tfoot td:first-child,[data-pin2] tbody td:nth-child(2){background:var(--panel)}
 .scroller tbody tr:hover,.scroller tbody tr:hover td:first-child{background:var(--panel2)}
+/* Fewer outlines (2026-11-16): fields are filled with a faint edge (they must
+   still read as something to type in); secondary buttons, row buttons, chips
+   and pills are soft fills with no border. The primary button and Danger keep
+   theirs. */
+input,select,textarea{background:var(--field);border-color:var(--fieldln)}
+.btn.ghost,.act{background:var(--soft);color:var(--softtx);border-color:transparent}
+.btn.ghost:hover,.act:hover{background:var(--segon);color:var(--chalk);border-color:transparent}
+.act.edit:hover{color:var(--amber);border-color:transparent}
+.act.on{background:var(--tbi-b);color:var(--amber)}
+.act.watch,.act.watch:hover{background:none}
+.chip,.pill{background:var(--soft);border-color:transparent;color:var(--softtx)}
+.pill.good{background:var(--okbg);color:var(--space);border-color:transparent}
+.pill.bad{background:var(--wnbg);color:var(--tax);border-color:transparent}
+.pill.gmpill{background:var(--soft);border-color:transparent}
 /* My Team's facts: one card each, the figure first. */
 .mefacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:4px 0 20px;font-family:var(--body);font-size:var(--t2);color:var(--steel)}
 .mefact{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:5px;min-width:0}
@@ -1090,6 +1136,8 @@ tfoot td:first-child{font-size:var(--t1)}
 .tapebar:not(.a) span.win{background:var(--chalk);opacity:.7}
 .mefact.bad b{color:var(--tax)}
 .mefact .mfs{font-size:var(--t2);color:var(--steel)}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--amber);cursor:pointer}
+.linkbtn:hover{text-decoration:underline}
 .mefact .good{color:var(--space)}.mefact .bad{color:var(--tax)}
 @media(max-width:640px){
   .mefacts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -1117,6 +1165,7 @@ tfoot td:first-child{font-size:var(--t1)}
   --bnr:#17123A;
   --shadow:5px 5px 0 #000;
   --r-s:0; --r:0; --r-l:0; --segon:#3A2F8A;
+  --soft:#2A2260; --softtx:#F4F1FF; --field:#07051A; --fieldln:#3A3280;
 }
 [data-theme="jam"] .mast{background:#000;border-bottom:4px solid var(--amber)}
 [data-theme="jam"] .mast::before{content:'';display:block;height:8px;
@@ -1253,15 +1302,13 @@ tfoot td:first-child{font-size:var(--t1)}
   <nav role="tablist" id="tabs">
     <button role="tab" data-v="v-home" aria-selected="true">Home</button>
     <button role="tab" data-v="v-me" aria-selected="false" id="meTab" hidden>My Team</button>
-    <button role="tab" data-v="v-league" aria-selected="false">League</button>
+    <button role="tab" data-v="v-league" aria-selected="false">League<span class="badge" id="chatBadge"></span></button>
     <button role="tab" data-v="v-players" aria-selected="false">Players</button>
     <button role="tab" data-v="v-trade" aria-selected="false">Trades <span class="badge" id="tCount"></span></button>
     <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
     <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
-    <button role="tab" data-v="v-chat" aria-selected="false">Chat<span class="badge" id="chatBadge"></span></button>
     <!-- Every page in the one bar (2026-10-14): the Menu dropdown is gone. -->
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
-    <button role="tab" data-v="v-rules" aria-selected="false">Cap rules</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
   </nav>
 </header>
@@ -1324,9 +1371,12 @@ tfoot td:first-child{font-size:var(--t1)}
     <nav class="subnav" aria-label="League sections">
       <button type="button" data-sub="lg-stand" aria-pressed="true">Standings</button>
       <button type="button" data-sub="v-contracts" aria-pressed="false">Clubs</button>
-      <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
       <button type="button" data-sub="v-log" aria-pressed="false">Transactions</button>
       <button type="button" data-sub="lg-waivers" aria-pressed="false">Waivers</button>
+      <button type="button" data-sub="v-chat" aria-pressed="false">Chat<span class="badge" id="chatBadge2"></span></button>
+      <span class="subgap" aria-hidden="true"></span>
+      <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
+      <button type="button" data-sub="v-rules" aria-pressed="false">Cap rules</button>
     </nav>
   <!-- League › Waivers (2026-10-16): who is on the wire and until when, this
        week's claim order, your own claims, and what the recent runs did.
@@ -1394,6 +1444,50 @@ tfoot td:first-child{font-size:var(--t1)}
     </div>
     <div class="log" id="logList"></div>
   </div>
+  <!-- Chat and Cap rules moved here from their own top tabs (2026-11-16). -->
+  <div class="subview" id="v-chat" data-subview hidden>
+    <h2>League chat</h2>
+    <p class="note explain">Anyone signed in can post, and every club sees it. This is the same
+      honour-system bar as the rest of the app &#8212; posts are stored in the league database with
+      no authentication in front of them, so write nothing here you would mind the whole league,
+      or anyone with the link, reading. You can delete your own posts; the commissioner can delete
+      any.</p>
+    <div class="warn" id="chatLocal" hidden><b>No league database reachable.</b>
+      Anything you post here stays in this browser and nobody else will see it.</div>
+    <div class="filters">
+      <span class="fcount" id="chatWho"></span>
+      <span class="fcount" id="chatCount"></span>
+      <button class="btn ghost" id="chatRefresh">Refresh</button>
+    </div>
+    <div class="chatre" id="chatRe" hidden></div>
+    <div class="chatbox">
+      <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
+      <button class="btn" id="chatGo">Post</button>
+    </div>
+    <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
+    <div class="chatlog" id="chatLog"></div>
+
+  </div>
+  <div class="subview" id="v-rules" data-subview hidden>
+    <h2>Cap rules</h2>
+    <div class="rules">
+      <div class="rule"><h5>Salary cap</h5><p>The cap is soft. You can exceed it only through Bird rights, Early Bird, the mid-level exception, or minimum contracts.</p></div>
+      <div class="rule"><h5>Luxury tax</h5><p>The tax line is a hard cap. No team's salary may exceed it at any point, for any reason. No exception beats it.</p></div>
+      <div class="rule"><h5>Bird rights</h5><p>Three seasons with one club without clearing waivers or changing teams as a free agent. Lets the club exceed the cap to re-sign its own player, up to four years with raises to <b>7.5%</b>. Rights travel in a trade.</p></div>
+      <div class="rule"><h5>Early Bird</h5><p>Signed mid-season before the deadline and finished the year on the roster. Lets the club go up to <b>$7.00</b> over the cap to re-sign him.</p></div>
+      <div class="rule"><h5>Restricted free agents</h5><p>Only players who finished the last year of a team, player, or rookie option. The old club sits out the bidding, then chooses whether to match. All cap rules apply to the match.</p></div>
+      <div class="rule"><h5>Mid-level exception</h5><p>Once a year. Over the cap <b>$5.50</b> up to 4 years; under the cap <b>$3.25</b> up to 2 years. May be split between players.</p></div>
+      <div class="rule"><h5>Minimum contracts</h5><p><b>$1.00</b> for up to 2 years. Signable over the cap, with no limit on how many, as long as the hard cap holds.</p></div>
+      <div class="rule"><h5>Escalation</h5><p>$0.75&#8211;$3.75 does not escalate. From $4.00 up, raises are <b>4.5%</b> normally or <b>7.5%</b> with Bird rights. Raises never compound and always round up to the next $0.25.</p></div>
+      <div class="rule"><h5>Cutting a player</h5><p>Release anyone at any time. Cut <b>in season</b> and the salary stays on the cap until that season ends, then clears. Cut <b>in the offseason</b> and the money comes off immediately and every remaining year is voided.</p>
+      <p>On a deal of <b>two years or more</b>, the club that released him cannot re-sign him during the first offseason after the release. He may be signed <b>during the following season to a one-year minimum contract</b>; a multi-year deal has to wait for the next offseason. Other clubs face no restriction.</p></div>
+      <div class="rule"><h5>Trades</h5><p>Over the cap, incoming salary is capped at <b>150%</b> of outgoing up to $9.75, outgoing plus <b>$5.00</b> from $10.00&#8211;$19.50, and <b>125%</b> at $19.75 and up. Offseason mismatches create a trade exception that expires after the next deadline.</p></div>
+      <div class="rule"><h5>Rookie draft</h5><p>Three years with a rookie option on the last. First pick is <b>3.57%</b> of the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the auction and don't eat auction cap space, though the hard cap still binds &#8212; a club with no room passes. One pick per club, in reverse order of finish. Anyone undrafted becomes an ordinary free agent and turns up in the auction.</p></div>
+      <div class="rule"><h5>Draft picks in trades</h5><p>A club may trade this year's pick or one from a later draft. A future pick can carry a protection &#8212; "top <b>N</b> protected" keeps it at home if it lands in the first N slots &#8212; and the obligation can be set to roll to the next draft instead of lapsing. Picks move $0 and take up no roster spot.</p></div>
+      <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p>
+      <p>Every free agent is on waivers until the first week of the season is over; after that a player released in season is on waivers for <b>one day</b>. Claims are processed every morning. The order resets each Monday to the reverse of this site's standings as they stood that morning (ties to the club with fewer points); until a night has been scored it follows the auction nomination order, and a club that wins a claim drops to the back until the next reset. A club with a full roster names a player to drop with its claim. Anyone nobody claims becomes an ordinary free agent.</p></div>
+    </div>
+  </div>
   </section>
 
 
@@ -1402,11 +1496,8 @@ tfoot td:first-child{font-size:var(--t1)}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
-    <!-- Two sub-views (2026-10-14): the club itself, and the league table. -->
-    <nav class="subnav" aria-label="My Team sections">
-      <button type="button" data-sub="me-team" aria-pressed="true">Team</button>
-      <button type="button" data-sub="me-stand" aria-pressed="false">Standings</button>
-    </nav>
+    <!-- My Team is the club only (2026-11-16): its Standings sub-view went; the
+         table is on Home and League, and the Place card links there. -->
     <div class="subview" id="me-team" data-subview>
     <div id="meTradeNote"></div>
     <div id="preBox" hidden></div>
@@ -1485,13 +1576,6 @@ tfoot td:first-child{font-size:var(--t1)}
     </div>
     </div>
     </div>
-    <div class="subview" id="me-stand" data-subview hidden>
-      <h2>Standings</h2>
-      <div class="filters"><span id="meStandMode"></span>
-        <select id="meStandPer" aria-label="Period" style="width:auto" hidden></select>
-        <span class="fcount" id="meStandNote"></span></div>
-      <div id="meStand"></div>
-    </div>
   </section>
 
   <section class="view" id="v-auction" role="tabpanel" hidden>
@@ -1538,29 +1622,7 @@ tfoot td:first-child{font-size:var(--t1)}
     <div id="rookiePool"></div>
   </section>
 
-  <section class="view" id="v-chat" role="tabpanel" hidden>
-    <h2>League chat</h2>
-    <p class="note explain">Anyone signed in can post, and every club sees it. This is the same
-      honour-system bar as the rest of the app &#8212; posts are stored in the league database with
-      no authentication in front of them, so write nothing here you would mind the whole league,
-      or anyone with the link, reading. You can delete your own posts; the commissioner can delete
-      any.</p>
-    <div class="warn" id="chatLocal" hidden><b>No league database reachable.</b>
-      Anything you post here stays in this browser and nobody else will see it.</div>
-    <div class="filters">
-      <span class="fcount" id="chatWho"></span>
-      <span class="fcount" id="chatCount"></span>
-      <button class="btn ghost" id="chatRefresh">Refresh</button>
-    </div>
-    <div class="chatre" id="chatRe" hidden></div>
-    <div class="chatbox">
-      <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
-      <button class="btn" id="chatGo">Post</button>
-    </div>
-    <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
-    <div class="chatlog" id="chatLog"></div>
 
-  </section>
 
   <section class="view" id="v-settings" role="tabpanel" hidden>
     <h2>Settings <span class="fcount" id="setWho"></span></h2>
@@ -1648,16 +1710,28 @@ tfoot td:first-child{font-size:var(--t1)}
        the free agent classes — drawPlayersFA() picks which), My projections,
        and Quick sign (in season only, SEASON_TABS). -->
   <section class="view" id="v-players" role="tabpanel" hidden>
-    <nav class="subnav" aria-label="Player sections">
-      <button type="button" data-sub="v-rater" aria-pressed="true">Rater</button>
-      <button type="button" data-sub="v-night" aria-pressed="false">Last night</button>
-      <button type="button" data-sub="v-pfa" aria-pressed="false">Free agents</button>
-      <button type="button" data-sub="v-proj" aria-pressed="false" id="projTab" hidden>My projections</button>
-      <button type="button" data-sub="v-draft" aria-pressed="false">Quick sign</button>
-    </nav>
+    <!-- One list, no sub-tabs (2026-11-16): the view switch picks what the
+         columns show, and every free agent carries Sign or Claim. The old
+         Free agents, My projections and Quick sign pages are gone; their ids
+         route here (PVALIAS). -->
+    <div class="pvhead">
+      <h2 id="raterH2">Players</h2>
+      <div class="toggle" role="group" aria-label="What the table shows" id="pvBar"></div>
+    </div>
+    <p class="note explain" id="raterNote">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
+      <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
+      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
+      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
+      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
+      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
+      player passes a better one who played less, which is the 920-game cap showing up.
+      The club column is
+      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
+      including the men playing out the last year of a deal. <b>Stats</b> shows the numbers alone, without the z-scores;
+      <b>Last night</b> is every box score from one night. A free agent carries <b>Sign</b>, or <b>Claim</b> while he is on waivers.</p>
+    <div id="plClaims"></div>
   <!-- Every player's box score for one night (2026-10-14): drawNight(). -->
-  <div class="subview" id="v-night" data-subview hidden>
-    <h2>Box scores</h2>
+  <div id="v-night" hidden>
     <p class="note explain">Every player who played that night, from the morning's box scores — the same
       numbers scoring reads. Filter to the free agents to see who is available and producing, or to your own club.
       GS is a simple game score (points + rebounds + assists + 2 × steals and blocks − turnovers) used only to sort.</p>
@@ -1671,30 +1745,16 @@ tfoot td:first-child{font-size:var(--t1)}
     </div>
     <div class="scroller" data-cap="1" id="ntTable"></div>
   </div>
-  <div class="subview" id="v-rater" data-subview>
-    <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
-    <p class="note explain">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
-      <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
-      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
-      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
-      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
-      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
-      player passes a better one who played less, which is the 920-game cap showing up.
-      <b>Dynamic rater</b> is your own scratch version: set a games or minutes floor and choose which categories count,
-      and the whole field is re-scored against what is left. It is scored against the players who clear your filters,
-      not the league, so it is marked in blue throughout and stays on this tab &#8212; nothing it says reaches the
-      strategy board, the auction or anyone else. The club column is
-      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
-      including the men playing out the last year of a deal. This is a record of last season, not a projection.</p>
+  <div id="v-rater">
     <div data-perbar="rater"></div>
     <div class="filters">
       <input id="rSearch" placeholder="Search players" autocomplete="off">
-      <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
+      <select id="rTeam" aria-label="Which players"><option value="">All players</option><option value="FA">Free agents</option></select>
       <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
-      <select id="rBasis" title="Score per-game averages or season totals">
-        <option value="pg">Averages</option><option value="tot">Totals</option></select>
-      <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
+      <select id="rBasis" hidden aria-hidden="true" tabindex="-1">
+        <option value="pg">Per game</option><option value="tot">Totals</option></select>
       <span class="fcount" id="rCount"></span>
+      <button class="btn ghost" id="pjResetR" hidden>Clear my projections</button>
       <button class="btn ghost" id="expRater">Export CSV</button>
     </div>
     <div id="rDynBox" hidden></div>
@@ -1710,7 +1770,7 @@ tfoot td:first-child{font-size:var(--t1)}
     </table></div>
   </div>
 
-  <div class="subview" id="v-pfa" data-subview hidden>
+  <div id="v-pfa" hidden>
     <div id="pfaSeason">
     <div id="faClaims"></div>
     <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
@@ -1747,7 +1807,7 @@ tfoot td:first-child{font-size:var(--t1)}
     <div class="fagrid" id="fagrid"></div>
   </div>
   </div>
-  <div class="subview" id="v-proj" data-subview hidden>
+  <div id="v-proj" hidden>
     <h2>My projections</h2>
     <p class="note explain">Your own numbers for next season, private to you. Nothing here is shared with the league.
       Edit a player and every projection on the site &#8212; impact cards, ratings, standings &#8212; switches to your
@@ -1757,13 +1817,13 @@ tfoot td:first-child{font-size:var(--t1)}
       <select id="pjFilter"><option value="">All players</option><option value="edited">Edited only</option>
         <option value="mine">My roster</option><option value="fa">Free agents</option></select>
       <span class="fcount" id="pjCount"></span>
-      <button class="btn ghost" id="pjReset">Clear all my edits</button>
+      <button class="btn ghost" id="pjReset">Clear all my edits</button><span id="projTab" hidden></span>
     </div>
     <div class="twocol wide"><div class="scroller" data-cap="1" id="pjTable"></div>
       <div id="pjDetail"><div class="empty">Pick a player to compare last season against your projection.</div></div></div>
   </div>
 
-  <div class="subview" id="v-draft" data-subview hidden>
+  <div id="v-draft" hidden>
     <h2>Sign a free agent</h2>
     <div class="sync"><span class="dot" id="dot"></span><span id="syncTxt">Shared board</span></div>
     <!-- An in-season signing has no terms to negotiate: one year at the league
@@ -1834,26 +1894,7 @@ tfoot td:first-child{font-size:var(--t1)}
     <div class="log" id="offers"></div>
   </section>
 
-  <section class="view" id="v-rules" role="tabpanel" hidden>
-    <h2>Cap rules</h2>
-    <div class="rules">
-      <div class="rule"><h5>Salary cap</h5><p>The cap is soft. You can exceed it only through Bird rights, Early Bird, the mid-level exception, or minimum contracts.</p></div>
-      <div class="rule"><h5>Luxury tax</h5><p>The tax line is a hard cap. No team's salary may exceed it at any point, for any reason. No exception beats it.</p></div>
-      <div class="rule"><h5>Bird rights</h5><p>Three seasons with one club without clearing waivers or changing teams as a free agent. Lets the club exceed the cap to re-sign its own player, up to four years with raises to <b>7.5%</b>. Rights travel in a trade.</p></div>
-      <div class="rule"><h5>Early Bird</h5><p>Signed mid-season before the deadline and finished the year on the roster. Lets the club go up to <b>$7.00</b> over the cap to re-sign him.</p></div>
-      <div class="rule"><h5>Restricted free agents</h5><p>Only players who finished the last year of a team, player, or rookie option. The old club sits out the bidding, then chooses whether to match. All cap rules apply to the match.</p></div>
-      <div class="rule"><h5>Mid-level exception</h5><p>Once a year. Over the cap <b>$5.50</b> up to 4 years; under the cap <b>$3.25</b> up to 2 years. May be split between players.</p></div>
-      <div class="rule"><h5>Minimum contracts</h5><p><b>$1.00</b> for up to 2 years. Signable over the cap, with no limit on how many, as long as the hard cap holds.</p></div>
-      <div class="rule"><h5>Escalation</h5><p>$0.75&#8211;$3.75 does not escalate. From $4.00 up, raises are <b>4.5%</b> normally or <b>7.5%</b> with Bird rights. Raises never compound and always round up to the next $0.25.</p></div>
-      <div class="rule"><h5>Cutting a player</h5><p>Release anyone at any time. Cut <b>in season</b> and the salary stays on the cap until that season ends, then clears. Cut <b>in the offseason</b> and the money comes off immediately and every remaining year is voided.</p>
-      <p>On a deal of <b>two years or more</b>, the club that released him cannot re-sign him during the first offseason after the release. He may be signed <b>during the following season to a one-year minimum contract</b>; a multi-year deal has to wait for the next offseason. Other clubs face no restriction.</p></div>
-      <div class="rule"><h5>Trades</h5><p>Over the cap, incoming salary is capped at <b>150%</b> of outgoing up to $9.75, outgoing plus <b>$5.00</b> from $10.00&#8211;$19.50, and <b>125%</b> at $19.75 and up. Offseason mismatches create a trade exception that expires after the next deadline.</p></div>
-      <div class="rule"><h5>Rookie draft</h5><p>Three years with a rookie option on the last. First pick is <b>3.57%</b> of the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the auction and don't eat auction cap space, though the hard cap still binds &#8212; a club with no room passes. One pick per club, in reverse order of finish. Anyone undrafted becomes an ordinary free agent and turns up in the auction.</p></div>
-      <div class="rule"><h5>Draft picks in trades</h5><p>A club may trade this year's pick or one from a later draft. A future pick can carry a protection &#8212; "top <b>N</b> protected" keeps it at home if it lands in the first N slots &#8212; and the obligation can be set to roll to the next draft instead of lapsing. Picks move $0 and take up no roster spot.</p></div>
-      <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p>
-      <p>Every free agent is on waivers until the first week of the season is over; after that a player released in season is on waivers for <b>one day</b>. Claims are processed every morning. The order resets each Monday to the reverse of this site's standings as they stood that morning (ties to the club with fewer points); until a night has been scored it follows the auction nomination order, and a club that wins a claim drops to the back until the next reset. A club with a full roster names a player to drop with its claim. Anyone nobody claims becomes an ordinary free agent.</p></div>
-    </div>
-  </section>
+
 
   <section class="view" id="v-admin" role="tabpanel" hidden>
     <h2>Commissioner tools</h2>
@@ -4730,7 +4771,10 @@ async function saveGmName(team,first,last){
 function drawSettings(){
   const box=$('setTab');
   const mine = me && !isComm() && S.teams[me] ? me : null;
-  if(box) box.hidden=!mine;
+  /* The Settings button in the header (the club's name on a phone) is the way
+     in, so the tab stays out of the bar (2026-11-16). The button is kept, hidden,
+     because goTab() finds a page by its tab. */
+  if(box) box.hidden=true;
   if(!mine){
     if($('v-settings')&&!$('v-settings').hidden) goTab('v-home');
     return;
@@ -5728,7 +5772,7 @@ function meStrip(T,s,sc,cap,tax){
   const pace=gamesPace(used,gc,SCORE.days,curSeason(),S.cfg.seasonEnd);
   const dead=deadSalary(T);
   const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
-  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points`,'me');
+  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>`,'me');
   card('Games',`${used}<small> / ${gc}</small>`,pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played');
   card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
   card(tax-s>=0?'To the hard cap':'Past the hard cap',money(Math.abs(tax-s)),`Hard cap ${money(tax)}`,tax-s>=0?'':'bad');
@@ -7145,6 +7189,18 @@ async function setProjMode(mode){
    Team, a club on League, the Players rater). It replaced the "Stats shown"
    strip across the header. The live periods are offered once the morning job
    has a window; "Mine" only to a signed-in GM, whose projections they are. */
+/* The one sentence under the stats bar saying what PR is measuring. "Averages /
+   Totals" alone was unclear (2026-11-16): it is a choice between how good a man
+   is when he plays and what he actually produced, and the second is the one the
+   920-game cap and the standings care about. */
+function prHint(period){
+  const span={d7:'the last 7 days',d15:'the last 15 days',d30:'the last 30 days',szn:'the season so far',
+    act:'2025\u201326',agg:'the projection',mine:'your projection'}[period]||'the period';
+  return PRBASIS==='tot'
+    ? `<b>Totals:</b> PR rates what each player produced over ${span}, so games he missed count against him.`
+    : `<b>Per game:</b> PR rates each player\u2019s average per game over ${span} \u2014 how good he is when he plays.`;
+}
+var PRINFO=false;   // the stats bar's "i" is open (shared by every bar on the page)
 function drawPerBars(){
   const cur=useProj?PROJSRC:'act';
   const live=LIVE.d15||LIVE.szn||LIVE.d7||LIVE.d30;
@@ -7154,15 +7210,17 @@ function drawPerBars(){
     ? (LIVE[PROJSRC].asOf?`through ${htmlEsc(shortDay(LIVE[PROJSRC].asOf))}${LIVE[PROJSRC].pre?' \u00b7 preseason games until opening night':''}`
                          :'no games on file yet \u2014 the first night lands the morning after opening night')
     : usingMine()?`${Object.keys(PROJ).length} players edited`:'';
-  /* Seven buttons wrapped onto two lines on a phone; there it is a select. */
-  const html=`<div class="perbar"><span class="pjlab">Stats</span><div class="toggle pertog" role="group" aria-label="Stats period">${
-    opts.map(([v,l])=>`<button type="button" data-pm="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>
-    <select class="persel" data-pmsel="1" aria-label="Stats period">${
-    opts.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('')}</select>
-    <div class="toggle" role="group" aria-label="Rate players on" title="Averages: PR from each player's per-game line. Totals: PR from what he produced over the period, so missed games count against him.">${
-      [['pg','Averages'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div>
-    <span class="pjlab">${note}</span></div>`;
-  document.querySelectorAll('[data-perbar]').forEach(el=>{ if(el.innerHTML!==html) el.innerHTML=html; });
+  /* One row (2026-11-16): the period is a dropdown everywhere, beside Per game /
+     Totals and an "i" that shows the sentence saying what PR measures. On the
+     Players list that sentence is always shown; elsewhere it waits for the "i". */
+  const row=hintOn=>`<div class="perbar"><label class="perlab">Stats <select class="persel" data-pmsel="1">${
+    opts.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('')}</select></label>
+    <div class="toggle" role="group" aria-label="Rate players on">${
+      [['pg','Per game'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div>
+    ${hintOn?'':`<button type="button" class="infobtn" data-prinfo="1" aria-label="What Per game and Totals mean" aria-expanded="${PRINFO}">i</button>`}
+    <span class="pjlab pernote">${note}</span>
+    <span class="prhint"${hintOn||PRINFO?'':' hidden'}>${prHint(cur)}</span></div>`;
+  document.querySelectorAll('[data-perbar]').forEach(el=>{ const h=row(el.dataset.perbar==='rater'); if(el.innerHTML!==h) el.innerHTML=h; });
   void live;
 }
 document.addEventListener('click',e=>{
@@ -7170,6 +7228,8 @@ document.addEventListener('click',e=>{
   if(b) setProjMode(b.dataset.pm);
   const pb=e.target&&e.target.closest?e.target.closest('[data-prb]'):null;
   if(pb) setPrBasis(pb.dataset.prb);
+  const pi=e.target&&e.target.closest?e.target.closest('[data-prinfo]'):null;
+  if(pi){ PRINFO=!PRINFO; drawPerBars(); }
 });
 document.addEventListener('change',e=>{
   if(e.target&&e.target.dataset&&e.target.dataset.pmsel) setProjMode(e.target.value);
@@ -7340,6 +7400,10 @@ function showSub(id){
   grp.querySelectorAll('[data-subview]').forEach(v=>{ v.hidden = v.id!==id; });
   grp.querySelectorAll('[data-sub]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.sub===id)));
   if(id==='v-proj'&&typeof refreshProj==='function') refreshProj();
+  if(id==='v-chat'&&typeof loadChat==='function'){
+    loadChat(true).then(()=>drawChat());
+    if(typeof refreshNotes==='function') refreshNotes();
+  }
   catchUp();
   return true;
 }
@@ -7347,7 +7411,18 @@ document.addEventListener('click',e=>{
   const b=e.target&&e.target.closest?e.target.closest('[data-sub]'):null;
   if(b) showSub(b.dataset.sub);
 });
+/* The Players tab's retired pages (2026-11-16): links to them land on the one
+   list, set to what they used to show. */
+const PVALIAS={'v-rater':'rate','v-night':'night','v-pfa':'fa','v-proj':'rate','v-draft':'fa'};
 function goTab(id){
+  if(PVALIAS[id]){
+    const a=PVALIAS[id];
+    if(!goTab('v-players')) return false;
+    if(a==='fa'){ setPView(PVIEW==='night'?'rate':PVIEW); if($('rTeam')) $('rTeam').value='FA'; render(); }
+    else if(a==='night') setPView('night');
+    else if(PVIEW==='night') setPView('rate');
+    return true;
+  }
   /* A sub-view id opens its group, then the sub-view. */
   const sv=$(id);
   if(sv&&sv.hasAttribute&&sv.hasAttribute('data-subview')){
@@ -7418,7 +7493,8 @@ document.addEventListener('click',e=>{
 function openPlayerCard(name){
   const box=$('dlgPlayerBody');
   const wb=isFreeAgent(name)||isWatched(name)?watchBtn(name):'';
-  box.innerHTML=headshot(name,'lg')+(wb?`<div class="watchrow">${wb}<span>${isWatched(name)?'On your watch list':'Watch this free agent'}</span></div>`:'')
+  const sc=signCell(name);
+  box.innerHTML=headshot(name,'lg')+(wb||sc?`<div class="watchrow">${wb}${wb?`<span>${isWatched(name)?'On your watch list':'Watch this free agent'}</span>`:''}${sc?`<span class="cardsign">${sc}</span>`:''}</div>`:'')
     +injLine(name)+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
@@ -7428,6 +7504,7 @@ document.addEventListener('click',e=>{
   const c=e.target.closest('[data-player]');
   if(!c) return;
   if(e.target.closest('button')) return;      // let row buttons do their own thing
+  if(c.matches('img.hs')&&c.closest('label')) return;   // a picture in a pick list ticks the pick
   openPlayerCard(c.dataset.player);
 });
 /* The card is modal, so while it is open every control behind it is inert —
@@ -9001,7 +9078,7 @@ function drawBadges(){
   const pend=(S.trades||[]).filter(t=>t.status==='pending'&&(isComm()||(me&&t.b===me))).length;
   if($('tCount')) $('tCount').textContent=pend?String(pend):'';
   const c=CHATNEW>0?String(Math.min(CHATNEW,99)):'';
-  if($('chatBadge')) $('chatBadge').textContent=c;
+  ['chatBadge','chatBadge2'].forEach(id=>{ if($(id)) $(id).textContent=c; });
   if($('moreBadge')) $('moreBadge').textContent=c;
 }
 function chatPeekQuery(){
@@ -9803,6 +9880,30 @@ function lockOf(name,at){
 }
 /* 19:30 league time (Eastern) -> "4:30 PM PT". The league lives on the west
    coast, so every game time is shown three hours earlier, in Pacific. */
+const LOCKSVG='<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
+const DOTSVG='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>';
+/* Row menus: one open at a time, pinned under (or above) the dots with
+   position:fixed, closed by a pick, a click elsewhere, Escape or a scroll. */
+function rmenuPlace(d){
+  const pop=d.querySelector('.rmpop'), r=d.querySelector('summary').getBoundingClientRect();
+  if(!pop) return;
+  const w=pop.offsetWidth||232, h=pop.offsetHeight||180;
+  pop.style.left=Math.max(8,Math.min(window.innerWidth-w-8,r.right-w))+'px';
+  pop.style.top=(r.bottom+6+h>window.innerHeight&&r.top-6-h>0?r.top-6-h:r.bottom+6)+'px';
+}
+const rmenuClose=keep=>document.querySelectorAll('details.rmenu[open]').forEach(d=>{ if(d!==keep) d.open=false; });
+document.addEventListener('toggle',e=>{
+  const d=e.target; if(!d.classList||!d.classList.contains('rmenu')||!d.open) return;
+  rmenuClose(d); rmenuPlace(d);
+},true);
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(!t||!t.closest) return;
+  if(t.closest('.rmpop button')){ const d=t.closest('details.rmenu'); setTimeout(()=>{ if(d) d.open=false; },0); return; }
+  if(!t.closest('details.rmenu')) rmenuClose(null);
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') rmenuClose(null); });
+window.addEventListener('scroll',()=>rmenuClose(null),true);
 function clock12(m){
   const v=((m-180)%1440+1440)%1440;
   const h=Math.floor(v/60), mm=String(v%60).padStart(2,'0');
@@ -10148,7 +10249,12 @@ function drawLineup(){
     const lk=minutesNow()>=t.at;
     /* The opponent leads, as on ESPN ("@SA 5:00 PM"); his own club moves to the small line. */
     const vs=t.opp?(t.opp[0]==='@'?`${t.team} at ${t.opp.slice(1)}`:`${t.team} vs ${t.opp}`):'';
-    return `<span class="lugame${lk?' lk':''}"${vs?` title="${htmlEsc(vs)}"`:''}>${htmlEsc(t.opp||t.team)} ${htmlEsc(clock12(t.at))}<small>${t.opp?htmlEsc(t.team)+' \u00b7 ':''}${lk?'Locked':'Tips off'}</small></span>`;
+    /* 2026-11-16: a game to come is a time pill, a started one says Locked with a
+       padlock, and a row with no game is faded (CSS, .lurow:has(.nog)). */
+    const ttl=htmlEsc((vs?vs+' \u00b7 ':'')+clock12(t.at));
+    return lk
+      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}Locked</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}</small></span>`
+      : `<span class="lugame" title="${ttl}"><span class="lutime">${htmlEsc(clock12(t.at).replace(/ PT$/,''))}</span> ${htmlEsc(t.opp||t.team)}<small>${t.opp?htmlEsc(t.team):''}</small></span>`;
   };
   /* GP, then the nine categories (or, in the Contract view, what he is owed),
      then PR, then the roster actions that used to live on the My roster table.
@@ -10199,12 +10305,16 @@ function drawLineup(){
     const p=nm&&rosEntry(nm);
     if(!can||!p) return '<span class="luacts"></span>';
     const i=S.teams[T].r.indexOf(p);
-    return `<span class="luacts">${canEditContract()?`<button class="act edit" data-mre="${i}">Edit</button>`:''}${
-      termOpen(T,p)?`<button class="act edit" data-mrt="${i}">Length</button>`:''}<button class="act edit${p.blk?' on':''}" data-mrb="${i}" title="${p.blk?'Take him off the trade block':'Put him on the trade block'}">${p.blk?'Unlist':'Block'}</button><button class="act" data-mrc="${i}">Cut</button></span>`;
+    /* One "⋯" per row (2026-11-16) instead of three or four outlined buttons.
+       A native <details>, so it opens with no script; rmenuPlace() pins the list
+       to the viewer's screen so a scrolling table cannot clip it. */
+    const irOk=can&&!isLocked(nm)&&ir.length<irMax;
+    return `<span class="luacts"><details class="rmenu" data-nm="${htmlEsc(nm)}"><summary aria-label="Actions for ${htmlEsc(nm)}">${DOTSVG}</summary><div class="rmpop" role="menu">${
+      irOk?`<button type="button" role="menuitem" data-toir="${htmlEsc(nm)}">Move to injured reserve</button>`:''}${
+      termOpen(T,p)?`<button type="button" role="menuitem" data-mrt="${i}">Set contract length</button>`:''}<button type="button" role="menuitem" data-mrb="${i}">${p.blk?'Take off the trade block':'Put on the trade block'}</button>${
+      canEditContract()?`<button type="button" role="menuitem" data-mre="${i}">Edit contract</button>`:''}<hr><button type="button" role="menuitem" class="rmdanger" data-mrc="${i}">Release\u2026</button></div></details></span>`;
   };
   const blankRow='<span class="luv"></span>'.repeat(11)+'<span class="luacts"></span>';
-  const irBtn=nm=>can&&!isLocked(nm)&&ir.length<irMax
-    ? `<button class="act" data-toir="${htmlEsc(nm)}" title="Move to the injured reserve">IR</button>` : '';
 
   const opts=(id)=>{
     const cur=lu.s[id];
@@ -10232,7 +10342,7 @@ function drawLineup(){
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
         ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}</span>`
-        : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select>${nm?irBtn(nm):''}</span>`
+        : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span>`
 
               : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
       ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
@@ -10253,7 +10363,7 @@ function drawLineup(){
                <option value="">Start&#8230;</option>
                ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
           : '<span class="lutip">no open spot</span>') : ''}
-        ${irBtn(p.n)}</span></span>
+        </span></span>
       ${game(p.n)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
@@ -10276,7 +10386,9 @@ function drawLineup(){
      of them (a content-sized track lined up nothing): wide enough for the buttons
      this viewer actually gets. */
   const anyTerm=can&&S.teams[T].r.some(p=>contracted(p)&&termOpen(T,p));
-  $('luSlots').style.setProperty('--luacts',can?(108+(canEditContract()?44:0)+(anyTerm?58:0))+'px':'0px');
+  $('luSlots').style.setProperty('--luacts',can?'40px':'0px'); void anyTerm;
+  /* The poll rewrites these rows; an open menu is reopened on the same player. */
+  const openNm=($('luSlots').querySelector('details.rmenu[open]')||{dataset:{}}).dataset.nm;
   $('luSlots').innerHTML=hdr('Slot')+slotRows
     +hdr('Bench')+benchRows
     +hdr('IR')+irRows;
@@ -10299,6 +10411,7 @@ function drawLineup(){
     box.querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,idx(b)));
     box.querySelectorAll('[data-mrt]').forEach(b=>b.onclick=()=>openTerm(T,idx(b)));
     box.querySelectorAll('[data-mrb]').forEach(b=>b.onclick=()=>toggleBlock(T,idx(b)));
+    if(openNm){ const d=[...box.querySelectorAll('details.rmenu')].find(x=>x.dataset.nm===openNm); if(d) d.open=true; }
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
     if($('luTonight')) $('luTonight').onclick=()=>tonightLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
@@ -10328,7 +10441,7 @@ function drawLineup(){
 const CHATMAX=600, CHATSHOW=200;
 let CHAT=[], CHATREV=0, CHATLOADED=false, CHATBUSY=false;
 const chatId=m=>String(m.ts)+'|'+String(m.by);
-const chatOn=()=>$('v-chat')&&!$('v-chat').hidden;
+const chatOn=()=>{ const c=$('v-chat'), g=c&&c.closest('.view'); return !!(c&&!c.hidden&&g&&!g.hidden); };
 async function loadChat(force){
   if(!await probeAPI()){ CHATLOADED=true; return false; }
   if(CHATBUSY&&!force) return false;
@@ -10843,8 +10956,68 @@ function unratedWhy(p,R){
   if(R.minMp!=null) return `under ${R.minMp} minutes a game &#8212; not rated`;
   return 'not rated';
 }
+/* What the Players table shows: ratings (z-scores over the raw line), the raw
+   stats alone, or one night's box scores. Per browser. */
+var PVIEW=(()=>{ try{ const v=localStorage.getItem('ll_pview'); return ['rate','stats','night'].includes(v)?v:'rate'; }catch(e){ return 'rate'; } })();
+function setPView(v){
+  PVIEW=['rate','stats','night'].includes(v)?v:'rate';
+  try{ localStorage.setItem('ll_pview',PVIEW); }catch(e){}
+  drawPView(); render();
+}
+function drawPView(){
+  const bar=$('pvBar'); if(!bar) return;
+  const html=[['rate','Ratings'],['stats','Stats'],['night','Last night']]
+    .map(([v,l])=>`<button type="button" data-pv="${v}" aria-pressed="${PVIEW===v}">${l}</button>`).join('');
+  if(bar.innerHTML!==html) bar.innerHTML=html;
+  if($('v-rater')) $('v-rater').hidden=PVIEW==='night';
+  if($('v-night')) $('v-night').hidden=PVIEW!=='night';
+  if($('v-pfa')) $('v-pfa').hidden=seasonLive()||PVIEW==='night';
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-pv]'):null;
+  if(b) setPView(b.dataset.pv);
+});
+/* Sign, Claim or Claimed for one player, for whichever club the viewer acts as;
+   empty when he is not a free agent or the club cannot sign today. Delegated, so
+   it works in any table and on the player card. */
+function signCell(name){
+  const t=meTeam();
+  if(!t||!S.teams[t]||!canSignFA(t)||!isFreeAgent(name)) return '';
+  const n=htmlEsc(name);
+  if(onWire(name)) return hasClaim(t,name)
+    ? `<button class="act" data-unclaim="${n}" title="Withdraw your claim">Claimed \u2715</button>`
+    : `<button class="act edit" data-fasign="${n}" title="${htmlEsc(wireText(name))}">Claim</button>`;
+  return `<button class="act edit" data-fasign="${n}">Sign</button>`;
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-fasign],[data-unclaim]'):null;
+  if(!b||!me) return;
+  if(b.closest('#faTable,#faClaims,#wvBody')) return;   // those bind their own
+  e.stopPropagation();
+  if($('dlgPlayer')&&$('dlgPlayer').open) closeModal('dlgPlayer');
+  if(b.dataset.unclaim) dropClaim(meTeam(),b.dataset.unclaim);
+  else signFA(meTeam(),b.dataset.fasign);
+});
+/* The Stats view's cell: the number alone; a shooting rate over its makes and
+   attempts, like every other table (raterRaw() joins them with " \u00b7 "). */
+function rawCell(p,c,basis,ed){
+  const t=raterRaw(p,c,basis), i=String(t).indexOf(' \u00b7 ');
+  return i<0?`<td class="zraw"><span${ed}>${t}</span></td>`
+    :`<td class="shot"><b${ed}>${t.slice(0,i)}</b><small>${t.slice(i+3)}</small></td>`;
+}
 function drawRater(){
+  drawPView();
+  if(me&&$('plClaims')){ const h=myClaimsHtml(meTeam()); if($('plClaims').innerHTML!==h) $('plClaims').innerHTML=h; }
   if(offscreen('v-rater')) return;
+  /* "Which players" depends on who is signed in, so it is rebuilt when that or
+     the club list changes, keeping the choice. */
+  const wsel=$('rTeam'), mine=me&&meTeam()&&S.teams[meTeam()];
+  const wopts='<option value="">All players</option><option value="FA">Free agents</option>'
+    +(mine?'<option value="@mine">My team</option>':'')+(me&&!isComm()?'<option value="@watch">My watch list</option>':'')
+    +'<option value="@edited">My projections (edited)</option>'
+    +TEAMS().map(t=>`<option value="${htmlEsc(t)}">${htmlEsc(t)}</option>`).join('');
+  if(wsel.dataset.sig!==wopts){ const keep=wsel.value; wsel.innerHTML=wopts; wsel.dataset.sig=wopts;
+    wsel.value=[...wsel.options].some(o=>o.value===keep)?keep:''; }
   const q=$('rSearch').value.trim().toLowerCase(), tf=$('rTeam').value, pf=$('rPos').value;
   const basis=raterBasis();
   if($('rBasis')&&$('rBasis').value!==basis) $('rBasis').value=basis;   // set from the Stats bar too
@@ -10858,26 +11031,33 @@ function drawRater(){
   const all=R.rows.concat(R.unrated);
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
      means nobody has committed salary for next season. */
-  let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))
-    &&(!tf||(tf==='FA'?isFreeAgent(p.n):liveClub(p.n)===tf))
+  const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?liveClub(n)===meTeam()
+    :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):liveClub(n)===tf);
+  let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))&&who(p.n)
     &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
   const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   const H2=$('raterH2');
-  if(H2) H2.textContent='Player rater \u2014 '+projSrcLabel();
+  if(H2) H2.textContent='Players \u2014 '+projSrcLabel();
   const mark=usingMine();
-  $('rCount').textContent=`${rows.length} of ${RATER.length} players`
-    +(raterDynOn()?` · scored against ${R.pool}`:'');
+  $('rCount').textContent=`${rows.length} players`
+    +(tf==='FA'&&canSignFA(meTeam())?` \u00b7 signing is one year at ${money(minSal())}, ${deadlinePassed()?'a rental with no rights':'with Early Bird rights'}`:'');
+  if($('pjResetR')) $('pjResetR').hidden=!(usingMine()&&Object.keys(PROJ||{}).length);
+  const stats=PVIEW==='stats', acts=!!(me&&meTeam()&&S.teams[meTeam()]);
+  const ah=$('raterTbl')&&$('raterTbl').querySelector('thead tr');
+  if(ah){ const has=!!ah.querySelector('th.acts'); if(acts&&!has) ah.insertAdjacentHTML('beforeend','<th class="acts"></th>'); if(!acts&&has) ah.querySelector('th.acts').remove(); }
+  const actCell=n=>acts?`<td class="acts"><span>${isFreeAgent(n)?watchBtn(n):''}${signCell(n)}</span></td>`:'';
   const span=RCATS.length;
   /* The signed-in GM's own players are shaded, like his club's row in the
      standings. The commissioner login has no club, so nothing is. */
   const myT=me&&!isComm()?me:null;
   $('raterBody').innerHTML=rows.map(p=>{
     const oc=raterClub(p.n), tr=myT&&liveClub(p.n)===myT?'<tr class="mine">':'<tr>';
-    if(!p.z) return `${tr}<td class="l">&#8212;</td><td data-hs="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
-      <td class="hide2">${p.g}</td><td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>
-      <td class="unrated">&#8212;</td></tr>`;
+    if(!p.z) return `${tr}<td class="l">&#8212;</td><td class="pname" data-player="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
+      <td class="hide2">${p.g}</td>${stats&&p.s?RCATS.map(c=>rawCell(p,c,basis,'')).join('')
+        :`<td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>`}
+      <td class="unrated">&#8212;</td>${actCell(p.n)}</tr>`;
     return `${tr}<td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
       ${RCATS.map(c=>{
         /* A category the GM has switched off keeps its column — the row would
@@ -10887,6 +11067,7 @@ function drawRater(){
            carries the amber mark every other table uses. On the aggregate the
            numbers move but none of them are his, so nothing is marked. */
         const ed=mark&&hasProj(p.n)?' class="edited"':'';
+        if(stats) return rawCell(p,c,basis,ed);
         if(p.z[c]==null) return `<td class="zshot unrated">&#8212;<small${ed}>${raterRaw(p,c,basis)}</small></td>`;
         const z=`<span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span>`;
         /* Every column carries the number the z-score was computed FROM. A
@@ -10900,14 +11081,14 @@ function drawRater(){
            attempts, because the league weights them by attempts. */
         return `<td class="zshot">${z}<small${ed}>${raterRaw(p,c,basis)}</small></td>`;
       }).join('')}
-      <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
+      <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td>${actCell(p.n)}</tr>`;
   }).join('');
   sortable('raterTbl','rater','tot',true);
 }
 redraw.rater=drawRater;
 ['rSearch','rTeam','rPos'].forEach(id=>$(id).oninput=drawRater);
 if($('rBasis')) $('rBasis').onchange=e=>setPrBasis(e.target.value);
-if($('rDyn')) $('rDyn').onchange=e=>{ RDYN.on=!!e.target.checked; drawRater(); };
+if($('pjResetR')) $('pjResetR').onclick=()=>$('pjReset').click();
 
 /* ================= TEAM CATEGORY PROFILE ================= */
 function drawProfile(){
@@ -11075,12 +11256,11 @@ function drawHomeLive(){
   const now=Date.now();
   const on=Object.entries(SEEN||{}).filter(([c,ts])=>now-new Date(ts).getTime()<5*60000)
     .map(([c])=>c).filter(c=>S.teams[c]||c==='Commissioner').sort();
-  const last=(S.log||[]).filter(e=>e&&e.ts&&e.team&&isRosterMove(e)&&logSeen(e)).slice(0,3);   // trades, adds and drops only — no lineup changes
-  box.innerHTML=(on.length||last.length)?`<div class="hlive">
-    ${on.length?`<div class="on"><span><span class="dot" aria-hidden="true"></span>Online</span>${on.map(c=>
-      `<span>${clubBadge(c)}${htmlEsc(c===me?'You':c)}</span>`).join('')}</div>`:''}
-    ${last.map(e=>`<div class="act">${clubBadge(e.team)}<span>${htmlEsc(e.team)} ${htmlEsc(lowerFirst(e.detail||''))}</span>
-      <span class="ago">${htmlEsc(agoText(e.ts,now))}</span></div>`).join('')}</div>`:'';
+  // Who is online, and nothing else: the moves list right under it already has
+  // the latest moves, and repeating three of them here said everything twice.
+  box.innerHTML=on.length?`<div class="hlive">
+    <div class="on"><span><span class="dot" aria-hidden="true"></span>Online</span>${on.map(c=>
+      `<span>${clubBadge(c)}${htmlEsc(c===me?'You':c)}</span>`).join('')}</div></div>`:'';
 }
 /* ================= TRADE COMPLETE (2026-10-17) =================
    When an offer is accepted, the two clubs in it — and nobody else — get a card
@@ -11136,7 +11316,6 @@ document.addEventListener('click',ev=>{
   tradeSeenSet(me,b.dataset.tradeok);
   drawTradeNotes();
 });
-function lowerFirst(t){ return t&&/^[A-Z][a-z]/.test(t)?t[0].toLowerCase()+t.slice(1):t; }
 /* ================= CLUB COLOURS (2026-10-14) =================
    S.teams[t].brand = {c:'#RRGGBB', ab:'OS'}, set by the GM on Settings. It rides
    rosters like everything else on the club, so it merges per club and a rename
@@ -11171,7 +11350,10 @@ function espnIdOf(name){
 function headshot(name,cls){
   const id=espnIdOf(name); if(!id||!/^\d+$/.test(id)) return '';
   const w=cls==='lg'?160:64;
-  return `<img class="hs${cls?' '+cls:''}" alt="" loading="lazy" referrerpolicy="no-referrer"
+  // Clickable like the name beside it: the delegated [data-player] handler opens
+  // the card. Not the card's own large picture.
+  const dp=cls==='lg'?'':` data-player="${htmlEsc(name)}"`;
+  return `<img class="hs${cls?' '+cls:''}"${dp} alt="" loading="lazy" referrerpolicy="no-referrer"
     src="https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=${w}&h=${Math.round(w*.73)}" onerror="this.remove()">`;
 }
 
@@ -11292,7 +11474,7 @@ function infoNotes(root){ try{
     /* The heading right above, or one inside a header row right above (the
        tape's .tapehd, a club page's .dhead). */
     const host=prev&&/^H[2-5]$/.test(prev.tagName||'')?prev
-      :prev&&prev.querySelector&&/(^| )(tapehd|dhead)( |$)/.test(prev.className||'')?prev.querySelector('h2,h3'):null;
+      :prev&&prev.querySelector&&/(^| )(tapehd|dhead|pvhead)( |$)/.test(prev.className||'')?prev.querySelector('h2,h3'):null;
     let b=host?host.querySelector('.infobtn'):(prev&&prev.classList&&prev.classList.contains('infobtn')?prev:null);
     if(!b){
       b=document.createElement('button'); b.type='button'; b.className='infobtn'; b.textContent='i';
@@ -11624,8 +11806,11 @@ function drawFires(){
    minimum); in the offseason the free agent classes the auction is fought
    over. Same sub-view, whichever answers the season's question. */
 function drawPlayersFA(){
-  if($('pfaSeason')) $('pfaSeason').hidden=!seasonLive();
+  /* In season the list above IS the free agent list (Who: Free agents, with
+     Sign/Claim). In the offseason the expiring-contract classes show under it. */
+  if($('pfaSeason')) $('pfaSeason').hidden=true;
   if($('v-fa')) $('v-fa').hidden=seasonLive();
+  drawPView();
 }
 /* My Team's phase-dependent parts: the what-if lab is there all year (it was
    offseason-only until 2026-10-25); the auction impact card only means
@@ -12152,12 +12337,13 @@ function standingsFor(days){
      roto   each category's roto points instead of the totals
    The roto total is pinned to the right edge (td.rotot) so it never scrolls
    away on a phone. */
+var STANDPER=(()=>{ try{ const v=localStorage.getItem('ll_standper')||''; return ['7','15','30'].includes(v)?v:''; }catch(e){ return ''; } })();
 var STANDMODE=(()=>{ try{ return localStorage.getItem('ll_standmode')||'tot'; }catch(e){ return 'tot'; } })();
 const STANDBOX={
   home:{box:'realStand',per:'standPer',note:'realStandNote',mode:'standMode',tbl:'standTbl',sort:'stand'},
   me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'},
   lg:{box:'lgStand',per:'lgStandPer',note:'lgStandNote',mode:'lgStandMode',tbl:'lgStandTbl',sort:'lgstand'}};
-function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.me); drawStandBox(STANDBOX.lg); }
+function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.lg); }
 function drawStandBox(B){
   const box=$(B.box); if(!box) return;
   const scored=Object.keys(SCORE.days||{}).sort(), cap=SCORE.cap||920, last=scored[scored.length-1];
@@ -12170,28 +12356,29 @@ function drawStandBox(B){
       STANDMODE=b.dataset.sm; try{ localStorage.setItem('ll_standmode',STANDMODE); }catch(e){}
       drawStandings(); });
   }
-  /* Period: the season, or any Monday–Sunday week that has a scored night. */
-  const per=$(B.per), weeks=[...new Set(scored.map(d=>weekOf(d).from))].reverse();
-  const sig=weeks.join();
-  if(per&&per.dataset.sig!==sig){
-    const keep=per.value;
-    per.innerHTML=`<option value="">Season to date</option>`
-      +weeks.map(w=>`<option value="${w}">Week of ${htmlEsc(shortDay(w))}</option>`).join('');
-    per.value=weeks.includes(keep)?keep:'';
-    per.dataset.sig=sig; per.onchange=drawStandings;
+  /* Period: the season, or the last 7, 15 or 30 days (2026-11-16, replacing
+     "Week of"): calendar days back from the latest scored night, the same
+     windows the stats bar uses. One choice for all three tables, per browser. */
+  const per=$(B.per), PER=[['','Season to date'],['7','Last 7 days'],['15','Last 15 days'],['30','Last 30 days']];
+  if(per&&per.dataset.sig!=='w'){
+    per.innerHTML=PER.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+    per.dataset.sig='w';
+    per.onchange=()=>{ STANDPER=per.value; try{ localStorage.setItem('ll_standper',STANDPER); }catch(e){} drawStandings(); };
   }
-  if(per) per.hidden=!weeks.length||mode==='night';
-  const wk=mode!=='night'&&per&&per.value?weekOf(per.value):null;
+  if(per&&per.value!==STANDPER) per.value=STANDPER;
+  if(per) per.hidden=!scored.length||mode==='night';
+  const win=mode!=='night'&&STANDPER&&last?{n:+STANDPER,from:wvPlus(last,1-STANDPER),to:last}:null;
   const rows=mode==='night'?(last?standingsFor({[last]:SCORE.days[last]}):[])
-    :wk?standingsFor(Object.fromEntries(scored.filter(d=>d>=wk.from&&d<=wk.to).map(d=>[d,SCORE.days[d]])))
+    :win?standingsFor(Object.fromEntries(scored.filter(d=>d>=win.from&&d<=win.to).map(d=>[d,SCORE.days[d]])))
     :(SCORE.standings||[]);
+  const wk=win;   // a window is drawn like the old week: games without the cap
   const played=rows.some(r=>r.tot.GP>0);
   const dto=daysToOpener();
   if($(B.note)) $(B.note).innerHTML=!scored.length
     ? (dto?`<span class="countdown">${dto}</span> day${dto===1?'':'s'} to opening night`
          :'The table fills in the morning after opening night')
     : mode==='night' ? htmlEsc(shortDay(last))
-    : wk ? `Week of ${htmlEsc(shortDay(wk.from))}`
+    : wk ? `Last ${wk.n} days \u00b7 ${htmlEsc(shortDay(wk.from))} \u2013 ${htmlEsc(shortDay(wk.to))}`
     : `Through ${htmlEsc(shortDay(last))}`;
   if(!played){ box.innerHTML=''; return; }
   const roto=mode==='roto';
@@ -12518,8 +12705,10 @@ function netChip(){
   loadLab();
   if(me&&me!=='__comm__'&&!S.teams[me])me=null;
   $('rTeam').innerHTML='<option value="">All players</option>'
-    +'<option value="FA">Free agents \u2014 includes expiring deals</option>'
-    +TEAMS().map(t=>`<option>${t}</option>`).join('');
+    +'<option value="FA">Free agents</option>'
+    +(me&&!isComm()?'<option value="@mine">My team</option><option value="@watch">My watch list</option>':'')
+    +'<option value="@edited">My projections (edited)</option>'
+    +TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
   rebuildPlayerFixes();
   /* The three club boxes are independent fetches: one round trip, not three. */
   await Promise.all([loadProj(),loadStrat(),loadNotes(),loadWatch()]);

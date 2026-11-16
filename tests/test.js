@@ -4419,7 +4419,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.STANDMODE='tot'; g('drawStandings')();
     let h=document.getElementById('realStand').innerHTML;
     ok('Home standings draw, with the roto total pinned right', /class="rating rotot"/.test(h) && /th data-k="tot" class="rotot"/.test(h));
-    ok('My Team has its own standings', /meStandTbl/.test(document.getElementById('meStand').innerHTML));
+    ok('My Team no longer carries its own standings (2026-11-16)', !document.getElementById('meStand'));
     ok('League has its own standings too', /lgStandTbl/.test(document.getElementById('lgStand').innerHTML));
     ok('three views offered', /data-sm="night"/.test(document.getElementById('standMode').innerHTML) && /data-sm="roto"/.test(document.getElementById('standMode').innerHTML));
     ctx.STANDMODE='roto'; g('drawStandings')();

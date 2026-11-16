@@ -49,13 +49,12 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 |---|---|---|
 | **Home** | `v-home` | the landing page: your snapshot (`#homeSnap`), the chat card (`#homeChat`), offseason auction/draft status (`#homeOff`), the preseason card (`#preBox2`), standings (`#realStand`), the 15-day chart (`#chartWrap`), last night's best (`#homeBest`), recent moves (`#homeFeed`) — `drawHome()` |
 | **My Team** | `v-me` | two sub-views: **Team** `me-team` (the stats-period bar, one table that is the lineup and the roster in season — see 2026-11-13 — with its date bar) and **Standings** `me-stand`; the what-if lab (`#labWrap`, all year since 2026-10-25) and, offseason only, the auction impact card (`#bidWrap`) — `drawMeExtras()` |
-| **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Historical Data** `v-history`, **Transactions** `v-log` |
-| **Players** | `v-players` (group) | sub-views **Rater** `v-rater`, **Last night** `v-night` (every box score for a night, filterable to free agents / my team — `drawNight()`), **Free agents** `v-pfa`, **My projections** `v-proj` (signed-in GM), **Quick sign** `v-draft` (in season) |
+| **League** | `v-league` (group) | sub-views **Standings** `lg-stand` (the default, first), **Clubs** `v-contracts`, **Transactions** `v-log`, **Waivers** `lg-waivers`, **Chat** `v-chat` (its own tab until 2026-11-16; the log scrolls in a 62vh box, unread badge on the League tab and the pill), then pushed right by `.subgap`: **Historical Data** `v-history`, **Cap rules** `v-rules` (also a top tab until 2026-11-16) |
+| **Players** | `v-players` | **one list, no sub-tabs** (2026-11-16): the rater table under a **Ratings / Stats / Last night** switch (`PVIEW`, `ll_pview`, `setPView()`); "Which players" (`#rTeam`) adds Free agents, My team, My watch list, My projections (edited) and each club; every free agent carries the watch star and **Sign**, or **Claim** on waivers (`signCell()`, delegated, also on the player card). Free agents, My projections and Quick sign are retired: their ids route here through `PVALIAS` in `goTab()`; `v-proj`/`v-draft` stay in the DOM, hidden, because boot binds their controls. The dynamic rater's controls are gone (the engine is untouched). Offseason: the free agent classes (`#v-fa`) show under the list |
 | **Trades** | `v-trade` | unchanged |
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
 | **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
-| **Chat** | `v-chat` | chat and My notes, with the unread badge |
-| **Settings**, **Cap rules**, **Commissioner** | `v-settings`, `v-rules`, `v-admin` | in the same bar — the Menu dropdown is gone (2026-10-14). A GM also gets a **Settings** button beside Sign out (`drawWho()`): on a phone the bottom bar scrolls and the tab sat off-screen, so GMs could not find it. On a phone that button is his club's name and is the only thing in the header besides the brand (2026-11-13) |
+| **Settings**, **Commissioner** | `v-settings`, `v-admin` | Settings has no tab in the bar since 2026-11-16 (`#setTab` stays, hidden, so `goTab()` finds it): the header's Settings button, or the club name on a phone, opens it. |
 
 Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
 projections, Team trends, League history and Transactions tabs — every one of
@@ -173,8 +172,8 @@ best and the player card.
 **Presence.** The once-a-minute `&chat=…&me=<club>` poll now also stamps that
 club in the `seen` blob and returns everyone's stamp (`state.mjs`, capped at 40
 names). Home's "Around the league" shows who was seen in the last five minutes
-and the latest three log entries of any kind — lineup changes included — with
-"4m ago" times (`drawHomeLive()`, `agoText()`).
+(`drawHomeLive()`) above the roster moves list. It used to repeat the latest
+three moves as well, which said everything twice; it was dropped 2026-11-16.
 
 **Empty states** say what is coming rather than what is missing. With
 `S.cfg.opener` set (Commissioner › League settings › Opening night) the
@@ -192,7 +191,9 @@ link still shows the live image.
 function, `drawStandBox()`, keyed by `STANDBOX`. Three views (`STANDMODE`,
 remembered in `ll_standmode`): **Totals**, **Last night** (the latest scored
 night alone, through `standingsFor()`) and **Roto points** (each category's
-points instead of its total). The roto total is `td.rotot`, sticky to the
+points instead of its total). The period select is **Season to date / Last 7 / 15 / 30
+days** (`STANDPER`, `ll_standper`, shared by all three tables; it replaced
+"Week of" on 2026-11-16): calendar days back from the latest scored night. The roto total is `td.rotot`, sticky to the
 right edge like an action column.
 
 **Lineup and results are one box.** A date bar (`drawLuNav()`, `LUVIEW`) sits
@@ -257,8 +258,10 @@ parallel rather than one after another.
   `44px minmax(300px,1fr) 118px 34px repeat(10,…) var(--luacts)`, capped at
   1440px, scrolling below 1240px; the actions pin right only above 640px.
 - **PR basis, `PRBASIS`** (`ll_prbasis`, per browser): the Stats bar's
-  **Averages / Totals** and the rater tab's select are the same switch
-  (`setPrBasis()`; `raterBasis()` reads it). Averages is the old per-game rating
+  **PR on: Per game / Totals** (called Averages / Totals until 2026-11-16, which
+  GMs found unclear) is the one switch (`setPrBasis()`; `raterBasis()` reads it);
+  `prHint()` writes the sentence under the bar saying what the current choice
+  measures. The rater's old `#rBasis` select is hidden, kept only in sync. Averages is the old per-game rating
   with the period's games floor. Totals rates per game × games, so missed games
   count against a player, and passes `raterScore(…,{all:true})`: everyone with a
   game is scored against the field the floor defines (`R.also`, no rank) instead
@@ -325,6 +328,29 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
   To the hard cap, Injured reserve (and Released salary when there is any).
 - **`.scroller` tables sit on `--panel`**, pinned column included; the pinned cell
   used to paint the page colour and read as an inverted block in light.
+
+### Five changes from the second mockup (2026-11-16)
+
+Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
+
+- **Game column**: a game to come is an amber time pill (`.lutime`, no "PT"; the full
+  time is the tooltip), a started one is a padlock and "Locked" (`.lulock`), and a
+  row whose man has no game is faded (`.lurow:has(.lugame.nog)`).
+- **Row actions are a ⋯ menu** (`details.rmenu` > `.rmpop`): Move to injured reserve,
+  Set contract length, Put on / Take off the trade block, Edit contract (commissioner),
+  Release…. The IR button left the name cell. The list is `position:fixed`, placed by
+  `rmenuPlace()` so a scrolling table cannot clip it (this app has shipped that bug
+  three times); one open at a time; closed by a pick, a click away, Escape or a
+  scroll; reopened on the same player after a redraw (`openNm` in `drawLineup()`).
+  `--luacts` is 40px.
+- **Fewer outlines**: `--field`/`--fieldln` for inputs (filled, faint edge kept for
+  accessibility), `--soft`/`--softtx` for ghost buttons, `.act`, chips and pills (no
+  border). Primary and Danger buttons keep theirs.
+- **My Team has no Standings sub-view**; the Place card links to League › Standings
+  (`.linkbtn`). `STANDBOX.me` no longer draws.
+- **The stats bar is one row**: Stats [period ▾] [Per game | Totals] (i) · through …
+  The sentence (`prHint()`) shows on the Players list; elsewhere the "i" toggles it
+  (`PRINFO`).
 
 ## Injury report detail (2026-11-13)
 
