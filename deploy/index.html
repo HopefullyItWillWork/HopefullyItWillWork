@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.9">
+<meta name="ll-build" content="2026-11-16.10">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -311,7 +311,9 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
 .injline .injnote{margin-top:6px;font-weight:normal}
 .luacts .act{padding:2px 6px;font-size:var(--t1)}
 .lurow.empty{background:var(--panel2)}
-.lurow.locked{opacity:.72}
+/* Fade the cells, never the row: opacity on the row would fade the open ⋯ menu
+   inside it too, and let the rows below show through it (2026-11-16). */
+.lurow.locked>*:not(.luacts){opacity:.72}
 .luhdr{background:var(--panel2);font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--dim);padding:5px 11px}
 .luhdr span{text-align:right}
@@ -1036,7 +1038,9 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lugame .lutime{display:inline-block;font-weight:600;font-size:var(--t1);color:var(--ink);background:var(--amber);border-radius:999px;padding:1px 8px;margin-right:2px}
 .lugame .lulock{display:inline-flex;align-items:center;gap:5px;color:var(--steel)}
 .lugame.lk small{color:var(--dim)}
-.lurow:has(.lugame.nog){opacity:.55}
+.lurow:has(.lugame.nog)>*:not(.luacts){opacity:.55}
+.lurow:has(.lugame.nog)>.luacts summary{opacity:.55}
+.lurow:has(.lugame.nog)>.luacts details[open] summary{opacity:1}
 .luhdr span:nth-child(3){text-align:left}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
