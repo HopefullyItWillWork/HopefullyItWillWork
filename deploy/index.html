@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.10">
+<meta name="ll-build" content="2026-11-16.11">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -7202,7 +7202,7 @@ function prHint(period){
     act:'2025\u201326',agg:'the projection',mine:'your projection'}[period]||'the period';
   return PRBASIS==='tot'
     ? `<b>Totals:</b> PR rates what each player produced over ${span}, so games he missed count against him.`
-    : `<b>Per game:</b> PR rates each player\u2019s average per game over ${span} \u2014 how good he is when he plays.`;
+    : `<b>Per game:</b> PR rates each player\u2019s average per game over ${span} \u2014 how good he is when he plays. Games he missed do not count against him.`;
 }
 var PRINFO=false;   // the stats bar's "i" is open (shared by every bar on the page)
 function drawPerBars(){
