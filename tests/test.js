@@ -1993,10 +1993,10 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('no historical place', !/Avg historical place/.test(headLive));
   ok('no winning-level count', !/Categories at a winning level/.test(headLive));
   ok('no mid-level', !/Mid-level/.test(headLive));
-  ok('but payroll and the cap are still there, on one line',
-     /Payroll/.test(headLive) && /hard cap/.test(headLive) && /mefacts/.test(headLive));
+  ok('but payroll and the cap are still there, as cards',
+     /Payroll/.test(headLive) && /hard cap/.test(headLive) && /mefacts/.test(headLive) && /class="mefact/.test(headLive));
   ok('and the games played show',
-     /\/ 920 games/.test(headLive));
+     /Games<\/span><b>\d+<small> \/ 920<\/small>/.test(headLive));
   ok('the period-dependent "projected games" is gone in season',
      !/Projected games/.test(headLive));
   console.log('\n== games pace ==');
@@ -2180,7 +2180,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('the button is labelled for what it does', /Start all/.test(document.getElementById('luHead').innerHTML));
   ok('and its opposite is Bench all', /Bench all/.test(document.getElementById('luHead').innerHTML));
   ok('the club line counts the IR against its limit',
-     /IR <b>\d+<\/b> \/ 1/.test(document.getElementById('meHead').innerHTML),
+     /Injured reserve<\/span><b>\d+<small> \/ 1<\/small>/.test(document.getElementById('meHead').innerHTML),
      document.getElementById('meHead').innerHTML.slice(0, 400));
   g('S').cfg.phase = 'offseason';
   X.me = 'Osborn';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-13.2">
+<meta name="ll-build" content="2026-11-16.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -28,6 +28,11 @@
   --disp:'Barlow Condensed',system-ui,sans-serif;
   --body:'Archivo',system-ui,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
+  /* Six sizes and three corners (2026-11-16). Every font-size in the sheet is one
+     of these; do not add half-pixel steps back. Figures on the KPI cards are 32px. */
+  --t1:11px; --t2:13px; --t3:15px; --t4:19px; --t5:26px;
+  --r-s:5px; --r:8px; --r-l:12px;
+  --segon:#2C384A;
   color-scheme:dark;
   --ink:#0D1219; --panel:#141B25; --panel2:#1A222E; --well:#080C12;
   --line:#232E3C; --line2:rgba(35,46,60,.55);
@@ -63,19 +68,20 @@
   --tcu-b:#F7E2DC;--tcu-t:#93321C;
   --bnr:linear-gradient(170deg,#FFFFFF,#F1F4F8);
   --shadow:0 1px 2px rgba(17,25,35,.06);
+  --segon:#FFFFFF;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%;background:var(--ink);min-height:100%}
-body{background:var(--ink);color:var(--chalk);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100vh}
+body{background:var(--ink);color:var(--chalk);font-family:var(--body);font-size:var(--t3);line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100vh}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .mast{position:sticky;top:0;z-index:50;background:var(--ink);border-bottom:1px solid var(--line)}
 .more{position:relative;display:flex}
-.more>#moreBtn{background:none;border:0;color:var(--steel);font-family:var(--disp);font-weight:600;
-font-size:16px;letter-spacing:.01em;padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent}
+.more>#moreBtn{background:none;border:0;color:var(--steel);font-family:var(--body);font-weight:600;
+font-size:var(--t3);letter-spacing:.01em;padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent}
 .more>#moreBtn:hover{color:var(--chalk)}
 .more>#moreBtn[aria-expanded=true]{color:var(--amber)}
-.more>#moreBtn::after{content:" \25BE";font-size:9px}
+.more>#moreBtn::after{content:" \25BE";font-size:var(--t1)}
 .menuwrap{max-width:1280px;margin:0 auto;position:relative;height:0}
 /* Fixed at every width, and its top is set from the masthead by placeMore().
 
@@ -87,24 +93,24 @@ font-size:16px;letter-spacing:.01em;padding:9px 14px;cursor:pointer;border-botto
    somewhere you could not see. Measuring the header and saying where the menu
    goes removes the guesswork: it opens directly under the bar, always. */
 .moremenu{position:fixed;min-width:200px;background:var(--panel);
-border:1px solid var(--line);border-radius:3px;box-shadow:0 10px 28px rgba(0,0,0,.35);
+border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 10px 28px rgba(0,0,0,.35);
 padding:5px;z-index:80;display:flex;flex-direction:column;
 overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.moremenu button{background:none;border:0;color:var(--steel);font-family:var(--body);font-size:13.5px;
-text-align:left;padding:8px 11px;border-radius:2px;cursor:pointer;white-space:nowrap;letter-spacing:0}
+.moremenu button{background:none;border:0;color:var(--steel);font-family:var(--body);font-size:var(--t2);
+text-align:left;padding:8px 11px;border-radius:var(--r-s);cursor:pointer;white-space:nowrap;letter-spacing:0}
 .moremenu button:hover{background:var(--panel2);color:var(--chalk)}
 .moremenu button[aria-selected=true]{color:var(--amber);background:var(--panel2)}
 .welcome{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
-border-radius:3px;padding:16px 18px;margin-bottom:22px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.welcome p{font-size:13.5px;color:var(--steel);line-height:1.5;margin:0;flex:1;min-width:260px}
+border-radius:var(--r-l);padding:16px 18px;margin-bottom:22px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.welcome p{font-size:var(--t2);color:var(--steel);line-height:1.5;margin:0;flex:1;min-width:260px}
 .welcome p b{color:var(--chalk);font-weight:600}
-.chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
-padding:3px 8px;border-radius:2px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.chip{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;
+padding:3px 8px;border-radius:var(--r-s);border:1px solid var(--line);color:var(--dim);white-space:nowrap}
 .chip.live{color:var(--space);border-color:var(--okln)}
 .chip.local{color:var(--amber);border-color:var(--tbi-b)}
 .chip.err{color:var(--tax);border-color:var(--wnln)}
-.themebtn{background:none;border:1px solid var(--line);color:var(--steel);border-radius:2px;width:32px;height:28px;
-cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+.themebtn{background:none;border:1px solid var(--line);color:var(--steel);border-radius:var(--r-s);width:32px;height:28px;
+cursor:pointer;font-size:var(--t2);line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
 .themebtn:hover{color:var(--amber);border-color:var(--amber)}
 .themebtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 body{transition:background-color .18s ease,color .18s ease}
@@ -113,159 +119,159 @@ body{transition:background-color .18s ease,color .18s ease}
    Drawn in the theme's own amber and ink so it follows the light theme too. */
 .brandwrap{display:flex;align-items:center;gap:9px}
 .mark{width:26px;height:32px;flex:none}
-.brand{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.005em;line-height:1;color:var(--chalk)}
+.brand{font-family:var(--disp);font-weight:700;font-size:var(--t5);letter-spacing:.005em;line-height:1;color:var(--chalk)}
 .brand::after{content:'';display:block;height:2px;width:34px;background:var(--amber);margin-top:5px}
-.season{font-family:var(--mono);font-size:10.5px;color:var(--steel);letter-spacing:.14em;text-transform:uppercase}
-.who{margin-left:auto;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--steel)}
+.season{font-family:var(--body);font-size:var(--t1);color:var(--steel);letter-spacing:.06em;text-transform:uppercase}
+.who{margin-left:auto;display:flex;align-items:center;gap:10px;font-family:var(--body);font-size:var(--t1);color:var(--steel)}
 .who b{color:var(--amber);font-weight:500}
-.badge{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:2px;background:var(--tbi-b);color:var(--amber)}
+.badge{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:var(--r-s);background:var(--tbi-b);color:var(--amber)}
 .badge.comm{background:var(--trf-b);color:var(--trf-t)}
 nav{max-width:1280px;margin:0 auto;padding:0 20px;display:flex;gap:2px;overflow-x:auto;align-items:stretch}
-nav button{background:none;border:0;color:var(--steel);font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:.01em;
+nav button{background:none;border:0;color:var(--steel);font-family:var(--body);font-weight:600;font-size:var(--t3);letter-spacing:.01em;
 padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
 nav button:hover{color:var(--chalk)}
 nav button[aria-selected=true]{color:var(--amber);border-bottom-color:var(--amber)}
 nav button:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
 main{max-width:1280px;margin:0 auto;padding:22px 20px 80px;background:var(--ink);color:var(--chalk)}
 .view[hidden]{display:none}
-h2{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:.01em;color:var(--chalk);margin:0 0 13px;display:flex;align-items:baseline;gap:12px}
+h2{font-family:var(--body);font-weight:600;font-size:var(--t4);letter-spacing:.01em;color:var(--chalk);margin:0 0 13px;display:flex;align-items:baseline;gap:12px}
 h2::after{content:"";flex:1;height:1px;background:var(--line);transform:translateY(-5px)}
 h2.sub{margin-top:26px}
-.ledger{box-shadow:var(--shadow);display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.ledger{box-shadow:var(--shadow);display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
 .row{display:grid;grid-template-columns:128px 1fr 90px 52px;gap:13px;align-items:center;background:var(--panel);padding:11px 14px;cursor:pointer;transition:background .13s}
 .row:hover,.row:focus-visible{background:var(--panel2);outline:none}
 .row[aria-current=true]{background:var(--panel2);box-shadow:inset 3px 0 0 var(--amber)}
-.tname{font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bar{position:relative;height:22px;background:var(--well);border-radius:2px;overflow:hidden}
+.tname{font-family:var(--body);font-weight:600;font-size:var(--t4);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{position:relative;height:22px;background:var(--well);border-radius:var(--r-s);overflow:hidden}
 .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--amber2),var(--amber));transition:width .45s cubic-bezier(.4,0,.2,1)}
 .fill.over{background:linear-gradient(90deg,var(--tax2),var(--tax))}
 .tick{position:absolute;top:0;bottom:0;width:1px;background:var(--steel);opacity:.9}
-.tick::after{content:attr(data-l);position:absolute;top:50%;transform:translateY(-50%);left:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--steel);white-space:nowrap}
+.tick::after{content:attr(data-l);position:absolute;top:50%;transform:translateY(-50%);left:4px;font-family:var(--mono);font-size:var(--t1);letter-spacing:.06em;color:var(--steel);white-space:nowrap}
 .tick.hard{background:var(--tax);opacity:1}.tick.hard::after{color:var(--tax);opacity:1}
-.amt{font-family:var(--mono);font-size:14px;text-align:right;font-weight:500}
+.amt{font-family:var(--mono);font-size:var(--t3);text-align:right;font-weight:500}
 .amt.over{color:var(--tax)}
-.cnt{font-family:var(--mono);font-size:11px;color:var(--steel);text-align:right}
-.legend{display:flex;gap:16px;margin-top:10px;font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.06em;flex-wrap:wrap}
+.cnt{font-family:var(--mono);font-size:var(--t1);color:var(--steel);text-align:right}
+.legend{display:flex;gap:16px;margin-top:10px;font-family:var(--body);font-size:var(--t1);color:var(--dim);letter-spacing:.06em;flex-wrap:wrap}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:5px;vertical-align:-1px}
 .detail{margin-top:24px}
 .dhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-.dhead h3{font-family:var(--disp);font-weight:700;font-size:29px;letter-spacing:.03em;line-height:1}
-.pill{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border:1px solid var(--line);border-radius:2px;color:var(--steel)}
+.dhead h3{font-family:var(--body);font-weight:700;font-size:var(--t5);letter-spacing:.03em;line-height:1}
+.pill{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border:1px solid var(--line);border-radius:var(--r-s);color:var(--steel)}
 .pill.good{color:var(--space);border-color:var(--okln)}.pill.bad{color:var(--tax);border-color:var(--wnln)}
-.capgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:15px 0 20px}
+.capgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden;margin:15px 0 20px}
 .capcell{background:var(--panel);padding:10px 13px}
-.capcell dt{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
-.capcell dd{font-family:var(--mono);font-size:17px;font-weight:500}
+.capcell dt{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.capcell dd{font-family:var(--mono);font-size:var(--t4);font-weight:500}
 .capcell dd.good{color:var(--space)}.capcell dd.bad{color:var(--tax)}.capcell dd.amb{color:var(--amber)}
 table{width:100%;border-collapse:collapse}
-thead th{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);text-align:right;padding:0 9px 8px;font-weight:400;border-bottom:1px solid var(--line)}
+thead th{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:0 9px 8px;font-weight:400;border-bottom:1px solid var(--line)}
 thead th:first-child,thead th.l{text-align:left}
-tbody td{padding:8px 9px;border-bottom:1px solid var(--line2);text-align:right;font-family:var(--mono);font-size:13px}
-tbody td:first-child{text-align:left;font-family:var(--body);font-size:14px}
+tbody td{padding:8px 9px;border-bottom:1px solid var(--line2);text-align:right;font-family:var(--mono);font-size:var(--t2)}
+tbody td:first-child{text-align:left;font-family:var(--body);font-size:var(--t3)}
 tbody tr:hover{background:var(--panel)}
-tbody td.pos,tbody td.l{text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--steel);letter-spacing:.05em}
+tbody td.pos,tbody td.l{text-align:left;font-family:var(--body);font-size:var(--t1);color:var(--steel);letter-spacing:.05em}
 tbody tr.iscut td{opacity:.5}
 tbody tr.iscut td:first-child{text-decoration:line-through;text-decoration-color:var(--tax)}
 .exp{color:var(--dim)}
-.tag{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.09em;padding:1.5px 5px;border-radius:2px;margin-left:6px;vertical-align:1px;font-weight:500}
+.tag{display:inline-block;font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;padding:1.5px 5px;border-radius:var(--r-s);margin-left:6px;vertical-align:1px;font-weight:500}
 .t-to{background:var(--tto-b);color:var(--tto-t)}.t-ro{background:var(--tro-b);color:var(--tro-t)}.t-po{background:var(--tpo-b);color:var(--tpo-t)}
 .t-blk{background:var(--tbl-b);color:var(--tbl-t);font-weight:700}
 .t-mle{background:var(--tml-b);color:var(--tml-t)}
 .act.on{border-color:var(--amber);color:var(--amber)}
 .t-bird{background:var(--tbi-b);color:var(--tbi-t)}.t-eb{background:var(--teb-b);color:var(--teb-t)}
 .t-rfa{background:var(--trf-b);color:var(--trf-t)}.t-cut{background:var(--tcu-b);color:var(--tcu-t)}
-tfoot td{padding:11px 9px;font-family:var(--mono);font-size:13px;font-weight:700;text-align:right;border-top:1px solid var(--line)}
-tfoot td:first-child{text-align:left;font-family:var(--disp);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);font-weight:600}
-.act{background:none;border:1px solid var(--line);color:var(--steel);font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;
-text-transform:uppercase;padding:3px 8px;border-radius:2px;cursor:pointer;margin-left:4px}
+tfoot td{padding:11px 9px;font-family:var(--mono);font-size:var(--t2);font-weight:700;text-align:right;border-top:1px solid var(--line)}
+tfoot td:first-child{text-align:left;font-family:var(--body);font-size:var(--t3);letter-spacing:.06em;text-transform:uppercase;color:var(--steel);font-weight:600}
+.act{background:none;border:1px solid var(--line);color:var(--steel);font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
+text-transform:uppercase;padding:3px 8px;border-radius:var(--r-s);cursor:pointer;margin-left:4px}
 .act:hover{color:var(--tax);border-color:var(--wnln)}
 .act.edit:hover{color:var(--amber);border-color:#4A3A17}
 .fagrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px}
-.fabox{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 15px}
-.fabox h4{font-family:var(--disp);font-weight:600;font-size:14px;letter-spacing:.13em;text-transform:uppercase;margin-bottom:3px}
-.fabox p{font-size:12px;color:var(--steel);margin-bottom:11px;line-height:1.4}
+.fabox{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:14px 15px}
+.fabox h4{font-family:var(--body);font-weight:600;font-size:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
+.fabox p{font-size:var(--t2);color:var(--steel);margin-bottom:11px;line-height:1.4}
 .fabox ul{list-style:none;display:flex;flex-direction:column;gap:1px}
-.fabox li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line2);font-size:13.5px}
+.fabox li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line2);font-size:var(--t2)}
 .fabox li:last-child{border-bottom:0}
-.fabox li em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
-.form{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:15px;display:grid;gap:10px;align-items:end;margin-bottom:8px}
+.fabox li em{font-style:normal;font-family:var(--mono);font-size:var(--t1);color:var(--dim);white-space:nowrap}
+.form{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:15px;display:grid;gap:10px;align-items:end;margin-bottom:8px}
 .form.f5{grid-template-columns:2fr 1.3fr .8fr .7fr auto}
 .form.f4{grid-template-columns:1.4fr 1.4fr 1fr auto}
 /* A terms cell that reads like a field but cannot be typed into — the in-season
    signing has no terms to negotiate, so showing a disabled input would invite a
    click at something that will never change. */
-.seaslab{font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:400}
+.seaslab{font-family:var(--body);font-size:var(--t1);color:var(--amber);font-weight:400}
 /* The GM behind the club. Set apart from the numeric pills beside it, because it
    is the one that is a person rather than a measurement. */
-.pill.gmpill{font-family:var(--disp);letter-spacing:0;text-transform:none;
+.pill.gmpill{font-family:var(--body);letter-spacing:0;text-transform:none;
   background:var(--panel2);border-color:var(--tbi-b);color:var(--chalk)}
-.fixedterm{border:1px solid var(--line);border-radius:3px;background:var(--panel2);
-  padding:8px 10px;color:var(--steel);font-size:12.5px;white-space:nowrap;
+.fixedterm{border:1px solid var(--line);border-radius:var(--r);background:var(--panel2);
+  padding:8px 10px;color:var(--steel);font-size:var(--t2);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
-input,select,textarea{width:100%;background:var(--well);border:1px solid var(--line);color:var(--chalk);font-family:var(--body);font-size:14px;padding:9px 10px;border-radius:2px}
+label{display:block;font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
+input,select,textarea{width:100%;background:var(--well);border:1px solid var(--line);color:var(--chalk);font-family:var(--body);font-size:var(--t3);padding:9px 10px;border-radius:var(--r-s)}
 textarea{resize:vertical;line-height:1.5}
 input.mono{font-family:var(--mono)}
 input:focus,select:focus{outline:none;border-color:var(--amber)}
-.btn{background:var(--amber);color:var(--panel);border:0;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:.01em;padding:10px 20px;border-radius:2px;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.btn{background:var(--amber);color:var(--panel);border:0;font-family:var(--body);font-weight:700;font-size:var(--t3);letter-spacing:.01em;padding:10px 20px;border-radius:var(--r-s);cursor:pointer;transition:filter .15s;white-space:nowrap}
 .btn:hover{filter:brightness(1.12)}
 .btn:focus-visible{outline:2px solid var(--chalk);outline-offset:2px}
-.btn.ghost{background:none;color:var(--steel);border:1px solid var(--line);font-size:12px;padding:8px 14px}
+.btn.ghost{background:none;color:var(--steel);border:1px solid var(--line);font-size:var(--t2);padding:8px 14px}
 .btn.ghost:hover{color:var(--chalk);border-color:var(--steel);filter:none}
-.btn.danger{background:none;color:var(--tax);border:1px solid var(--wnln);font-size:12px;padding:8px 14px}
+.btn.danger{background:none;color:var(--tax);border:1px solid var(--wnln);font-size:var(--t2);padding:8px 14px}
 .btn.danger:hover{background:var(--trf-b);filter:none}
 .btn[disabled]{opacity:.35;cursor:not-allowed;filter:none}
-.note{font-size:11.5px;color:var(--dim);margin-bottom:20px;line-height:1.5}
-.warn{background:var(--wnbg);border:1px solid var(--wnln);border-radius:3px;padding:12px 14px;font-size:12.5px;color:var(--wntx);line-height:1.5;margin-bottom:18px}
+.note{font-size:var(--t1);color:var(--dim);margin-bottom:20px;line-height:1.5}
+.warn{background:var(--wnbg);border:1px solid var(--wnln);border-radius:var(--r-l);padding:12px 14px;font-size:var(--t2);color:var(--wntx);line-height:1.5;margin-bottom:18px}
 .warn b{color:var(--trf-t);font-weight:600}
-.log{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
-.ent{display:grid;grid-template-columns:96px 74px 1fr 100px 34px;gap:12px;align-items:center;background:var(--panel);padding:9px 14px;font-size:13.5px}
-.ent .t{font-family:var(--mono);font-size:10px;color:var(--dim)}
-.ent .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase}
+.log{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
+.ent{display:grid;grid-template-columns:96px 74px 1fr 100px 34px;gap:12px;align-items:center;background:var(--panel);padding:9px 14px;font-size:var(--t2)}
+.ent .t{font-family:var(--mono);font-size:var(--t1);color:var(--dim)}
+.ent .k{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase}
 .k.sign{color:var(--space)}.k.cut{color:var(--tax)}.k.edit{color:var(--amber)}.k.trade{color:#7FB0E8}
-.ent .by{font-family:var(--mono);font-size:10.5px;color:var(--steel);text-align:right}
-.ent .x{background:none;border:0;color:var(--dim);cursor:pointer;font-size:15px;padding:2px 5px}
+.ent .by{font-family:var(--body);font-size:var(--t1);color:var(--steel);text-align:right}
+.ent .x{background:none;border:0;color:var(--dim);cursor:pointer;font-size:var(--t3);padding:2px 5px}
 .ent .x:hover{color:var(--tax)}
-.empty{background:var(--panel);padding:34px 20px;text-align:center;color:var(--dim);font-size:13.5px}
-.sync{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:7px;margin-bottom:14px}
+.empty{background:var(--panel);padding:34px 20px;text-align:center;color:var(--dim);font-size:var(--t2)}
+.sync{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:7px;margin-bottom:14px}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--space)}
 .dot.busy{background:var(--amber);animation:pulse 1s infinite}.dot.err{background:var(--tax)}
 @keyframes pulse{50%{opacity:.3}}
 .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:13px}
-.rule{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:13px 15px}
-.rule h5{font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
-.rule p{font-size:12.5px;color:var(--steel);line-height:1.5}
+.rule{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:13px 15px}
+.rule h5{font-family:var(--body);font-weight:600;font-size:var(--t2);letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.rule p{font-size:var(--t2);color:var(--steel);line-height:1.5}
 .rule b{color:var(--chalk);font-weight:500}
-.tradebox{display:grid;grid-template-columns:1fr 54px 1fr;gap:0;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.tradebox{display:grid;grid-template-columns:1fr 54px 1fr;gap:0;background:var(--line);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
 .side{background:var(--panel);padding:15px}
 .swap{background:var(--panel2);display:flex;align-items:center;justify-content:center}
-.arrows{font-size:22px;color:var(--amber)}
-.picklist{max-height:330px;overflow-y:auto;margin-top:10px;border:1px solid var(--line);border-radius:2px}
-.pk{display:flex;align-items:center;gap:9px;padding:7px 10px;border-bottom:1px solid var(--line2);cursor:pointer;font-size:13.5px}
+.arrows{font-size:var(--t5);color:var(--amber)}
+.picklist{max-height:330px;overflow-y:auto;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-s)}
+.pk{display:flex;align-items:center;gap:9px;padding:7px 10px;border-bottom:1px solid var(--line2);cursor:pointer;font-size:var(--t2)}
 .pk:last-child{border-bottom:0}
 .pk:hover{background:var(--panel2)}
 .pk input{width:auto;margin:0;accent-color:var(--amber)}
-.pk .s{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--steel)}
+.pk .s{margin-left:auto;font-family:var(--mono);font-size:var(--t2);color:var(--steel)}
 .pk.on{background:var(--sel)}
 .pk.on .s{color:var(--space)}
 /* Rights sit below the contracts, which puts them under the scroll on a full
    roster. The heading makes the section findable and says why they cost $0. */
 .pkn{display:flex;flex-direction:column;gap:2px;min-width:0}
-.pkline{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim);white-space:nowrap}
+.pkline{font-family:var(--mono);font-size:var(--t1);letter-spacing:.04em;color:var(--dim);white-space:nowrap}
 .dimx{color:var(--dim)}
 #tcTbl td,#tcTbl th{font-family:var(--mono);white-space:nowrap}
 #tcTbl tr.netrow td{border-top:1px solid var(--line);font-weight:700}
 #tcTbl td.good{color:var(--space)}
 #tcTbl td.bad{color:var(--tax)}
 .pkhd{position:sticky;top:0;background:var(--panel2);border-bottom:1px solid var(--line);
-  padding:5px 10px;font-family:var(--mono);font-size:9px;letter-spacing:.11em;
+  padding:5px 10px;font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--dim)}
 /* The protection control under a selected future pick. It sits outside the
    <label> so clicking it does not toggle the pick it belongs to. */
 .pkprot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px 8px 32px;
-  border-bottom:1px solid var(--line2);background:var(--panel2);font-size:11.5px;color:var(--dim)}
-.pkprot select{font-size:11.5px;padding:3px 5px}
-.pkprot label{display:flex;align-items:center;gap:5px;margin:0;font-size:11.5px;text-transform:none;letter-spacing:0}
+  border-bottom:1px solid var(--line2);background:var(--panel2);font-size:var(--t1);color:var(--dim)}
+.pkprot select{font-size:var(--t1);padding:3px 5px}
+.pkprot label{display:flex;align-items:center;gap:5px;margin:0;font-size:var(--t1);text-transform:none;letter-spacing:0}
 /* Tonight's lineup. The name column takes whatever is left after nine narrow
    stat columns, because a per-game number is four characters and a name is
    twenty — sizing them the other way round gave "Shai Gilgeous-Alexa…" next to
@@ -276,38 +282,38 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
    name do not need 1200px, and letting it span the page either strands the name
    in a void or blows the dropdown out to half the screen. */
 .luslots{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden;max-width:1440px}
+  border-radius:var(--r);overflow:hidden;max-width:1440px}
 .lurow{display:grid;grid-template-columns:44px minmax(300px,1fr) 118px 34px repeat(10,minmax(46px,60px)) var(--luacts,0px);
   gap:7px;align-items:center;background:var(--panel);padding:6px 11px}
 /* The roster actions that used to sit on the My roster table (2026-11-13). */
 .luacts{display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap}
 /* The News view: one cell across the nine category tracks. */
-.lunews{grid-column:span 9;text-align:left!important;font-size:13px;line-height:1.35;color:var(--chalk);min-width:0}
-.lunews small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.lunews{grid-column:span 9;text-align:left!important;font-size:var(--t2);line-height:1.35;color:var(--chalk);min-width:0}
+.lunews small{display:block;color:var(--dim);font-size:var(--t2);margin-top:2px}
 .luhdr .lunews{font-size:inherit;color:inherit;line-height:inherit}
 .injline .injnote{margin-top:6px;font-weight:normal}
-.luacts .act{padding:2px 6px;font-size:11px}
+.luacts .act{padding:2px 6px;font-size:var(--t1)}
 .lurow.empty{background:var(--panel2)}
 .lurow.locked{opacity:.72}
-.luhdr{background:var(--panel2);font-family:var(--mono);font-size:9px;letter-spacing:.11em;
+.luhdr{background:var(--panel2);font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--dim);padding:5px 11px}
 .luhdr span{text-align:right}
 .luhdr span:nth-child(2){text-align:left}
-.lurow select{min-width:0;font-size:13px;padding:3px 5px}
+.lurow select{min-width:0;font-size:var(--t2);padding:3px 5px}
 /* The slot select is the row's name field and fills its track. */
 .lurow .lupick>.lurowctl>select[data-slot]{flex:1 1 auto;min-width:0}
-.luslot{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-  text-align:center;padding:3px 0;border-radius:2px;border:1px solid var(--line);color:var(--steel)}
+.luslot{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;
+  text-align:center;padding:3px 0;border-radius:var(--r-s);border:1px solid var(--line);color:var(--steel)}
 .luslot.k-C{border-color:var(--tbi-b);color:var(--tbi-t)}
 .luslot.k-G{border-color:var(--tto-b);color:var(--tto-t)}
 .luslot.k-F{border-color:var(--trf-b);color:var(--trf-t)}
 .lupick{min-width:0;display:flex;flex-direction:column;gap:2px}
-.luname{font-size:14px;overflow-wrap:anywhere}
-.lutip{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--dim)}
+.luname{font-size:var(--t3);overflow-wrap:anywhere}
+.lutip{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;color:var(--dim)}
 .lutip.lk{color:var(--tax)}
 /* Compact, right-aligned and monospaced: four characters wide is all a per-game
    number ever needs, and tabular figures make a column scannable at 13px. */
-.luv{font-family:var(--mono);font-size:13px;text-align:right;color:var(--chalk);
+.luv{font-family:var(--mono);font-size:var(--t2);text-align:right;color:var(--chalk);
   font-variant-numeric:tabular-nums}
 .luv.live{color:var(--amber)}
 .luslot.k-B{border-style:dashed}
@@ -329,7 +335,7 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lurowctl .pname{cursor:pointer}
 .lurowctl .tag{flex:none;margin-left:0}
-.lustart{font-size:11.5px;padding:2px 5px;flex:0 0 auto;max-width:104px}
+.lustart{font-size:var(--t1);padding:2px 5px;flex:0 0 auto;max-width:104px}
 .lurowctl .act{margin-left:0;flex:none}
 /* A player on the injured reserve is dimmed and struck through wherever he is
    listed, so a roster with two of them reads at a glance. */
@@ -384,35 +390,35 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
    bottom to be read and a new post lands where the eye already is. */
 .chatbox{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-bottom:4px}
 .chatbox textarea,#notesBox{width:100%;background:var(--panel);color:var(--chalk);
-  border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--body);
-  font-size:14px;line-height:1.5;resize:vertical}
+  border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;font-family:var(--body);
+  font-size:var(--t3);line-height:1.5;resize:vertical}
 .chatbox textarea:focus,#notesBox:focus{outline:none;border-color:var(--steel)}
 .chatlog{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
-  border-radius:3px;overflow:hidden;margin-top:12px}
+  border-radius:var(--r-l);overflow:hidden;margin-top:12px}
 .msg{background:var(--panel);padding:9px 12px}
 .msg.own{background:var(--panel2)}
 .msg .mh{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
-.msg .mh b{font-family:var(--disp);font-size:13px;letter-spacing:.04em}
-.msg .mh .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)}
+.msg .mh b{font-family:var(--body);font-size:var(--t2);letter-spacing:.04em}
+.msg .mh .t{font-family:var(--mono);font-size:var(--t1);letter-spacing:.06em;color:var(--dim)}
 .msg .mh .act{margin-left:auto}
-.msg .mb{font-size:14px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
-.sidefoot{margin-top:11px;display:grid;gap:5px;font-family:var(--mono);font-size:11.5px;color:var(--steel)}
+.msg .mb{font-size:var(--t3);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.sidefoot{margin-top:11px;display:grid;gap:5px;font-family:var(--body);font-size:var(--t1);color:var(--steel)}
 .sidefoot div{display:flex;justify-content:space-between;gap:10px}
 .sidefoot b{color:var(--chalk);font-weight:500}
 .sidefoot .fail b{color:var(--tax)}
 .sidefoot .pass b{color:var(--space)}
-.vd{margin-top:14px;border-radius:3px;padding:13px 15px;font-size:13px;line-height:1.55}
+.vd{margin-top:14px;border-radius:var(--r-l);padding:13px 15px;font-size:var(--t2);line-height:1.55}
 .vd.ok{background:var(--okbg);border:1px solid var(--okln);color:var(--oktx)}
 .vd.no{background:var(--wnbg);border:1px solid var(--wnln);color:var(--wntx)}
-.vd h5{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.vd h5{font-family:var(--body);font-weight:700;font-size:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
 .vd ul{margin:6px 0 0 17px}.vd li{margin-bottom:3px}
 .offer{background:var(--panel);padding:13px 15px;display:grid;gap:9px}
 .offer .oh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.offer .oh b{font-family:var(--disp);font-size:17px;letter-spacing:.03em}
-.offer .ob{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px}
+.offer .oh b{font-family:var(--body);font-size:var(--t4);letter-spacing:.03em}
+.offer .ob{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:var(--t2)}
 .offer .ob div{color:var(--steel)}
-.offer .ob b{color:var(--chalk);font-weight:500;display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
-.st{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:2px}
+.offer .ob b{color:var(--chalk);font-weight:500;display:block;font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+.st{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:var(--r-s)}
 .st.pending{background:var(--tpo-b);color:var(--amber)}
 .st.accepted{background:var(--tro-b);color:var(--tro-t)}
 .st.rejected,.st.vetoed{background:var(--trf-b);color:var(--trf-t)}
@@ -420,132 +426,132 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
 .banners{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px;margin-bottom:6px}
 .banner{background:var(--bnr);border:1px solid var(--line);border-top:3px solid var(--amber);
 border-radius:0 0 3px 3px;padding:14px 15px 16px;position:relative}
-.banner .yr{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--amber)}
-.banner .nm{font-family:var(--disp);font-weight:700;font-size:19px;line-height:1.1;margin:7px 0 6px;letter-spacing:.02em}
-.banner .pt{font-family:var(--mono);font-size:11px;color:var(--steel)}
-.histnames{font-size:11px;color:var(--steel);margin-top:2px;font-weight:400}
-.rk{display:block;font-size:10px;color:var(--steel)}
-.banner .rings{position:absolute;top:12px;right:13px;font-size:13px;letter-spacing:-2px;color:var(--amber)}
+.banner .yr{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;color:var(--amber)}
+.banner .nm{font-family:var(--body);font-weight:700;font-size:var(--t4);line-height:1.1;margin:7px 0 6px;letter-spacing:.02em}
+.banner .pt{font-family:var(--mono);font-size:var(--t1);color:var(--steel)}
+.histnames{font-size:var(--t1);color:var(--steel);margin-top:2px;font-weight:400}
+.rk{display:block;font-size:var(--t1);color:var(--steel)}
+.banner .rings{position:absolute;top:12px;right:13px;font-size:var(--t2);letter-spacing:-2px;color:var(--amber)}
 .twocol{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
 .twocol.wide{grid-template-columns:1.35fr 1fr}
 .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
-.chip{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:5px 9px;font-family:var(--mono);font-size:11px}
+.chip{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-s);padding:5px 9px;font-family:var(--body);font-size:var(--t1)}
 .chip b{color:var(--amber);font-weight:500}
-.chip input{width:58px;padding:3px 5px;font-size:11.5px;font-family:var(--mono)}
-.chip button{background:none;border:0;color:var(--dim);cursor:pointer;font-size:14px;padding:0 2px}
+.chip input{width:58px;padding:3px 5px;font-size:var(--t1);font-family:var(--body)}
+.chip button{background:none;border:0;color:var(--dim);cursor:pointer;font-size:var(--t3);padding:0 2px}
 .chip button:hover{color:var(--tax)}
 .block{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--amber);border-radius:0 0 3px 3px;padding:17px}
-.block .pn{font-family:var(--disp);font-weight:700;font-size:28px;letter-spacing:.02em;line-height:1.05}
-.block .meta{font-family:var(--mono);font-size:11px;color:var(--steel);margin-top:4px}
+.block .pn{font-family:var(--body);font-weight:700;font-size:var(--t5);letter-spacing:.02em;line-height:1.05}
+.block .meta{font-family:var(--body);font-size:var(--t1);color:var(--steel);margin-top:4px}
 .bidnow{display:flex;align-items:baseline;gap:11px;margin:14px 0 4px}
 .bidnow .amt2{font-family:var(--mono);font-size:38px;font-weight:700;color:var(--amber);line-height:1}
-.bidnow .lead{font-family:var(--disp);font-size:17px;letter-spacing:.04em}
+.bidnow .lead{font-family:var(--body);font-size:var(--t4);letter-spacing:.04em}
 .bidrow{display:grid;grid-template-columns:auto auto 1fr auto;gap:8px;align-items:end;margin-top:15px}
-.step{background:var(--panel2);border:1px solid var(--line);color:var(--chalk);font-family:var(--mono);font-size:17px;width:40px;height:40px;border-radius:2px;cursor:pointer}
+.step{background:var(--panel2);border:1px solid var(--line);color:var(--chalk);font-family:var(--mono);font-size:var(--t4);width:40px;height:40px;border-radius:var(--r-s);cursor:pointer}
 .step:hover{border-color:var(--amber);color:var(--amber)}
-.warnbox{background:var(--wnbg);border:1px solid var(--wnln);border-radius:2px;padding:9px 11px;font-size:12px;color:var(--wntx);margin-top:11px;line-height:1.45}
-.okbox{background:var(--okbg);border:1px solid var(--okln);border-radius:2px;padding:9px 11px;font-size:12px;color:var(--oktx);margin-top:11px;line-height:1.45}
-.impact{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:15px;box-shadow:var(--shadow)}
+.warnbox{background:var(--wnbg);border:1px solid var(--wnln);border-radius:var(--r-s);padding:9px 11px;font-size:var(--t2);color:var(--wntx);margin-top:11px;line-height:1.45}
+.okbox{background:var(--okbg);border:1px solid var(--okln);border-radius:var(--r-s);padding:9px 11px;font-size:var(--t2);color:var(--oktx);margin-top:11px;line-height:1.45}
+.impact{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:15px;box-shadow:var(--shadow)}
 .drow{display:grid;grid-template-columns:1fr 62px 62px 58px;gap:8px;align-items:center;padding:5px 0;
-border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:12px}
+border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:var(--t2)}
 .drow:last-of-type{border-bottom:0}
-.drow .cat{color:var(--steel);font-size:11.5px;letter-spacing:.03em}
+.drow .cat{color:var(--steel);font-size:var(--t1);letter-spacing:.03em}
 .drow .av,.drow .pv,.drow .dv{text-align:right}
 .drow .av{color:var(--steel)}
-.drow .dv{font-size:11px}
-.drow.dhead2{border-bottom:1px solid var(--line);font-size:8.5px;letter-spacing:.11em;color:var(--dim);padding-bottom:7px}
+.drow .dv{font-size:var(--t1)}
+.drow.dhead2{border-bottom:1px solid var(--line);font-size:var(--t1);letter-spacing:.06em;color:var(--dim);padding-bottom:7px}
 .drow.dhead2 span{color:var(--dim)}
 thead th[data-k]{cursor:pointer;user-select:none}
 thead th[data-k]:hover{color:var(--chalk)}
 thead th[data-k].sorted{color:var(--amber)}
-thead th[data-k][data-dir]::after{content:" " attr(data-dir);font-size:8px}
-.impact h4{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.02em;margin-bottom:3px}
-.impact .sub2{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:13px}
-.irow{display:grid;grid-template-columns:42px 1fr 62px 62px 62px 44px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:11.5px}
-.irow.ihead{border-bottom:1px solid var(--line);padding-bottom:7px;font-size:8.5px;letter-spacing:.11em;color:var(--dim)}
+thead th[data-k][data-dir]::after{content:" " attr(data-dir);font-size:var(--t1)}
+.impact h4{font-family:var(--body);font-weight:700;font-size:var(--t4);letter-spacing:.02em;margin-bottom:3px}
+.impact .sub2{font-family:var(--body);font-size:var(--t1);color:var(--dim);margin-bottom:13px}
+.irow{display:grid;grid-template-columns:42px 1fr 62px 62px 62px 44px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:var(--t1)}
+.irow.ihead{border-bottom:1px solid var(--line);padding-bottom:7px;font-size:var(--t1);letter-spacing:.06em;color:var(--dim)}
 .irow.ihead span{color:var(--dim)}
 .irow .dl,.irow .pgv{text-align:right}
 .irow .pgv{color:var(--steel)}
 .irow:last-of-type{border-bottom:0}
 .irow .cat{color:var(--steel);letter-spacing:.06em}
-.irow .track{position:relative;height:5px;background:var(--well);border-radius:3px}
+.irow .track{position:relative;height:5px;background:var(--well);border-radius:var(--r-l)}
 .winmark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--chalk);opacity:.55;border-radius:1px}
-.irow .tb{position:absolute;top:0;bottom:0;background:var(--dim);border-radius:3px}
-.irow .tn{position:absolute;top:0;bottom:0;background:var(--amber);border-radius:3px;opacity:.85}
+.irow .tb{position:absolute;top:0;bottom:0;background:var(--dim);border-radius:var(--r-l)}
+.irow .tn{position:absolute;top:0;bottom:0;background:var(--amber);border-radius:var(--r-l);opacity:.85}
 .irow .rk{text-align:right;font-weight:500}
 .up{color:var(--space)}.down{color:var(--tax)}.flat{color:var(--dim)}
-.tot2{display:flex;justify-content:space-between;align-items:baseline;margin-top:13px;padding-top:11px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13px}
-.tot2 b{font-size:19px;font-weight:700}
+.tot2{display:flex;justify-content:space-between;align-items:baseline;margin-top:13px;padding-top:11px;border-top:1px solid var(--line);font-family:var(--mono);font-size:var(--t2)}
+.tot2 b{font-size:var(--t4);font-weight:700}
 .fatab{width:100%;border-collapse:collapse}
 .fatab tbody tr{cursor:pointer}
 .fatab tbody tr.sel{background:var(--sel);box-shadow:inset 3px 0 0 var(--amber)}
-.bid{display:grid;grid-template-columns:88px 118px 1fr 78px;gap:11px;align-items:center;background:var(--panel);padding:8px 14px;font-size:13px}
-.bid .who2{font-family:var(--disp);font-size:15px;letter-spacing:.03em}
-.bid .amt3{font-family:var(--mono);font-size:14px;text-align:right;font-weight:500}
+.bid{display:grid;grid-template-columns:88px 118px 1fr 78px;gap:11px;align-items:center;background:var(--panel);padding:8px 14px;font-size:var(--t2)}
+.bid .who2{font-family:var(--body);font-size:var(--t3);letter-spacing:.03em}
+.bid .amt3{font-family:var(--mono);font-size:var(--t3);text-align:right;font-weight:500}
 .bid.win{box-shadow:inset 3px 0 0 var(--amber)}
 @media(max-width:900px){.twocol,.twocol.wide{grid-template-columns:1fr}}
 .pjgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
-.toggle{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:2px;overflow:hidden}
-.toggle button{background:none;border:0;color:var(--steel);font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+.toggle{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:var(--r-s);overflow:hidden}
+.toggle button{background:none;border:0;color:var(--steel);font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
 text-transform:uppercase;padding:6px 13px;cursor:pointer}
 .toggle button[aria-pressed=true]{background:var(--amber);color:var(--ink);font-weight:700}
-.pjlab{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim)}
+.pjlab{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .edited{color:var(--amber)}
 tbody tr.hasproj td:first-child::after{content:" \2022";color:var(--amber)}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:var(--panel);
-border:1px solid var(--amber);color:var(--chalk);font-family:var(--mono);font-size:12px;padding:10px 16px;
-border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200}
+border:1px solid var(--amber);color:var(--chalk);font-family:var(--mono);font-size:var(--t2);padding:10px 16px;
+border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 /* A locked (or read-only) lineup row: name and tags side by side, not the name
    stretching and pushing the OUT/DTD tag to the far edge (2026-10-15). */
 .lurowctl.ro .luname{flex:0 1 auto;min-width:0}
-.wvorder{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.wvorder{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:var(--t3)}
 .wvorder li.mine{color:var(--amber);font-weight:600}
-.wtag{margin-left:5px;color:var(--amber);font-size:12px}
-.act.watch{border:0;background:none;color:var(--steel);font-size:15px;padding:0 6px 0 0;cursor:pointer;line-height:1}
+.wtag{margin-left:5px;color:var(--amber);font-size:var(--t2)}
+.act.watch{border:0;background:none;color:var(--steel);font-size:var(--t3);padding:0 6px 0 0;cursor:pointer;line-height:1}
 .act.watch.on{color:var(--amber)}
-.watchrow{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:13px;color:var(--steel)}
-.watchrow .act.watch{font-size:20px}
-.ptag{display:inline-block;margin-left:6px;padding:0 4px;border:1px solid var(--line);border-radius:2px;
-  font:600 9.5px/1.5 var(--mono);color:var(--steel);vertical-align:1px;white-space:nowrap}
+.watchrow{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:var(--t2);color:var(--steel)}
+.watchrow .act.watch{font-size:var(--t4)}
+.ptag{display:inline-block;margin-left:6px;padding:0 4px;border:1px solid var(--line);border-radius:var(--r-s);
+  font:600 var(--t1)/1.5 var(--body);color:var(--steel);vertical-align:1px;white-space:nowrap}
 .fire{margin:0 0 18px}
 .firehd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.firet{font-family:var(--disp);font-weight:700;font-size:22px;margin:0}
+.firet{font-family:var(--body);font-weight:700;font-size:var(--t5);margin:0}
 .firegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
-.firecard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:12px 14px;
+.firecard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;
   display:flex;gap:12px;align-items:center;min-width:0}
 .firecard .hs.fireimg{position:static;width:64px;height:64px;margin:0;flex:none}
-.firecard .firerk{font-family:var(--disp);font-weight:700;font-size:24px;color:var(--amber);flex:none}
+.firecard .firerk{font-family:var(--body);font-weight:700;font-size:var(--t5);color:var(--amber);flex:none}
 .firecard .firebody{min-width:0;display:flex;flex-direction:column;gap:2px}
-.firecard .firebody b{font-size:15px}
-.firecard .firemeta{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
+.firecard .firebody b{font-size:var(--t3)}
+.firecard .firemeta{font-family:var(--body);font-size:var(--t1);color:var(--steel)}
 .ledtbl{width:100%}
 .ledtbl tbody tr{cursor:pointer}
 .ledtbl tbody tr[aria-current=true] td{background:var(--sel)}
-.ledtbl .meter{position:relative;height:10px;min-width:120px;background:var(--well);border-radius:2px;overflow:hidden}
+.ledtbl .meter{position:relative;height:10px;min-width:120px;background:var(--well);border-radius:var(--r-s);overflow:hidden}
 .ledtbl .meter i{position:absolute;left:0;top:0;bottom:0}
 .ledtbl .meter b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--chalk)}
 .ledtbl .under{color:var(--space)} .ledtbl .overcap{color:var(--amber)} .ledtbl .overtax{color:var(--tax)}
 .subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;padding:0;max-width:none;overflow:visible}
-.subnav button{background:none;border:1px solid var(--line);border-radius:3px;color:var(--steel);font:600 14px var(--body);
+.subnav button{background:none;border:1px solid var(--line);border-radius:var(--r);color:var(--steel);font:600 var(--t3) var(--body);
   padding:8px 14px;cursor:pointer;min-height:38px}
 .subnav button[aria-pressed=true]{background:var(--panel2);color:var(--chalk);border-color:var(--amber)}
 .perbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
 .perbar .toggle{flex-wrap:wrap}
 .hsnap{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 18px}
-.hcard{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px}
-.hbig{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.1}
-.hbig .hof{font-size:16px;color:var(--steel);font-weight:600}
-.hbig .up{font-size:16px;color:var(--space)} .hbig .down{font-size:16px;color:var(--tax)}
-.hsmall{font-size:13px;color:var(--steel)}
+.hcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:14px 16px}
+.hbig{font-family:var(--body);font-weight:700;font-size:34px;line-height:1.1}
+.hbig .hof{font-size:var(--t3);color:var(--steel);font-weight:600}
+.hbig .up{font-size:var(--t3);color:var(--space)} .hbig .down{font-size:var(--t3);color:var(--tax)}
+.hsmall{font-size:var(--t2);color:var(--steel)}
 .homegrid{display:flex;flex-wrap:wrap;gap:24px;margin-top:8px}
 .homecol{flex:999 1 560px;min-width:0}
 .homecol.narrow{flex:1 1 320px}
 .hometop{margin-top:0;align-items:flex-start}
 .hometop>.homecol.narrow{flex:1 1 300px;max-width:380px}
 @media(max-width:900px){.hometop>.homecol.narrow{max-width:none}}
-.hbest>div,.hfeed>div{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line2);font-size:14px}
-.hbest .mono{margin-left:auto;font-size:12.5px;color:var(--steel)}
+.hbest>div,.hfeed>div{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line2);font-size:var(--t3)}
+.hbest .mono{margin-left:auto;font-size:var(--t2);color:var(--steel)}
 .hbest .mine{color:var(--amber)}
 .hfoot{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 /* Phone: the tab bar moves to the bottom of the screen, within thumb reach. */
@@ -556,13 +562,13 @@ border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:
 }
 .updbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:210;display:flex;gap:12px;
 align-items:center;background:var(--panel);border:1px solid var(--amber);color:var(--chalk);padding:9px 10px 9px 15px;
-border-radius:3px;box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:14px;max-width:calc(100% - 32px)}
+border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:var(--t3);max-width:calc(100% - 32px)}
 .badge{display:inline-block;min-width:17px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--tax);
-color:#fff;font:700 10px/17px var(--mono);text-align:center;vertical-align:1px;letter-spacing:0}
+color:#fff;font:700 var(--t1)/17px var(--body);text-align:center;vertical-align:1px;letter-spacing:0}
 .badge:empty{display:none}
 .filters{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}
 .filters input,.filters select{width:auto;min-width:150px}
-.fcount{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.08em;margin-left:auto}
+.fcount{font-family:var(--body);font-size:var(--t1);color:var(--dim);letter-spacing:.06em;margin-left:auto}
 /* A grid or flex item defaults to min-width:auto, so it refuses to shrink below
    its content — and .scroller table below sets a 760px minimum. Inside .twocol
    that widened the column, the section and the whole page to 762px on a phone,
@@ -575,21 +581,21 @@ color:#fff;font:700 10px/17px var(--mono);text-align:center;vertical-align:1px;l
    column fell off the right edge. It runs full width now, sizes to the page, and
    its buttons wrap instead of pushing the row wider. */
 .rosterwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);
-  border-radius:3px;background:var(--panel)}
+  border-radius:var(--r-l);background:var(--panel)}
 .rosterwrap table{min-width:0}
 .rosterwrap thead th{padding:9px;background:var(--panel2);position:sticky;top:0;z-index:2}
-.rosterwrap tbody td{padding:7px 9px;font-size:12.5px}
+.rosterwrap tbody td{padding:7px 9px;font-size:var(--t2)}
 .rosterwrap td.acts{text-align:right}
 .rosterwrap td.acts>span{display:inline-flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
 .rosterwrap td.acts .act{margin-left:0}
 .scroller{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
-  border:1px solid var(--line);border-radius:3px;max-width:100%}
+  border:1px solid var(--line);border-radius:var(--r-l);max-width:100%}
 .scroller table{min-width:760px}
 .scroller thead th{padding:9px;background:var(--panel2);position:sticky;top:0;z-index:2}
 .scroller thead th[data-s]{cursor:pointer;user-select:none}
 .scroller thead th[data-s]:hover{color:var(--chalk)}
 .scroller thead th.sorted{color:var(--amber)}
-.scroller tbody td{padding:7px 9px;font-size:12.5px}
+.scroller tbody td{padding:7px 9px;font-size:var(--t2)}
 /* ---- a long table scrolls inside itself instead of down the page ----
    `.capped` is put on by capScrollers() when a table is longer than CAPROWS,
    and it is what finally makes the sticky header do anything: a sticky row needs
@@ -652,8 +658,8 @@ color:#fff;font:700 10px/17px var(--mono);text-align:center;vertical-align:1px;l
   box-shadow:-1px 0 0 var(--line2)}
 .rosterwrap thead th.acts,.scroller thead th.acts{z-index:5;background:var(--panel2)}
 .rosterwrap tbody tr:hover td.acts,.scroller tbody tr:hover td.acts{background:var(--panel2)}
-.z{display:inline-block;min-width:42px;padding:2px 5px;border-radius:2px;font-family:var(--mono);font-size:11.5px}
-.rating{font-weight:700;font-family:var(--mono);font-size:13px}
+.z{display:inline-block;min-width:42px;padding:2px 5px;border-radius:var(--r-s);font-family:var(--mono);font-size:var(--t1)}
+.rating{font-weight:700;font-family:var(--mono);font-size:var(--t2)}
 .unrated{color:var(--dim);font-style:italic}
 /* ---- the dynamic rater ----
    A GM scoring the league against his own field is looking at something that is
@@ -662,60 +668,60 @@ color:#fff;font:700 10px/17px var(--mono);text-align:center;vertical-align:1px;l
    rather than #. It has been worth the noise — a screen that silently re-ranks
    the league looks exactly like a screen that is broken. */
 .dynwrap{border-left:3px solid var(--dyn);background:var(--panel);padding:0 0 0 13px;margin-top:4px}
-.dynbadge{display:inline-block;vertical-align:middle;margin-left:9px;padding:3px 8px;border-radius:2px;
-  background:var(--dyn);color:#fff;font-family:var(--disp);font-weight:600;font-size:10px;
-  letter-spacing:.14em;text-transform:uppercase}
+.dynbadge{display:inline-block;vertical-align:middle;margin-left:9px;padding:3px 8px;border-radius:var(--r-s);
+  background:var(--dyn);color:#fff;font-family:var(--body);font-weight:600;font-size:var(--t1);
+  letter-spacing:.06em;text-transform:uppercase}
 .dynbanner{border:1px solid var(--dyn2);border-left:3px solid var(--dyn);background:var(--well);
-  border-radius:3px;padding:9px 12px;margin:10px 0;font-size:12.5px;color:var(--steel);line-height:1.5}
+  border-radius:var(--r-l);padding:9px 12px;margin:10px 0;font-size:var(--t2);color:var(--steel);line-height:1.5}
 .dynbanner b{color:var(--dyn2);font-weight:600}
-.dynbanner .dynmono{font-family:var(--mono);font-size:11.5px;color:var(--chalk)}
+.dynbanner .dynmono{font-family:var(--body);font-size:var(--t1);color:var(--chalk)}
 .dynbox{border:1px solid var(--line);border-left:3px solid var(--dyn);background:var(--panel);
-  border-radius:3px;padding:13px 14px;margin:10px 0}
-.dynbox h5{font-family:var(--disp);font-weight:600;font-size:11.5px;letter-spacing:.12em;
+  border-radius:var(--r-l);padding:13px 14px;margin:10px 0}
+.dynbox h5{font-family:var(--body);font-weight:600;font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--dyn2);margin-bottom:9px}
 .dynrow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:11px}
 .dynfield{display:flex;flex-direction:column;gap:4px;min-width:0}
-.dynfield label{font-size:11px;letter-spacing:.05em;color:var(--steel)}
+.dynfield label{font-size:var(--t1);letter-spacing:.05em;color:var(--steel)}
 .dynfield input{width:110px}
-.dynfield .hint{font-size:10.5px;color:var(--dim);font-family:var(--mono)}
+.dynfield .hint{font-size:var(--t1);color:var(--dim);font-family:var(--body)}
 /* One line of nine, wrapping. Each is a real checkbox with a real hit area —
    punting a category is the commonest thing a GM does to this screen. */
 .dyncats{display:flex;flex-wrap:wrap;gap:6px}
 .dyncats label{display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--line2);
-  border-radius:2px;background:var(--well);font-family:var(--mono);font-size:11.5px;
+  border-radius:var(--r-s);background:var(--well);font-family:var(--mono);font-size:var(--t1);
   color:var(--steel);cursor:pointer;user-select:none}
 .dyncats label.on{border-color:var(--dyn);color:var(--chalk);background:var(--panel2)}
 /* The global input{width:100%} makes a flex-item checkbox eat the row — the same
    fault the MLE tick shipped with. */
 .dyncats input,.dyntog input{width:auto;flex:none;margin:0}
 .dyntog{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--dyn2);
-  border-radius:2px;background:var(--well);font-size:13px;color:var(--steel);cursor:pointer;user-select:none}
+  border-radius:var(--r-s);background:var(--well);font-size:var(--t2);color:var(--steel);cursor:pointer;user-select:none}
 .dyntog.on{background:var(--dyn);border-color:var(--dyn);color:#fff}
 [data-theme=light] .dyntog.on{color:#fff}
 .dyntog span{flex:1;min-width:0}
-.heat{display:inline-block;min-width:30px;padding:3px 7px;border-radius:2px;font-family:var(--mono);font-size:12px;font-weight:500}
-.chart{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 12px 10px}
+.heat{display:inline-block;min-width:30px;padding:3px 7px;border-radius:var(--r-s);font-family:var(--mono);font-size:var(--t2);font-weight:500}
+.chart{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:16px 12px 10px}
 .chart svg{width:100%;height:auto;display:block}
-.chartlegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-family:var(--mono);font-size:10.5px}
+.chartlegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-family:var(--body);font-size:var(--t1)}
 .chartlegend span{display:flex;align-items:center;gap:5px;color:var(--steel);cursor:pointer}
 .chartlegend span.off{opacity:.32}
-.chartlegend i{width:14px;height:2.5px;border-radius:2px}
-.feed{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:15px 16px;margin-top:14px}
-.feed h5{font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:8px}
-.feed p{font-size:12.5px;color:var(--steel);line-height:1.55;margin-bottom:10px}
-pre{background:var(--well);border:1px solid var(--line);border-radius:2px;padding:11px 13px;overflow-x:auto;
-font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
+.chartlegend i{width:14px;height:2.5px;border-radius:var(--r-s)}
+.feed{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:15px 16px;margin-top:14px}
+.feed h5{font-family:var(--body);font-weight:600;font-size:var(--t2);letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-bottom:8px}
+.feed p{font-size:var(--t2);color:var(--steel);line-height:1.55;margin-bottom:10px}
+pre{background:var(--well);border:1px solid var(--line);border-radius:var(--r-s);padding:11px 13px;overflow-x:auto;
+font-family:var(--mono);font-size:var(--t1);line-height:1.55;color:var(--steel)}
 #dlgPlayer{max-width:460px;width:94%;overflow:visible}
 #dlgPlayer .dlg{position:relative}
 .xclose{position:absolute;top:6px;right:6px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
-  background:var(--panel);color:var(--chalk);font-size:24px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  background:var(--panel);color:var(--chalk);font-size:var(--t5);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .glog{margin-top:10px}
-.glog h5{font-family:var(--mono);font-size:9px;letter-spacing:.11em;color:var(--dim);margin-bottom:4px;font-weight:400}
-.glog table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
-.glog th{font-size:8.5px;color:var(--dim);font-weight:400;text-align:right;padding:2px 3px}
+.glog h5{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;color:var(--dim);margin-bottom:4px;font-weight:400}
+.glog table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:var(--t1)}
+.glog th{font-size:var(--t1);color:var(--dim);font-weight:400;text-align:right;padding:2px 3px}
 .glog td{text-align:right;padding:3px;border-top:1px solid var(--line);white-space:nowrap}
 .glog th:first-child,.glog td:first-child{text-align:left}
-.glog .none{font-size:11px;color:var(--dim)}
+.glog .none{font-size:var(--t1);color:var(--dim)}
 /* One screen on a phone: the card scrolls inside itself, the X stays put, and the
    stat rows are tightened so the whole card normally fits without scrolling. */
 @media (max-width:640px){
@@ -723,14 +729,14 @@ font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
   #dlgPlayer .dlg{padding:10px 12px}
   #dlgPlayer .acts{display:none}
   #dlgPlayer .impact{padding:8px 10px;border:0;box-shadow:none}
-  #dlgPlayer .impact h4{font-size:16px;margin-bottom:1px;padding-right:44px}
+  #dlgPlayer .impact h4{font-size:var(--t3);margin-bottom:1px;padding-right:44px}
   #dlgPlayer .impact .sub2{margin-bottom:5px}
-  #dlgPlayer .drow{padding:1px 0;gap:4px;font-size:11.5px;grid-template-columns:1fr 52px 52px 46px}
-  #dlgPlayer .drow .cat{font-size:10.5px}
+  #dlgPlayer .drow{padding:1px 0;gap:4px;font-size:var(--t1);grid-template-columns:1fr 52px 52px 46px}
+  #dlgPlayer .drow .cat{font-size:var(--t1)}
   #dlgPlayer .tot2{margin-top:5px;padding-top:5px}
-  #dlgPlayer .tot2 b{font-size:16px}
+  #dlgPlayer .tot2 b{font-size:var(--t3)}
   #dlgPlayer .hs.lg{width:44px;height:44px;top:8px;right:52px}
-  #dlgPlayer .injline{margin:0 100px 4px 0;font-size:11.5px}
+  #dlgPlayer .injline{margin:0 100px 4px 0;font-size:var(--t1)}
   #dlgPlayer .glog{margin-top:6px}
   #dlgPlayer .glog td{padding:2px}
 }
@@ -747,19 +753,19 @@ font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--steel)}
    opened correctly every time and was never visible. Fixed to the viewport,
    nothing can clip it. */
 .combopanel{position:fixed;z-index:120;background:var(--panel);border:1px solid var(--line);
-  border-radius:3px;box-shadow:0 10px 28px rgba(0,0,0,.45);overflow-y:auto;
+  border-radius:var(--r-l);box-shadow:0 10px 28px rgba(0,0,0,.45);overflow-y:auto;
   -webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:3px}
 .combopanel button{display:block;width:100%;text-align:left;background:none;border:0;
-  color:var(--chalk);font-family:var(--body);font-size:14px;line-height:1.3;
-  padding:10px 11px;border-radius:2px;cursor:pointer}
-.combopanel button small{display:block;font-family:var(--mono);font-size:10.5px;
+  color:var(--chalk);font-family:var(--body);font-size:var(--t3);line-height:1.3;
+  padding:10px 11px;border-radius:var(--r-s);cursor:pointer}
+.combopanel button small{display:block;font-family:var(--mono);font-size:var(--t1);
   color:var(--dim);letter-spacing:.05em;margin-top:2px}
 .combopanel button.on,.combopanel button:hover{background:var(--panel2);color:var(--amber)}
-.combopanel .cempty{padding:11px;font-family:var(--body);font-size:13px;color:var(--dim)}
-.combopanel .cmore{padding:8px 11px;font-family:var(--mono);font-size:10px;color:var(--dim);
-  letter-spacing:.08em;border-top:1px solid var(--line2)}
+.combopanel .cempty{padding:11px;font-family:var(--body);font-size:var(--t2);color:var(--dim)}
+.combopanel .cmore{padding:8px 11px;font-family:var(--body);font-size:var(--t1);color:var(--dim);
+  letter-spacing:.06em;border-top:1px solid var(--line2)}
 /* A finger needs a bigger row than a mouse does. */
-@media(pointer:coarse){.combopanel button{padding:13px 12px;font-size:15px}}
+@media(pointer:coarse){.combopanel button{padding:13px 12px;font-size:var(--t3)}}
 /* A shooting cell carries two things: the rate, and the makes and attempts it
    came from. The league weights FG% and FT% by attempts, so the volume is not
    trivia — but it is the qualifier, not the headline, so it sits under the rate
@@ -768,11 +774,11 @@ td.shot{line-height:1.15;white-space:nowrap}
 /* The rater's two shooting columns are z-scores with the rate and the volume
    they came from underneath. */
 td.zshot{white-space:nowrap;line-height:1.2}
-td.zshot small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:2px}
-.luv .luma{display:block;font-family:var(--mono);font-size:9px;color:var(--dim);
+td.zshot small{display:block;font-family:var(--mono);font-size:var(--t1);color:var(--dim);margin-top:2px}
+.luv .luma{display:block;font-family:var(--mono);font-size:var(--t1);color:var(--dim);
   line-height:1.1;margin-top:1px;white-space:nowrap}
-td.shot b{font-weight:500;font-family:var(--mono);font-size:12.5px;display:block}
-td.shot small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+td.shot b{font-weight:500;font-family:var(--mono);font-size:var(--t2);display:block}
+td.shot small{display:block;font-family:var(--mono);font-size:var(--t1);color:var(--dim);
   letter-spacing:.02em;margin-top:1px}
 thead th.shot{white-space:nowrap}
 tbody td.pname{cursor:pointer}
@@ -781,21 +787,21 @@ dialog:not([open]){display:none}
 /* margin:auto is what centres a modal dialog, and the * reset above wipes it out,
    leaving every dialog jammed into the top-left corner. On a phone the box is
    92% of the screen so it goes unnoticed; on a desktop monitor it is obvious. */
-dialog{background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--chalk);padding:0;max-width:420px;width:92%;margin:auto}
+dialog{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);color:var(--chalk);padding:0;max-width:420px;width:92%;margin:auto}
 dialog::backdrop{background:rgba(5,8,12,.78)}
 .dlg{padding:20px}
-.dlg h4{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.04em;margin-bottom:5px}
-.dlg p{font-size:12.5px;color:var(--steel);margin-bottom:16px;line-height:1.5}
+.dlg h4{font-family:var(--body);font-weight:700;font-size:var(--t4);letter-spacing:.04em;margin-bottom:5px}
+.dlg p{font-size:var(--t2);color:var(--steel);margin-bottom:16px;line-height:1.5}
 .dlg .fields{display:grid;gap:11px;margin-bottom:16px}
 .dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 #tmPreview table{width:100%;margin:10px 0 4px;border-collapse:collapse}
 #tmPreview td,#tmPreview th{padding:5px 8px;text-align:right}
 #tmPreview .l{text-align:left}  /* five buttons in the Email dialog are wider than the box */
-.chk{display:flex;align-items:flex-start;gap:9px;font-family:var(--body);font-size:12.5px;
+.chk{display:flex;align-items:flex-start;gap:9px;font-family:var(--body);font-size:var(--t2);
   color:var(--steel);line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0;
   margin-bottom:0}
 .chk input[type=checkbox]{width:16px;height:16px;flex:0 0 auto;margin-top:1px;accent-color:var(--amber)}
-.err{color:var(--tax);font-size:12px;margin-top:8px;min-height:16px}
+.err{color:var(--tax);font-size:var(--t2);margin-top:8px;min-height:16px}
 /* `.hide` and `.hide2` used to be display:none below 900px and 820px, which did
    not narrow the table so much as delete data from it: Contracts showed two of
    its seven columns on a phone, the free agent classes seven of twelve. A
@@ -804,12 +810,12 @@ dialog::backdrop{background:rgba(5,8,12,.78)}
    so the row stays readable. The classes are kept because 80-odd cells carry
    them and they still mark what to drop first if that is ever wanted again. */
 @media(max-width:820px){
-.row{grid-template-columns:100px 1fr 76px;gap:10px;padding:10px}.cnt{display:none}.tname{font-size:15px}
+.row{grid-template-columns:100px 1fr 76px;gap:10px;padding:10px}.cnt{display:none}.tname{font-size:var(--t3)}
 .form.f5,.form.f4{grid-template-columns:1fr 1fr}.form .btn{grid-column:1/-1}
 .ent{grid-template-columns:60px 1fr 30px;gap:8px}.ent .t,.ent .by{display:none}
-.brand{font-size:20px}.who{width:100%;margin-left:0}
-main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav button{padding:9px 10px;font-size:14px}
-  .more>#moreBtn{padding:9px 10px;font-size:14px}
+.brand{font-size:var(--t4)}.who{width:100%;margin-left:0}
+main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav button{padding:9px 10px;font-size:var(--t3)}
+  .more>#moreBtn{padding:9px 10px;font-size:var(--t3)}
   .menuwrap{position:static;height:auto}
   .moremenu{min-width:0}
   .welcome{padding:13px 14px;gap:12px}
@@ -820,20 +826,20 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
    input here was 14px: tapping any field zoomed the layout and left it zoomed.
    16px is the threshold, so it is the size, not a preference. */
 @media(max-width:820px){
-  input,select,textarea{font-size:16px}
+  input,select,textarea{font-size:var(--t3)}
   .filters input,.filters select{min-width:0;flex:1 1 140px}
-  .chip input{width:64px;font-size:16px}
+  .chip input{width:64px;font-size:var(--t3)}
   #stratTbl input.snote{min-width:130px}
   #stratTbl input.smax{width:74px}
   #stratTbl select.spri{min-width:104px}
-  .dlg .fields input,.dlg .fields select{font-size:16px}
+  .dlg .fields input,.dlg .fields select{font-size:var(--t3)}
 }
 /* Pointer-coarse devices need a real target. 44px is the Apple/WCAG figure;
    .act buttons were 44x19 and pick-list checkboxes 13x13. */
 @media(pointer:coarse){
-  .act{padding:8px 11px;font-size:10px}
+  .act{padding:8px 11px;font-size:var(--t1)}
   .btn{padding:12px 20px}
-  .btn.ghost,.btn.danger{padding:11px 15px;font-size:13px}
+  .btn.ghost,.btn.danger{padding:11px 15px;font-size:var(--t2)}
   .pk{padding:11px 10px}
   .pk input[type=checkbox]{width:20px;height:20px}
   nav button,.more>#moreBtn{padding:12px 12px}
@@ -855,18 +861,17 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .perbar select.persel{display:inline-block;flex:0 0 auto}
   /* The arrows step through nights; the picker and Export are desktop things. */
   h2.luh .lunav input[type=date],h2.luh #expMine2{display:none}
-  .mefacts{font-size:12px;gap:3px 14px}
 }
 @media(max-width:560px){
   .mast-in{padding:9px 12px;gap:8px 10px}
-  .brand{font-size:18px}
+  .brand{font-size:var(--t4)}
   /* The 820px rule gives .who the full width, which pushed the theme button onto
      a third row. Let them share one. */
   .who{width:auto;flex:1 1 auto;margin-left:0;justify-content:flex-end}
   /* The toggle labels say what they do; the leading caption only costs a line. */
   #projBar .pjlab:first-child{display:none}
   main{padding:13px 12px 56px}
-  h2{font-size:17px;margin-bottom:11px}
+  h2{font-size:var(--t4);margin-bottom:11px}
   .stats{grid-template-columns:1fr 1fr}
   .form{padding:12px}
   .form.f5,.form.f4{grid-template-columns:1fr}
@@ -880,48 +885,48 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 
 /* Auction strategy board — a GM's private list of targets. Nothing here is shared. */
 #stratTbl td{vertical-align:middle}
-#stratTbl .rankcell{white-space:nowrap;font-family:var(--mono);font-size:12px}
-#stratTbl td.name{text-align:left;font-family:var(--body);font-size:14px}
+#stratTbl .rankcell{white-space:nowrap;font-family:var(--mono);font-size:var(--t2)}
+#stratTbl td.name{text-align:left;font-family:var(--body);font-size:var(--t3)}
 #stratTbl .rk{display:inline-block;min-width:15px;color:var(--steel)}
-#stratTbl .act[data-mv]{margin-left:3px;padding:2px 6px;font-size:8px;line-height:1.4}
+#stratTbl .act[data-mv]{margin-left:3px;padding:2px 6px;font-size:var(--t1);line-height:1.4}
 #stratTbl .act[data-mv]:hover{color:var(--amber);border-color:var(--tbi-b)}
 #stratTbl .act[disabled]{opacity:.22;cursor:not-allowed}
 #stratTbl .act[disabled]:hover{color:var(--steel);border-color:var(--line)}
-#stratTbl select.spri{width:auto;min-width:94px;padding:5px 7px;font-family:var(--mono);font-size:11px}
+#stratTbl select.spri{width:auto;min-width:94px;padding:5px 7px;font-family:var(--mono);font-size:var(--t1)}
 #stratTbl select.p-high{color:var(--tax);border-color:var(--wnln)}
 #stratTbl select.p-med{color:var(--amber);border-color:var(--tbi-b)}
 #stratTbl select.p-low{color:var(--steel)}
-#stratTbl input.smax{width:84px;padding:5px 7px;font-size:12px;text-align:right}
-#stratTbl input.snote{padding:5px 7px;font-size:12.5px;min-width:200px}
+#stratTbl input.smax{width:84px;padding:5px 7px;font-size:var(--t2);text-align:right}
+#stratTbl input.snote{padding:5px 7px;font-size:var(--t2);min-width:200px}
 #stratTbl tr.onblock td{background:var(--sel)}
 /* The board's row for the player on the block, shown in the bid panel on My
    Team. Deliberately quiet: it is a note the GM wrote, not a rule the app is
    enforcing, so it never looks like the ceiling boxes above it. */
 #apnList .bid{grid-template-columns:1fr 90px 110px auto}
 .mlebox{display:flex;gap:9px;align-items:flex-start;margin-top:11px;padding:9px 11px;border:1px solid var(--tbi-b);
-  border-radius:2px;background:var(--panel2);font-size:12px;line-height:1.45;color:var(--steel)}
+  border-radius:var(--r-s);background:var(--panel2);font-size:var(--t2);line-height:1.45;color:var(--steel)}
 .mlebox input{width:auto;flex:none;margin-top:2px}
 /* The global input rule is width:100%, which as a flex item made the checkbox
    claim the whole row and squeezed the sentence beside it to one word per
    line — the same fault the lineup name column has bitten us with. */
 .mlebox>span{flex:1;min-width:0;text-transform:none;letter-spacing:0;font-family:var(--body)}
 .mlebox b{color:var(--chalk)}
-.stratnote{border:1px solid var(--line);border-left:2px solid var(--space);border-radius:2px;
+.stratnote{border:1px solid var(--line);border-left:2px solid var(--space);border-radius:var(--r-s);
   padding:8px 11px;margin-top:11px;background:var(--panel2)}
 .stratnote.past{border-left-color:var(--tax)}
-.stratnote .sthd{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+.stratnote .sthd{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--space);margin-bottom:6px}
 .stratnote.past .sthd{color:var(--tax)}
 .stratnote .stbits{display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center}
-.stratnote .stbit{font-family:var(--mono);font-size:11px;color:var(--steel)}
+.stratnote .stbit{font-family:var(--body);font-size:var(--t1);color:var(--steel)}
 /* A middle dot between the bits, never before the first one or after a wrap
    onto a new line - it is a separator, not a bullet. */
 .stratnote .stbit+.stbit::before{content:'\00B7';color:var(--line);margin-right:9px}
 .stratnote .stbit.p-high{color:var(--tax)}
 .stratnote .stbit.p-med{color:var(--amber)}
 .stratnote .stbit.sthot{color:var(--tax)}
-.stratnote .stcom{font-size:12.5px;color:var(--chalk);margin-top:6px;line-height:1.45}
-#stratWrap .privnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+.stratnote .stcom{font-size:var(--t2);color:var(--chalk);margin-top:6px;line-height:1.45}
+#stratWrap .privnote{font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--space);margin-bottom:9px}
 @media(max-width:760px){#stratBox .form{grid-template-columns:1fr!important}}
 /* ---- Standings: the roto total pinned to the right edge, like an action column. */
@@ -933,73 +938,70 @@ tr.sel td.rotot{background:var(--sel)}
 #raterTbl tr.mine td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 
 /* ---- Chat replies and the Home chat card ---- */
-.chatre{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--steel);background:var(--panel2);
-  border:1px solid var(--line);border-left:3px solid var(--amber);padding:6px 10px;margin:0 0 6px;border-radius:2px}
+.chatre{display:flex;gap:8px;align-items:center;font-size:var(--t2);color:var(--steel);background:var(--panel2);
+  border:1px solid var(--line);border-left:3px solid var(--amber);padding:6px 10px;margin:0 0 6px;border-radius:var(--r-s)}
 .chatre b{color:var(--chalk)}
 .chatre button{margin-left:auto}
-.msg .mq{font-size:12px;color:var(--steel);border-left:3px solid var(--line);padding:2px 8px;margin:2px 0 4px;
+.msg .mq{font-size:var(--t2);color:var(--steel);border-left:3px solid var(--line);padding:2px 8px;margin:2px 0 4px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .msg .mq b{color:var(--chalk)}
 .msg.flash{outline:2px solid var(--amber);outline-offset:2px}
 #homeChat .msg{padding:6px 0;border-bottom:1px solid var(--line2)}
-#homeChat .mb{font-size:13.5px}
+#homeChat .mb{font-size:var(--t2)}
 
 /* ---- Info buttons: the explanation behind a small "i" (2026-10-14). A
    p.note.explain is hidden until its button is pressed; infoNotes() wires them. */
 .infobtn{display:inline-grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;
   border:1px solid var(--line);background:none;color:var(--steel);cursor:pointer;padding:0;
-  font:italic 700 12px/1 Georgia,serif;vertical-align:middle;margin-left:6px}
+  font:italic 700 var(--t2)/1 var(--body);vertical-align:middle;margin-left:6px}
 .infobtn:hover,.infobtn[aria-expanded=true]{color:var(--amber);border-color:var(--amber)}
 .infobtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-p.note.explain{display:none;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 12px}
+p.note.explain{display:none;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-l);padding:9px 12px}
 p.note.explain.open{display:block}
 /* ---- Club colours and badges (Settings > Team colours). ---- */
-.cbadge{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 4px;border-radius:3px;
-  font:700 11px/1 var(--disp);letter-spacing:.02em;vertical-align:middle;margin-right:7px;flex:none}
+.cbadge{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 4px;border-radius:var(--r-l);
+  font:700 var(--t1)/1 var(--body);letter-spacing:.02em;vertical-align:middle;margin-right:7px;flex:none}
 input[type=color]{height:40px;padding:3px;cursor:pointer;min-width:64px}
-.cbadge.lg{min-width:48px;height:48px;font-size:20px;margin:0;padding:0 6px}
+.cbadge.lg{min-width:48px;height:48px;font-size:var(--t4);margin:0;padding:0 6px}
 /* ---- Player headshots, from ESPN by the player's ESPN id. ---- */
 .hs{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:50% 10%;background:var(--well);
   flex:none;vertical-align:middle;margin-right:6px}
 .hs.lg{position:absolute;top:14px;right:52px;width:76px;height:76px;margin:0;border:2px solid var(--line)}
 #dlgPlayerBody{position:relative}
-.injline{margin:0 90px 12px 0;font-size:13px}
-.injline .t{color:var(--steel);font-size:11px;margin-left:4px}
-.inj{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:2px;font:700 9.5px/1.4 var(--mono);
+.injline{margin:0 90px 12px 0;font-size:var(--t2)}
+.injline .t{color:var(--steel);font-size:var(--t1);margin-left:4px}
+.inj{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:var(--r-s);font:700 var(--t1)/1.4 var(--body);
   letter-spacing:.06em;background:var(--tbi-b);color:var(--amber);vertical-align:middle;cursor:help;flex:none}
 .inj.out{background:var(--trf-b);color:var(--tax)}
 [data-theme="jam"] .inj{border:2px solid #000;border-radius:0}
 td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 /* ---- Home: who is around and what just happened. ---- */
-.hlive{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:14px}
+.hlive{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;font-size:var(--t3)}
 .hlive .on{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .hlive .dot{width:8px;height:8px;border-radius:50%;background:var(--space);display:inline-block;margin-right:4px}
-.hfeed .ago,.hlive .ago{color:var(--dim);font-family:var(--mono);font-size:11px;margin-left:auto;white-space:nowrap}
+.hfeed .ago,.hlive .ago{color:var(--dim);font-family:var(--mono);font-size:var(--t1);margin-left:auto;white-space:nowrap}
 .hlive .act{display:flex;gap:8px;align-items:baseline}
-.countdown{font:700 30px var(--disp);color:var(--amber)}
+.countdown{font:700 var(--t5) var(--body);color:var(--amber)}
 /* Lineup and results share one date bar, like a box-score site: tonight is the
    editable lineup, any earlier night is what scored. */
 .lunav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 /* My Team in season (2026-11-13): the night is the heading, then one toolbar. */
 h2.luh{align-items:center;flex-wrap:wrap;gap:8px}
 h2.luh::after{display:none}
-h2.luh .lunav{margin:0;font-family:var(--body,inherit);font-size:14px;font-weight:400}
-h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
+h2.luh .lunav{margin:0;font-family:var(--body,inherit);font-size:var(--t3);font-weight:400}
+h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lutools{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin:0 0 10px}
-.lustat{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
+.lustat{font-family:var(--body);font-size:var(--t1);color:var(--steel)}
 .lustat .bad{color:var(--tax)}
 .lubtns{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-.mefacts{display:flex;flex-wrap:wrap;gap:4px 18px;font-family:var(--mono);font-size:12.5px;color:var(--steel);margin:4px 0 16px}
-.mefacts b{color:var(--chalk);font-weight:600}
-.mefacts .good{color:var(--space)}.mefacts .bad{color:var(--tax)}
 .whoclub{display:none}
 .perbar .persel{display:none;width:auto}
-.lunav .lnday{font:700 18px var(--disp);min-width:170px;text-align:center}
+.lunav .lnday{font:700 var(--t4) var(--body);min-width:170px;text-align:center}
 .lunav input[type=date]{width:auto}
 #lnWrap.combined>h2,#lnWrap.combined>#lnCtl{display:none}
 /* The game column: who he plays and when, or that he has no game. */
-.lugame{font-family:var(--mono);font-size:12px;line-height:1.25;color:var(--chalk);text-align:left;white-space:nowrap}
-.lugame small{display:block;font-size:10px;color:var(--steel);letter-spacing:.04em}
+.lugame{font-family:var(--body);font-size:var(--t2);line-height:1.25;color:var(--chalk);text-align:left;white-space:nowrap}
+.lugame small{display:block;font-size:var(--t1);color:var(--steel);letter-spacing:.04em}
 .lugame.lk{color:var(--steel)}
 .lugame.lk small{color:var(--tax)}
 .lugame.nog{color:var(--dim)}
@@ -1007,7 +1009,7 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
-.tape{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;margin:0 0 20px}
+.tape{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:16px 18px;margin:0 0 20px}
 .tapehd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .tapehd h2{margin:0;flex:none}
 .tapehd h2::after{display:none}
@@ -1015,20 +1017,20 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
 .tapetop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-bottom:12px}
 .tapeid{display:flex;gap:11px;align-items:center;min-width:0}
 .tapeid.r{flex-direction:row-reverse;text-align:right}
-.tapenm{font:700 22px/1.1 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tapeid select{width:auto;max-width:100%;font:700 18px var(--disp);padding:4px 8px}
-.tapemeta{font-family:var(--mono);font-size:11.5px;color:var(--steel)}
-.tapevs{font:700 26px var(--disp);color:var(--amber)}
+.tapenm{font:700 var(--t5)/1.1 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tapeid select{width:auto;max-width:100%;font:700 var(--t4) var(--body);padding:4px 8px}
+.tapemeta{font-family:var(--body);font-size:var(--t1);color:var(--steel)}
+.tapevs{font:700 var(--t5) var(--body);color:var(--amber)}
 .taperow{display:grid;grid-template-columns:44px minmax(0,1fr) 52px minmax(0,1fr) 44px;gap:8px;align-items:center;padding:3px 0}
-.taperow .lab{text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--steel)}
-.taperow .rk{font-family:var(--mono);font-size:12px;color:var(--steel)}
+.taperow .lab{text-align:center;font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;color:var(--steel)}
+.taperow .rk{font-family:var(--mono);font-size:var(--t2);color:var(--steel)}
 .taperow .rk.a{text-align:right}
 .taperow .rk.win{color:var(--amber);font-weight:700}
-.tapebar{height:10px;background:var(--well);border-radius:2px;display:flex;overflow:hidden}
+.tapebar{height:10px;background:var(--well);border-radius:var(--r-s);display:flex;overflow:hidden}
 .tapebar.a{justify-content:flex-end}
 .tapebar span{display:block;height:100%;background:var(--steel);opacity:.55}
 .tapebar span.win{background:var(--amber);opacity:1}
-.tapefoot{margin-top:10px;font-size:13px;color:var(--steel)}
+.tapefoot{margin-top:10px;font-size:var(--t2);color:var(--steel)}
 .tapefoot b{color:var(--chalk)}
 @media(max-width:640px){
   .tapetop{grid-template-columns:1fr;text-align:center}
@@ -1044,6 +1046,59 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
    the ledger's mono — the arcade fonts go on headings, tabs, labels and the
    scoreboard figures only, because a pixel font at table size is unreadable
    on a phone. Mockup: claude.ai/artifact/6tT3QbD4Sd6XrNLMMEDir1. */
+/* ---- Type and shape refresh (2026-11-16) ----
+   The mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs. Six sizes (--t1..--t5,
+   32px figures), monospace for numbers only, sentence-case controls, labels in
+   small caps only on table heads and card labels, and nested corners: cards
+   --r-l, controls --r, chips --r-s. Jam zeroes the corners. */
+h2{font-weight:700;letter-spacing:0}
+nav button,.more>#moreBtn{font-weight:500;letter-spacing:0}
+.btn{font-weight:600;font-size:var(--t2);letter-spacing:0;padding:9px 16px;border-radius:var(--r)}
+.btn.ghost,.btn.danger{font-size:var(--t2);font-weight:500;padding:8px 14px}
+input,select,textarea{border-radius:var(--r)}
+thead th,.luhdr,.capcell dt,label,.pkhd{font-weight:600}
+tbody td:first-child{font-weight:500}
+tfoot td:first-child{font-size:var(--t1)}
+.act{font-size:var(--t2);text-transform:none;letter-spacing:0;font-weight:500;padding:4px 10px;border-radius:var(--r)}
+.luacts .act{padding:3px 8px;font-size:var(--t2)}
+.chip,.pill,.st,.sync,.season,.who,.badge,.lutip,.fcount,.pjlab,.seaslab,.ent .k{text-transform:none;letter-spacing:0}
+.chip,.pill{font-size:var(--t2)}
+.season{font-size:var(--t2)}
+.toggle{border:0;background:var(--panel2);border-radius:var(--r);padding:3px;gap:2px}
+.toggle button{font-size:var(--t2);text-transform:none;letter-spacing:0;font-weight:500;border-radius:var(--r-s);padding:5px 11px}
+.toggle button[aria-pressed=true]{background:var(--segon);color:var(--chalk);font-weight:600;box-shadow:var(--shadow)}
+.subnav button{font-size:var(--t2);font-weight:500;border-color:transparent;background:var(--panel2);padding:7px 14px}
+.subnav button[aria-pressed=true]{background:var(--amber);color:var(--panel);border-color:var(--amber);font-weight:600}
+.rule h5,.fabox h4{text-transform:none;letter-spacing:0;color:var(--chalk);font-size:var(--t3)}
+.dhead h3{font-weight:700;letter-spacing:0}
+.tname{font-weight:600;letter-spacing:0}
+.capcell dd{font-weight:600}
+/* Tables sit on the card colour, so the pinned name column and the cells beside
+   it are one surface. The pinned cell painted the page colour while the rest
+   showed through, which in light read as an inverted grey block. */
+.scroller{background:var(--panel)}
+.scroller tbody td:first-child,.scroller tfoot td:first-child,[data-pin2] tbody td:nth-child(2){background:var(--panel)}
+.scroller tbody tr:hover,.scroller tbody tr:hover td:first-child{background:var(--panel2)}
+/* My Team's facts: one card each, the figure first. */
+.mefacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:4px 0 20px;font-family:var(--body);font-size:var(--t2);color:var(--steel)}
+.mefact{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.mefact .mfl{font-size:var(--t1);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.mefact b{font:600 32px/1.05 var(--mono);color:var(--chalk);white-space:nowrap}
+.mefact b small{font-size:var(--t3);font-weight:400;color:var(--steel)}
+.mefact.me b{color:var(--amber)}
+/* The tale of the tape: the accent is your side's. The rival's leads are plain. */
+.tapebar:not(.a) span.win{background:var(--chalk);opacity:.7}
+.mefact.bad b{color:var(--tax)}
+.mefact .mfs{font-size:var(--t2);color:var(--steel)}
+.mefact .good{color:var(--space)}.mefact .bad{color:var(--tax)}
+@media(max-width:640px){
+  .mefacts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mefact{padding:10px 12px}
+  .mefact b{font-size:var(--t5)}
+  .mefact:last-child:nth-child(odd){grid-column:1/-1}
+  .brand{white-space:nowrap;font-size:var(--t4)}
+  .mast.gmin .season{display:none}
+}
 [data-theme="jam"]{
   color-scheme:dark;
   --arcade:'Bungee','Barlow Condensed',system-ui,sans-serif;
@@ -1061,6 +1116,7 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
   --wnbg:#2A0D12; --wnln:#6B1F2C; --wntx:#FFB3C0;
   --bnr:#17123A;
   --shadow:5px 5px 0 #000;
+  --r-s:0; --r:0; --r-l:0; --segon:#3A2F8A;
 }
 [data-theme="jam"] .mast{background:#000;border-bottom:4px solid var(--amber)}
 [data-theme="jam"] .mast::before{content:'';display:block;height:8px;
@@ -1141,11 +1197,11 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
 .tradenote .tn-call{display:none}
 .tradenote .tn-title{font-weight:700;margin-bottom:8px}
 .tradenote .tn-board{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
-.tradenote .tn-side{background:rgba(0,0,0,.18);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:13px;min-width:0}
-.tradenote .tn-lab{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.8;margin-bottom:3px}
+.tradenote .tn-side{background:rgba(0,0,0,.18);border-radius:8px;padding:8px 10px;font-family:var(--body);font-size:var(--t2);min-width:0}
+.tradenote .tn-lab{display:block;font-size:var(--t1);text-transform:uppercase;letter-spacing:.06em;opacity:.8;margin-bottom:3px}
 .tradenote .tn-side .none{opacity:.6}
-.tradenote .tn-vs{font-size:20px;opacity:.7}
-.tradenote .tn-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12px}
+.tradenote .tn-vs{font-size:var(--t4);opacity:.7}
+.tradenote .tn-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:var(--t2)}
 @media(max-width:640px){.tradenote .tn-board{grid-template-columns:1fr}.tradenote .tn-vs{text-align:center;transform:rotate(90deg)}}
 @keyframes tnslam{0%{transform:scale(2.4) rotate(-4deg);opacity:0}55%{transform:scale(.94) rotate(1deg);opacity:1}75%{transform:scale(1.04)}100%{transform:scale(1)}}
 @keyframes tnshake{0%,100%{transform:translate(0)}20%{transform:translate(-3px,2px)}40%{transform:translate(3px,-2px)}60%{transform:translate(-2px,-2px)}80%{transform:translate(2px,2px)}}
@@ -1170,6 +1226,10 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
 [data-theme="jam"] .tradenote .tn-lab{font-family:var(--pixel);font-size:8px;letter-spacing:0;color:var(--steel);text-shadow:none;margin-bottom:6px}
 [data-theme="jam"] .tradenote .tn-vs{font-family:var(--arcade);color:var(--tax);text-shadow:2px 2px 0 #000;font-size:26px;opacity:1}
 [data-theme="jam"] .tradenote .tn-foot{font-family:var(--body)}
+/* Jam: My Team's fact cards are arcade cards with LED figures, like Home's. */
+[data-theme="jam"] .mefact{border:3px solid #000;box-shadow:5px 5px 0 #000}
+[data-theme="jam"] .mefact b{font-family:var(--led);font-weight:400;font-size:44px;line-height:.9}
+[data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
 </style>
 </head>
 <body>
@@ -2027,7 +2087,7 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
       <button class="btn ghost" id="tipReload">Refresh from the NBA</button>
       <button class="btn" id="tipSave">Save overrides</button>
     </div>
-    <textarea id="tipBox" rows="6" placeholder="DEN 19:00&#10;LAL 22:30" style="width:100%;background:var(--panel);color:var(--chalk);border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--mono);font-size:13px;line-height:1.6"></textarea>
+    <textarea id="tipBox" rows="6" placeholder="DEN 19:00&#10;LAL 22:30" style="width:100%;background:var(--panel);color:var(--chalk);border:1px solid var(--line);border-radius:3px;padding:9px 11px;font-family:var(--mono);font-size:var(--t2);line-height:1.6"></textarea>
 
     <h2 class="sub">Auction room</h2>
     <p class="note explain">Nobody may nominate or bid until this is open. The rookie draft has always worked
@@ -2194,7 +2254,7 @@ h2.luh .lunav .lnday{font:700 19px var(--disp);min-width:0;padding:0 4px}
     <div><label for="pjFT">FT made</label><input id="pjFT" class="mono" type="number" step="0.1"></div>
     <div><label for="pjFTA">FT att</label><input id="pjFTA" class="mono" type="number" step="0.1"></div>
   </div>
-  <p style="font-size:11.5px;color:var(--dim);margin:12px 0">All figures are per game except games played.
+  <p style="font-size:var(--t1);color:var(--dim);margin:12px 0">All figures are per game except games played.
     Leave a box blank to keep last season's actual.</p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
     <button type="button" class="btn ghost" id="pjClear">Reset player</button>
@@ -3947,7 +4007,7 @@ function drawQuickPool(){
     rows.slice(0,200).map(p=>`<tr class="${qsSel===p.n?'sel':''}">
       <td class="l pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td>
       <td class="pos l hide">${htmlEsc(posShow(p.n)||p.p||'—')}</td>
-      <td class="l hide2" style="font-size:11.5px">${htmlEsc(p.from)}</td>
+      <td class="l hide2" style="font-size:var(--t1)">${htmlEsc(p.from)}</td>
       ${hasStats(p)?`<td>${p.g}</td><td>${p.s.PTS}</td><td>${p.s.TRB}</td><td>${p.s.AST}</td>
         <td>${p.s.P3}</td><td class="hide2">${p.s.STL}</td><td class="hide2">${p.s.BLK}</td>
         <td class="hide2">${p.s.TOV}</td>${shotCells(p.s)}`
@@ -4413,9 +4473,9 @@ function drawAdmin(){
   $('gmList').innerHTML=TEAMS().map(t=>{
     const d=S.teams[t];
     return `<div class="ent" style="grid-template-columns:150px 1fr auto">
-    <div style="font-family:var(--disp);font-size:16px">${htmlEsc(t)}${
-      gmName(t)?`<div class="t" style="font-size:11px">${htmlEsc(gmName(t))}</div>`
-               :'<div class="t" style="font-size:11px;opacity:.7">no GM name on file</div>'}</div>
+    <div style="font-weight:600;font-size:var(--t3)">${htmlEsc(t)}${
+      gmName(t)?`<div class="t" style="font-size:var(--t1)">${htmlEsc(gmName(t))}</div>`
+               :'<div class="t" style="font-size:var(--t1);opacity:.7">no GM name on file</div>'}</div>
     <div class="t">${d.pin?'PIN set':'no PIN \u2014 open to claim'}
       \u00b7 ${d.email?htmlEsc(d.email):'no email'}${d.email&&(d.daily||d.weekly)?' \u00b7 '+[d.daily?'daily':'',d.weekly?'weekly':''].filter(Boolean).join(' + ')+' digest':''}</div>
     <div><button class="btn ghost" data-em="${htmlEsc(t)}">Email</button>
@@ -5457,8 +5517,8 @@ function drawAddl(){
     ? rows.map((a,i)=>{
         const signed=liveClub(a.n);
         return `<div class="bid"><div class="who2">${htmlEsc(a.n)}</div>
-          <div style="color:var(--steel);font-family:var(--mono);font-size:11px">${htmlEsc(a.p||'\u2014')}</div>
-          <div style="color:var(--dim);font-size:11px">${signed?'on '+htmlEsc(signed):'free agent'}</div>
+          <div style="color:var(--steel);font-family:var(--mono);font-size:var(--t1)">${htmlEsc(a.p||'\u2014')}</div>
+          <div style="color:var(--dim);font-size:var(--t1)">${signed?'on '+htmlEsc(signed):'free agent'}</div>
           <div><button class="act" data-apx="${i}">Remove</button></div></div>`;}).join('')
     : '<div class="empty">Nobody added. The pool is the transcribed player list plus the rookie class.</div>';
   box.querySelectorAll('[data-apx]').forEach(b=>b.onclick=()=>removeAddl(+b.dataset.apx));
@@ -5545,7 +5605,7 @@ function drawBarred(){
       <td class="pos l hide">${htmlEsc(c.p||'\u2014')}</td>
       <td class="mono bad">${money(c.s)}</td>
       <td class="hide2 rating">${(()=>{const r=rtg(c.n); return r==null?'\u2014':(r>0?'+':'')+r;})()}</td>
-      <td class="l" style="font-size:11.5px">${htmlEsc(ownerLabel(c.n))}</td></tr>`).join('')}
+      <td class="l" style="font-size:var(--t1)">${htmlEsc(ownerLabel(c.n))}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
 function drawAuctRoster(){
@@ -5667,14 +5727,13 @@ function meStrip(T,s,sc,cap,tax){
   const gc=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T);
   const pace=gamesPace(used,gc,SCORE.days,curSeason(),S.cfg.seasonEnd);
   const dead=deadSalary(T);
-  const f=[];
-  if(row&&row.tot&&row.tot.GP>0) f.push(`<span><b>${ordinal(row.rank)}</b> · ${row.pts} pts</span>`);
-  f.push(`<span><b>${used}</b> / ${gc} games${pace?` · <span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">on pace for ${pace.projected}</span>`:''}</span>`);
-  f.push(`<span>IR <b>${irCount(T)}</b> / ${S.cfg.ir??1}</span>`);
-  f.push(`<span>Payroll <b>${money(s)}</b></span>`);
-  f.push(cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
-  f.push(`<span class="${tax-s>=0?'':'bad'}">${money(Math.abs(tax-s))} ${tax-s>=0?'to':'past'} the hard cap</span>`);
-  if(dead>0) f.push(`<span class="bad">${money(dead)} released salary</span>`);
+  const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
+  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points`,'me');
+  card('Games',`${used}<small> / ${gc}</small>`,pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played');
+  card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
+  card(tax-s>=0?'To the hard cap':'Past the hard cap',money(Math.abs(tax-s)),`Hard cap ${money(tax)}`,tax-s>=0?'':'bad');
+  card('Injured reserve',`${irCount(T)}<small> / ${S.cfg.ir??1}</small>`,'');
+  if(dead>0) card('Released salary',money(dead),'on this season\'s cap','bad');
   return `<div class="mefacts">${f.join('')}</div>`;
 }
 function fullTotals(names){
@@ -5807,7 +5866,7 @@ function drawLab(){
       return `<div class="irow"><span class="cat">${lab}</span>
         <span class="track"><span class="tn" style="width:${Math.max(2,Math.min(100,v/mx*100))}%"></span>
           <span class="winmark" style="left:${Math.min(99,w/mx*100)}%"></span></span>
-        <span style="text-align:right">${fm(v)}${isP?`<small style="display:block;font-family:var(--mono);font-size:9px;color:var(--dim)">${
+        <span style="text-align:right">${fm(v)}${isP?`<small style="display:block;font-family:var(--mono);font-size:var(--t1);color:var(--dim)">${
           k==='FG'?madeAtt(Math.round(F.agg.FG),Math.round(F.agg.FGA))
                   :madeAtt(Math.round(F.agg.FT),Math.round(F.agg.FTA))}</small>`:''}</span>
         <span class="dl" style="color:var(--dim)">${fm(w)}</span>
@@ -5818,7 +5877,7 @@ function drawLab(){
       <b>${rank} of ${all.length}</b></div>
     <div class="tot2" style="border:0;padding-top:4px;margin-top:2px"><span>Categories at a winning level</span>
       <b class="${beat>=5?'up':beat<=2?'down':'flat'}">${beat} of 9</b></div>
-    <p style="font-size:11px;color:var(--dim);margin-top:11px;line-height:1.5">
+    <p style="font-size:var(--t1);color:var(--dim);margin-top:11px;line-height:1.5">
       Every club is filled to ${GC} game slots at replacement level, so nothing is measured against a
       half-built roster. <b style="color:var(--chalk)">WINS IT</b> is the average total that took the
       category over the last five full seasons, marked on the bar.
@@ -5889,7 +5948,7 @@ function drawLabPool(){
     <th data-k="rtg" title="Player rating">PR</th><th></th></tr></thead><tbody>${
     rows.slice(0,140).map(p=>{const v=pstat(p.n)||p; const own=ownerOf(p.n);
       return `<tr><td class="pname" data-player="${p.n}">${p.n}</td>
-      <td class="l" style="font-size:12px;color:${isFreeAgent(p.n)?'var(--space)':'var(--steel)'}">${own}</td>
+      <td class="l" style="font-size:var(--t2);color:${isFreeAgent(p.n)?'var(--space)':'var(--steel)'}">${own}</td>
       <td class="pos hide">${p.p||'&#8212;'}</td><td>${v.g}</td>
       <td>${v.s.PTS}</td><td>${v.s.TRB}</td><td>${v.s.AST}</td><td>${v.s.P3}</td>
       <td class="hide2">${v.s.STL}</td><td class="hide2">${v.s.BLK}</td><td class="hide2">${v.s.TOV}</td>
@@ -5952,8 +6011,8 @@ function drawAuction(){
       if(!confirm('Cancel this lot with no signing? The match offer is withdrawn.'))return;
       S.auction=null;await commit(null);};
     $('bidLog').innerHTML=a.bids.map((b,i)=>`<div class="bid ${i===0?'win':''}">
-      <div class="t" style="font-family:var(--mono);font-size:10px;color:var(--dim)">${fmt(b.ts)}</div>
-      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:11px">${b.mle?'MLE':''}</div>
+      <div class="t" style="font-family:var(--mono);font-size:var(--t1);color:var(--dim)">${fmt(b.ts)}</div>
+      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:var(--t1)">${b.mle?'MLE':''}</div>
       <div class="amt3">${money(b.amt)}</div></div>`).join('');
   }
   else if(!a||a.status!=='open'){
@@ -5996,8 +6055,8 @@ function drawAuction(){
       S.auction=null; await commit({kind:'edit',team:by,detail:`Commissioner cancelled the lot on ${a.player}`});
       if(back) await nomShift(-1,'given back after a cancelled lot');};
     $('bidLog').innerHTML=a.bids.map((b,i)=>`<div class="bid ${i===0?'win':''}">
-      <div class="t" style="font-family:var(--mono);font-size:10px;color:var(--dim)">${fmt(b.ts)}</div>
-      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:11px">${b.mle?'MLE':''}</div>
+      <div class="t" style="font-family:var(--mono);font-size:var(--t1);color:var(--dim)">${fmt(b.ts)}</div>
+      <div class="who2">${htmlEsc(b.t)}</div><div style="color:var(--dim);font-size:var(--t1)">${b.mle?'MLE':''}</div>
       <div class="amt3">${money(b.amt)}</div></div>`).join('');
   }
   const clock=nomOnClock(), ordered=nomOrder().length>0;
@@ -6065,8 +6124,8 @@ function drawAuction(){
     const sp=S.cfg.roster-headcount(t);
     const mx=bidCeiling(t,a?a.player:'');
     return `<div class="bid ${a&&a.leader===t?'win':''}"><div class="who2">${t}</div>
-      <div style="color:var(--steel);font-family:var(--mono);font-size:11px">${headcount(t)}/${S.cfg.roster} &#183; ${money(committed(t))}</div>
-      <div style="color:var(--dim);font-size:11px">${sp<=0?'roster full':sp+' spots'}</div>
+      <div style="color:var(--steel);font-family:var(--mono);font-size:var(--t1)">${headcount(t)}/${S.cfg.roster} &#183; ${money(committed(t))}</div>
+      <div style="color:var(--dim);font-size:var(--t1)">${sp<=0?'roster full':sp+' spots'}</div>
       <div class="amt3" style="color:${mx<1?'var(--tax)':'var(--amber)'}">${mx<1?'&#8212;':money(mx)}</div></div>`;
   }).join('');
 }
@@ -7421,7 +7480,7 @@ function playerCard(name,opts){
     <div class="drow"><span class="cat">FT%</span><span class="av">${aFT}</span>
       <span class="pv ${mine&&aFT!==pFT?'edited':''}">${pFT}</span><span class="dv"></span></div>
     <div class="tot2"><span>Rating</span>
-      <span><span style="color:var(--steel);font-size:13px">${baseR==null?'\u2014':(baseR>0?'+':'')+baseR}</span>
+      <span><span style="color:var(--steel);font-size:var(--t2)">${baseR==null?'\u2014':(baseR>0?'+':'')+baseR}</span>
       <b style="margin-left:12px">${projR==null?'\u2014':(projR>0?'+':'')+projR}</b></span></div>
     <div class="glog" data-glog="${htmlEsc(name)}"></div>
     ${opts.actions!==false&&me&&!isComm()?`<div style="display:flex;gap:8px;margin-top:13px;flex-wrap:wrap">
@@ -7629,10 +7688,10 @@ function impactCard(team,name,priceNote){
     const RW=(I.after.tot[team]||{}).raw||{};
     const perGm=(m,a)=>madeAtt(m==null?null:m/GC, a==null?null:a/GC);
     const pg=isP
-      ? `<span style="font-size:10px;color:var(--dim)">${k==='FG'
+      ? `<span style="font-size:var(--t1);color:var(--dim)">${k==='FG'
           ? perGm(RW.FG,RW.FGA) : perGm(RW.FT,RW.FTA)}</span>`
       : (a/GC).toFixed(2);
-    const pgd=isP?'':` <span class="${dcls}" style="font-size:10px">${dv>0?'+':''}${(dv/GC).toFixed(2)}</span>`;
+    const pgd=isP?'':` <span class="${dcls}" style="font-size:var(--t1)">${dv>0?'+':''}${(dv/GC).toFixed(2)}</span>`;
     return `<div class="irow"><span class="cat">${lab}</span>
       <span class="track"><span class="tb" style="width:${pct(b)}%"></span>
         <span class="tn" style="width:${pct(a)}%"></span></span>
@@ -9047,7 +9106,7 @@ function drawOffers(){
     const mine=me===tr.b||hasComm(), own=me===tr.a||hasComm();
     return `<div class="offer">
       <div class="oh"><b>${tr.a} &#8594; ${tr.b}</b><span class="st ${tr.status}">${tr.status}</span>
-        <span class="t" style="font-family:var(--mono);font-size:10px;color:var(--dim)">${fmt(tr.ts)} &#183; offered by ${tr.by}</span></div>
+        <span class="t" style="font-family:var(--mono);font-size:var(--t1);color:var(--dim)">${fmt(tr.ts)} &#183; offered by ${tr.by}</span></div>
       <div class="ob"><div><b>${tr.a} sends</b>${offerSide(tr.give,tr.givePk)}</div>
         <div><b>${tr.b} sends</b>${offerSide(tr.get,tr.getPk)}</div></div>
       ${tr.status==='pending'?`
@@ -9061,7 +9120,7 @@ function drawOffers(){
         ${hasComm()&&!mine?`<button class="btn" data-force="${i}">Execute as commissioner</button>`:''}
         ${hasComm()?`<button class="btn danger" data-veto="${i}">Veto</button>`:''}
         <button class="btn ghost" data-mail="${i}">Email</button></div>`:
-        `<div class="t" style="font-family:var(--mono);font-size:10px;color:var(--dim)">
+        `<div class="t" style="font-family:var(--mono);font-size:var(--t1);color:var(--dim)">
           ${tr.status} ${tr.resolvedBy?'by '+tr.resolvedBy:''} ${tr.resolvedTs?'&#183; '+fmt(tr.resolvedTs):''}</div>`}
     </div>`;}).join(''):'<div class="empty">No offers involving your club.</div>';
   $('offers').querySelectorAll('[data-acc]').forEach(b=>b.onclick=async()=>{
@@ -10863,9 +10922,9 @@ function drawProfile(){
       const style=a>=.5?`background:rgba(85,166,122,${((a-.5)*0.75).toFixed(3)})`:`background:rgba(201,85,63,${((.5-a)*0.75).toFixed(3)})`;
       const val=(c==='FG'||c==='FT')?pctText(p[c]):p[c].toFixed(c==='PTS'||c==='REB'?1:2);
       return `<td><span class="heat" style="${style}">${rank}</span>
-        <div style="font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:2px">${val}</div></td>`;
+        <div style="font-family:var(--mono);font-size:var(--t1);color:var(--dim);margin-top:2px">${val}</div></td>`;
     };
-    return `<tr><td style="font-family:var(--disp);font-size:16px">${t}</td>
+    return `<tr><td style="font-weight:600;font-size:var(--t3)">${t}</td>
       ${RCATS.map(cell).join('')}
       <td class="rating">${p.top10>0?'+':''}${p.top10.toFixed(1)}</td></tr>`;
   }).join('');
@@ -12019,8 +12078,8 @@ async function drawHealth(force){
     ?`<div class="warnbox">${r.errors.map(e=>htmlEsc(e.day+': '+e.error)).join('<br>')}</div>`:'';
   const nights=Object.keys(st.days||{}).filter(d=>st.days[d].stored).length;
   const fixes=Object.values(st.days||{}).reduce((a,d)=>a+((d.corrections||[]).length),0);
-  const row=(label,ok,main,sub)=>`<div class="capcell"><dt>${label}</dt><dd class="${ok?'good':'bad'}" style="font-size:15px">${main}</dd>
-    <div class="t" style="font-size:11px;color:var(--steel);margin-top:3px">${sub}</div></div>`;
+  const row=(label,ok,main,sub)=>`<div class="capcell"><dt>${label}</dt><dd class="${ok?'good':'bad'}" style="font-size:var(--t3)">${main}</dd>
+    <div class="t" style="font-size:var(--t1);color:var(--steel);margin-top:3px">${sub}</div></div>`;
   box.innerHTML=!HAS_API?'<div class="empty">No league database here, so there are no jobs to watch.</div>'
     :`<dl class="capgrid">
       ${row('Stats feed',!stale(sr&&sr.at)&&!(sr&&sr.errors&&sr.errors.length),sr?ago(sr.at):'not run yet',

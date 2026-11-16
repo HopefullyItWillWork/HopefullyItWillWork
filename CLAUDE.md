@@ -304,6 +304,28 @@ A walk-through as a GM on a phone found the daily path buried. What changed:
 - **Standings on a phone**: club names ellipsised on one line, games as "159"
   (`.gpcap` hidden), the GM's name line hidden.
 
+### Type and shape (2026-11-16)
+
+Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
+
+- **Six sizes.** Every `font-size` is a token: `--t1` 11, `--t2` 13, `--t3` 15,
+  `--t4` 19, `--t5` 26, plus 32px figures on fact cards. There were ~25 sizes in
+  half-pixel steps; do not add new px sizes. Jam's display faces (`--pixel`,
+  `--led`, `--arcade`) keep their own sizes.
+- **Monospace is for numbers.** Names, labels, chips, buttons and status lines are
+  `--body`; stat cells, money and figures stay `--mono`. `--disp` (Barlow) is the
+  brand only.
+- **Small caps only on table heads and card labels.** Toggles, chips, pills and
+  row actions are sentence case. The toggles are segmented (`--segon` marks the
+  selected one); the accent is for your own club, the subnav's pressed pill and
+  the primary button. The tape's rival-side leads are plain, yours are the accent.
+- **Nested corners:** cards `--r-l` 12, controls `--r` 8, chips `--r-s` 5. Jam
+  sets all three to 0.
+- **My Team's facts are cards** (`.mefact`, `meStrip()`): Place, Games, Payroll,
+  To the hard cap, Injured reserve (and Released salary when there is any).
+- **`.scroller` tables sit on `--panel`**, pinned column included; the pinned cell
+  used to paint the page colour and read as an inverted block in light.
+
 ## Injury report detail (2026-11-13)
 
 ESPN's roster feed carries only a status and a date. `fetchPlayers()` now also
