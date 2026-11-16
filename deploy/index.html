@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.2">
+<meta name="ll-build" content="2026-11-16.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -946,7 +946,7 @@ tr.sel td.rotot{background:var(--sel)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .msg .mq b{color:var(--chalk)}
 .msg.flash{outline:2px solid var(--amber);outline-offset:2px}
-#homeChat .msg{padding:6px 0;border-bottom:1px solid var(--line2)}
+#homeChat .msg{padding:10px 14px;border-bottom:1px solid var(--line2)}
 #homeChat .mb{font-size:var(--t2)}
 
 /* ---- Info buttons: the explanation behind a small "i" (2026-10-14). A
@@ -982,7 +982,7 @@ td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
 .hlive .on{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .hlive .dot{width:8px;height:8px;border-radius:50%;background:var(--space);display:inline-block;margin-right:4px}
 .hfeed .ago,.hlive .ago{color:var(--dim);font-family:var(--mono);font-size:var(--t1);margin-left:auto;white-space:nowrap}
-.hlive .act{display:flex;gap:8px;align-items:baseline}
+
 .countdown{font:700 var(--t5) var(--body);color:var(--amber)}
 /* Lineup and results share one date bar, like a box-score site: tonight is the
    editable lineup, any earlier night is what scored. */
@@ -11078,12 +11078,11 @@ function drawHomeLive(){
   const now=Date.now();
   const on=Object.entries(SEEN||{}).filter(([c,ts])=>now-new Date(ts).getTime()<5*60000)
     .map(([c])=>c).filter(c=>S.teams[c]||c==='Commissioner').sort();
-  const last=(S.log||[]).filter(e=>e&&e.ts&&e.team&&isRosterMove(e)&&logSeen(e)).slice(0,3);   // trades, adds and drops only — no lineup changes
-  box.innerHTML=(on.length||last.length)?`<div class="hlive">
-    ${on.length?`<div class="on"><span><span class="dot" aria-hidden="true"></span>Online</span>${on.map(c=>
-      `<span>${clubBadge(c)}${htmlEsc(c===me?'You':c)}</span>`).join('')}</div>`:''}
-    ${last.map(e=>`<div class="act">${clubBadge(e.team)}<span>${htmlEsc(e.team)} ${htmlEsc(lowerFirst(e.detail||''))}</span>
-      <span class="ago">${htmlEsc(agoText(e.ts,now))}</span></div>`).join('')}</div>`:'';
+  // Who is online, and nothing else: the moves list right under it already has
+  // the latest moves, and repeating three of them here said everything twice.
+  box.innerHTML=on.length?`<div class="hlive">
+    <div class="on"><span><span class="dot" aria-hidden="true"></span>Online</span>${on.map(c=>
+      `<span>${clubBadge(c)}${htmlEsc(c===me?'You':c)}</span>`).join('')}</div></div>`:'';
 }
 /* ================= TRADE COMPLETE (2026-10-17) =================
    When an offer is accepted, the two clubs in it — and nobody else — get a card
@@ -11139,7 +11138,6 @@ document.addEventListener('click',ev=>{
   tradeSeenSet(me,b.dataset.tradeok);
   drawTradeNotes();
 });
-function lowerFirst(t){ return t&&/^[A-Z][a-z]/.test(t)?t[0].toLowerCase()+t.slice(1):t; }
 /* ================= CLUB COLOURS (2026-10-14) =================
    S.teams[t].brand = {c:'#RRGGBB', ab:'OS'}, set by the GM on Settings. It rides
    rosters like everything else on the club, so it merges per club and a rename

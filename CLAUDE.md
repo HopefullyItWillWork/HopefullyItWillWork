@@ -173,8 +173,8 @@ best and the player card.
 **Presence.** The once-a-minute `&chat=…&me=<club>` poll now also stamps that
 club in the `seen` blob and returns everyone's stamp (`state.mjs`, capped at 40
 names). Home's "Around the league" shows who was seen in the last five minutes
-and the latest three log entries of any kind — lineup changes included — with
-"4m ago" times (`drawHomeLive()`, `agoText()`).
+(`drawHomeLive()`) above the roster moves list. It used to repeat the latest
+three moves as well, which said everything twice; it was dropped 2026-11-16.
 
 **Empty states** say what is coming rather than what is missing. With
 `S.cfg.opener` set (Commissioner › League settings › Opening night) the
