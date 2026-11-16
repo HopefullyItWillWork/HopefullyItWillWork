@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.4">
+<meta name="ll-build" content="2026-11-16.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -999,6 +999,11 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .whoclub{display:none}
 .perbar .persel{display:none;width:auto}
 .prgrp{display:inline-flex;align-items:center;gap:8px}
+.pvhead{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:0 0 14px}
+.pvhead h2{margin:0;flex:1 1 auto}
+#v-players td.zraw{font-family:var(--mono)}
+.watchrow .cardsign{margin-left:auto}
+#raterTbl td.acts>span{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
 .prhint{flex-basis:100%;font-size:var(--t2);color:var(--steel);margin-top:-4px}
 .prhint b{color:var(--chalk);font-weight:600}
 .lunav .lnday{font:700 var(--t4) var(--body);min-width:170px;text-align:center}
@@ -1653,16 +1658,28 @@ tfoot td:first-child{font-size:var(--t1)}
        the free agent classes — drawPlayersFA() picks which), My projections,
        and Quick sign (in season only, SEASON_TABS). -->
   <section class="view" id="v-players" role="tabpanel" hidden>
-    <nav class="subnav" aria-label="Player sections">
-      <button type="button" data-sub="v-rater" aria-pressed="true">Rater</button>
-      <button type="button" data-sub="v-night" aria-pressed="false">Last night</button>
-      <button type="button" data-sub="v-pfa" aria-pressed="false">Free agents</button>
-      <button type="button" data-sub="v-proj" aria-pressed="false" id="projTab" hidden>My projections</button>
-      <button type="button" data-sub="v-draft" aria-pressed="false">Quick sign</button>
-    </nav>
+    <!-- One list, no sub-tabs (2026-11-16): the view switch picks what the
+         columns show, and every free agent carries Sign or Claim. The old
+         Free agents, My projections and Quick sign pages are gone; their ids
+         route here (PVALIAS). -->
+    <div class="pvhead">
+      <h2 id="raterH2">Players</h2>
+      <div class="toggle" role="group" aria-label="What the table shows" id="pvBar"></div>
+    </div>
+    <p class="note explain" id="raterNote">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
+      <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
+      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
+      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
+      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
+      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
+      player passes a better one who played less, which is the 920-game cap showing up.
+      The club column is
+      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
+      including the men playing out the last year of a deal. <b>Stats</b> shows the numbers alone, without the z-scores;
+      <b>Last night</b> is every box score from one night. A free agent carries <b>Sign</b>, or <b>Claim</b> while he is on waivers.</p>
+    <div id="plClaims"></div>
   <!-- Every player's box score for one night (2026-10-14): drawNight(). -->
-  <div class="subview" id="v-night" data-subview hidden>
-    <h2>Box scores</h2>
+  <div id="v-night" hidden>
     <p class="note explain">Every player who played that night, from the morning's box scores — the same
       numbers scoring reads. Filter to the free agents to see who is available and producing, or to your own club.
       GS is a simple game score (points + rebounds + assists + 2 × steals and blocks − turnovers) used only to sort.</p>
@@ -1676,30 +1693,16 @@ tfoot td:first-child{font-size:var(--t1)}
     </div>
     <div class="scroller" data-cap="1" id="ntTable"></div>
   </div>
-  <div class="subview" id="v-rater" data-subview>
-    <h2 id="raterH2">Player rater &#8212; 2025&#8211;26</h2>
-    <p class="note explain">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
-      <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
-      z-score against the pool; shooting percentages are weighted by attempts, so a big volume of bad
-      free throws hurts more than a handful does. Add the scored columns and you get the rating. Players under 15 games are listed but unrated.
-      The rating is recomputed against whichever source is showing, so it is the same number the Players tab and the strategy board give you.
-      <b>Per game</b> or <b>season totals</b> changes what every z-score is computed from &#8212; on totals a durable
-      player passes a better one who played less, which is the 920-game cap showing up.
-      <b>Dynamic rater</b> is your own scratch version: set a games or minutes floor and choose which categories count,
-      and the whole field is re-scored against what is left. It is scored against the players who clear your filters,
-      not the league, so it is marked in blue throughout and stays on this tab &#8212; nothing it says reaches the
-      strategy board, the auction or anyone else. The club column is
-      where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
-      including the men playing out the last year of a deal. This is a record of last season, not a projection.</p>
+  <div id="v-rater">
     <div data-perbar="rater"></div>
     <div class="filters">
       <input id="rSearch" placeholder="Search players" autocomplete="off">
-      <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
+      <select id="rTeam" aria-label="Which players"><option value="">All players</option><option value="FA">Free agents</option></select>
       <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
       <select id="rBasis" hidden aria-hidden="true" tabindex="-1">
         <option value="pg">Per game</option><option value="tot">Totals</option></select>
-      <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
       <span class="fcount" id="rCount"></span>
+      <button class="btn ghost" id="pjResetR" hidden>Clear my projections</button>
       <button class="btn ghost" id="expRater">Export CSV</button>
     </div>
     <div id="rDynBox" hidden></div>
@@ -1715,7 +1718,7 @@ tfoot td:first-child{font-size:var(--t1)}
     </table></div>
   </div>
 
-  <div class="subview" id="v-pfa" data-subview hidden>
+  <div id="v-pfa" hidden>
     <div id="pfaSeason">
     <div id="faClaims"></div>
     <h2 class="sub">Available free agents <span class="fcount" id="faSignNote"></span></h2>
@@ -1752,7 +1755,7 @@ tfoot td:first-child{font-size:var(--t1)}
     <div class="fagrid" id="fagrid"></div>
   </div>
   </div>
-  <div class="subview" id="v-proj" data-subview hidden>
+  <div id="v-proj" hidden>
     <h2>My projections</h2>
     <p class="note explain">Your own numbers for next season, private to you. Nothing here is shared with the league.
       Edit a player and every projection on the site &#8212; impact cards, ratings, standings &#8212; switches to your
@@ -1762,13 +1765,13 @@ tfoot td:first-child{font-size:var(--t1)}
       <select id="pjFilter"><option value="">All players</option><option value="edited">Edited only</option>
         <option value="mine">My roster</option><option value="fa">Free agents</option></select>
       <span class="fcount" id="pjCount"></span>
-      <button class="btn ghost" id="pjReset">Clear all my edits</button>
+      <button class="btn ghost" id="pjReset">Clear all my edits</button><span id="projTab" hidden></span>
     </div>
     <div class="twocol wide"><div class="scroller" data-cap="1" id="pjTable"></div>
       <div id="pjDetail"><div class="empty">Pick a player to compare last season against your projection.</div></div></div>
   </div>
 
-  <div class="subview" id="v-draft" data-subview hidden>
+  <div id="v-draft" hidden>
     <h2>Sign a free agent</h2>
     <div class="sync"><span class="dot" id="dot"></span><span id="syncTxt">Shared board</span></div>
     <!-- An in-season signing has no terms to negotiate: one year at the league
@@ -7364,7 +7367,18 @@ document.addEventListener('click',e=>{
   const b=e.target&&e.target.closest?e.target.closest('[data-sub]'):null;
   if(b) showSub(b.dataset.sub);
 });
+/* The Players tab's retired pages (2026-11-16): links to them land on the one
+   list, set to what they used to show. */
+const PVALIAS={'v-rater':'rate','v-night':'night','v-pfa':'fa','v-proj':'rate','v-draft':'fa'};
 function goTab(id){
+  if(PVALIAS[id]){
+    const a=PVALIAS[id];
+    if(!goTab('v-players')) return false;
+    if(a==='fa'){ setPView(PVIEW==='night'?'rate':PVIEW); if($('rTeam')) $('rTeam').value='FA'; render(); }
+    else if(a==='night') setPView('night');
+    else if(PVIEW==='night') setPView('rate');
+    return true;
+  }
   /* A sub-view id opens its group, then the sub-view. */
   const sv=$(id);
   if(sv&&sv.hasAttribute&&sv.hasAttribute('data-subview')){
@@ -7435,7 +7449,8 @@ document.addEventListener('click',e=>{
 function openPlayerCard(name){
   const box=$('dlgPlayerBody');
   const wb=isFreeAgent(name)||isWatched(name)?watchBtn(name):'';
-  box.innerHTML=headshot(name,'lg')+(wb?`<div class="watchrow">${wb}<span>${isWatched(name)?'On your watch list':'Watch this free agent'}</span></div>`:'')
+  const sc=signCell(name);
+  box.innerHTML=headshot(name,'lg')+(wb||sc?`<div class="watchrow">${wb}${wb?`<span>${isWatched(name)?'On your watch list':'Watch this free agent'}</span>`:''}${sc?`<span class="cardsign">${sc}</span>`:''}</div>`:'')
     +injLine(name)+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
@@ -10861,8 +10876,68 @@ function unratedWhy(p,R){
   if(R.minMp!=null) return `under ${R.minMp} minutes a game &#8212; not rated`;
   return 'not rated';
 }
+/* What the Players table shows: ratings (z-scores over the raw line), the raw
+   stats alone, or one night's box scores. Per browser. */
+var PVIEW=(()=>{ try{ const v=localStorage.getItem('ll_pview'); return ['rate','stats','night'].includes(v)?v:'rate'; }catch(e){ return 'rate'; } })();
+function setPView(v){
+  PVIEW=['rate','stats','night'].includes(v)?v:'rate';
+  try{ localStorage.setItem('ll_pview',PVIEW); }catch(e){}
+  drawPView(); render();
+}
+function drawPView(){
+  const bar=$('pvBar'); if(!bar) return;
+  const html=[['rate','Ratings'],['stats','Stats'],['night','Last night']]
+    .map(([v,l])=>`<button type="button" data-pv="${v}" aria-pressed="${PVIEW===v}">${l}</button>`).join('');
+  if(bar.innerHTML!==html) bar.innerHTML=html;
+  if($('v-rater')) $('v-rater').hidden=PVIEW==='night';
+  if($('v-night')) $('v-night').hidden=PVIEW!=='night';
+  if($('v-pfa')) $('v-pfa').hidden=seasonLive()||PVIEW==='night';
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-pv]'):null;
+  if(b) setPView(b.dataset.pv);
+});
+/* Sign, Claim or Claimed for one player, for whichever club the viewer acts as;
+   empty when he is not a free agent or the club cannot sign today. Delegated, so
+   it works in any table and on the player card. */
+function signCell(name){
+  const t=meTeam();
+  if(!t||!S.teams[t]||!canSignFA(t)||!isFreeAgent(name)) return '';
+  const n=htmlEsc(name);
+  if(onWire(name)) return hasClaim(t,name)
+    ? `<button class="act" data-unclaim="${n}" title="Withdraw your claim">Claimed \u2715</button>`
+    : `<button class="act edit" data-fasign="${n}" title="${htmlEsc(wireText(name))}">Claim</button>`;
+  return `<button class="act edit" data-fasign="${n}">Sign</button>`;
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest?e.target.closest('[data-fasign],[data-unclaim]'):null;
+  if(!b||!me) return;
+  if(b.closest('#faTable,#faClaims,#wvBody')) return;   // those bind their own
+  e.stopPropagation();
+  if($('dlgPlayer')&&$('dlgPlayer').open) closeModal('dlgPlayer');
+  if(b.dataset.unclaim) dropClaim(meTeam(),b.dataset.unclaim);
+  else signFA(meTeam(),b.dataset.fasign);
+});
+/* The Stats view's cell: the number alone; a shooting rate over its makes and
+   attempts, like every other table (raterRaw() joins them with " \u00b7 "). */
+function rawCell(p,c,basis,ed){
+  const t=raterRaw(p,c,basis), i=String(t).indexOf(' \u00b7 ');
+  return i<0?`<td class="zraw"><span${ed}>${t}</span></td>`
+    :`<td class="shot"><b${ed}>${t.slice(0,i)}</b><small>${t.slice(i+3)}</small></td>`;
+}
 function drawRater(){
+  drawPView();
+  if(me&&$('plClaims')){ const h=myClaimsHtml(meTeam()); if($('plClaims').innerHTML!==h) $('plClaims').innerHTML=h; }
   if(offscreen('v-rater')) return;
+  /* "Which players" depends on who is signed in, so it is rebuilt when that or
+     the club list changes, keeping the choice. */
+  const wsel=$('rTeam'), mine=me&&meTeam()&&S.teams[meTeam()];
+  const wopts='<option value="">All players</option><option value="FA">Free agents</option>'
+    +(mine?'<option value="@mine">My team</option>':'')+(me&&!isComm()?'<option value="@watch">My watch list</option>':'')
+    +'<option value="@edited">My projections (edited)</option>'
+    +TEAMS().map(t=>`<option value="${htmlEsc(t)}">${htmlEsc(t)}</option>`).join('');
+  if(wsel.dataset.sig!==wopts){ const keep=wsel.value; wsel.innerHTML=wopts; wsel.dataset.sig=wopts;
+    wsel.value=[...wsel.options].some(o=>o.value===keep)?keep:''; }
   const q=$('rSearch').value.trim().toLowerCase(), tf=$('rTeam').value, pf=$('rPos').value;
   const basis=raterBasis();
   if($('rBasis')&&$('rBasis').value!==basis) $('rBasis').value=basis;   // set from the Stats bar too
@@ -10876,26 +10951,33 @@ function drawRater(){
   const all=R.rows.concat(R.unrated);
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
      means nobody has committed salary for next season. */
-  let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))
-    &&(!tf||(tf==='FA'?isFreeAgent(p.n):liveClub(p.n)===tf))
+  const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?liveClub(n)===meTeam()
+    :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):liveClub(n)===tf);
+  let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))&&who(p.n)
     &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
   const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   const H2=$('raterH2');
-  if(H2) H2.textContent='Player rater \u2014 '+projSrcLabel();
+  if(H2) H2.textContent='Players \u2014 '+projSrcLabel();
   const mark=usingMine();
-  $('rCount').textContent=`${rows.length} of ${RATER.length} players`
-    +(raterDynOn()?` · scored against ${R.pool}`:'');
+  $('rCount').textContent=`${rows.length} players`
+    +(tf==='FA'&&canSignFA(meTeam())?` \u00b7 signing is one year at ${money(minSal())}, ${deadlinePassed()?'a rental with no rights':'with Early Bird rights'}`:'');
+  if($('pjResetR')) $('pjResetR').hidden=!(usingMine()&&Object.keys(PROJ||{}).length);
+  const stats=PVIEW==='stats', acts=!!(me&&meTeam()&&S.teams[meTeam()]);
+  const ah=$('raterTbl')&&$('raterTbl').querySelector('thead tr');
+  if(ah){ const has=!!ah.querySelector('th.acts'); if(acts&&!has) ah.insertAdjacentHTML('beforeend','<th class="acts"></th>'); if(!acts&&has) ah.querySelector('th.acts').remove(); }
+  const actCell=n=>acts?`<td class="acts"><span>${isFreeAgent(n)?watchBtn(n):''}${signCell(n)}</span></td>`:'';
   const span=RCATS.length;
   /* The signed-in GM's own players are shaded, like his club's row in the
      standings. The commissioner login has no club, so nothing is. */
   const myT=me&&!isComm()?me:null;
   $('raterBody').innerHTML=rows.map(p=>{
     const oc=raterClub(p.n), tr=myT&&liveClub(p.n)===myT?'<tr class="mine">':'<tr>';
-    if(!p.z) return `${tr}<td class="l">&#8212;</td><td data-hs="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
-      <td class="hide2">${p.g}</td><td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>
-      <td class="unrated">&#8212;</td></tr>`;
+    if(!p.z) return `${tr}<td class="l">&#8212;</td><td class="pname" data-player="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
+      <td class="hide2">${p.g}</td>${stats&&p.s?RCATS.map(c=>rawCell(p,c,basis,'')).join('')
+        :`<td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>`}
+      <td class="unrated">&#8212;</td>${actCell(p.n)}</tr>`;
     return `${tr}<td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
       ${RCATS.map(c=>{
         /* A category the GM has switched off keeps its column — the row would
@@ -10905,6 +10987,7 @@ function drawRater(){
            carries the amber mark every other table uses. On the aggregate the
            numbers move but none of them are his, so nothing is marked. */
         const ed=mark&&hasProj(p.n)?' class="edited"':'';
+        if(stats) return rawCell(p,c,basis,ed);
         if(p.z[c]==null) return `<td class="zshot unrated">&#8212;<small${ed}>${raterRaw(p,c,basis)}</small></td>`;
         const z=`<span class="z" style="${zColor(p.z[c])}">${p.z[c]>0?'+':''}${p.z[c].toFixed(2)}</span>`;
         /* Every column carries the number the z-score was computed FROM. A
@@ -10918,14 +11001,14 @@ function drawRater(){
            attempts, because the league weights them by attempts. */
         return `<td class="zshot">${z}<small${ed}>${raterRaw(p,c,basis)}</small></td>`;
       }).join('')}
-      <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td></tr>`;
+      <td class="rating" style="${zColor(p.tot/3)}">${p.tot>0?'+':''}${p.tot.toFixed(2)}</td>${actCell(p.n)}</tr>`;
   }).join('');
   sortable('raterTbl','rater','tot',true);
 }
 redraw.rater=drawRater;
 ['rSearch','rTeam','rPos'].forEach(id=>$(id).oninput=drawRater);
 if($('rBasis')) $('rBasis').onchange=e=>setPrBasis(e.target.value);
-if($('rDyn')) $('rDyn').onchange=e=>{ RDYN.on=!!e.target.checked; drawRater(); };
+if($('pjResetR')) $('pjResetR').onclick=()=>$('pjReset').click();
 
 /* ================= TEAM CATEGORY PROFILE ================= */
 function drawProfile(){
@@ -11311,7 +11394,7 @@ function infoNotes(root){ try{
     /* The heading right above, or one inside a header row right above (the
        tape's .tapehd, a club page's .dhead). */
     const host=prev&&/^H[2-5]$/.test(prev.tagName||'')?prev
-      :prev&&prev.querySelector&&/(^| )(tapehd|dhead)( |$)/.test(prev.className||'')?prev.querySelector('h2,h3'):null;
+      :prev&&prev.querySelector&&/(^| )(tapehd|dhead|pvhead)( |$)/.test(prev.className||'')?prev.querySelector('h2,h3'):null;
     let b=host?host.querySelector('.infobtn'):(prev&&prev.classList&&prev.classList.contains('infobtn')?prev:null);
     if(!b){
       b=document.createElement('button'); b.type='button'; b.className='infobtn'; b.textContent='i';
@@ -11643,8 +11726,11 @@ function drawFires(){
    minimum); in the offseason the free agent classes the auction is fought
    over. Same sub-view, whichever answers the season's question. */
 function drawPlayersFA(){
-  if($('pfaSeason')) $('pfaSeason').hidden=!seasonLive();
+  /* In season the list above IS the free agent list (Who: Free agents, with
+     Sign/Claim). In the offseason the expiring-contract classes show under it. */
+  if($('pfaSeason')) $('pfaSeason').hidden=true;
   if($('v-fa')) $('v-fa').hidden=seasonLive();
+  drawPView();
 }
 /* My Team's phase-dependent parts: the what-if lab is there all year (it was
    offseason-only until 2026-10-25); the auction impact card only means
@@ -12537,8 +12623,10 @@ function netChip(){
   loadLab();
   if(me&&me!=='__comm__'&&!S.teams[me])me=null;
   $('rTeam').innerHTML='<option value="">All players</option>'
-    +'<option value="FA">Free agents \u2014 includes expiring deals</option>'
-    +TEAMS().map(t=>`<option>${t}</option>`).join('');
+    +'<option value="FA">Free agents</option>'
+    +(me&&!isComm()?'<option value="@mine">My team</option><option value="@watch">My watch list</option>':'')
+    +'<option value="@edited">My projections (edited)</option>'
+    +TEAMS().map(t=>`<option>${htmlEsc(t)}</option>`).join('');
   rebuildPlayerFixes();
   /* The three club boxes are independent fetches: one round trip, not three. */
   await Promise.all([loadProj(),loadStrat(),loadNotes(),loadWatch()]);
