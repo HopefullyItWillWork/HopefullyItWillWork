@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.5">
+<meta name="ll-build" content="2026-11-16.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -535,6 +535,8 @@ border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-
 .subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;padding:0;max-width:none;overflow:visible}
 .subnav button{background:none;border:1px solid var(--line);border-radius:var(--r);color:var(--steel);font:600 var(--t3) var(--body);
   padding:8px 14px;cursor:pointer;min-height:38px}
+.subnav .subgap{flex:1 1 auto}
+#v-chat .chatlog{max-height:62vh;overflow-y:auto;overscroll-behavior:contain}
 .subnav button[aria-pressed=true]{background:var(--panel2);color:var(--chalk);border-color:var(--amber)}
 .perbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
 .perbar .toggle{flex-wrap:wrap}
@@ -1263,15 +1265,13 @@ tfoot td:first-child{font-size:var(--t1)}
   <nav role="tablist" id="tabs">
     <button role="tab" data-v="v-home" aria-selected="true">Home</button>
     <button role="tab" data-v="v-me" aria-selected="false" id="meTab" hidden>My Team</button>
-    <button role="tab" data-v="v-league" aria-selected="false">League</button>
+    <button role="tab" data-v="v-league" aria-selected="false">League<span class="badge" id="chatBadge"></span></button>
     <button role="tab" data-v="v-players" aria-selected="false">Players</button>
     <button role="tab" data-v="v-trade" aria-selected="false">Trades <span class="badge" id="tCount"></span></button>
     <button role="tab" data-v="v-auction" aria-selected="false">Auction <span id="aLive"></span></button>
     <button role="tab" data-v="v-rookie" aria-selected="false">Rookie draft</button>
-    <button role="tab" data-v="v-chat" aria-selected="false">Chat<span class="badge" id="chatBadge"></span></button>
     <!-- Every page in the one bar (2026-10-14): the Menu dropdown is gone. -->
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
-    <button role="tab" data-v="v-rules" aria-selected="false">Cap rules</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
   </nav>
 </header>
@@ -1334,9 +1334,12 @@ tfoot td:first-child{font-size:var(--t1)}
     <nav class="subnav" aria-label="League sections">
       <button type="button" data-sub="lg-stand" aria-pressed="true">Standings</button>
       <button type="button" data-sub="v-contracts" aria-pressed="false">Clubs</button>
-      <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
       <button type="button" data-sub="v-log" aria-pressed="false">Transactions</button>
       <button type="button" data-sub="lg-waivers" aria-pressed="false">Waivers</button>
+      <button type="button" data-sub="v-chat" aria-pressed="false">Chat<span class="badge" id="chatBadge2"></span></button>
+      <span class="subgap" aria-hidden="true"></span>
+      <button type="button" data-sub="v-history" aria-pressed="false">Historical Data</button>
+      <button type="button" data-sub="v-rules" aria-pressed="false">Cap rules</button>
     </nav>
   <!-- League › Waivers (2026-10-16): who is on the wire and until when, this
        week's claim order, your own claims, and what the recent runs did.
@@ -1403,6 +1406,50 @@ tfoot td:first-child{font-size:var(--t1)}
       <span class="fcount" id="logWipeNote"></span>
     </div>
     <div class="log" id="logList"></div>
+  </div>
+  <!-- Chat and Cap rules moved here from their own top tabs (2026-11-16). -->
+  <div class="subview" id="v-chat" data-subview hidden>
+    <h2>League chat</h2>
+    <p class="note explain">Anyone signed in can post, and every club sees it. This is the same
+      honour-system bar as the rest of the app &#8212; posts are stored in the league database with
+      no authentication in front of them, so write nothing here you would mind the whole league,
+      or anyone with the link, reading. You can delete your own posts; the commissioner can delete
+      any.</p>
+    <div class="warn" id="chatLocal" hidden><b>No league database reachable.</b>
+      Anything you post here stays in this browser and nobody else will see it.</div>
+    <div class="filters">
+      <span class="fcount" id="chatWho"></span>
+      <span class="fcount" id="chatCount"></span>
+      <button class="btn ghost" id="chatRefresh">Refresh</button>
+    </div>
+    <div class="chatre" id="chatRe" hidden></div>
+    <div class="chatbox">
+      <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
+      <button class="btn" id="chatGo">Post</button>
+    </div>
+    <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
+    <div class="chatlog" id="chatLog"></div>
+
+  </div>
+  <div class="subview" id="v-rules" data-subview hidden>
+    <h2>Cap rules</h2>
+    <div class="rules">
+      <div class="rule"><h5>Salary cap</h5><p>The cap is soft. You can exceed it only through Bird rights, Early Bird, the mid-level exception, or minimum contracts.</p></div>
+      <div class="rule"><h5>Luxury tax</h5><p>The tax line is a hard cap. No team's salary may exceed it at any point, for any reason. No exception beats it.</p></div>
+      <div class="rule"><h5>Bird rights</h5><p>Three seasons with one club without clearing waivers or changing teams as a free agent. Lets the club exceed the cap to re-sign its own player, up to four years with raises to <b>7.5%</b>. Rights travel in a trade.</p></div>
+      <div class="rule"><h5>Early Bird</h5><p>Signed mid-season before the deadline and finished the year on the roster. Lets the club go up to <b>$7.00</b> over the cap to re-sign him.</p></div>
+      <div class="rule"><h5>Restricted free agents</h5><p>Only players who finished the last year of a team, player, or rookie option. The old club sits out the bidding, then chooses whether to match. All cap rules apply to the match.</p></div>
+      <div class="rule"><h5>Mid-level exception</h5><p>Once a year. Over the cap <b>$5.50</b> up to 4 years; under the cap <b>$3.25</b> up to 2 years. May be split between players.</p></div>
+      <div class="rule"><h5>Minimum contracts</h5><p><b>$1.00</b> for up to 2 years. Signable over the cap, with no limit on how many, as long as the hard cap holds.</p></div>
+      <div class="rule"><h5>Escalation</h5><p>$0.75&#8211;$3.75 does not escalate. From $4.00 up, raises are <b>4.5%</b> normally or <b>7.5%</b> with Bird rights. Raises never compound and always round up to the next $0.25.</p></div>
+      <div class="rule"><h5>Cutting a player</h5><p>Release anyone at any time. Cut <b>in season</b> and the salary stays on the cap until that season ends, then clears. Cut <b>in the offseason</b> and the money comes off immediately and every remaining year is voided.</p>
+      <p>On a deal of <b>two years or more</b>, the club that released him cannot re-sign him during the first offseason after the release. He may be signed <b>during the following season to a one-year minimum contract</b>; a multi-year deal has to wait for the next offseason. Other clubs face no restriction.</p></div>
+      <div class="rule"><h5>Trades</h5><p>Over the cap, incoming salary is capped at <b>150%</b> of outgoing up to $9.75, outgoing plus <b>$5.00</b> from $10.00&#8211;$19.50, and <b>125%</b> at $19.75 and up. Offseason mismatches create a trade exception that expires after the next deadline.</p></div>
+      <div class="rule"><h5>Rookie draft</h5><p>Three years with a rookie option on the last. First pick is <b>3.57%</b> of the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the auction and don't eat auction cap space, though the hard cap still binds &#8212; a club with no room passes. One pick per club, in reverse order of finish. Anyone undrafted becomes an ordinary free agent and turns up in the auction.</p></div>
+      <div class="rule"><h5>Draft picks in trades</h5><p>A club may trade this year's pick or one from a later draft. A future pick can carry a protection &#8212; "top <b>N</b> protected" keeps it at home if it lands in the first N slots &#8212; and the obligation can be set to roll to the next draft instead of lapsing. Picks move $0 and take up no roster spot.</p></div>
+      <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p>
+      <p>Every free agent is on waivers until the first week of the season is over; after that a player released in season is on waivers for <b>one day</b>. Claims are processed every morning. The order resets each Monday to the reverse of this site's standings as they stood that morning (ties to the club with fewer points); until a night has been scored it follows the auction nomination order, and a club that wins a claim drops to the back until the next reset. A club with a full roster names a player to drop with its claim. Anyone nobody claims becomes an ordinary free agent.</p></div>
+    </div>
   </div>
   </section>
 
@@ -1548,29 +1595,7 @@ tfoot td:first-child{font-size:var(--t1)}
     <div id="rookiePool"></div>
   </section>
 
-  <section class="view" id="v-chat" role="tabpanel" hidden>
-    <h2>League chat</h2>
-    <p class="note explain">Anyone signed in can post, and every club sees it. This is the same
-      honour-system bar as the rest of the app &#8212; posts are stored in the league database with
-      no authentication in front of them, so write nothing here you would mind the whole league,
-      or anyone with the link, reading. You can delete your own posts; the commissioner can delete
-      any.</p>
-    <div class="warn" id="chatLocal" hidden><b>No league database reachable.</b>
-      Anything you post here stays in this browser and nobody else will see it.</div>
-    <div class="filters">
-      <span class="fcount" id="chatWho"></span>
-      <span class="fcount" id="chatCount"></span>
-      <button class="btn ghost" id="chatRefresh">Refresh</button>
-    </div>
-    <div class="chatre" id="chatRe" hidden></div>
-    <div class="chatbox">
-      <textarea id="chatIn" rows="2" maxlength="600" placeholder="Say something"></textarea>
-      <button class="btn" id="chatGo">Post</button>
-    </div>
-    <p class="note explain">Enter posts, shift+Enter starts a new line. 600 characters.</p>
-    <div class="chatlog" id="chatLog"></div>
 
-  </section>
 
   <section class="view" id="v-settings" role="tabpanel" hidden>
     <h2>Settings <span class="fcount" id="setWho"></span></h2>
@@ -1842,26 +1867,7 @@ tfoot td:first-child{font-size:var(--t1)}
     <div class="log" id="offers"></div>
   </section>
 
-  <section class="view" id="v-rules" role="tabpanel" hidden>
-    <h2>Cap rules</h2>
-    <div class="rules">
-      <div class="rule"><h5>Salary cap</h5><p>The cap is soft. You can exceed it only through Bird rights, Early Bird, the mid-level exception, or minimum contracts.</p></div>
-      <div class="rule"><h5>Luxury tax</h5><p>The tax line is a hard cap. No team's salary may exceed it at any point, for any reason. No exception beats it.</p></div>
-      <div class="rule"><h5>Bird rights</h5><p>Three seasons with one club without clearing waivers or changing teams as a free agent. Lets the club exceed the cap to re-sign its own player, up to four years with raises to <b>7.5%</b>. Rights travel in a trade.</p></div>
-      <div class="rule"><h5>Early Bird</h5><p>Signed mid-season before the deadline and finished the year on the roster. Lets the club go up to <b>$7.00</b> over the cap to re-sign him.</p></div>
-      <div class="rule"><h5>Restricted free agents</h5><p>Only players who finished the last year of a team, player, or rookie option. The old club sits out the bidding, then chooses whether to match. All cap rules apply to the match.</p></div>
-      <div class="rule"><h5>Mid-level exception</h5><p>Once a year. Over the cap <b>$5.50</b> up to 4 years; under the cap <b>$3.25</b> up to 2 years. May be split between players.</p></div>
-      <div class="rule"><h5>Minimum contracts</h5><p><b>$1.00</b> for up to 2 years. Signable over the cap, with no limit on how many, as long as the hard cap holds.</p></div>
-      <div class="rule"><h5>Escalation</h5><p>$0.75&#8211;$3.75 does not escalate. From $4.00 up, raises are <b>4.5%</b> normally or <b>7.5%</b> with Bird rights. Raises never compound and always round up to the next $0.25.</p></div>
-      <div class="rule"><h5>Cutting a player</h5><p>Release anyone at any time. Cut <b>in season</b> and the salary stays on the cap until that season ends, then clears. Cut <b>in the offseason</b> and the money comes off immediately and every remaining year is voided.</p>
-      <p>On a deal of <b>two years or more</b>, the club that released him cannot re-sign him during the first offseason after the release. He may be signed <b>during the following season to a one-year minimum contract</b>; a multi-year deal has to wait for the next offseason. Other clubs face no restriction.</p></div>
-      <div class="rule"><h5>Trades</h5><p>Over the cap, incoming salary is capped at <b>150%</b> of outgoing up to $9.75, outgoing plus <b>$5.00</b> from $10.00&#8211;$19.50, and <b>125%</b> at $19.75 and up. Offseason mismatches create a trade exception that expires after the next deadline.</p></div>
-      <div class="rule"><h5>Rookie draft</h5><p>Three years with a rookie option on the last. First pick is <b>3.57%</b> of the cap rounded up to $0.25, each later pick $0.25 less. Rookies sign after the auction and don't eat auction cap space, though the hard cap still binds &#8212; a club with no room passes. One pick per club, in reverse order of finish. Anyone undrafted becomes an ordinary free agent and turns up in the auction.</p></div>
-      <div class="rule"><h5>Draft picks in trades</h5><p>A club may trade this year's pick or one from a later draft. A future pick can carry a protection &#8212; "top <b>N</b> protected" keeps it at home if it lands in the first N slots &#8212; and the obligation can be set to roll to the next draft instead of lapsing. Picks move $0 and take up no roster spot.</p></div>
-      <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p>
-      <p>Every free agent is on waivers until the first week of the season is over; after that a player released in season is on waivers for <b>one day</b>. Claims are processed every morning. The order resets each Monday to the reverse of this site's standings as they stood that morning (ties to the club with fewer points); until a night has been scored it follows the auction nomination order, and a club that wins a claim drops to the back until the next reset. A club with a full roster names a player to drop with its claim. Anyone nobody claims becomes an ordinary free agent.</p></div>
-    </div>
-  </section>
+
 
   <section class="view" id="v-admin" role="tabpanel" hidden>
     <h2>Commissioner tools</h2>
@@ -4738,7 +4744,10 @@ async function saveGmName(team,first,last){
 function drawSettings(){
   const box=$('setTab');
   const mine = me && !isComm() && S.teams[me] ? me : null;
-  if(box) box.hidden=!mine;
+  /* The Settings button in the header (the club's name on a phone) is the way
+     in, so the tab stays out of the bar (2026-11-16). The button is kept, hidden,
+     because goTab() finds a page by its tab. */
+  if(box) box.hidden=true;
   if(!mine){
     if($('v-settings')&&!$('v-settings').hidden) goTab('v-home');
     return;
@@ -7360,6 +7369,10 @@ function showSub(id){
   grp.querySelectorAll('[data-subview]').forEach(v=>{ v.hidden = v.id!==id; });
   grp.querySelectorAll('[data-sub]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.sub===id)));
   if(id==='v-proj'&&typeof refreshProj==='function') refreshProj();
+  if(id==='v-chat'&&typeof loadChat==='function'){
+    loadChat(true).then(()=>drawChat());
+    if(typeof refreshNotes==='function') refreshNotes();
+  }
   catchUp();
   return true;
 }
@@ -9034,7 +9047,7 @@ function drawBadges(){
   const pend=(S.trades||[]).filter(t=>t.status==='pending'&&(isComm()||(me&&t.b===me))).length;
   if($('tCount')) $('tCount').textContent=pend?String(pend):'';
   const c=CHATNEW>0?String(Math.min(CHATNEW,99)):'';
-  if($('chatBadge')) $('chatBadge').textContent=c;
+  ['chatBadge','chatBadge2'].forEach(id=>{ if($(id)) $(id).textContent=c; });
   if($('moreBadge')) $('moreBadge').textContent=c;
 }
 function chatPeekQuery(){
@@ -10361,7 +10374,7 @@ function drawLineup(){
 const CHATMAX=600, CHATSHOW=200;
 let CHAT=[], CHATREV=0, CHATLOADED=false, CHATBUSY=false;
 const chatId=m=>String(m.ts)+'|'+String(m.by);
-const chatOn=()=>$('v-chat')&&!$('v-chat').hidden;
+const chatOn=()=>{ const c=$('v-chat'), g=c&&c.closest('.view'); return !!(c&&!c.hidden&&g&&!g.hidden); };
 async function loadChat(force){
   if(!await probeAPI()){ CHATLOADED=true; return false; }
   if(CHATBUSY&&!force) return false;
