@@ -191,7 +191,9 @@ link still shows the live image.
 function, `drawStandBox()`, keyed by `STANDBOX`. Three views (`STANDMODE`,
 remembered in `ll_standmode`): **Totals**, **Last night** (the latest scored
 night alone, through `standingsFor()`) and **Roto points** (each category's
-points instead of its total). The roto total is `td.rotot`, sticky to the
+points instead of its total). The period select is **Season to date / Last 7 / 15 / 30
+days** (`STANDPER`, `ll_standper`, shared by all three tables; it replaced
+"Week of" on 2026-11-16): calendar days back from the latest scored night. The roto total is `td.rotot`, sticky to the
 right edge like an action column.
 
 **Lineup and results are one box.** A date bar (`drawLuNav()`, `LUVIEW`) sits

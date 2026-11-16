@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.6">
+<meta name="ll-build" content="2026-11-16.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -12270,6 +12270,7 @@ function standingsFor(days){
      roto   each category's roto points instead of the totals
    The roto total is pinned to the right edge (td.rotot) so it never scrolls
    away on a phone. */
+var STANDPER=(()=>{ try{ const v=localStorage.getItem('ll_standper')||''; return ['7','15','30'].includes(v)?v:''; }catch(e){ return ''; } })();
 var STANDMODE=(()=>{ try{ return localStorage.getItem('ll_standmode')||'tot'; }catch(e){ return 'tot'; } })();
 const STANDBOX={
   home:{box:'realStand',per:'standPer',note:'realStandNote',mode:'standMode',tbl:'standTbl',sort:'stand'},
@@ -12288,28 +12289,29 @@ function drawStandBox(B){
       STANDMODE=b.dataset.sm; try{ localStorage.setItem('ll_standmode',STANDMODE); }catch(e){}
       drawStandings(); });
   }
-  /* Period: the season, or any Monday–Sunday week that has a scored night. */
-  const per=$(B.per), weeks=[...new Set(scored.map(d=>weekOf(d).from))].reverse();
-  const sig=weeks.join();
-  if(per&&per.dataset.sig!==sig){
-    const keep=per.value;
-    per.innerHTML=`<option value="">Season to date</option>`
-      +weeks.map(w=>`<option value="${w}">Week of ${htmlEsc(shortDay(w))}</option>`).join('');
-    per.value=weeks.includes(keep)?keep:'';
-    per.dataset.sig=sig; per.onchange=drawStandings;
+  /* Period: the season, or the last 7, 15 or 30 days (2026-11-16, replacing
+     "Week of"): calendar days back from the latest scored night, the same
+     windows the stats bar uses. One choice for all three tables, per browser. */
+  const per=$(B.per), PER=[['','Season to date'],['7','Last 7 days'],['15','Last 15 days'],['30','Last 30 days']];
+  if(per&&per.dataset.sig!=='w'){
+    per.innerHTML=PER.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+    per.dataset.sig='w';
+    per.onchange=()=>{ STANDPER=per.value; try{ localStorage.setItem('ll_standper',STANDPER); }catch(e){} drawStandings(); };
   }
-  if(per) per.hidden=!weeks.length||mode==='night';
-  const wk=mode!=='night'&&per&&per.value?weekOf(per.value):null;
+  if(per&&per.value!==STANDPER) per.value=STANDPER;
+  if(per) per.hidden=!scored.length||mode==='night';
+  const win=mode!=='night'&&STANDPER&&last?{n:+STANDPER,from:wvPlus(last,1-STANDPER),to:last}:null;
   const rows=mode==='night'?(last?standingsFor({[last]:SCORE.days[last]}):[])
-    :wk?standingsFor(Object.fromEntries(scored.filter(d=>d>=wk.from&&d<=wk.to).map(d=>[d,SCORE.days[d]])))
+    :win?standingsFor(Object.fromEntries(scored.filter(d=>d>=win.from&&d<=win.to).map(d=>[d,SCORE.days[d]])))
     :(SCORE.standings||[]);
+  const wk=win;   // a window is drawn like the old week: games without the cap
   const played=rows.some(r=>r.tot.GP>0);
   const dto=daysToOpener();
   if($(B.note)) $(B.note).innerHTML=!scored.length
     ? (dto?`<span class="countdown">${dto}</span> day${dto===1?'':'s'} to opening night`
          :'The table fills in the morning after opening night')
     : mode==='night' ? htmlEsc(shortDay(last))
-    : wk ? `Week of ${htmlEsc(shortDay(wk.from))}`
+    : wk ? `Last ${wk.n} days \u00b7 ${htmlEsc(shortDay(wk.from))} \u2013 ${htmlEsc(shortDay(wk.to))}`
     : `Through ${htmlEsc(shortDay(last))}`;
   if(!played){ box.innerHTML=''; return; }
   const roto=mode==='roto';
