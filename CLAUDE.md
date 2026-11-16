@@ -257,8 +257,10 @@ parallel rather than one after another.
   `44px minmax(300px,1fr) 118px 34px repeat(10,…) var(--luacts)`, capped at
   1440px, scrolling below 1240px; the actions pin right only above 640px.
 - **PR basis, `PRBASIS`** (`ll_prbasis`, per browser): the Stats bar's
-  **Averages / Totals** and the rater tab's select are the same switch
-  (`setPrBasis()`; `raterBasis()` reads it). Averages is the old per-game rating
+  **PR on: Per game / Totals** (called Averages / Totals until 2026-11-16, which
+  GMs found unclear) is the one switch (`setPrBasis()`; `raterBasis()` reads it);
+  `prHint()` writes the sentence under the bar saying what the current choice
+  measures. The rater's old `#rBasis` select is hidden, kept only in sync. Averages is the old per-game rating
   with the period's games floor. Totals rates per game × games, so missed games
   count against a player, and passes `raterScore(…,{all:true})`: everyone with a
   game is scored against the field the floor defines (`R.also`, no rank) instead

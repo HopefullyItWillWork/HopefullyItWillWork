@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.3">
+<meta name="ll-build" content="2026-11-16.4">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -998,6 +998,9 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lubtns{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .whoclub{display:none}
 .perbar .persel{display:none;width:auto}
+.prgrp{display:inline-flex;align-items:center;gap:8px}
+.prhint{flex-basis:100%;font-size:var(--t2);color:var(--steel);margin-top:-4px}
+.prhint b{color:var(--chalk);font-weight:600}
 .lunav .lnday{font:700 var(--t4) var(--body);min-width:170px;text-align:center}
 .lunav input[type=date]{width:auto}
 #lnWrap.combined>h2,#lnWrap.combined>#lnCtl{display:none}
@@ -1693,8 +1696,8 @@ tfoot td:first-child{font-size:var(--t1)}
       <input id="rSearch" placeholder="Search players" autocomplete="off">
       <select id="rTeam"><option value="">All players</option><option value="FA">Free agents &#8212; includes expiring deals</option></select>
       <select id="rPos"><option value="">All positions</option><option>G</option><option>F</option><option>C</option></select>
-      <select id="rBasis" title="Score per-game averages or season totals">
-        <option value="pg">Averages</option><option value="tot">Totals</option></select>
+      <select id="rBasis" hidden aria-hidden="true" tabindex="-1">
+        <option value="pg">Per game</option><option value="tot">Totals</option></select>
       <label class="dyntog" id="rDynTog"><input type="checkbox" id="rDyn"><span>Dynamic rater</span></label>
       <span class="fcount" id="rCount"></span>
       <button class="btn ghost" id="expRater">Export CSV</button>
@@ -7147,6 +7150,17 @@ async function setProjMode(mode){
    Team, a club on League, the Players rater). It replaced the "Stats shown"
    strip across the header. The live periods are offered once the morning job
    has a window; "Mine" only to a signed-in GM, whose projections they are. */
+/* The one sentence under the stats bar saying what PR is measuring. "Averages /
+   Totals" alone was unclear (2026-11-16): it is a choice between how good a man
+   is when he plays and what he actually produced, and the second is the one the
+   920-game cap and the standings care about. */
+function prHint(period){
+  const span={d7:'the last 7 days',d15:'the last 15 days',d30:'the last 30 days',szn:'the season so far',
+    act:'2025\u201326',agg:'the projection',mine:'your projection'}[period]||'the period';
+  return PRBASIS==='tot'
+    ? `<b>Totals:</b> PR rates what each player produced over ${span}, so games he missed count against him.`
+    : `<b>Per game:</b> PR rates each player\u2019s average per game over ${span} \u2014 how good he is when he plays.`;
+}
 function drawPerBars(){
   const cur=useProj?PROJSRC:'act';
   const live=LIVE.d15||LIVE.szn||LIVE.d7||LIVE.d30;
@@ -7161,9 +7175,10 @@ function drawPerBars(){
     opts.map(([v,l])=>`<button type="button" data-pm="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>
     <select class="persel" data-pmsel="1" aria-label="Stats period">${
     opts.map(([v,l])=>`<option value="${v}"${cur===v?' selected':''}>${l}</option>`).join('')}</select>
-    <div class="toggle" role="group" aria-label="Rate players on" title="Averages: PR from each player's per-game line. Totals: PR from what he produced over the period, so missed games count against him.">${
-      [['pg','Averages'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div>
-    <span class="pjlab">${note}</span></div>`;
+    <span class="prgrp"><span class="pjlab">PR on</span><div class="toggle" role="group" aria-label="Rate players on">${
+      [['pg','Per game'],['tot','Totals']].map(([v,l])=>`<button type="button" data-prb="${v}" aria-pressed="${PRBASIS===v}">${l}</button>`).join('')}</div></span>
+    <span class="pjlab">${note}</span>
+    <span class="prhint">${prHint(cur)}</span></div>`;
   document.querySelectorAll('[data-perbar]').forEach(el=>{ if(el.innerHTML!==html) el.innerHTML=html; });
   void live;
 }
