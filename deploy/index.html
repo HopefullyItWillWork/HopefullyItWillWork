@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.6">
+<meta name="ll-build" content="2026-11-17.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -338,6 +338,9 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
 .luslot.k-B{border-style:dashed}
 .luslot.k-I{border-color:var(--wnln);color:var(--tax)}
 .lurow.bench{background:var(--panel2)}
+.cmtbl input{width:100%;min-width:180px}
+.cmtbl td{vertical-align:top}
+.cmtbl .t{font-size:var(--t1);margin-top:4px}
 /* Tonight's total under the starters (2026-11-16). */
 .lurow.lutotal{border-top:2px solid var(--line);font-weight:700}
 .lurow.lutotal .luv{color:var(--chalk);font-weight:700}
@@ -1992,6 +1995,15 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div></div>
       <button class="btn danger" id="rcGo">Remove this club</button>
     </div>
+
+    <h2 class="sub">Clubs and managers</h2>
+    <p class="note explain">Every club has two names: the <b>team name</b>, which is the club's name everywhere in
+      the app and can change, and the <b>manager</b>, the person who runs it, which stays with the club through
+      every rename. A club still called by its manager's name (D. Fink, Osborn) should be renamed to its team
+      name, and its manager recorded. Last season's team name and the league's managers are offered to pick
+      from; check them against ESPN.</p>
+    <div id="cmWarn"></div>
+    <div id="cmBox"></div>
 
     <h2 class="sub">GM access</h2>
     <p class="note explain">Set or reset each GM's PIN, and hold the address the league emails. A club with no
@@ -4311,6 +4323,7 @@ function drawAllPlayers(){
 }
 function drawAdmin(){
   if(!hasComm())return;
+  drawClubsManagers();
   drawAllPlayers();
   drawDraftAdmin();
   if($('pinWarn')) $('pinWarn').hidden = S.cfg.commPin!=='0000';
@@ -4774,6 +4787,81 @@ function gmNameError(first,last){
   if(!/[A-Za-z\u00C0-\u024F]/.test(f)||!/[A-Za-z\u00C0-\u024F]/.test(l))
     return 'That does not look like a name.';
   return null;
+}
+/* ---- Clubs and managers (2026-11-16) ----
+   The team name is the club's key and changes; the manager (S.teams[t].gm) is
+   the person and stays. Four clubs still carried their manager's surname as the
+   team name and had no manager on file, and one manager was recorded as the
+   team name, so "D. Fink" read as a person on one screen and a team on the next.
+   The managers the league has had, newest season first, come from HIST. */
+function knownManagers(){
+  const seen=new Map();
+  Object.keys(HIST).sort().reverse().forEach(y=>(HIST[y]||[]).forEach(r=>{
+    if(r.gm&&!seen.has(r.gm)) seen.set(r.gm,{gm:r.gm,team:r.team,season:y}); }));
+  return [...seen.values()];
+}
+/* A club whose name is its manager's ("D. Fink", "Osborn"): the manager it
+   names, from the league's history, or null. */
+function managerNamed(team){
+  const t=String(team||'').trim(), m=/^([A-Z])\.\s*(\S.*)$/.exec(t);
+  return knownManagers().find(k=>{ const [f,...r]=k.gm.split(' '), l=r.join(' ');
+    return m ? (f[0]===m[1]&&l.toLowerCase()===m[2].toLowerCase()) : l.toLowerCase()===t.toLowerCase(); })||null;
+}
+/* A manager record that is not a person: the team name typed into it. */
+const gmLooksWrong=t=>{ const n=gmName(t).toLowerCase().replace(/[^a-z]/g,''), c=String(t).toLowerCase().replace(/[^a-z]/g,'');
+  return !!n&&(n===c||c.startsWith(n)||n.startsWith(c)); };
+function drawClubsManagers(){
+  const box=$('cmBox'); if(!box) return;
+  const km=knownManagers();
+  const named=TEAMS().filter(t=>managerNamed(t)), none=TEAMS().filter(t=>!gmOf(t)), wrong=TEAMS().filter(gmLooksWrong);
+  const lst=a=>a.map(htmlEsc).join(', ').replace(/\.$/,'')+'.';   // a name ending in "." gets one, not two
+  if($('cmWarn')) $('cmWarn').innerHTML=named.length||none.length||wrong.length?`<div class="warn">${[
+    named.length?`<b>${named.length} club${named.length===1?' is':'s are'} named after ${named.length===1?'its':'their'} manager:</b> ${lst(named)}`:'',
+    none.length?`<b>${none.length} ${none.length===1?'has':'have'} no manager on file:</b> ${lst(none)}`:'',
+    wrong.length?`<b>${wrong.length===1?'One manager is':wrong.length+' managers are'} recorded as the team name:</b> ${lst(wrong)}`:''
+  ].filter(Boolean).join(' ')}</div>`:'<div class="okbox">Every club has a team name and a manager on file.</div>';
+  const sig=JSON.stringify(TEAMS().map(t=>[t,gmName(t)]));
+  if(box.dataset.sig===sig) return;      // the poll must not wipe a half-typed row
+  box.dataset.sig=sig;
+  box.innerHTML=`<datalist id="cmMgrs">${km.map(k=>`<option value="${htmlEsc(k.gm)}">`).join('')}</datalist>
+    <div class="scroller"><table class="cmtbl"><thead><tr><th class="l">Team name</th><th class="l">Manager</th><th class="l"></th></tr></thead><tbody>${
+    TEAMS().map((t,i)=>{
+      const mn=managerNamed(t), g=gmOf(t), bad=gmLooksWrong(t);
+      const sugTeam=mn&&mn.team!==t?mn.team:'';
+      const mgr=bad?'':gmName(t)||(mn?mn.gm:'');
+      return `<tr><td class="l"><input data-cmteam="${i}" value="${htmlEsc(t)}" aria-label="Team name for ${htmlEsc(t)}">${
+          sugTeam?`<div class="t"><button type="button" class="linkbtn" data-cmuse="${i}" data-v="${htmlEsc(sugTeam)}">Use ${htmlEsc(mn.season)}: ${htmlEsc(sugTeam)}</button></div>`:''}</td>
+        <td class="l"><input list="cmMgrs" data-cmgm="${i}" value="${htmlEsc(mgr)}" placeholder="First and last name" aria-label="Manager of ${htmlEsc(t)}">${
+          !g?'<div class="t bad">none on file</div>':bad?`<div class="t bad">on file: \u201c${htmlEsc(gmName(t))}\u201d, the team name</div>`:''}</td>
+        <td class="l"><button class="btn ghost" data-cmsave="${i}">Save</button></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  box.querySelectorAll('[data-cmuse]').forEach(b=>b.onclick=()=>{ const inp=box.querySelector(`[data-cmteam="${b.dataset.cmuse}"]`); if(inp) inp.value=b.dataset.v; });
+  box.querySelectorAll('[data-cmsave]').forEach(b=>b.onclick=()=>{ const i=b.dataset.cmsave, t=TEAMS()[+i];
+    saveClubManager(t,box.querySelector(`[data-cmteam="${i}"]`).value,box.querySelector(`[data-cmgm="${i}"]`).value); });
+}
+/* One row: the team name (a rename, if it changed) and the manager (set or
+   corrected), in one confirm and one write. Commissioner tools only. */
+async function saveClubManager(team,newName,mgr){
+  if(!hasComm()||!S.teams[team]) return;
+  const to=nameClean(newName), parts=nameClean(mgr).split(' '), first=parts.shift()||'', last=parts.join(' ');
+  const rename=to&&to!==team, setGm=nameClean(mgr)&&nameClean(mgr)!==gmName(team);
+  if(!rename&&!setGm) return projToast('Nothing changed');
+  if(rename){ const bad=clubNameError(to,team); if(bad) return alert(bad); }
+  if(setGm){ const bad=gmNameError(first,last); if(bad) return alert(bad+' Write the manager as first and last name.'); }
+  if(!confirm([rename?`Rename ${team} to ${to}. Its roster, picks, offers and place in every order come with it; the transaction log keeps the old name.`:'',
+    setGm?`Record ${first} ${last} as the manager of ${rename?to:team}${gmName(team)?` (was ${gmName(team)})`:''}.`:''].filter(Boolean).join('\n\n')+'\n\nSave?')) return;
+  let t=team;
+  if(rename){
+    if(!renameClub(team,to)) return alert('Could not rename the club.');
+    moveClubLocals(team,to);
+    if(me===team){ me=to; try{ localStorage.setItem('ll_me',to); }catch(e){} }
+    if(activeTeam===team) activeTeam=to;
+    t=to;
+  }
+  if(setGm){ const was=gmOf(t); S.teams[t].gm={first,last,at:was&&was.at?was.at:now()}; }
+  await commit({kind:'edit',team:t,detail:[rename?`${team} renamed to ${to}`:'',setGm?`manager recorded as ${first} ${last}`:''].filter(Boolean).join('; ')},
+    rename?['rosters','settings','trades','auction']:['rosters']);
+  projToast('Saved');
 }
 async function saveGmName(team,first,last){
   if(!team||!S.teams[team]) return;

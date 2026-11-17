@@ -393,6 +393,19 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
   writes `live-drift` (`driftOf()`: official minus live, per club). Commissioner ›
   Stats and scoring shows both in a **Live stats** cell, with **Live update now**.
 
+### Team name and manager, kept apart (2026-11-16)
+
+The team name is the club's key (`S.teams` key, renameable); the manager is
+`S.teams[t].gm` (the person, kept through renames). Four clubs still carried their
+manager's surname as the team name (Coulter, D. Fink, N. Fink, Osborn) with no
+manager on file, one had none, and one manager record held the team name.
+**Commissioner › Clubs and managers** (`drawClubsManagers()`, `saveClubManager()`)
+edits both in one row: a rename through `renameClub()` and the manager set or
+corrected, in one confirm and one write. `knownManagers()` reads HIST (newest
+season first) for the manager list and last season's team name; `managerNamed()`
+spots a club named after its manager; `gmLooksWrong()` a manager record that is
+the team name. A warning above the table counts all three.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
