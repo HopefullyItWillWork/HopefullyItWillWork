@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.12">
+<meta name="ll-build" content="2026-11-17.13">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1067,8 +1067,8 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .pennant b{font:700 11px/1.1 var(--mono)}
 .pennant small{font:700 8px/1.4 var(--body);letter-spacing:.06em;text-transform:uppercase}
 .tapeall{margin-top:4px;color:var(--dim)}
-.konhint{display:none}
-[data-theme="jam"] .konhint{display:block;margin:28px 0 4px;text-align:center;font:400 10px/1.6 var(--pixel);color:var(--dim);letter-spacing:.08em}
+.konhint{margin:36px 0 4px;text-align:center;font:400 var(--t1)/1.6 var(--body);color:var(--dim);letter-spacing:.08em;opacity:.7}
+[data-theme="jam"] .konhint{font:400 10px/1.6 var(--pixel)}
 .mefact.maxed{border-color:#C9973A;box-shadow:inset 0 0 0 1px #C9973A}
 .mefact.maxed b{color:#C9973A}
 .maxtag{color:#C9973A;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:var(--t1)}
@@ -1497,8 +1497,6 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
         <th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th><th data-k="PTS">PTS</th>
         <th data-k="top10">Top 10 rating</th></tr></thead>
       <tbody id="profBody"></tbody></table></div>
-    <!-- An easter-egg hint (2026-11-16): only in the Jam theme, at the very bottom of the history. -->
-    <p class="konhint">Player 2, press start: &#8593; &#8593; &#8595; &#8595; &#8592; &#8594; &#8592; &#8594; B A</p>
   </div>
 
   <div class="subview" id="v-log" data-subview hidden>
@@ -1556,6 +1554,8 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div class="rule"><h5>Waivers</h5><p>Claim order runs worst record to best, reset weekly. A claimed player finishes the season on a minimum contract, then becomes a free agent.</p>
       <p>Every free agent is on waivers until the first week of the season is over; after that a player released in season is on waivers for <b>one day</b>. Claims are processed every morning. The order resets each Monday to the reverse of this site's standings as they stood that morning (ties to the club with fewer points); until a night has been scored it follows the auction nomination order, and a club that wins a claim drops to the back until the next reset. A club with a full roster names a player to drop with its claim. Anyone nobody claims becomes an ordinary free agent.</p></div>
     </div>
+    <!-- An easter-egg hint (2026-11-16): a reward for reading the rules to the end. -->
+    <p class="konhint">Player 2, press start: &#8593; &#8593; &#8595; &#8595; &#8592; &#8594; &#8592; &#8594; B A</p>
   </div>
   </section>
 
