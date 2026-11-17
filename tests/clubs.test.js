@@ -3,14 +3,17 @@
 import { stampIds, clubCtx, keyOf, daysByName, byClubName } from '../deploy/netlify/functions/lib/clubs.mjs';
 import { scoreNight } from '../deploy/netlify/functions/lib/score.mjs';
 import { migrateIds, ensureIds } from '../deploy/netlify/functions/lib/clubids.mjs';
-import { recordLineup, carryLineups } from '../deploy/netlify/functions/lib/lineups.mjs';
+import { recordLineup, carryLineups, getListed } from '../deploy/netlify/functions/lib/lineups.mjs';
 
 let fails = 0, ran = 0;
 const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+name);
   else { fails++; console.log('  FAIL  '+name+(extra?'  -> '+extra:'')); } };
 
+/* Like @netlify/blobs: the key goes into a URL as it is, so the server
+   percent-decodes it and a "?" or "#" ends it (see lineups.mjs clubSeg). */
+const urlKey = (k) => { k = String(k).split(/[?#]/)[0]; try { return decodeURIComponent(k); } catch { return k; } };
 const mem = () => { const m = new Map(); return { m,
-  get: async (k) => m.has(k) ? m.get(k) : null, set: async (k, v) => { m.set(k, v); },
+  get: async (k) => m.has(urlKey(k)) ? m.get(urlKey(k)) : null, set: async (k, v) => { m.set(urlKey(k), v); },
   list: async ({ prefix }) => ({ blobs: [...m.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })) }) }; };
 const put = (s, k, data) => s.set(k, JSON.stringify({ rev: 1, data }));
 
@@ -64,9 +67,9 @@ const id = ros['The Kon-dors'].id;
 await s.set('luh/2026-10-13/N.%20Daman/a', JSON.stringify({ at: '2026-10-13T10:00:00.000Z', club: 'N. Daman', s: {} }));
 await put(s, 'score-pre', { days: { '2026-10-13': { 'N. Daman': { PTS: 9 } }, '2026-10-14': { [id]: { PTS: 4 } } } });
 let rep = await migrateIds(s, { dry: true });
-ok('a dry run reports and writes nothing', rep.lineups.changed === 1 && JSON.parse(await s.get('luh/2026-10-13/N.%20Daman/a')).cid === undefined);
+ok('a dry run reports and writes nothing', rep.lineups.changed === 1 && JSON.parse(await getListed(s, 'luh/2026-10-13/N. Daman/a')).cid === undefined);
 rep = await migrateIds(s);
-ok('lineup history is stamped with the id', JSON.parse(await s.get('luh/2026-10-13/N.%20Daman/a')).cid === id);
+ok('lineup history is stamped with the id', JSON.parse(await getListed(s, 'luh/2026-10-13/N. Daman/a')).cid === id);
 const sc = JSON.parse(await s.get('score-pre')).data.days;
 ok('score rows are re-keyed to the id', sc['2026-10-13'][id].PTS === 9 && !sc['2026-10-13']['N. Daman']);
 ok('nothing was left unresolved', rep.unresolved.length === 0);

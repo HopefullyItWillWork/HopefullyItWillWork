@@ -877,6 +877,11 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   thead th[data-k],.scroller thead th[data-s]{padding-top:11px;padding-bottom:11px}
   tbody td.pname{padding-top:11px;padding-bottom:11px}
 }
+/* The lineup's name cell is 170px below 1240: headshot, "OUT · 11/22" and the
+   select left the select 41px ("Ty"). The date stays in the tooltip and the card. */
+@media(max-width:1240px){ .lurowctl .injback{display:none} }
+/* "178 / 920" is one figure: it wrapped onto two lines at tablet widths. */
+.standtbl td:has(>.gpcap){white-space:nowrap}
 /* Phone: the masthead stacked four rows before any content. */
 @media(max-width:640px){
   /* The tab bar is fixed to the bottom here, so the header need not follow the
@@ -11910,7 +11915,7 @@ function injTag(name){
   const k=injShort(i.s);
   const tip=[i.s,i.d,i.r?`expected back ${injBack(i.r)}`:'',i.note||''].filter(Boolean).join(' \u00b7 ');
   /* An OUT chip carries the expected return, the one thing a GM wants from it. */
-  const back=(k==='OUT'||k==='SUSP')&&/^\d{4}-\d{2}-\d{2}$/.test(i.r||'')?` \u00b7 ${+i.r.slice(5,7)}/${+i.r.slice(8,10)}`:'';
+  const back=(k==='OUT'||k==='SUSP')&&/^\d{4}-\d{2}-\d{2}$/.test(i.r||'')?`<span class="injback"> \u00b7 ${+i.r.slice(5,7)}/${+i.r.slice(8,10)}</span>`:'';
   /* A click opens the player card, which leads with the full report and the news (2026-11-16). */
   return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" data-player="${htmlEsc(name)}" title="${htmlEsc(tip)}">${htmlEsc(k)}${back}</span>`;
 }
