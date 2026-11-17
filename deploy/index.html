@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.1">
+<meta name="ll-build" content="2026-11-17.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1041,6 +1041,11 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 /* Subtle (2026-11-16): the numbers dim a little; the name, picture and menu stay. */
 .lurow:has(.lugame.nog)>span:not(.luacts):not(.lugame):not(:first-child):not(:nth-child(2)){opacity:.7}
 .luhdr span:nth-child(3){text-align:left}
+/* Live (2026-11-16): the tag, the club's line, a game under way. */
+.livetag{display:inline-block;font:700 var(--t1)/1.4 var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--tax);background:var(--trf-b);border-radius:var(--r-s);padding:0 6px}
+.lulivebar{margin:8px 0 0;font-size:var(--t2);color:var(--steel)}
+.lulivebar b{color:var(--chalk)}
+.lugame .lunow{color:var(--tax);font-weight:600}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
@@ -2709,6 +2714,8 @@ function startPolling(){
       /* Standings and games played: every 30 minutes (loadDaily decides), so a tab left open
          through the morning's scoring or a commissioner's correction catches up. */
       else if(SCORE.ok&&Date.now()-(SCORE.got||0)>=30*60e3){ await loadDaily(); render(); }
+      /* Live stats while tonight's games are on (every 2.5 minutes, liveWanted). */
+      if(liveWanted()&&await loadLiveNow()){ render(); drawStandings(); }
     }catch(e){}
   }, (A()&&(A().status==='open'||A().status==='match')) ? 4000 : 12000);
 }
@@ -10264,6 +10271,9 @@ function drawLineup(){
   const pastView=luPast();
   /* D: the night on screen — tonight, or a night ahead being planned (2026-11-16). */
   const D=luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
+  /* Live tonight (lib/live.mjs): the Tonight view, and the club's totals so far. */
+  const liveOk=!ahead&&!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0;
+  const nowOn=liveOk&&LUMODE==='now';
   if($('luHead')) $('luHead').hidden=pastView;
   if($('luSlots')) $('luSlots').hidden=pastView;
   if(pastView) return;
@@ -10286,17 +10296,26 @@ function drawLineup(){
   const lost=tourney||ahead?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   /* One toolbar: the view, then what is true tonight in a line of text (games
      and the IR are in the club strip above), then the buttons. */
+  /* Tonight so far for this club, from the live scoring: what has counted, in
+     all nine, and when it was last refreshed. Provisional until the morning. */
+  const lc=liveOk&&(LIVENOW.clubs||{})[T];
+  const liveStrip=!lc?'':(()=>{ const t=lc.totals, pc=(m,a)=>a?(100*m/a).toFixed(1)+'%':'\u2014';
+    return `<p class="lulivebar"><span class="livetag">live</span> <b>Tonight so far</b> \u00b7 ${t.GP} counted${lc.over&&lc.over.length?`, ${lc.over.length} over the cap`:''}:
+      ${t.PTS} PTS \u00b7 ${t.REB} REB \u00b7 ${t.AST} AST \u00b7 ${t.P3} 3P \u00b7 ${t.STL} STL \u00b7 ${t.BLK} BLK \u00b7 ${t.TO} TO \u00b7
+      FG ${pc(t.FG,t.FGA)} \u00b7 FT ${pc(t.FT,t.FTA)} <span class="lutip">updated ${htmlEsc(liveStamp())}; final in the morning</span></p>`; })();
   const lustat=[open?`<b class="bad">${open} spot${open===1?'':'s'} open</b>`:'All 15 filled',
     `${bench.length} on the bench`, tourney?'Preseason tournament':'',
     lockedN?`${lockedN} locked`:'', `${playing.length} playing ${ahead?'that night':'tonight'}`].filter(Boolean).join(' \u00b7 ');
   $('luHead').innerHTML=`<div class="lutools"><div class="toggle" role="group" aria-label="Columns">${
-      [['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
+      [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
+       ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
        ['ctr','Contract','Salary owed by season, years, option, rights']].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button></span>`:''}</div>
+    ${liveStrip}
     ${misfit.length?`<div class="warn"><b>Not eligible where they are:</b> ${misfit.map(htmlEsc).join(', ')}.
       Positions now follow ESPN\u2019s fantasy eligibility.</div>`:''}
     ${lost.length?`<div class="warn"><b>Tonight would take ${htmlEsc(T)} past ${cap} games.</b>
@@ -10321,7 +10340,7 @@ function drawLineup(){
     ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
   if(trend) TRENDW.forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawLineup()); } });
   const CTRH=[0,1,2,3].map(n=>seasonAt(curSeason(),n)).concat(['Yrs','Option','Rights','Acq']);
-  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span><span title="Games played in the period">GP</span>
+  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span>${nowOn?'<span title="Minutes tonight">MIN</span>':'<span title="Games played in the period">GP</span>'}
     ${ctr?CTRH.map(l=>`<span>${htmlEsc(l)}</span>`).join('')+'<span></span>'
       :LUMODE==='news'?'<span class="lunews">Injury news</span>'
       :trend?TRENDH.map(([l,t])=>`<span title="${t}">${l}</span>`).join('')+'<span></span>'.repeat(9-TRENDH.length)
@@ -10340,8 +10359,10 @@ function drawLineup(){
     /* 2026-11-16: a game to come is a time pill, a started one says Locked with a
        padlock, and a row with no game is faded (CSS, .lurow:has(.nog)). */
     const ttl=htmlEsc((vs?vs+' \u00b7 ':'')+clock12(t.at));
+    /* Under way or over: where the game is, from the live feed ("Q3 4:12", "Final"). */
+    const g=lk&&!ahead?nowGame(nm):null, gl=g&&(g.state==='in'||g.final)?(g.final?'Final':g.detail||'Live'):'';
     return lk
-      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}Locked</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}</small></span>`
+      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}${gl?`<span class="${g.final?'':'lunow'}">${htmlEsc(gl)}</span>`:'Locked'}</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}</small></span>`
       : `<span class="lugame" title="${ttl}"><span class="lutime">${htmlEsc(clock12(t.at).replace(/ PT$/,''))}</span> ${htmlEsc(t.opp||t.team)}<small>${t.opp?htmlEsc(t.team):''}</small></span>`;
   };
   /* GP, then the nine categories (or, in the Contract view, what he is owed),
@@ -10349,6 +10370,18 @@ function drawLineup(){
      On Totals the numbers are the period's totals, matching what PR is read from. */
   const rosEntry=nm=>S.teams[T].r.find(x=>canon(x.n)===canon(nm));
   const stats=(nm,L)=>{
+    /* Tonight (live): his box score so far, counts not per game, minutes in the GP
+       column. A man whose game has not started, or who has none, shows nothing. */
+    if(nowOn){
+      const b=nm&&nowLine(nm), x=b&&b.s;
+      const pr=`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
+      if(!x) return `<span class="luv">${nm&&tipOf(nm,D)&&nightMinutes(D)>=tipOf(nm,D).at?'0':''}</span>`
+        +LUCATS.map(()=>`<span class="luv">${nm&&tipOf(nm,D)?'&#8212;':''}</span>`).join('')+pr;
+      const r={s:x,tot:true};   // whole makes and attempts (luShot)
+      return `<span class="luv live">${Math.round(x.MP||0)}</span>`+LUCATS.map(([k])=>`<span class="luv live">${
+        k==='FGP'||k==='FTP'?(luVal(r,k)==null?'&#8212;':(luVal(r,k)*100).toFixed(1)):String(Math.round(+x[k]||0))}${
+        k==='FGP'||k==='FTP'?luShot(k,r):''}</span>`).join('')+pr;
+    }
     /* No games in the period is no line, not a row of zeroes. */
     const r0=L&&L.r&&!L.live&&usingLive()&&!(+L.r.g)?null:L&&L.r;
     const r=r0&&!L.live&&tot?luTotals(r0):r0;
@@ -12182,6 +12215,56 @@ async function loadDaily(force){
   drawTrend(); drawStandings(); drawLastNight(); drawHome();
   return SCORE;
 }
+/* ================= LIVE (2026-11-16) =================
+   Tonight so far, from GET /api/score?live=1, which the server refreshes every
+   five minutes while games are on (lib/live.mjs). Provisional: the morning's
+   scoring is still the record, and every screen that shows a live number says
+   "live". Fetched every two and a half minutes, and only while tonight's games
+   are under way (liveWanted). */
+let LIVENOW={day:'',at:'',allFinal:false,games:{},players:{},clubs:{},byKey:{},got:0};
+function liveWanted(){
+  if(!lineupsOpen()||!HAS_API) return false;
+  const n=luNight();
+  if(LIVENOW.day===n&&LIVENOW.allFinal) return false;
+  const sc=schedOn(n), tips=Object.values((sc&&sc.tips)||{}).map(tipMinutes).filter(v=>v!=null);
+  return tips.length>0&&nightMinutes(n)>=Math.min(...tips)-5;
+}
+async function loadLiveNow(force){
+  if(!force&&Date.now()-LIVENOW.got<150e3) return false;
+  try{
+    const r=await fetch('/api/score?live=1',{cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    const lv=(await r.json()).live;
+    LIVENOW.got=Date.now();
+    if(!lv||lv.at===LIVENOW.at) return false;
+    const byKey={}; Object.values(lv.players||{}).forEach(p=>{ byKey[nameKey(p.n)]=p; });
+    LIVENOW={...lv,byKey,got:Date.now()};
+    return true;
+  }catch(e){ return false; }
+}
+/* Live data for tonight's night, or null when it is about another night. */
+const liveOn=()=>LIVENOW.day&&LIVENOW.day===luNight()?LIVENOW:null;
+/* A player's line tonight so far: ESPN's id first, then the name. */
+function nowLine(name){
+  const L=liveOn(); if(!L) return null;
+  const id=espnIdOf(name);
+  return (id&&L.players[id])||L.byKey[nameKey(name)]||L.byKey[nameKey(canon(name))]||null;
+}
+/* Where his club's game is tonight: {state:'pre'|'in'|'post', detail:'Q3 4:12', final}. */
+function nowGame(name){
+  const L=liveOn(); if(!L) return null;
+  const tm=nbaTeamOf(name); if(!tm) return null;
+  const codes=new Set([tm,TRICODE[tm],...Object.keys(TRICODE).filter(k=>TRICODE[k]===tm)].filter(Boolean));
+  return Object.values(L.games||{}).find(g=>codes.has(g.home)||codes.has(g.away))||null;
+}
+/* Clubs' totals tonight, by name, in the shape SCORE.days holds — or null. */
+function liveTotals(){
+  const L=liveOn(); if(!L||(SCORE.days||{})[L.day]) return null;
+  const out={}; Object.entries(L.clubs||{}).forEach(([c,v])=>{ if(v&&v.totals) out[c]=v.totals; });
+  return Object.keys(out).length?out:null;
+}
+const liveStamp=()=>{ const L=liveOn(); if(!L||!L.at) return '';
+  try{ return new Date(L.at).toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'numeric',minute:'2-digit'})+' PT'; }catch(e){ return ''; } };
 /* Games counted so far this season, from the scored nights. */
 function gamesUsed(t){
   const row=SCORE.standings.find(r=>r.club===t);
@@ -12457,18 +12540,24 @@ function drawStandBox(B){
   if(per&&per.value!==STANDPER) per.value=STANDPER;
   if(per) per.hidden=!scored.length||mode==='night';
   const win=mode!=='night'&&STANDPER&&last?{n:+STANDPER,from:wvPlus(last,1-STANDPER),to:last}:null;
-  const rows=mode==='night'?(last?standingsFor({[last]:SCORE.days[last]}):[])
+  /* Tonight so far, while games are on and the morning has not scored it: the
+     season table counts it, and "Last night" becomes "Tonight". Marked live. */
+  const lt=liveTotals(), lday=lt&&LIVENOW.day;
+  if(mb){ const nb=mb.querySelector('[data-sm="night"]'); if(nb) nb.textContent=lt?'Tonight (live)':'Last night'; }
+  const rows=mode==='night'?(lt?standingsFor({[lday]:lt}):last?standingsFor({[last]:SCORE.days[last]}):[])
     :win?standingsFor(Object.fromEntries(scored.filter(d=>d>=win.from&&d<=win.to).map(d=>[d,SCORE.days[d]])))
+    :lt?standingsFor({...SCORE.days,[lday]:lt})
     :(SCORE.standings||[]);
+  const livetag=lt&&!win?` \u00b7 <span class="livetag">live</span> tonight so far, ${htmlEsc(liveStamp())}`:'';
   const wk=win;   // a window is drawn like the old week: games without the cap
   const played=rows.some(r=>r.tot.GP>0);
   const dto=daysToOpener();
   if($(B.note)) $(B.note).innerHTML=!scored.length
     ? (dto?`<span class="countdown">${dto}</span> day${dto===1?'':'s'} to opening night`
          :'The table fills in the morning after opening night')
-    : mode==='night' ? htmlEsc(shortDay(last))
+    : mode==='night' ? (lt?`${htmlEsc(shortDay(lday))}${livetag}`:htmlEsc(shortDay(last)))
     : wk ? `Last ${wk.n} days \u00b7 ${htmlEsc(shortDay(wk.from))} \u2013 ${htmlEsc(shortDay(wk.to))}`
-    : `Through ${htmlEsc(shortDay(last))}`;
+    : `Through ${htmlEsc(shortDay(last))}${livetag}`;
   if(!played){ box.innerHTML=''; return; }
   const roto=mode==='roto';
   const CK={fg:'FG%',ft:'FT%',p3:'P3',reb:'REB',ast:'AST',stl:'STL',blk:'BLK',to:'TO',pts:'PTS'};
@@ -12804,7 +12893,8 @@ function netChip(){
   wireChat();
   comboAttachAll();
   /* ESPN's rosters always (headshots, positions); tip-offs only when lineups are open. */
-  Promise.all([lineupsOpen()?loadSchedule():null,loadNbaPlayers()]).then(()=>render());
+  Promise.all([lineupsOpen()?loadSchedule():null,loadNbaPlayers()]).then(async()=>{ render();
+    if(liveWanted()&&await loadLiveNow(true)){ render(); drawStandings(); } });
   if(S.cfg.pre) loadPre();
   if(useProj&&LIVEW.includes(PROJSRC)) loadLive(PROJSRC).then(()=>{ RTGCACHE=null; render(); });
   render();startPolling();setSync('ok','Shared \u00b7 '+S.log.length+' transactions');

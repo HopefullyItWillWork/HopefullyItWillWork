@@ -125,6 +125,28 @@ export async function runScore(s, { only = null, now = Date.now } = {}) {
   return idx.lastRun;
 }
 
+/* One night scored provisionally for lib/live.mjs: the same rule and inputs as
+   runScore(), but nothing is written — the caller keeps the answer apart. */
+export async function scoreLive(s, night) {
+  const cfg = (await readKey(s, "settings")).data || {};
+  const season = seasonOf(cfg);
+  if (!season) return null;
+  const cap = parseInt(cfg.gamecap, 10) > 0 ? parseInt(cfg.gamecap, 10) : 920;
+  const alias = cfg.alias || {}, espn = cfg.espn || {}, renames = Array.isArray(cfg.renames) ? cfg.renames : [];
+  const ctx = await ctxFor(s);
+  const resolve = (ref, at, alt) => alt === undefined ? keyOf(ref, ctx, at) : resolveEntry(ctx, ref, alt, at);
+  const idx = (await readKey(s, "score-" + season.key)).data || { days: {} };
+  const gpBefore = {};
+  for (const [d, clubs] of Object.entries(idx.days || {})) {
+    if (d >= night.date) continue;
+    for (const [c, t] of Object.entries(clubs)) {
+      const id = resolve(c, d + "T23:59:59.999Z");
+      if (id) gpBefore[id] = (gpBefore[id] || 0) + (t.GP || 0);
+    }
+  }
+  return scoreNight({ night, lineups: await lineupsOn(s, night.date), gpBefore, cap, alias, espn, renames, resolve });
+}
+
 /* Rolling player stats (lib/pstats.mjs): every stored night in the season's
    date span — the feed's window again (corrections), plus any night plog does
    not have yet — goes into plog-<season>, then every window is recomputed into

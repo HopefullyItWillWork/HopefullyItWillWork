@@ -20,6 +20,8 @@
    GET  /api/score?clubfix=1       -> the commissioner's club-night total overrides, by club name
    POST /api/score?clubfix=1       -> { from, pin, day, club, totals:{FG,FGA,…,GP} | remove:true }
                                       set one club's totals for one night directly (survives rescoring)
+   GET  /api/score?live=1          -> tonight so far, provisional: { live:{ day, at, allFinal, games, players, clubs:{<name>:{totals,counted,over}} } }
+   POST /api/score?live=1[&force=1] -> run the live fetch now (once a minute; force skips the gate)
    GET  /api/score?log=<nameKey>[,<nameKey>…]
                                    -> a player's last five games: { games:[{day,t,s}] } newest first
                                       (the first key that has any line wins; preseason only if no
@@ -35,6 +37,7 @@ import { runScore, runPre, runPstats, seasonOf } from "./lib/scorerun.mjs";
 import { seasonStandings } from "./lib/score.mjs";
 import { daysByName, byClubName } from "./lib/clubs.mjs";
 import { ctxFor, migrateIds } from "./lib/clubids.mjs";
+import { runLive } from "./lib/live.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: H });
@@ -123,6 +126,21 @@ export default async (req) => {
         if (games.length) return json({ ok: true, games });
       }
       return json({ ok: true, games: [] });
+    }
+    /* Tonight, live (lib/live.mjs): provisional, kept apart from the season. */
+    if (url.searchParams.get("live")) {
+      if (req.method === "POST") {
+        const prev = (await s.get("live")) ? JSON.parse(await s.get("live")) : null;
+        if (prev && Date.now() - Date.parse(prev.at) < 60 * 1000)
+          return json({ ok: false, reason: "ran less than a minute ago", at: prev.at }, 429);
+        return json(await runLive(s, { force: !!url.searchParams.get("force") }));
+      }
+      const raw = await s.get("live");
+      const lv = raw ? JSON.parse(raw) : null;
+      if (!lv) return json({ ok: true, live: null });
+      const ctx = await ctxFor(s);
+      const clubs = Object.fromEntries(Object.entries(lv.clubs || {}).map(([id, v]) => [ctx.nameOf[id] || id, v]));
+      return json({ ok: true, live: { ...lv, clubs } });
     }
     if (req.method === "GET" && url.searchParams.get("stats")) {
       const w = String(url.searchParams.get("stats"));

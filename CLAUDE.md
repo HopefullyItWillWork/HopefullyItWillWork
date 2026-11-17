@@ -354,6 +354,25 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
 - The **OUT/DTD chip opens the player card** (`data-player`), which leads with the
   report and the news. A no-game row dims its numbers to .7 and nothing else.
 
+### Live stats during games (2026-11-16)
+
+- `live-stats.mjs`, scheduled every 5 minutes UTC 16:00–08:59, runs `runLive()`
+  (`lib/live.mjs`). `gate()` stops it without asking ESPN before the night's first
+  tip (from the cached `sched-<night>`), on a night with no games, and once every
+  game is final; the night rolls at 4 AM league time, like the page. Otherwise one
+  scoreboard, and a box score only for a game in progress or newly final (a game
+  captured final is kept). `scoreLive()` (`lib/scorerun.mjs`) scores the night with
+  the same rule and inputs as `runScore()` and **writes nothing**: the result is the
+  one `live` blob. The morning feed and scoring are untouched and stay the record.
+- `GET /api/score?live=1` serves it with club names; `POST ?live=1[&force=1]` runs it
+  now (once a minute).
+- Page: `LIVENOW`, fetched every 2.5 minutes only while `liveWanted()`. My Team gets
+  a **Tonight** view (first in the toggle when there is live data: tonight's box
+  score per player, MIN in the GP column), the Game column shows the clock ("Q3
+  4:12", "Final"), and a "live · Tonight so far" line with the club's totals.
+  Standings: Season to date adds tonight (`liveTotals()`), and Last night becomes
+  **Tonight (live)**; the note says live and when. Everything live is labelled so.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
