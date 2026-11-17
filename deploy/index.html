@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.14">
+<meta name="ll-build" content="2026-11-17.15">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1069,6 +1069,15 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .pennant b{font:700 11px/1.1 var(--mono)}
 .pennant small{font:700 8px/1.4 var(--body);letter-spacing:.06em;text-transform:uppercase}
 .tapeall{margin-top:4px;color:var(--dim)}
+.awards{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:14px 16px;margin:14px 0}
+.awlist{list-style:none;margin:10px 0 0;padding:0}
+.awlist li{display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:var(--t2)}
+.awlist li:first-child{border-top:0}
+.awlist .awk{font:600 var(--t1) var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--steel)}
+.awlist .awc{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.awlist .awt{font-family:var(--mono);color:var(--steel);white-space:nowrap}
+.awlist li.me .awc{color:var(--amber)}
+@media (max-width:640px){.awlist li{grid-template-columns:1fr auto}.awlist .awk{grid-column:1/-1}}
 .konhint{margin:36px 0 4px;text-align:center;font:400 var(--t1)/1.6 var(--body);color:var(--dim);letter-spacing:.08em;opacity:.7}
 [data-theme="jam"] .konhint{font:400 10px/1.6 var(--pixel)}
 .mefact.maxed{border-color:#C9973A;box-shadow:inset 0 0 0 1px #C9973A}
@@ -1398,6 +1407,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div class="homecol">
     <div id="homeSnap"></div>
     <div id="homeTape"></div>
+    <div id="homeAwards"></div>
     <div id="homeOff"></div>
     <div id="preBox2" hidden></div>
     <h2>Standings</h2>
@@ -11564,8 +11574,56 @@ var HOMEBEST={day:'',rows:null};
 function homeCard(label,big,small){
   return `<div class="hcard"><div class="pjlab">${label}</div><div class="hbig">${big}</div><div class="hsmall">${small||''}</div></div>`;
 }
+/* ================= WEEKLY AWARDS (2026-11-16) =================
+   Last Monday–Sunday, from the scored nights: who won the week, the best single
+   night, the biggest climber in the season table, the most games, the most threes.
+   What happened, never what to do. Pure on SCORE.days. */
+function weeklyAwards(days,night){
+  const mon=weekOf(night).from, wk={from:dPlus(mon,-7),to:dPlus(mon,-1)};
+  const all=Object.keys(days||{}).sort(), inWk=all.filter(d=>d>=wk.from&&d<=wk.to);
+  if(!inWk.length) return null;
+  const pick=ds=>Object.fromEntries(ds.map(d=>[d,days[d]]));
+  const week=standingsFor(pick(inWk)).filter(r=>r.tot.GP>0);
+  if(!week.length) return null;
+  const top=week.slice().sort((a,b)=>b.pts-a.pts)[0];
+  const out=[{k:'Won the week',club:top.club,txt:`${top.pts} roto points`}];
+  /* The rest come from a pool, and the ones that spread across clubs are shown:
+     every award is real, but one club winning five of them is no fun to read. */
+  const pool=[];
+  let best=null;
+  inWk.forEach(d=>standingsFor({[d]:days[d]}).filter(r=>r.tot.GP>0).forEach(r=>{ if(!best||r.pts>best.pts) best={club:r.club,pts:r.pts,d}; }));
+  if(best) pool.push({k:'Best night',club:best.club,txt:`${shortDay(best.d)}, ${best.pts} roto points`});
+  if(all.some(d=>d<wk.from)){
+    const before=standingsFor(pick(all.filter(d=>d<wk.from))), after=standingsFor(pick(all.filter(d=>d<=wk.to)));
+    const cl=after.map(r=>{ const b=before.find(x=>x.club===r.club); return b?{club:r.club,from:b.rank,to:r.rank,up:b.rank-r.rank}:null; })
+      .filter(x=>x&&x.up>0).sort((a,b)=>b.up-a.up)[0];
+    if(cl) pool.push({k:'Biggest climber',club:cl.club,txt:`${ordinal(cl.from)} \u2192 ${ordinal(cl.to)}`});
+  }
+  const most=(k,f,unit)=>{ const r=week.slice().sort((a,b)=>f(b)-f(a))[0]; pool.push({k,club:r.club,txt:`${f(r)} ${unit}`}); };
+  most('Most games',r=>r.tot.GP,'games');
+  most('Sharpshooter',r=>r.tot.P3,'threes');
+  most('Glass cleaner',r=>r.tot.REB,'rebounds');
+  most('Dimes',r=>r.tot.AST,'assists');
+  most('Lockdown',r=>r.tot.STL+r.tot.BLK,'steals and blocks');
+  const shown=new Set([top.club]);
+  pool.forEach(x=>{ if(out.length<5&&!shown.has(x.club)){ out.push(x); shown.add(x.club); } });
+  pool.forEach(x=>{ if(out.length<4&&!out.includes(x)) out.push(x); });   // repeats only to make four
+  return {wk,items:out};
+}
+function drawAwards(){
+  const box=$('homeAwards'); if(!box) return;
+  const w=lineupsOpen()?weeklyAwards(SCORE.days,luNight()):null;
+  if(!w){ box.innerHTML=''; return; }
+  const mine=me&&!isComm()?me:null;
+  const html=`<section class="awards"><div class="tapehd"><h2 class="sub" style="margin:0">Last week\u2019s awards</h2>
+    <span class="fcount">${htmlEsc(shortDay(w.wk.from))} \u2013 ${htmlEsc(shortDay(w.wk.to))}</span></div>
+    <ul class="awlist">${w.items.map(x=>`<li${x.club===mine?' class="me"':''}><span class="awk">${htmlEsc(x.k)}</span>
+      <span class="awc">${clubBadge(x.club)}${htmlEsc(x.club)}</span><span class="awt">${htmlEsc(x.txt)}</span></li>`).join('')}</ul></section>`;
+  if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
+}
 function drawHome(){
   if(!$('homeSnap')) return;
+  drawAwards();
   const T=me&&!isComm()&&S.teams[me]?me:null;
   const cards=[];
   if(T){

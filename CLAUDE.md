@@ -455,6 +455,15 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's
   champion cards, and reusing the name broke them.
 
+### Weekly awards (2026-11-16)
+
+Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,
+night)`): last Monday–Sunday from `SCORE.days`. Won the week, then from a pool —
+best night, biggest climber (season rank before and after the week), most games,
+sharpshooter (3P), glass cleaner (REB), dimes (AST), lockdown (STL+BLK) — the
+ones that spread across clubs first, up to five, repeats only to make four.
+Facts only, never a suggestion.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
