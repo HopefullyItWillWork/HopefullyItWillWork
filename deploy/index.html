@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.5">
+<meta name="ll-build" content="2026-11-17.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -338,6 +338,11 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
 .luslot.k-B{border-style:dashed}
 .luslot.k-I{border-color:var(--wnln);color:var(--tax)}
 .lurow.bench{background:var(--panel2)}
+/* Tonight's total under the starters (2026-11-16). */
+.lurow.lutotal{border-top:2px solid var(--line);font-weight:700}
+.lurow.lutotal .luv{color:var(--chalk);font-weight:700}
+.lurow.lutotal .lupick b{font-size:var(--t3)}
+.luslot.k-T{color:var(--amber)}
 .lurow.onir{background:var(--panel2)}
 .lurow.onir .luname{text-decoration:line-through;text-decoration-color:var(--steel);opacity:.75}
 .lurow.onir .luv{opacity:.55}
@@ -10541,7 +10546,21 @@ function drawLineup(){
   $('luSlots').style.setProperty('--luacts',can?'40px':'0px'); void anyTerm;
   /* The poll rewrites these rows; an open menu is reopened on the same player. */
   const openNm=($('luSlots').querySelector('details.rmenu[open]')||{dataset:{}}).dataset.nm;
-  $('luSlots').innerHTML=hdr('Slot')+slotRows
+  /* Tonight's total (2026-11-16): what the starters have done so far, summed
+     from the same live lines the rows show. Starters only — the bench does not
+     count — and before the morning's game cap, which the live line above states. */
+  const totalRow=!nowOn?'':(()=>{
+    const st=SLOTIDS.map(id=>lu.s[id]).filter(Boolean), withG=st.filter(nm=>tipOf(nm,D));
+    const lines=st.map(nm=>nowLine(nm)).filter(b=>b&&b.s), sum={MP:0,FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0};
+    lines.forEach(b=>Object.keys(sum).forEach(k=>{ sum[k]+=+b.s[k]||0; }));
+    const on=withG.filter(nm=>{ const g=nowGame(nm); return g&&g.state==='in'; }).length;
+    const r={s:sum,tot:true};
+    return `<div class="lurow lutotal"><span class="luslot k-T">TOT</span>
+      <span class="lupick"><b>Tonight so far</b> <span class="lutip">${lines.length} of ${withG.length} starter${withG.length===1?'':'s'} with a game have played${on?` \u00b7 ${on} on the floor now`:''}</span></span>
+      <span class="lugame"></span><span class="luv">${Math.round(sum.MP)}</span>${LUCATS.map(([k])=>`<span class="luv">${
+        k==='FGP'||k==='FTP'?(luVal(r,k)==null?'&#8212;':(luVal(r,k)*100).toFixed(1))+luShot(k,r):String(Math.round(+sum[k]||0))}</span>`).join('')}<span class="luv"></span><span class="luacts"></span></div>`;
+  })();
+  $('luSlots').innerHTML=hdr('Slot')+slotRows+totalRow
     +hdr('Bench')+benchRows
     +hdr('IR')+irRows;
 

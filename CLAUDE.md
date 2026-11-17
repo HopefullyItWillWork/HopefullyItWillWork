@@ -375,6 +375,8 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
   a **Tonight** view (first in the toggle when there is live data: tonight's box
   score per player, MIN in the GP column), the Game column shows the clock ("Q3
   4:12", "Final"), and a "live · Tonight so far" line with the club's totals.
+  Under the starters, a **Tonight so far** total row (`totalRow` in `drawLineup()`:
+  starters only, summed from the same lines, before the game cap).
   Standings: Season to date adds tonight (`liveTotals()`), and Last night becomes
   **Tonight (live)**; the note says live and when. Everything live is labelled so.
 
