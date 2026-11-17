@@ -471,6 +471,22 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's
   champion cards, and reusing the name broke them.
 
+### Home's charts: three tabs (2026-11-17)
+
+Home's chart box has a tab row (`#chTabs`, `CHARTVIEW`, `ll_chart`): **Rolling 15
+days** (the old chart, `drawTrend()`), **The race** (`drawRace()`, pure
+`raceSeries(days)`: each club's roto points in the season-to-date standings after
+every night, through `standingsFor()`, so its last night IS the Standings table)
+and **Games pace** (`drawPace()`, pure `paceSeries(days, cap, end)`: games played
+minus an even pace to the cap by the season's end, `S.cfg.seasonEnd` or Apr 12,
+with a table of games, vs pace, on pace for and the date the club reaches the cap;
+`gamesPace()`'s rule, so it agrees with the Games card). Your club is gold, the
+club directly above you blue on the race; tapping a line, a name or a table row
+picks a club out (`CHARTPICK`, this visit only). The drawing's width is the box's
+own (`chW()`), so text renders at its real size; the old 880-wide chart scaled to
+60% in Home's column. Facts only. Mockup: the "Season charts" page of
+claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs.
+
 ### Weekly awards (2026-11-16)
 
 Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,
@@ -1871,6 +1887,15 @@ comparison against the current league is meaningless, because most clubs are onl
 partly signed during the offseason.
 
 Replacement level is the median minimum-salary ($1.00–1.25) player of 2025-26.
+
+**Under a live period `fullTotals()` reads `seasonLine()`, not `pstat()`**
+(2026-11-17). `pstat()`'s games in a live window are the games played in it — a
+dozen in November — so fifteen players filled 177 slots and every build finished
+last. `seasonLine()` keeps the window's per-game rate and takes games from the
+2026–27 aggregate, else 2025–26, else a rookie's pace; a man with no games in the
+window keeps his season line. The what-if build also **replaces** the GM's own
+club in the VS NOW ranking: beside it, a build of his own roster raced an exact
+copy of itself and lost every tie.
 
 ---
 
