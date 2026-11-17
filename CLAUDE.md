@@ -431,6 +431,17 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
   (`bannersHtml()`), a trophy and count in Standings (`titleTag()`).
 - **The origin story**: five clicks on the logo opens a card (`openOrigin()`): the
   signed-in manager's seasons and every champion.
+- **Auction night**: the club that wins a lot gets FROM DOWNTOWN! (IS IT THE SHOES?!
+  past $30) on its own screen, once per award per browser (`auctionCall()`,
+  `ll_auccall`; the first look at an already-closed lot is only noted). `showBoom()`
+  is the shared call-out.
+- **Rivalry**: the Tale of the Tape's footer adds the managers' all-time record
+  against each other from HIST (`rivalry()`).
+- **Maxed out**: a Games card at exactly the cap turns gold.
+- **Findable, not obvious**: the logo's tooltip hints at the five clicks; the Konami
+  code is printed at the bottom of Historical Data in the Jam theme only (`.konhint`).
+- Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's
+  champion cards, and reusing the name broke them.
 
 ### Five changes from the second mockup (2026-11-16)
 
