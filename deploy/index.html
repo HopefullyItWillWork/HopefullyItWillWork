@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.4">
+<meta name="ll-build" content="2026-11-17.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -4381,7 +4381,7 @@ function drawAdmin(){
         let activated=0; const over=[];
         TEAMS().forEach(t=>{
           S.teams[t].r.forEach(p=>{ if(p.ir){ delete p.ir; activated++; } });
-          delete S.teams[t].lu;
+          delete S.teams[t].lu; delete S.teams[t].luf;   // nights set ahead too, or one comes back next season
           if(headcount(t)>S.cfg.roster) over.push(`${t} (${headcount(t)})`);
         });
         const msg=[];
@@ -7528,6 +7528,7 @@ document.addEventListener('click',e=>{
   if(!c) return;
   if(e.target.closest('button')) return;      // let row buttons do their own thing
   if(c.matches('img.hs')&&c.closest('label')) return;   // a picture in a pick list ticks the pick
+  if(c.matches('.inj')&&c.closest('label')) e.preventDefault();   // an injury chip opens the card and does NOT tick the pick
   openPlayerCard(c.dataset.player);
 });
 /* The card is modal, so while it is open every control behind it is inert —
@@ -9826,7 +9827,8 @@ let SCHED={day:'',tips:{},ok:false,reason:''};
 /* Every night's schedule fetched so far, by day: tonight's is also SCHED, and a
    night ahead is fetched when the GM opens it to plan (2026-11-16). */
 var SCHEDS={};
-const schedOn=day=>SCHEDS[day]||(SCHED.day===day?SCHED:null);
+/* Tonight's is SCHED (what the tests set, and what loadSchedule keeps current); other nights come from the cache. */
+const schedOn=day=>(SCHED.day===day?SCHED:null)||SCHEDS[day]||null;
 async function loadSchedule(force,day){
   day=day||luNight();
   const night=day===luNight(), have=SCHEDS[day];
