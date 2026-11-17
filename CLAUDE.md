@@ -417,6 +417,21 @@ in a box score tonight (up to the cap) are added to My Team's and Home's Games
 cards and to the pace, and starters in a game under way who have not yet appeared
 are shown as "locked in". Drops away once the morning's scoring has the night.
 
+### Easter eggs and banners (2026-11-16)
+
+- **Big-head mode**: the Konami code (↑↑↓↓←→←→ B A; on a phone the same swipes
+  then two taps) toggles `body.bighead` and flashes BOOMSHAKALAKA. Not saved.
+- **Heating up / on fire**: `noteHeat()` keeps each live player's points and threes
+  per update; `heatOf()` over the last eight minutes: 7+ points or 2 threes is
+  heating up, 12+ or 3 is on fire. A flame by the name in the lineup (`heatTag()`,
+  flames only below 1240px). Approximate: there is no play-by-play.
+- **Championship banners**: titles belong to the manager (`managerOf()`: the manager
+  on file, else the one a manager-named club names), read from HIST rk 1
+  (`titlesOf()`). Pennants beside the club name on My Team and the club page
+  (`bannersHtml()`), a trophy and count in Standings (`titleTag()`).
+- **The origin story**: five clicks on the logo opens a card (`openOrigin()`): the
+  signed-in manager's seasons and every champion.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.9">
+<meta name="ll-build" content="2026-11-17.10">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1060,6 +1060,34 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lulivebar .up,.lulivebar .dn{font-size:var(--t1);margin-left:2px}
 .lulivebar.warnline{color:var(--tax)}
 .rdelta{font-size:var(--t1);font-weight:600;margin-left:3px}
+/* Championship banners and the trophy count (2026-11-16). */
+.banners{display:inline-flex;gap:4px;align-items:flex-start;margin-left:10px;vertical-align:middle}
+.banner{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:46px;height:48px;padding-top:6px;box-sizing:border-box;white-space:nowrap;
+  background:#B8862E;color:#1A1206;clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%);font-family:var(--body)}
+.banner b{font:700 11px/1.1 var(--mono)}
+.banner small{font:700 8px/1.4 var(--body);letter-spacing:.06em;text-transform:uppercase}
+.tcount{display:inline-flex;align-items:center;gap:2px;margin-left:6px;color:#C9973A;font:700 var(--t1)/1 var(--mono);vertical-align:1px}
+.origin{position:fixed;z-index:150;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));max-height:80vh;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 20px 50px rgba(0,0,0,.5);padding:18px 20px}
+.ostory{list-style:none;margin:0 0 12px;padding:0;font-size:var(--t2)}
+.ostory li{padding:4px 0;border-bottom:1px solid var(--line)}
+.ostory li b{font-family:var(--mono);margin-right:8px}
+.ostory li .t{color:var(--steel);margin-left:6px}
+.ostory li.won b{color:#C9973A}
+/* Heating up / on fire (2026-11-16). */
+.heat{display:inline-flex;align-items:center;gap:3px;margin-left:6px;flex:none;white-space:nowrap;font:700 var(--t1)/1.4 var(--body);text-transform:uppercase;letter-spacing:.05em}
+.heat.hot{color:var(--amber)}
+.heat.fire{color:var(--tax);animation:heatflick 1.1s ease-in-out infinite alternate}
+@keyframes heatflick{from{opacity:.75}to{opacity:1}}
+@media (max-width:1240px){.heat .heatw{display:none}}   /* the name needs the room: flames only */
+/* Big-head mode (the Konami code). */
+body.bighead .hs{transform:scale(1.9);position:relative;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.4);animation:bobble 1.6s ease-in-out infinite}
+body.bighead .hs.lg,body.bighead #dlgPlayer .hs{transform:scale(1.25)}
+@keyframes bobble{0%,100%{rotate:-4deg}50%{rotate:4deg}}
+.boom{position:fixed;left:50%;top:40%;z-index:200;transform:translate(-50%,-50%);font:400 clamp(28px,7vw,72px)/1 var(--arcade,'Bungee',sans-serif);font-family:'Bungee',var(--disp);
+  color:#FFD23F;text-shadow:4px 4px 0 #C2412F,8px 8px 0 #000;pointer-events:none;animation:boom 1.6s ease-out forwards;white-space:nowrap}
+@keyframes boom{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.05)}}
+@media (prefers-reduced-motion:reduce){body.bighead .hs,.heat.fire{animation:none}.boom{animation:none;opacity:1}}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
@@ -3983,7 +4011,7 @@ function drawDetail(){
       <td class="${exp?'exp':''}">${exp?'&#8212;':salMark(p,0)}</td>
       <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':salMark(p,1)}</td>
       <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':salMark(p,2)}</td></tr>`;}).join('');
-  $('detail').innerHTML=`<div class="dhead"><h3>${t}</h3>
+  $('detail').innerHTML=`<div class="dhead"><h3>${t}</h3>${bannersHtml(t)}
     ${gmName(t)?`<span class="pill gmpill" title="The GM on file for this club. It does not change when the club is renamed.">${htmlEsc(gmName(t))}</span>`:''}
     <span class="pill">${n} of ${roster} under contract</span>
     <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
@@ -5418,7 +5446,7 @@ function drawMe(){
   const myEmail=(S.teams[T]||{}).email;
   /* The pill row (contracts, cap space, to the tax, projected place, phase)
      repeated the cap grid right under it; removed 2026-10-14. */
-  $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>
+  $('meHead').innerHTML=`<div class="dhead"><h3>${T}</h3>${bannersHtml(T)}
     <button class="btn ghost" id="meEmail" style="margin-left:auto">${
       myEmail ? 'Email \u00b7 '+([S.teams[T].daily?'daily':'',S.teams[T].weekly?'weekly':''].filter(Boolean).join(' + ')||'no digest') : 'Add your email'}</button></div>
     ${seasonLive()?meStrip(T,s,sc,cap,tax):`
@@ -10645,7 +10673,7 @@ function drawLineup(){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}</span>`
+        ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}${ahead?'':heatTag(nm)}</span>`
         : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span>`
 
               : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
@@ -10661,7 +10689,7 @@ function drawLineup(){
       <span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lurowctl">
         ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
-        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
+        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>${ahead?'':heatTag(p.n)}
         ${can&&!lk.locked ? (where.length
           ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
                <option value="">Start&#8230;</option>
@@ -12017,7 +12045,7 @@ function drawClubLive(){
   const box=$('clubLive'); if(!box) return;
   const t=activeTeam; if(!t||!S.teams[t]){ box.innerHTML=''; return; }
   const row=(SCORE.standings||[]).find(r=>r.club===t&&r.tot&&r.tot.GP>0);
-  let html=`<div class="dhead"><h3>${clubBadge(t)}${htmlEsc(t)}</h3>${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
+  let html=`<div class="dhead"><h3>${clubBadge(t)}${htmlEsc(t)}</h3>${bannersHtml(t)}${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
     ${row?`<span class="pill">${ordinal(row.rank)} \u00b7 ${row.pts} pts</span><span class="pill">${row.tot.GP} games</span>`:''}
     ${me&&!isComm()&&me!==t?'<button class="btn ghost" id="clubTrade" style="margin-left:auto">Propose a trade</button>':''}</div>`;
   if(row){
@@ -12438,6 +12466,7 @@ async function loadLiveNow(force){
     if(!lv||lv.at===LIVENOW.at) return false;
     const byKey={}; Object.values(lv.players||{}).forEach(p=>{ byKey[nameKey(p.n)]=p; });
     LIVENOW={...lv,byKey,got:Date.now()};
+    noteHeat(lv.players);
     return true;
   }catch(e){ return false; }
 }
@@ -12526,10 +12555,134 @@ async function fastTick(){
     await Promise.all(want.map(async id=>{ try{ Object.assign(players,boxFrom(await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json())); }catch(e){} }));
     const byKey={}; Object.values(players).forEach(p=>{ byKey[nameKey(p.n)]=p; });
     FAST={day:n,at:Date.now(),games,players,byKey,busy:false};
+    noteHeat(players);
     drawLineup();
   }catch(e){ FAST.busy=false; }
 }
 setInterval(fastTick,60e3);
+
+/* ================= EASTER EGGS (2026-11-16) ================= */
+/* He's heating up / he's on fire. The feed has no play-by-play, so this reads
+   the box score between updates: every time a live line arrives (the server's
+   five minutes, or the page's own minute for your starters) each player's
+   points and threes are noted, and over the last eight minutes of real time
+   7+ points or 2 threes is heating up, 12+ or 3 threes is on fire. */
+const HEAT={day:'',p:{}};
+const HEATWIN=8*60e3;
+function noteHeat(players){
+  const n=luNight(), t=Date.now();
+  if(HEAT.day!==n){ HEAT.day=n; HEAT.p={}; }
+  Object.entries(players||{}).forEach(([id,pl])=>{ if(!pl||!pl.s) return;
+    const a=HEAT.p[id]||(HEAT.p[id]=[]), last=a[a.length-1];
+    if(last&&last.PTS===(+pl.s.PTS||0)&&last.P3===(+pl.s.P3||0)){ last.t=t; return; }   // nothing new: just still true now
+    a.push({t,PTS:+pl.s.PTS||0,P3:+pl.s.P3||0});
+    while(a.length>2&&a[1].t<t-HEATWIN) a.shift(); });
+}
+/* 'fire', 'hot' or '' for a player in a game under way. */
+function heatOf(name){
+  if(HEAT.day!==luNight()) return '';
+  const g=nowGame(name); if(!g||g.state!=='in') return '';
+  const id=espnIdOf(name), F=fastOn(), L=liveOn();
+  const key=id||Object.keys(HEAT.p).find(k=>{ const pl=(F&&F.players[k])||(L&&L.players[k]); return pl&&nameKey(pl.n)===nameKey(name); });
+  const a=key&&HEAT.p[key]; if(!a||a.length<2) return '';
+  const now=a[a.length-1], base=a.find(x=>x.t>=now.t-HEATWIN)||a[0];
+  if(base===now) return '';
+  const dp=now.PTS-base.PTS, d3=now.P3-base.P3;
+  return dp>=12||d3>=3?'fire':dp>=7||d3>=2?'hot':'';
+}
+const FLAMESVG='<svg width="11" height="12" viewBox="0 0 12 14" fill="currentColor" aria-hidden="true"><path d="M6 0c.6 2.4 3.9 4.2 3.9 8A3.9 3.9 0 0 1 2.1 8c0-1.5.7-2.6 1.6-3.4.1 1.2.7 2 1.5 2.3C4.7 4.7 5 2.2 6 0z"/></svg>';
+const heatTag=name=>{ const h=heatOf(name);
+  return h?`<span class="heat ${h}" title="${h==='fire'?'12+ points or 3 threes in the last few minutes':'7+ points or 2 threes in the last few minutes'}">${FLAMESVG}${h==='fire'?FLAMESVG:''}<span class="heatw">${h==='fire'?'On fire':'Heating up'}</span></span>`:''; };
+
+/* Championship banners (2026-11-16). Titles belong to the MANAGER, read from
+   HIST (rk 1), so they follow him through every club name he has used: the
+   manager on file, or the one a manager-named club ("D. Fink") names. */
+function managerOf(t){
+  if(gmName(t)&&!gmLooksWrong(t)) return gmName(t);
+  const m=managerNamed(t); return m?m.gm:'';
+}
+function titlesOf(gm){
+  if(!gm) return [];
+  return Object.keys(HIST).sort().map(y=>{ const r=(HIST[y]||[]).find(x=>x.rk===1&&x.gm===gm); return r?{season:y,team:r.team}:null; }).filter(Boolean);
+}
+const TROPHYSVG='<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h8v2h3v2.5A3.5 3.5 0 0 1 11.7 9 4.5 4.5 0 0 1 9 11.4V13h3v2H4v-2h3v-1.6A4.5 4.5 0 0 1 4.3 9 3.5 3.5 0 0 1 1 5.5V3h3V1zm0 4H3v.5c0 .8.4 1.5 1 1.9V5zm8 0v2.4c.6-.4 1-1.1 1-1.9V5h-1z"/></svg>';
+/* The banners, rafters style: one pennant per title, newest last. */
+function bannersHtml(t){
+  const ts=titlesOf(managerOf(t)); if(!ts.length) return '';
+  return `<span class="banners" role="img" aria-label="${ts.length} championship${ts.length===1?'':'s'}: ${ts.map(x=>shortSeason(x.season)).join(', ')}">${
+    ts.map(x=>`<span class="banner" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champs</small></span>`).join('')}</span>`;
+}
+/* A trophy and a count, where a row has no room for pennants (Standings). */
+function titleTag(t){
+  const n=titlesOf(managerOf(t)).length;
+  return n?`<span class="tcount" title="${n} championship${n===1?'':'s'}: ${titlesOf(managerOf(t)).map(x=>shortSeason(x.season)).join(', ')}">${TROPHYSVG}${n>1?n:''}</span>`:'';
+}
+
+/* The origin story: click the logo five times. Everyone gets the league's
+   champions year by year; a manager signed in also gets his own seasons, from
+   the first one, in the names he played under. */
+let ORIGIN={n:0,t:0};
+function originHtml(){
+  const yrs=Object.keys(HIST).sort(), mine=me&&me!=='__comm__'?managerOf(me):'';
+  const champs=yrs.map(y=>{ const r=(HIST[y]||[]).find(x=>x.rk===1); return r?`<li><b>${htmlEsc(shortSeason(y))}</b> ${htmlEsc(r.team)} <span class="t">${htmlEsc(r.gm)}</span></li>`:''; }).join('');
+  const story=mine?yrs.map(y=>{ const r=(HIST[y]||[]).find(x=>x.gm===mine); return r?{y,r,of:(HIST[y]||[]).length}:null; }).filter(Boolean):[];
+  return `<button type="button" class="act" data-oclose aria-label="Close" style="float:right">\u2715</button>
+    <h2 style="margin-top:0">Where it all started</h2>
+    <p class="note">${yrs.length} seasons since ${htmlEsc(shortSeason(yrs[0]))}. Hopefully it\u2019ll work.</p>
+    ${story.length?`<h3 class="sub">${htmlEsc(mine)}</h3><ol class="ostory">${story.map(({y,r,of})=>`<li${r.rk===1?' class="won"':''}><b>${htmlEsc(shortSeason(y))}</b> ${htmlEsc(r.team)} <span class="t">${ordinal(r.rk)} of ${of}${r.rk===1?' \u00b7 champions':''}</span></li>`).join('')}</ol>`:''}
+    <h3 class="sub">Champions</h3><ol class="ostory">${champs}</ol>`;
+}
+function openOrigin(){
+  let d=$('originCard');
+  if(!d){ d=document.createElement('div'); d.id='originCard'; d.className='origin'; d.setAttribute('role','dialog'); d.setAttribute('aria-label','Where it all started'); document.body.appendChild(d); }
+  d.innerHTML=originHtml(); d.hidden=false;
+  d.querySelector('[data-oclose]').onclick=()=>{ d.hidden=true; };
+}
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('.brandwrap'); if(!b) return;
+  const t=Date.now(); ORIGIN.n=t-ORIGIN.t<1500?ORIGIN.n+1:1; ORIGIN.t=t;
+  if(ORIGIN.n>=5){ ORIGIN.n=0; openOrigin(); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('originCard')) $('originCard').hidden=true; });
+
+/* Big-head mode: the Konami code (or, on a phone, the same swipes then two taps)
+   gives every headshot the arcade's big head. Again to turn it off. Nothing is
+   saved: a reload is back to normal. */
+const KONAMI=['up','up','down','down','left','right','left','right','b','a'];
+let KSEQ=[];
+function konamiStep(k){
+  KSEQ.push(k); if(KSEQ.length>KONAMI.length) KSEQ.shift();
+  if(KSEQ.join()!==KONAMI.join()) return;
+  KSEQ=[];
+  const on=document.body.classList.toggle('bighead');
+  const f=document.createElement('div');
+  f.className='boom'; f.setAttribute('role','status');
+  f.textContent=on?'BOOMSHAKALAKA!':'Big heads off';
+  document.body.appendChild(f);
+  setTimeout(()=>f.remove(),1600);
+}
+document.addEventListener('keydown',e=>{
+  const k={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',b:'b',B:'b',a:'a',A:'a'}[e.key];
+  if(!k){ KSEQ=[]; return; }
+  /* Arrows move a select or a caret: only count them outside a field. */
+  const t=e.target; if(t&&t.closest&&t.closest('input,textarea,select,[contenteditable]')) return;
+  konamiStep(k);
+});
+let KTOUCH=null;
+document.addEventListener('touchstart',e=>{ const t=e.touches&&e.touches[0]; KTOUCH=t?{x:t.clientX,y:t.clientY}:null; },{passive:true});
+document.addEventListener('touchend',e=>{
+  const t=e.changedTouches&&e.changedTouches[0]; if(!KTOUCH||!t) return;
+  const dx=t.clientX-KTOUCH.x, dy=t.clientY-KTOUCH.y; KTOUCH=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<30){
+    /* A tap is B, then A — but only once the eight swipes are in. */
+    const at=KSEQ.length;
+    if(at>=8&&KSEQ.slice(-8).join()===KONAMI.slice(0,8).join()) konamiStep('b');
+    else if(KSEQ[KSEQ.length-1]==='b') konamiStep('a');
+    else KSEQ=[];
+    return;
+  }
+  konamiStep(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));
+},{passive:true});
 /* Clubs' totals tonight, by name, in the shape SCORE.days holds — or null. */
 function liveTotals(){
   const L=liveOn(); if(!L||(SCORE.days||{})[L.day]) return null;
@@ -12862,7 +13015,7 @@ function drawStandBox(B){
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
       <td class="l">${r.rank}${race&&race[r.club]&&race[r.club].rank!==race[r.club].rank0
         ?(race[r.club].rank<race[r.club].rank0?` <small class="up" title="Up from ${race[r.club].rank0} tonight">\u25B2${race[r.club].rank0-race[r.club].rank}</small>`
-          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${titleTag(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
       <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP}<span class="gpcap"> / ${cap}</span>`:r.tot.GP}</td>
       ${Object.keys(CK).map(c=>`<td>${val(r,c)}</td>`).join('')}
       <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
