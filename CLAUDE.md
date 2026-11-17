@@ -1872,6 +1872,15 @@ partly signed during the offseason.
 
 Replacement level is the median minimum-salary ($1.00–1.25) player of 2025-26.
 
+**Under a live period `fullTotals()` reads `seasonLine()`, not `pstat()`**
+(2026-11-17). `pstat()`'s games in a live window are the games played in it — a
+dozen in November — so fifteen players filled 177 slots and every build finished
+last. `seasonLine()` keeps the window's per-game rate and takes games from the
+2026–27 aggregate, else 2025–26, else a rookie's pace; a man with no games in the
+window keeps his season line. The what-if build also **replaces** the GM's own
+club in the VS NOW ranking: beside it, a build of his own roster raced an exact
+copy of itself and lost every tie.
+
 ---
 
 ## Player data

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.18">
+<meta name="ll-build" content="2026-11-17.19">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -5310,7 +5310,10 @@ const shotPct=(m,a)=>(a&&m!=null)?m/a:null;
 const pctText=v=>v==null?'\u2014':(v*100).toFixed(1)+'%';
 /* A non-breaking hyphen: "9.9-17.4" must not wrap onto two lines in a stat
    track four characters wide. */
-const madeAtt=(m,a)=>(m==null||a==null)?'\u2014':`${(+m).toFixed(1)}\u2011${(+a).toFixed(1)}`;
+/* Per-game figures keep a decimal ("9.9-17.4"); a season total is a whole number,
+   so "5405.0-11515.0" drops its ".0" and gains a thousands comma. */
+const maFmt=v=>Number.isInteger(+v)&&Math.abs(+v)>=100?Math.round(+v).toLocaleString('en-US'):(+v).toFixed(1);
+const madeAtt=(m,a)=>(m==null||a==null)?'\u2014':`${maFmt(m)}\u2011${maFmt(a)}`;
 /* One shooting cell: the rate, and under it what it is made of. `edited` is the
    projections table's amber mark — the rate moved because the GM moved it. */
 function shotCell(m,a,edited){
@@ -6037,9 +6040,27 @@ function meStrip(T,s,sc,cap,tax){
   if(dead>0) card('Released salary',money(dead),'on this season\'s cap','bad');
   return `<div class="mefacts">${f.join('')}</div>`;
 }
+/* A full season's line for one player, which is what fullTotals() models. Under a
+   live period (7/15/30 days, Season) pstat()'s games are the games played IN that
+   window — about a dozen in November — so fifteen players filled 177 of 920 slots,
+   743 went to replacement level, and every build finished last against history.
+   The window supplies the rate; the games come from a full-season figure: the
+   2026–27 aggregate, else 2025–26, else (a rookie) his pace in the window. A man
+   with no games in the window keeps his season line rather than vanishing. */
+function seasonLine(name){
+  const p=pstat(name);
+  if(!usingLive()) return p;
+  const c=canon(name), b=RIDX[c], ag=AGG[c];
+  const most=Math.max(1,...Object.values(LIVE[PROJSRC].players).map(x=>x.g||0));
+  const g=(ag&&ag.g)||(b&&b.g)||(p&&p.g?Math.min(82,Math.round(p.g*82/most)):0);
+  if(p&&p.g>0) return {...p,g};
+  if(!b||!g) return null;
+  const st={}; SKEYS.forEach(k=>st[k]=ag&&ag[k]!=null?ag[k]:b.s[k]);
+  return {...b,g,s:st};
+}
 function fullTotals(names){
   const GC=S.cfg.gamecap||920;
-  const rows=names.map(n=>pstat(n)).filter(p=>p&&p.g)
+  const rows=names.map(n=>seasonLine(n)).filter(p=>p&&p.g)
     .sort((a,b)=>(rtg(b.n)??-99)-(rtg(a.n)??-99));
   const a={FG:0,FGA:0,FT:0,FTA:0,P3:0,TRB:0,AST:0,STL:0,BLK:0,TOV:0,PTS:0};
   let used=0;
@@ -6140,7 +6161,11 @@ function drawLab(){
   // half-built roster is never the yardstick. The championship line is the 3-year
   // average of what actually won each category.
   const F=fullTotals(LAB);
-  const T=TEAMS(), tot={}; T.forEach(t=>tot[t]=fullTotals(clubNames(t)).v);
+  /* The build takes your club's place: it is "my club, if it looked like this".
+     Ranked beside your own club as well, a build of your current roster raced an
+     exact copy of itself, lost every tie, and read "10 of 10". */
+  const mine=me&&me!=='__comm__'&&S.teams[me]?me:null;
+  const T=TEAMS().filter(t=>t!==mine), tot={}; T.forEach(t=>tot[t]=fullTotals(clubNames(t)).v);
   tot['Your build']=F.v;
   const all=Object.keys(tot), pts={};
   PCATS.forEach(([k])=>{
