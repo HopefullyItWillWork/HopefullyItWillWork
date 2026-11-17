@@ -1152,6 +1152,11 @@ and only while the contract still starts this season.
   from $4.00 each later season adds the same raise, 4.5% of the first year (7.5%
   with Bird rights), rounded up to $0.25, never compounding. The seed agrees
   (Holmgren 35.00, 36.75, 38.50, 40.25).
+- **Each option season is marked where its salary is** (2026-11-16): `optSeasons(p)`
+  is the tail `optYears(p)` seasons owed; `salMark(p,n)` writes a salary with a TO /
+  PO / RO chip on an option season, used by the club page, the commissioner's
+  table, My Roster's and the lineup's Contract views. The name tag and the Option
+  columns name the seasons ("Team option 27–28, 28–29", `optText()`), not "×2".
 - **Options are always the tail of a deal**: one option season, or two in a row,
   and never a guaranteed season after an option one. `p.on` is the count (2, or
   absent for one); `optYears(p)` reads it. The first season is being played, so a

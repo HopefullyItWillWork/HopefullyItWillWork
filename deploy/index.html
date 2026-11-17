@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.8">
+<meta name="ll-build" content="2026-11-17.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -339,6 +339,8 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
 .luslot.k-I{border-color:var(--wnln);color:var(--tax)}
 .lurow.bench{background:var(--panel2)}
 .cmtbl input{width:100%;min-width:180px}
+/* The option marked on the season it covers (2026-11-16). */
+.otag{display:inline-block;margin-left:4px;padding:0 4px;border-radius:var(--r-s);font:700 var(--t1)/1.5 var(--body);vertical-align:1px}
 .cmtbl td{vertical-align:top}
 .cmtbl .t{font-size:var(--t1);margin-top:4px}
 /* Tonight's total under the starters (2026-11-16). */
@@ -3389,6 +3391,21 @@ function canDecline(p){
    the contract and a count is the whole of it. `p.on` is that count; a contract
    from before it existed carries `o` alone and means the final season. */
 const optYears=p=>p&&OPTL[p.o]&&p.o!=='RO' ? (p.on===2?2:1) : (p&&p.o==='RO'?1:0);
+/* The seasons a contract's option covers (2026-11-16): always its tail, the last
+   optYears() seasons owed, so a two-season option is the final two. */
+function optSeasons(p){
+  const n=optYears(p); if(!n||!p||!p.y||typeof p.y!=='object') return [];
+  return Object.keys(p.y).filter(k=>+p.y[k]>0).sort().slice(-n);
+}
+const shortSeason=k=>{ const m=/^(\d{4})-(\d{2})$/.exec(k||''); return m?m[1].slice(2)+'\u2013'+m[2]:k; };
+/* "Team option, 2027–28 and 2028–29": what the option is and which seasons. */
+const optText=p=>p&&p.o&&OPTL[p.o]?`${OPTL[p.o][0]}, ${optSeasons(p).map(shortSeason).join(' and ')}`:'';
+/* A salary n seasons from now, the option marked on the exact season it covers. */
+function salMark(p,n){
+  const v=salOff(p,n); if(v==null) return null;
+  const k=seasonAt(curSeason(),n);
+  return money(v)+(optSeasons(p).includes(k)?` <span class="otag ${OPTL[p.o][1]}" title="${OPTL[p.o][0]} season">${p.o}</span>`:'');
+}
 async function declineOption(team,idx){
   if(!canEdit(team)) return alert('You can only decline options for your own club.');
   const p=S.teams[team].r[idx];
@@ -3545,7 +3562,7 @@ function drawTermAdmin(){
       <th>Salary</th><th>Length</th><th class="l">Option</th><th class="l">Status</th><th class="acts"></th></tr></thead><tbody>${
       rows.map(r=>`<tr><td class="l pname" data-player="${htmlEsc(r.p.n)}">${htmlEsc(r.p.n)}</td><td class="l">${htmlEsc(r.t)}</td>
         <td class="mono">${money(salNow(r.p))}</td><td class="mono">${yrsLeft(r.p)}</td>
-        <td class="l">${r.p.o&&OPTL[r.p.o]?OPTL[r.p.o][0]+(optYears(r.p)===2?' \u00d72':''):'&#8212;'}</td>
+        <td class="l">${r.p.o&&OPTL[r.p.o]?htmlEsc(optText(r.p)):'&#8212;'}</td>
         <td class="l">${termSet(r.p)?'Set':'<b>Not set</b>'}</td>
         <td class="acts"><button class="act edit" data-tat="${htmlEsc(r.t)}" data-tai="${r.i}">Length</button></td></tr>`).join('')}
     </tbody></table></div>`;
@@ -3936,7 +3953,7 @@ function drawLedger(){
 }
 function tags(p){
   let h='';
-  if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}">${OPTL[p.o][0]}${optYears(p)===2?' \u00d72':''}</span>`;
+  if(p.o&&OPTL[p.o])h+=`<span class="tag ${OPTL[p.o][1]}" title="${htmlEsc(optText(p))}">${OPTL[p.o][0]}${optSeasons(p).length?' '+optSeasons(p).map(shortSeason).join(', '):''}</span>`;
   if(!contracted(p)&&p.o)h+='<span class="tag t-rfa">Restricted</span>';
   const bk=birdRight(p);
   if(bk==='Yes')h+='<span class="tag t-bird">Bird</span>';else if(bk)h+='<span class="tag t-eb">Early Bird</span>';
@@ -3963,9 +3980,9 @@ function drawDetail(){
         mine?`<button class="act" data-c="${i}">Cut</button>`:''}</td>
       <td class="pos hide">${posShow(p.n)||p.p||'&#8212;'}</td><td class="hide2">${p.acq||'&#8212;'}</td>
       <td class="hide2 ${exp?'exp':''}">${exp?'expiring':yrsLeft(p)+' yr'+(yrsLeft(p)===1?'':'s')}</td>
-      <td class="${exp?'exp':''}">${exp?'&#8212;':money(salNow(p))}</td>
-      <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':money(salOff(p,1))}</td>
-      <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':money(salOff(p,2))}</td></tr>`;}).join('');
+      <td class="${exp?'exp':''}">${exp?'&#8212;':salMark(p,0)}</td>
+      <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':salMark(p,1)}</td>
+      <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':salMark(p,2)}</td></tr>`;}).join('');
   $('detail').innerHTML=`<div class="dhead"><h3>${t}</h3>
     ${gmName(t)?`<span class="pill gmpill" title="The GM on file for this club. It does not change when the club is renamed.">${htmlEsc(gmName(t))}</span>`:''}
     <span class="pill">${n} of ${roster} under contract</span>
@@ -4296,9 +4313,9 @@ function drawAllPlayers(){
       <td class="l">${htmlEsc(r.t)}</td>
       <td class="pos l hide">${p.p?htmlEsc(p.p):'&#8212;'}</td>
       <td class="hide2">${salPrev(p)==null?'&#8212;':money(salPrev(p))}</td>
-      <td class="${r.exp?'exp':''}">${r.exp?'expiring':money(salNow(p))}</td>
-      <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':money(salOff(p,1))}</td>
-      <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':money(salOff(p,2))}</td>
+      <td class="${r.exp?'exp':''}">${r.exp?'expiring':salMark(p,0)}</td>
+      <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':salMark(p,1)}</td>
+      <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':salMark(p,2)}</td>
       <td class="${r.exp?'exp':''}">${r.exp?'&#8212;':r.yrs+' yr'+(r.yrs===1?'':'s')}</td>
       <td class="l">${tags(p)||D}</td>
       <td class="hide2">${p.acq||'&#8212;'}</td>
@@ -10351,8 +10368,8 @@ function rosVal(p,col){
 function rosCells(p){
   if(ROSTAT==='ctr'){
     const D='&#8212;';
-    return [0,1,2,3].map(n=>{ const v=salOff(p,n); return `<td>${v?money(v):D}</td>`; }).join('')
-      +`<td>${yrsLeft(p)||D}</td><td class="l">${p.o?htmlEsc(p.o)+(optYears(p)>1?' \u00d7'+optYears(p):''):D}</td>`
+    return [0,1,2,3].map(n=>{ const v=salOff(p,n); return `<td>${v?salMark(p,n):D}</td>`; }).join('')
+      +`<td>${yrsLeft(p)||D}</td><td class="l" title="${htmlEsc(optText(p))}">${p.o?htmlEsc(p.o)+' '+optSeasons(p).map(shortSeason).join(', '):D}</td>`
       +`<td class="l">${ROSRIGHTS[birdRight(p)]||D}</td><td>${p.acq||D}</td>`;
   }
   const name=typeof p==='string'?p:p.n;
@@ -10555,8 +10572,8 @@ function drawLineup(){
     const pr=`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
     if(ctr){
       const p=nm&&rosEntry(nm), D='&#8212;';
-      const cells=p?[0,1,2,3].map(n=>{ const v=salOff(p,n); return v?money(v):D; })
-        .concat([yrsLeft(p)||D, p.o?htmlEsc(p.o)+(optYears(p)>1?' \u00d7'+optYears(p):''):D,
+      const cells=p?[0,1,2,3].map(n=>{ const v=salOff(p,n); return v?salMark(p,n):D; })
+        .concat([yrsLeft(p)||D, p.o?htmlEsc(p.o)+' '+optSeasons(p).map(shortSeason).join(', '):D,
           ROSRIGHTS[birdRight(p)]||D, p.acq||D, '']):Array(9).fill('');
       return gp+cells.map(c=>`<span class="luv">${c}</span>`).join('')+pr;
     }
