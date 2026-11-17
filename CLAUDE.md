@@ -447,6 +447,18 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - **Ice cold no more**: the live line names a category the club ranks last in for
   the season and leads tonight.
 - **/jam** in chat posts nothing and jams that screen.
+- **Rule 0**: the Cap rules "i" three times quickly adds "Rule 0. Hopefully it'll
+  work." to the top of the rules (the page gained an explain note for the "i").
+- **Build tapper**: Settings shows the build (`#setBuild`); seven quick taps open
+  "You're already a GM" with league trivia (`#devCard`).
+- **Chat commands** (post nothing): `/jam`, `/shoes`, `/onfire` (your starters'
+  flames for a minute, `FIREME`), `/heatcheck` (who is heating up league-wide,
+  `openHeatCheck()`).
+- **Trip-dub**: a starter with three double-digit categories tonight (`tripDub()`).
+- **Kobe watch**: anyone at 60+ in a game under way gets a thin bar at the top of
+  every page (`drawKobe()`, from `render()`).
+- **Day one**: picking 2016-10-25 on the lineup date bar says "Nothing here yet.
+  Hopefully it'll work." and opens the origin card.
 - **The trophy room**: the pennants are a button (`data-trophies`) that opens the
   rafters (`openTrophies()`): each title, its team name and roto total.
 - **Findable, not obvious**: the logo's tooltip hints at the five clicks; the Konami

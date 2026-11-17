@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.15">
+<meta name="ll-build" content="2026-11-17.16">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1095,6 +1095,10 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .rafter .rteam{font:600 var(--t1)/1.25 var(--body);margin-top:6px}
 .rafter .rpts{font:400 var(--t1) var(--mono);opacity:.8}
 .buzz{color:var(--amber)}
+.tripdub{display:inline-block;margin-left:6px;padding:0 5px;border-radius:var(--r-s);font:700 var(--t1)/1.5 var(--body);color:var(--amber);background:var(--soft);flex:none;white-space:nowrap}
+.kobe{position:sticky;top:0;z-index:120;text-align:center;padding:4px 12px;font:700 var(--t1)/1.5 var(--body);letter-spacing:.08em;text-transform:uppercase;color:#1A1206;background:#E0A340}
+.rule0{border-color:var(--amber)}
+.swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
 .icy{margin-left:6px;color:#4F8FD6;font-weight:600}
 .origin{position:fixed;z-index:150;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));max-height:80vh;overflow:auto;
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 20px 50px rgba(0,0,0,.5);padding:18px 20px}
@@ -1549,6 +1553,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
   </div>
   <div class="subview" id="v-rules" data-subview hidden>
     <h2>Cap rules</h2>
+    <p class="note explain">The league's rulebook, as the app enforces it. Where a screen refuses something, the reason it gives comes from one of these.</p>
     <div class="rules">
       <div class="rule"><h5>Salary cap</h5><p>The cap is soft. You can exceed it only through Bird rights, Early Bird, the mid-level exception, or minimum contracts.</p></div>
       <div class="rule"><h5>Luxury tax</h5><p>The tax line is a hard cap. No team's salary may exceed it at any point, for any reason. No exception beats it.</p></div>
@@ -1713,6 +1718,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div class="toggle" role="group" aria-label="Colour theme">
         <button type="button" data-settheme="dark">Dark</button><button type="button" data-settheme="light">Light</button><button type="button" data-settheme="jam">NBA Jam</button></div>
       <button type="button" class="btn ghost" data-signout="1" style="margin-left:auto">Sign out</button></div>
+    <p class="fcount" id="setBuild" style="margin:4px 0 0;cursor:default;user-select:none"></p>
 
     <h2 class="sub">Who you are</h2>
     <p class="note explain">Your real first and last name. A club name can change &#8212; and clubs do get renamed,
@@ -5143,6 +5149,8 @@ function render(){
      across before it redraws. */
   followMe();
   auctionCall();
+  drawKobe();
+  if($('setBuild')&&!$('setBuild').textContent) $('setBuild').textContent='Build '+(document.querySelector('meta[name="ll-build"]')||{content:''}).content;
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
@@ -10459,6 +10467,8 @@ const LUAHEAD=14;
 const luPast=()=>!!LUVIEW.day&&LUVIEW.day<luNight();
 function luGo(day){
   const n=luNight();
+  /* Day one: the league's first night (2016-10-25). Nothing here yet. */
+  if(day==='2016-10-25'){ openOrigin(); setTimeout(()=>{ if($('lnBody')) $('lnBody').innerHTML='<div class="empty">Nothing here yet. Hopefully it\u2019ll work.</div>'; if($('lnHead')) $('lnHead').innerHTML=''; },400); }
   if(day&&day>dPlus(n,LUAHEAD)) day=dPlus(n,LUAHEAD);
   LUVIEW.day=day&&day!==n?day:'';
   /* A night ahead needs its own schedule for the Game column and Best for that night. */
@@ -10713,7 +10723,7 @@ function drawLineup(){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}${ahead?'':heatTag(nm)}</span>`
+        ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}${ahead?'':heatTag(nm)+tripDub(nm)}</span>`
         : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span>`
 
               : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
@@ -10729,7 +10739,7 @@ function drawLineup(){
       <span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lurowctl">
         ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
-        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>${ahead?'':heatTag(p.n)}
+        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>${ahead?'':heatTag(p.n)+tripDub(p.n)}
         ${can&&!lk.locked ? (where.length
           ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
                <option value="">Start&#8230;</option>
@@ -10857,6 +10867,9 @@ async function postChat(text){
   if(!body) return;
   /* A secret: "/jam" posts nothing and just jams this screen (2026-11-16). */
   if(/^\/jam$/i.test(body)){ showBoom('BOOMSHAKALAKA!'); return; }
+  if(/^\/shoes$/i.test(body)){ showBoom('IS IT THE SHOES?!'); return; }
+  if(/^\/onfire$/i.test(body)){ FIREME=Date.now()+60e3; showBoom('HE\u2019S ON FIRE!'); drawLineup(); setTimeout(()=>drawLineup(),60500); return; }
+  if(/^\/heatcheck$/i.test(body)){ openHeatCheck(); return; }
   if(!me) return alert('Sign in to post.');
   if(body.length>CHATMAX) return alert(`Keep it under ${CHATMAX} characters — that one is ${body.length}.`);
   const m={ts:now(),by:isComm()?'Commissioner':me,text:body};
@@ -12701,7 +12714,10 @@ function heatOf(name){
   return dp>=12||d3>=3?'fire':dp>=7||d3>=2?'hot':'';
 }
 const FLAMESVG='<svg width="11" height="12" viewBox="0 0 12 14" fill="currentColor" aria-hidden="true"><path d="M6 0c.6 2.4 3.9 4.2 3.9 8A3.9 3.9 0 0 1 2.1 8c0-1.5.7-2.6 1.6-3.4.1 1.2.7 2 1.5 2.3C4.7 4.7 5 2.2 6 0z"/></svg>';
-const heatTag=name=>{ const h=heatOf(name);
+/* /onfire: your own starters' flames for a minute (2026-11-16). */
+var FIREME=0;
+const heatTag=name=>{ const mine=FIREME>Date.now()&&me&&SLOTIDS.some(id=>canon(lineupOf(meTeam()).s[id]||'')===canon(name));
+  const h=mine?'fire':heatOf(name);
   return h?`<span class="heat ${h}" title="${h==='fire'?'12+ points or 3 threes in the last few minutes':'7+ points or 2 threes in the last few minutes'}">${FLAMESVG}${h==='fire'?FLAMESVG:''}<span class="heatw">${h==='fire'?'On fire':'Heating up'}</span></span>`:''; };
 
 /* Championship banners (2026-11-16). Titles belong to the MANAGER, read from
@@ -12772,6 +12788,70 @@ document.addEventListener('click',e=>{
   if(ORIGIN.n>=5){ ORIGIN.n=0; openOrigin(); }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('originCard')) $('originCard').hidden=true; });
+
+/* Triple-double, live: three of points, rebounds, assists, steals and blocks in
+   double figures tonight. A small chip, only when it happens. */
+function tripDub(name){
+  const b=nowLine(name), x=b&&b.s; if(!x) return '';
+  const n=['PTS','TRB','AST','STL','BLK'].filter(k=>(+x[k]||0)>=10).length;
+  return n>=3?`<span class="tripdub" title="Triple-double tonight">${n>=4?'Quad-dub':'Trip-dub'}</span>`:'';
+}
+/* Kobe watch: anyone at 60+ in a game under way, at the top of every page. */
+function drawKobe(){
+  let bar=$('kobeBar');
+  const L=liveOn(), F=fastOn(), seen={}, hot=[];
+  [F,L].forEach(src=>{ if(!src) return; Object.entries(src.players||{}).forEach(([id,p])=>{
+    if(seen[id]||!p||!p.s||(+p.s.PTS||0)<60) return; seen[id]=1;
+    const g=Object.values(src.games||{}).find(x=>x.home===p.t||x.away===p.t);
+    if(g&&g.state==='in') hot.push(p); }); });
+  if(!hot.length){ if(bar) bar.hidden=true; return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='kobeBar'; bar.className='kobe'; bar.setAttribute('role','status'); document.body.prepend(bar); }
+  bar.textContent=hot.map(p=>`Kobe watch: ${p.n} has ${p.s.PTS}`).join(' \u00b7 ');
+  bar.hidden=false;
+}
+/* /heatcheck: everyone heating up or on fire tonight, league-wide. */
+function openHeatCheck(){
+  const L=liveOn(), F=fastOn(), rows=[], seen={};
+  [F,L].forEach(src=>{ if(!src) return; Object.values(src.players||{}).forEach(p=>{ if(!p||seen[p.n]) return; seen[p.n]=1;
+    const h=heatOf(p.n); if(h) rows.push({n:p.n,h,pts:+p.s.PTS||0,club:liveClub(p.n)}); }); });
+  rows.sort((a,b)=>(a.h==='fire'?0:1)-(b.h==='fire'?0:1)||b.pts-a.pts);
+  let d=$('heatCard');
+  if(!d){ d=document.createElement('div'); d.id='heatCard'; d.className='origin'; d.setAttribute('role','dialog'); d.setAttribute('aria-label','Heat check'); document.body.appendChild(d); }
+  d.innerHTML=`<button type="button" class="act" data-hclose aria-label="Close" style="float:right">\u2715</button><h2 style="margin-top:0">Heat check</h2>
+    ${rows.length?`<ol class="ostory">${rows.map(r=>`<li><b class="${r.h==='fire'?'dn':''}">${r.h==='fire'?'On fire':'Heating up'}</b> ${htmlEsc(r.n)} <span class="t">${r.pts} pts${r.club?' \u00b7 '+htmlEsc(r.club):''}</span></li>`).join('')}</ol>`
+      :'<p class="note">Nobody\u2019s heating up right now.</p>'}`;
+  d.hidden=false; d.querySelector('[data-hclose]').onclick=()=>{ d.hidden=true; };
+}
+/* Rule 0: the Cap rules "i", three times quickly. */
+let RULE0={n:0,t:0};
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('#v-rules .infobtn'); if(!b) return;
+  const t=Date.now(); RULE0.n=t-RULE0.t<1500?RULE0.n+1:1; RULE0.t=t;
+  if(RULE0.n>=3&&!document.querySelector('.rule0')){ const g=document.querySelector('#v-rules .rules');
+    if(g) g.insertAdjacentHTML('afterbegin','<div class="rule rule0"><h5>Rule 0</h5><p>Hopefully it\u2019ll work.</p></div>'); }
+});
+/* Seven taps on the build number in Settings: you're already a GM. */
+let BUILDTAP={n:0,t:0};
+document.addEventListener('click',e=>{
+  const b=e.target&&e.target.closest&&e.target.closest('#setBuild'); if(!b) return;
+  const t=Date.now(); BUILDTAP.n=t-BUILDTAP.t<1500?BUILDTAP.n+1:1; BUILDTAP.t=t;
+  if(BUILDTAP.n<7) return; BUILDTAP.n=0;
+  const names=[...TEAMS(),...renameLog().flatMap(r=>[r&&r.from,r&&r.to]),...Object.values(HIST).flat().map(r=>r.team)].filter(Boolean);
+  const longest=names.reduce((a,b)=>b.length>a.length?b:a,'');
+  const cols={}; TEAMS().forEach(t=>{ const c=clubBrand(t).c; cols[c]=(cols[c]||0)+1; });
+  const top=Object.entries(cols).sort((a,b)=>b[1]-a[1])[0];
+  let d=$('devCard');
+  if(!d){ d=document.createElement('div'); d.id='devCard'; d.className='origin'; d.setAttribute('role','dialog'); d.setAttribute('aria-label','Developer mode'); document.body.appendChild(d); }
+  d.innerHTML=`<button type="button" class="act" data-dclose aria-label="Close" style="float:right">\u2715</button>
+    <h2 style="margin-top:0">You\u2019re already a GM.</h2><p class="note">No developer mode here. Some numbers instead:</p>
+    <ol class="ostory"><li><b>${(S.log||[]).length}</b> transactions on the books</li>
+      <li><b>${CHATLOADED?CHAT.length:'\u2014'}</b> chat posts${CHATLOADED?'':' (open Chat to count them)'}</li>
+      <li><b>${Object.keys(HIST).length}</b> seasons in the books</li>
+      <li><b>${renameLog().length}</b> club renames</li>
+      <li>Longest club name ever: <b>${htmlEsc(longest)}</b> <span class="t">${longest.length} characters</span></li>
+      ${top?`<li>Most-worn club colour: <span class="swatch" style="background:${htmlEsc(top[0])}"></span> <span class="t">${top[1]} club${top[1]===1?'':'s'}</span></li>`:''}</ol>`;
+  d.hidden=false; d.querySelector('[data-dclose]').onclick=()=>{ d.hidden=true; };
+});
 
 /* Big-head mode: the Konami code (or, on a phone, the same swipes then two taps)
    gives every headshot the arcade's big head. Again to turn it off. Nothing is
