@@ -428,7 +428,8 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - **Championship banners**: titles belong to the manager (`managerOf()`: the manager
   on file, else the one a manager-named club names), read from HIST rk 1
   (`titlesOf()`). Pennants beside the club name on My Team and the club page
-  (`bannersHtml()`), a trophy and count in Standings (`titleTag()`).
+  (`bannersHtml()`). No trophies in Standings (2026-11-16): nobody is reminded of
+  what they have not won. `titleTag()` is unused.
 - **The origin story**: five clicks on the logo opens a card (`openOrigin()`): the
   signed-in manager's seasons and every champion.
 - **Auction night**: the club that wins a lot gets FROM DOWNTOWN! (IS IT THE SHOES?!
@@ -445,8 +446,8 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - **Ice cold no more**: the live line names a category the club ranks last in for
   the season and leads tonight.
 - **/jam** in chat posts nothing and jams that screen.
-- **The trophy room**: the Standings trophy is a button (`data-trophies`) that opens
-  the rafters (`openTrophies()`): each title, its team name and roto total.
+- **The trophy room**: the pennants are a button (`data-trophies`) that opens the
+  rafters (`openTrophies()`): each title, its team name and roto total.
 - **Findable, not obvious**: the logo's tooltip hints at the five clicks; the Konami
   code is printed, small and dim, at the very bottom of League › Cap rules, in every
   theme (`.konhint`): a reward for reading the rules to the end.

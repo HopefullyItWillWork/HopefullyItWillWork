@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.13">
+<meta name="ll-build" content="2026-11-17.14">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1061,7 +1061,9 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lulivebar.warnline{color:var(--tax)}
 .rdelta{font-size:var(--t1);font-weight:600;margin-left:3px}
 /* Championship banners and the trophy count (2026-11-16). */
-.pennants{display:inline-flex;gap:4px;align-items:flex-start;margin-left:10px;vertical-align:middle}
+.pennants{display:inline-flex;gap:4px;align-items:flex-start;margin-left:10px;vertical-align:middle;background:none;border:0;padding:0;cursor:pointer}
+.pennants:hover .pennant{filter:brightness(1.1)}
+.pennants:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
 .pennant{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:46px;height:48px;padding-top:6px;box-sizing:border-box;white-space:nowrap;
   background:#B8862E;color:#1A1206;clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%);font-family:var(--body)}
 .pennant b{font:700 11px/1.1 var(--mono)}
@@ -12655,8 +12657,10 @@ const TROPHYSVG='<svg width="12" height="12" viewBox="0 0 16 16" fill="currentCo
 /* The banners, rafters style: one pennant per title, newest last. */
 function bannersHtml(t){
   const ts=titlesOf(managerOf(t)); if(!ts.length) return '';
-  return `<span class="pennants" role="img" aria-label="${ts.length} championship${ts.length===1?'':'s'}: ${ts.map(x=>shortSeason(x.season)).join(', ')}">${
-    ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champs</small></span>`).join('')}</span>`;
+  /* A button: it opens the trophy room. Only a club with a title has pennants, so
+     nobody is reminded of what they have not won (2026-11-16: no trophies in Standings). */
+  return `<button type="button" class="pennants" data-trophies="${htmlEsc(t)}" aria-label="${ts.length} championship${ts.length===1?'':'s'}: ${ts.map(x=>shortSeason(x.season)).join(', ')}. Open the trophy room">${
+    ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champs</small></span>`).join('')}</button>`;
 }
 /* A trophy and a count, where a row has no room for pennants (Standings). */
 function titleTag(t){
@@ -13107,7 +13111,7 @@ function drawStandBox(B){
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
       <td class="l">${r.rank}${race&&race[r.club]&&race[r.club].rank!==race[r.club].rank0
         ?(race[r.club].rank<race[r.club].rank0?` <small class="up" title="Up from ${race[r.club].rank0} tonight">\u25B2${race[r.club].rank0-race[r.club].rank}</small>`
-          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${titleTag(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
       <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP}<span class="gpcap"> / ${cap}</span>`:r.tot.GP}</td>
       ${Object.keys(CK).map(c=>`<td>${val(r,c)}</td>`).join('')}
       <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
