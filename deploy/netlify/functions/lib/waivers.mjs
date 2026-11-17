@@ -215,6 +215,9 @@ export function processWaivers({ teams, cfg, order, today, now = new Date().toIS
       team.cuts.push({ n: p.n, p: p.p, s: s != null ? s : 0, blocked: yrsLeft(p, season) >= 2, live: true,
         at: season, cv: 2, wv: { from: today, till: dayPlus(today, 1) } });
       if (team.lu && team.lu.s) for (const id of Object.keys(team.lu.s)) if (nameKey(team.lu.s[id]) === nameKey(p.n)) team.lu.s[id] = "";
+      /* And from every night planned ahead. */
+      for (const pl of Object.values(team.luf || {})) if (pl && pl.s)
+        for (const id of Object.keys(pl.s)) if (nameKey(pl.s[id]) === nameKey(p.n)) pl.s[id] = "";
     }
     /* An expiring entry for him on any roster moves (as signPlayer() does). */
     let entry = null;

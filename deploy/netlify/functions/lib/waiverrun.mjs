@@ -8,7 +8,7 @@
 import { processWaivers, weeklyOrder, mondayOf, onWaivers, seasonKey, allOnWaivers } from "./waivers.mjs";
 import { seasonStandings } from "./score.mjs";
 import { seasonOf } from "./scorerun.mjs";
-import { recordLineup } from "./lineups.mjs";
+import { recordLineup, lineupFor } from "./lineups.mjs";
 import { clubCtx, daysByName } from "./clubs.mjs";
 
 const TZ = () => process.env.LEAGUE_TZ || "America/New_York";
@@ -82,8 +82,13 @@ export async function runWaivers(s, { by = "Waivers" } = {}) {
          does not start the man it no longer has. */
       for (const res of r.results) {
         const t = res.drop && r.teams[res.to];
-        if (t && t.lu && t.lu.s) {
-          try { await recordLineup(s, TZ(), { club: res.to, cid: t.id, s: t.lu.s, by: by, src: "waivers" }); } catch { /* the morning carry catches it */ }
+        const cur = t && lineupFor(t, today);
+        if (cur && cur.s) {
+          try { await recordLineup(s, TZ(), { club: res.to, cid: t.id, s: cur.s, by: by, src: "waivers" }); } catch { /* the morning carry catches it */ }
+        }
+        /* Nights planned ahead lost the man too; file their new copies. */
+        for (const d of Object.keys((t && t.luf) || {}).filter((d) => d > today)) {
+          try { await recordLineup(s, TZ(), { club: res.to, cid: t.id, s: t.luf[d].s, by: by, src: "plan", day: d }); } catch { /* re-saved by the page */ }
         }
       }
       if (r.log.length) {

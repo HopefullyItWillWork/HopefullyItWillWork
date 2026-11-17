@@ -135,9 +135,10 @@ night and nothing more is claimed for it.
 
 **The tale of the tape** (`#homeTape`, `drawTape()`) is on Home in every
 theme: the GM's club against **any club he picks**, its league rank in all
-nine categories side by side, and who leads each. The pick is remembered per
-club in this browser (`ll_tape`); it defaults to the club directly above (below
-for the leader). Signed out or as the commissioner, both sides are pickable.
+nine categories side by side, and who leads each. A signed-in GM always opens on the club directly above
+him (below for the leader), following the standings; picking another lasts this
+visit only (`TAPEPEEK`, 2026-11-16). Signed out or as the commissioner the picks
+are remembered (`ll_tape`). Signed out or as the commissioner, both sides are pickable.
 Season results once a night is scored (`SCORE.standings`, the same roto points
 the Standings table shows); before that, `standings()`'s projection under the
 stats period in front of the GM, and the header says which. `tapeRanks()`,
@@ -328,6 +329,156 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
   To the hard cap, Injured reserve (and Released salary when there is any).
 - **`.scroller` tables sit on `--panel`**, pinned column included; the pinned cell
   used to paint the page colour and read as an inverted block in light.
+
+### The lineup's night, and nights set ahead (2026-11-16)
+
+- **The night rolls at 4 AM Eastern, not midnight** (`LUROLL`, `luNight()`). At
+  midnight Eastern the West Coast games were still on, and the lineup jumped to
+  tomorrow under a Pacific GM at 9 PM. `luNight()` is what the lineup, the lock,
+  the schedule fetch, Home's Tonight card and both date bars read; `dayKey()` is
+  still the date everything else is stamped with. Past midnight, last night's
+  clock reads 24:xx (`nightMinutes()`), so all of its games stay locked. 4 AM is
+  after the last game and before the morning carry (09:15 UTC).
+- **A lineup can be set up to 14 nights ahead** (`LUAHEAD`): the date bar's ▶ and
+  date picker go forward, and that night is edited exactly like tonight (its own
+  schedule, `SCHEDS[day]`, fetched on open; nothing locks). It is stored as a plan,
+  `S.teams[t].luf = {day: {s, at}}`, beside `lu = {d, s}`. **The lineup for a night
+  is the newest plan on or before it, unless `lu` was set on or after that plan's
+  night** — `lineupOf(t, day)` in the page, `lineupFor(team, day)` in
+  `lib/lineups.mjs`, the same rule. So a plan persists until changed, and editing
+  tonight does not overwrite a night already planned. `putLineup(t, day, s)` is the
+  one writer; plans for nights reached are dropped as it writes.
+- Server: `POST /api/lineups` takes `day` (yesterday to 30 days ahead) and files
+  the save under it (`src:"plan"` for a night ahead); the time is still the
+  server's. The morning carry copies `lineupFor()`, not `lu`. **The carry now files a club
+  whenever its lineup for the day differs from the last entry filed for it** (not
+  only when nothing is filed): a plan filed days ago and since changed or cleared
+  would otherwise stand. Overrides are never carried over. The daily email's
+  "tonight" and the scoring diagnostics read `lineupFor()` too. Tonight's view
+  lists nights set ahead, with **Clear them** (`clearPlans()`, re-files those nights). Pruning (a release,
+  the IR, waivers) clears a man from every plan too and re-files them.
+- The **OUT/DTD chip opens the player card** (`data-player`), which leads with the
+  report and the news. A no-game row dims its numbers to .7 and nothing else.
+
+### Live stats during games (2026-11-16)
+
+- `live-stats.mjs`, scheduled every 5 minutes UTC 16:00–08:59, runs `runLive()`
+  (`lib/live.mjs`). `gate()` stops it without asking ESPN before the night's first
+  tip (from the cached `sched-<night>`), on a night with no games, and once every
+  game is final; the night rolls at 4 AM league time, like the page. Otherwise one
+  scoreboard, and a box score only for a game in progress or newly final (a game
+  captured final is kept). `scoreLive()` (`lib/scorerun.mjs`) scores the night with
+  the same rule and inputs as `runScore()` and **writes nothing**: the result is the
+  one `live` blob. The morning feed and scoring are untouched and stay the record.
+- `GET /api/score?live=1` serves it with club names; `POST ?live=1[&force=1]` runs it
+  now (once a minute).
+- Page: `LIVENOW`, fetched every 2.5 minutes only while `liveWanted()`. My Team gets
+  a **Tonight** view (first in the toggle when there is live data: tonight's box
+  score per player, MIN in the GP column), the Game column shows the clock ("Q3
+  4:12", "Final"), and a "live · Tonight so far" line with the club's totals.
+  Under the starters, a **Tonight so far** total row (`totalRow` in `drawLineup()`:
+  starters only, summed from the same lines, before the game cap).
+  Standings: Season to date adds tonight (`liveTotals()`), and Last night becomes
+  **Tonight (live)**; the note says live and when. Everything live is labelled so.
+
+- **Tonight's race** (`liveRace()`): the season table without and with tonight so
+  far, by club. Standings put ▲/▼ on a place that moved and ±roto beside the total;
+  the lineup's live line says "roto +2, 3rd → 2nd" and arrows the categories that moved.
+- **Your players, every minute** (`fastTick()`, `FAST`): with the Tonight view open
+  the page asks ESPN itself (CORS allows it, ~45KB a game compressed) for the games
+  your starters are in. Only per-player lines come from it — `nowLine()`/`nowGame()`
+  prefer it — club totals and standings stay the server's; the line says both times.
+- **When it falls behind**: `liveStale()` (no fresh copy for 15 minutes during
+  games) shows a warning on the lineup and the standings. `live-run` is the last run
+  (skips written only when the reason changes), and the morning's `score-nightly`
+  writes `live-drift` (`driftOf()`: official minus live, per club). Commissioner ›
+  Stats and scoring shows both in a **Live stats** cell, with **Live update now**.
+
+### Team name and manager, kept apart (2026-11-16)
+
+The team name is the club's key (`S.teams` key, renameable); the manager is
+`S.teams[t].gm` (the person, kept through renames). Four clubs still carried their
+manager's surname as the team name (Coulter, D. Fink, N. Fink, Osborn) with no
+manager on file, one had none, and one manager record held the team name.
+**Commissioner › Clubs and managers** (`drawClubsManagers()`, `saveClubManager()`)
+edits both in one row: a rename through `renameClub()` and the manager set or
+corrected, in one confirm and one write. `knownManagers()` reads HIST (newest
+season first) for the manager list and last season's team name; `managerNamed()`
+spots a club named after its manager; `gmLooksWrong()` a manager record that is
+the team name. A warning above the table counts all three.
+
+**A signed-in GM follows his club through a rename** (`renamedTo()`, `followMe()`,
+called where a gone club used to sign him out): his own work is stored and
+encrypted under the club's name, so a commissioner rename made it look lost. This
+browser's copies move (`moveClubLocals()`, now including the watch list) and are
+re-seeded under the new name. A removed club still signs him out.
+
+**Games played counts tonight live** (`gamesTonight()`): starters who have appeared
+in a box score tonight (up to the cap) are added to My Team's and Home's Games
+cards and to the pace, and starters in a game under way who have not yet appeared
+are shown as "locked in". Drops away once the morning's scoring has the night.
+
+### Easter eggs and banners (2026-11-16)
+
+- **Big-head mode**: the Konami code (↑↑↓↓←→←→ B A; on a phone the same swipes
+  then two taps) toggles `body.bighead` and flashes BOOMSHAKALAKA. Not saved.
+- **Heating up / on fire**: `noteHeat()` keeps each live player's points and threes
+  per update; `heatOf()` over the last eight minutes: 7+ points or 2 threes is
+  heating up, 12+ or 3 is on fire. A flame by the name in the lineup (`heatTag()`,
+  flames only below 1240px). Approximate: there is no play-by-play.
+- **Championship banners**: titles belong to the manager (`managerOf()`: the manager
+  on file, else the one a manager-named club names), read from HIST rk 1
+  (`titlesOf()`). Pennants beside the club name on My Team and the club page
+  (`bannersHtml()`). No trophies in Standings (2026-11-16): nobody is reminded of
+  what they have not won. `titleTag()` is unused.
+- **The origin story**: five clicks on the logo opens a card (`openOrigin()`): the
+  signed-in manager's seasons and every champion.
+- **Auction night**: the club that wins a lot gets FROM DOWNTOWN! (IS IT THE SHOES?!
+  past $30) on its own screen, once per award per browser (`auctionCall()`,
+  `ll_auccall`; the first look at an already-closed lot is only noted). `showBoom()`
+  is the shared call-out.
+- **Rivalry**: the Tale of the Tape's footer adds the managers' all-time record
+  against each other from HIST (`rivalry()`).
+- **Maxed out**: a Games card at exactly the cap turns gold.
+- **At the buzzer**: a game seen in its last minute (4th or OT, clock ≤ 1:00, or
+  "End of") on one update and final on the next; a player in it who scored in
+  between gets a quiet amber "at the buzzer" on his Game line (`HEAT.buzz`, fed by
+  `noteHeat(players, games)`).
+- **Ice cold no more**: the live line names a category the club ranks last in for
+  the season and leads tonight.
+- **/jam** in chat posts nothing and jams that screen.
+- **Rule 0**: the Cap rules "i" three times quickly adds "Rule 0. Hopefully it'll
+  work." to the top of the rules (the page gained an explain note for the "i").
+- **Build tapper**: Settings shows the build (`#setBuild`); seven quick taps open
+  "You're already a GM" with league trivia (`#devCard`).
+- **Chat commands** (post nothing): `/jam`, `/shoes`, `/onfire` (your starters'
+  flames for a minute, `FIREME`), `/heatcheck` (who is heating up league-wide,
+  `openHeatCheck()`).
+- **Stat feats** (`featsOf()`, over PTS/REB/AST/STL/BLK): trip-dub (three in double
+  figures) is a quiet chip; **5×5** (all five at 5+), **quad-dub** (four in double
+  figures) and **5×10** are gold chips, a bar at the top of every page for the
+  night, and one arcade call per player per night per browser (`featCall()`,
+  `ll_feat_<night>`).
+- **Kobe watch**: anyone at 60+ in a game under way shares that bar (`drawKobe()`,
+  from `render()`).
+- **Day one**: picking 2016-10-25 on the lineup date bar says "Nothing here yet.
+  Hopefully it'll work." and opens the origin card.
+- **The trophy room**: the pennants are a button (`data-trophies`) that opens the
+  rafters (`openTrophies()`): each title, its team name and roto total.
+- **Findable, not obvious**: the logo's tooltip hints at the five clicks; the Konami
+  code is printed, small and dim, at the very bottom of League › Cap rules, in every
+  theme (`.konhint`): a reward for reading the rules to the end.
+- Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's
+  champion cards, and reusing the name broke them.
+
+### Weekly awards (2026-11-16)
+
+Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,
+night)`): last Monday–Sunday from `SCORE.days`. Won the week, then from a pool —
+best night, biggest climber (season rank before and after the week), most games,
+sharpshooter (3P), glass cleaner (REB), dimes (AST), lockdown (STL+BLK) — the
+ones that spread across clubs first, up to five, repeats only to make four.
+Facts only, never a suggestion.
 
 ### Five changes from the second mockup (2026-11-16)
 
@@ -1064,6 +1215,11 @@ and only while the contract still starts this season.
   from $4.00 each later season adds the same raise, 4.5% of the first year (7.5%
   with Bird rights), rounded up to $0.25, never compounding. The seed agrees
   (Holmgren 35.00, 36.75, 38.50, 40.25).
+- **Each option season is marked where its salary is** (2026-11-16): `optSeasons(p)`
+  is the tail `optYears(p)` seasons owed; `salMark(p,n)` writes a salary with a TO /
+  PO / RO chip on an option season, used by the club page, the commissioner's
+  table, My Roster's and the lineup's Contract views. The name tag and the Option
+  columns name the seasons ("Team option 27–28, 28–29", `optText()`), not "×2".
 - **Options are always the tail of a deal**: one option season, or two in a row,
   and never a guaranteed season after an option one. `p.on` is the count (2, or
   absent for one); `optYears(p)` reads it. The first season is being played, so a

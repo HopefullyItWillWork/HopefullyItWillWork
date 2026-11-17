@@ -1802,7 +1802,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   const other = started.find(n => g('NBATM')[g('canon')(n)] && g('NBATM')[g('canon')(n)] !== tm);
   ok('and another starter plays for a different club', !!other, started.join(','));
   // 00:00 is always in the past; 23:59 is not yet, bar one minute of the day.
-  g('S').cfg.sched = {[g('dayKey')()]: {[tm]: '00:00'}};
+  g('S').cfg.sched = {[g('luNight')()]: {[tm]: '00:00'}};
   ok('his club tipped off, so he is locked', g('isLocked')(withTeam) === true);
   ok('the reason names the club and the time',
      /tipped off at 12:00 AM/.test(g('lockOf')(withTeam).why), g('lockOf')(withTeam).why);
@@ -1810,7 +1810,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      g('NBATM')[g('canon')(other)] + ' ' + JSON.stringify(g('lockOf')(other)));
   ok('and his row shows when he will lock', g('lockOf')(other).why === '',
      g('lockOf')(other).why);
-  g('S').cfg.sched = {[g('dayKey')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
+  g('S').cfg.sched = {[g('luNight')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
   ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
   ok('but the screen tells him the time', /11:59 PM/.test(g('lockOf')(other).why),
      g('lockOf')(other).why);
@@ -2060,7 +2060,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('the workbook’s short codes fold onto NBA tricodes',
      g('TRICODE').SA === 'SAS' && g('TRICODE').GS === 'GSW' && g('TRICODE').NY === 'NYK'
      && g('TRICODE').NO === 'NOP' && g('TRICODE').UTAH === 'UTA' && g('TRICODE').WSH === 'WAS');
-  const night = g('dayKey')();
+  const night = g('luNight')();
   // Pretend the feed answered. It uses NBA tricodes; NBATM uses the short ones.
   const someone = g('startedOn')('N. Fink')[0]
     || g('S').teams['N. Fink'].r.find(p => g('contracted')(p) && g('NBATM')[g('canon')(p.n)]).n;
@@ -2115,7 +2115,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.phase = 'season';
   g('S').cfg.ir = 1;
   g('S').cfg.sched = {};
-  X.SCHED = {day: g('dayKey')(), tips: {}, ok: true, reason: ''};
+  X.SCHED = {day: g('luNight')(), tips: {}, ok: true, reason: ''};
   g('S').teams['N. Fink'].r.forEach(p => { delete p.ir; });
   await g('clearLineup')('N. Fink');
   await g('autoLineup')('N. Fink');
@@ -2154,7 +2154,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   console.log('\n== a locked man cannot be hidden on the IR ==');
   const lockMe = g('benchOf')('N. Fink').find(p => g('NBATM')[g('canon')(p.n)]);
   const tri = g('TRICODE')[g('NBATM')[g('canon')(lockMe.n)]] || g('NBATM')[g('canon')(lockMe.n)];
-  X.SCHED = {day: g('dayKey')(), tips: {[tri]: '00:00'}, ok: true, reason: ''};
+  X.SCHED = {day: g('luNight')(), tips: {[tri]: '00:00'}, ok: true, reason: ''};
   ok('he is locked', g('isLocked')(lockMe.n) === true);
   ctx.__alerts.length = 0;
   const si = g('S').teams['N. Fink'].r.findIndex(p => p.n === lockMe.n);
@@ -2163,7 +2163,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      !g('irOf')('N. Fink').some(p => p.n === lockMe.n) && /locked/.test(ctx.__alerts[0] || ''),
      JSON.stringify(ctx.__alerts));
   ctx.__alerts.length = 0;
-  X.SCHED = {day: g('dayKey')(), tips: {}, ok: true, reason: ''};
+  X.SCHED = {day: g('luNight')(), tips: {}, ok: true, reason: ''};
 
   console.log('\n== Start all fills the lineup from the bench ==');
   await g('clearLineup')('N. Fink');
@@ -2191,7 +2191,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   X.me = '__comm__';
   g('S').cfg.phase = 'season';
   g('S').cfg.sched = {};
-  X.SCHED = {day: g('dayKey')(), tips: {}, ok: true, reason: ''};
+  X.SCHED = {day: g('luNight')(), tips: {}, ok: true, reason: ''};
   g('render')();
   const asSel = document.getElementById('meAs');
   asSel.value = 'N. Fink';

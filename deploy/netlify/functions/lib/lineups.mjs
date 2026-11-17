@@ -95,21 +95,45 @@ export function lineupAt(entries, when) {
   return hit;
 }
 
-/* The morning carry-forward: one entry per club that has a lineup and has
-   nothing recorded yet today. Run before any game, so it is always the
-   baseline a night's scoring starts from. */
+/* Lineups set ahead (2026-11-16). A GM can set the lineup for a night still to
+   come; it is kept on the club as `luf = {day: {s, at}}`, beside the current
+   lineup `lu = {d, s}`. The lineup for a night is the newest plan on or before
+   it, unless the current lineup was set on or after that plan's night — the
+   same rule as the page's lineupOf()/lineupFor(). A plan therefore persists
+   until it is changed, and tonight's edits do not overwrite a night already
+   planned. */
+export function lineupFor(team, day) {
+  const lu = (team && team.lu) || null, plans = (team && team.luf) || {};
+  const k = Object.keys(plans).filter((d) => d <= day && plans[d] && plans[d].s).sort().pop();
+  if (k && k > ((lu && lu.d) || "")) return { d: k, s: plans[k].s };
+  return lu && lu.s ? lu : null;
+}
+
+/* The morning carry-forward: one entry per club whose lineup for today, as the
+   rosters hold it (lineupFor: tonight's, or a night set ahead), is not what was
+   last filed for today. Run before any game. Until 2026-11-16 it only wrote for a
+   club with nothing filed yet; with nights set ahead, something filed days ago (a
+   plan, later changed or cleared) could then stand. No game has tipped this early,
+   so filing the rosters' answer is always right, and it repairs a save whose
+   record never reached the server. A commissioner override is never touched. */
 export async function carryLineups(store, tz, teams) {
   const day = dayIn(tz);
   const have = await lineupsOn(store, day);
-  /* Who has an entry today, by id — a club renamed this morning still has one. */
-  const haveId = new Set();
+  /* The last entry today per club, by id — a club renamed this morning still has one. */
+  const last = {};
   for (const [name, list] of Object.entries(have))
-    for (const e of list) haveId.add(e.cid || (teams[name] && teams[name].id) || name);
+    for (const e of list) {
+      const k = e.cid || (teams[name] && teams[name].id) || name;
+      if (!last[k] || e.at >= last[k].at) last[k] = e;
+    }
   const done = [];
   for (const club of Object.keys(teams || {})) {
-    const lu = teams[club] && teams[club].lu;
+    const lu = lineupFor(teams[club], day);
     const cid = teams[club] && teams[club].id;
-    if (!lu || !lu.s || have[club] || (cid && haveId.has(cid))) continue;
+    if (!lu || !lu.s) continue;
+    const prev = (cid && last[cid]) || last[club];
+    if (prev && prev.src === "override") continue;
+    if (prev && JSON.stringify(cleanSlots(prev.s)) === JSON.stringify(cleanSlots(lu.s))) continue;
     await recordLineup(store, tz, { club, cid, s: lu.s, by: "nightly", src: "carry" });
     done.push(club);
   }

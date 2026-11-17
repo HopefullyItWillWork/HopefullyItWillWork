@@ -3,7 +3,7 @@
    What matters: entries are never overwritten, the server's time is the one
    recorded, the morning carry happens once, and "the lineup at tip-off" is the
    last entry at or before it. */
-import { SLOTS, cleanSlots, recordLineup, lineupsOn, lineupAt, carryLineups, dayIn }
+import { SLOTS, cleanSlots, recordLineup, lineupsOn, lineupAt, carryLineups, dayIn, lineupFor }
   from '../deploy/netlify/functions/lib/lineups.mjs';
 
 let fails = 0, ran = 0;
@@ -48,6 +48,19 @@ const tick = () => new Promise(r => setTimeout(r, 3));
   ok('a second run the same day does nothing', again.length === 0 && t.m.size === 2);
   const e = (await lineupsOn(t, dayIn(TZ)))['N. Fink'][0];
   ok('marked as a carry', e.src === 'carry' && e.by === 'nightly');
+  {
+    /* Something filed for today earlier (a plan made days ago, since cleared) that
+       no longer matches the club: the carry files the club's lineup over it. */
+    const st = memStore(), today = dayIn(TZ);
+    await recordLineup(st, TZ, { club: 'P', cid: 'c_p', s: { C: 'Old' }, src: 'plan', day: today });
+    await tick();
+    const ran = await carryLineups(st, TZ, { P: { id: 'c_p', lu: { d: today, s: { C: 'New' } } } });
+    const L = (await lineupsOn(st, today)).P;
+    ok('a stale entry for today is carried over', ran.join() === 'P' && L[L.length - 1].s.C === 'New', JSON.stringify(L));
+    await recordLineup(st, TZ, { club: 'P', cid: 'c_p', s: { C: 'Comm' }, src: 'override', day: today });
+    await tick();
+    ok('an override is never carried over', (await carryLineups(st, TZ, { P: { id: 'c_p', lu: { d: today, s: { C: 'New' } } } })).length === 0);
+  }
 
   console.log('\n== a commissioner override beats the GM\u2019s own saves ==');
   {
@@ -81,6 +94,20 @@ const tick = () => new Promise(r => setTimeout(r, 3));
       JSON.stringify({ at: '2026-10-21T20:00:00.000Z', day: '2026-10-21', club, cid: 'c_b', src: 'save', s: cleanSlots({ C: 'Jokic' }) }));
     on = await lineupsOn(st, '2026-10-21');
     ok('an entry saved before the fix is read too', on[club] && on[club].length === 2 && on[club].some(e => e.s.C === 'Jokic'), JSON.stringify(on[club]));
+  }
+
+  console.log('\n== a night set ahead (2026-11-16) ==');
+  {
+    const team = { lu: { d: '2026-11-16', s: { C: 'A' } }, luf: { '2026-11-18': { s: { C: 'B' } } } };
+    ok('before the plan, the current lineup', lineupFor(team, '2026-11-17').s.C === 'A');
+    ok('on the planned night, the plan', lineupFor(team, '2026-11-18').s.C === 'B');
+    ok('the plan carries forward', lineupFor(team, '2026-11-21').s.C === 'B');
+    ok('a lineup set on or after the plan\'s night wins', lineupFor({ ...team, lu: { d: '2026-11-19', s: { C: 'X' } } }, '2026-11-19').s.C === 'X');
+    ok('no lineup at all is null', lineupFor({}, '2026-11-18') === null);
+    const st = memStore();
+    await recordLineup(st, TZ, { club: 'P', cid: 'c_p', s: { C: 'B' }, src: 'plan', day: '2099-01-02' });
+    const on = await lineupsOn(st, '2099-01-02');
+    ok('a plan is filed under its own night', on.P && on.P[0].src === 'plan' && on.P[0].s.C === 'B');
   }
 
   console.log(`\n${ran - fails}/${ran} passed`);
