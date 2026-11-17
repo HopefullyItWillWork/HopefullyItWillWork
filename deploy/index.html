@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.7">
+<meta name="ll-build" content="2026-11-17.8">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -4664,6 +4664,29 @@ const RENAMEMAX=60;
 const renameLog=()=>Array.isArray(S.cfg&&S.cfg.renames)?S.cfg.renames:[];
 /* Has this name been renamed away, and not since been used again? The walk is
    in order so a name renamed away and later renamed BACK reads as present. */
+/* Where a club name went: follow the rename journal from `name` to the club it
+   is called today, or '' when it went nowhere that exists (removed). */
+function renamedTo(name){
+  let cur=name;
+  renameLog().forEach(r=>{ if(r&&r.from===cur&&r.to) cur=r.to; });
+  return cur!==name&&S.teams&&S.teams[cur]?cur:'';
+}
+/* A sign-in naming a club that is gone. When it was RENAMED (by the commissioner,
+   or by the GM on another device) the GM follows it, still signed in, and this
+   browser's copies of his own work (notes, projections, board, watch list) move
+   with him — they are stored and encrypted under the club's name, so without
+   this a commissioner rename made them look lost (2026-11-16). Removed: signed out. */
+function followMe(){
+  if(!me||me==='__comm__'||S.teams[me]) return false;
+  const to=renamedTo(me);
+  if(!to){ me=null; return false; }
+  moveClubLocals(me,to);
+  if(activeTeam===me) activeTeam=to;
+  me=to;
+  try{ localStorage.setItem('ll_me',to); }catch(e){}
+  Promise.all([loadProj(),loadStrat(),loadNotes(),loadWatch()]).then(()=>render()).catch(()=>{});
+  return true;
+}
 function renamedAway(name){
   let gone=false;
   renameLog().forEach(r=>{
@@ -4746,7 +4769,7 @@ function renameClub(from,to){
    they are encrypted under — has not changed. */
 function moveClubLocals(from,to){
   try{
-    ['notes','proj','strat'].forEach(k=>{
+    ['notes','proj','strat','watch'].forEach(k=>{   // watch: the list moved with nothing until 2026-11-16
       const v=localStorage.getItem(k+'_'+from);
       if(v!=null){ localStorage.setItem(k+'_'+to,v); localStorage.removeItem(k+'_'+from); }
     });
@@ -5042,7 +5065,7 @@ function render(){
      boot sequence has always done with one; the GM signs back in under the new
      name. His own rename never reaches this, because that handler moves him
      across before it redraws. */
-  if(me&&me!=='__comm__'&&!S.teams[me]) me=null;
+  followMe();
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
@@ -5882,14 +5905,33 @@ function gamesPace(used,cap,days,season,end){
   const el=Math.max(1,span(d[0],d[d.length-1])+1), left=span(d[d.length-1],endD);
   return {projected:Math.round(used+used/el*left), expected:Math.round(cap*el/Math.max(1,el+left))};
 }
+/* Tonight's games as they happen (2026-11-16): a starter who has appeared in a
+   box score tonight has used a game (live or the page's own feed, nowLine()),
+   up to what is left under the cap; a starter whose game is under way and who
+   has not appeared yet is "locked in". Nothing until the morning's scoring is
+   in SCORE, and nothing once it is (the night is then in `used`). */
+function gamesTonight(T){
+  const n=luNight();
+  if(!T||!S.teams[T]||(SCORE.days||{})[n]||(!liveOn()&&!fastOn())) return {played:0,locked:0};
+  const st=SLOTIDS.map(id=>lineupOf(T,n).s[id]).filter(Boolean);
+  let played=0, locked=0;
+  st.forEach(nm=>{ const b=nowLine(nm);
+    if(b&&b.s&&(+b.s.MP>0||+b.s.FGA>0||+b.s.PTS>0)) played++;
+    else { const g=nowGame(nm); if(g&&g.state==='in') locked++; } });
+  const room=Math.max(0,(SCORE.cap||S.cfg.gamecap||920)-gamesUsed(T));
+  return {played:Math.min(played,room),locked:Math.min(locked,Math.max(0,room-played))};
+}
 function meStrip(T,s,sc,cap,tax){
   const row=(SCORE.standings||[]).find(r=>r.club===T);
-  const gc=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T);
-  const pace=gamesPace(used,gc,SCORE.days,curSeason(),S.cfg.seasonEnd);
+  const gc=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
+  /* Tonight counts toward the pace as a night played once anyone has played. */
+  const pace=gamesPace(used,gc,gt.played?{...(SCORE.days||{}),[luNight()]:{}}:SCORE.days,curSeason(),S.cfg.seasonEnd);
+  const tonightTxt=gt.played||gt.locked?`<br><span class="livetag">live</span> ${gt.played?`${gt.played} tonight`:''}${
+    gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} more locked in`:''}`:'';
   const dead=deadSalary(T);
   const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
   if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>`,'me');
-  card('Games',`${used}<small> / ${gc}</small>`,pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played');
+  card('Games',`${used}<small> / ${gc}</small>`,(pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played')+tonightTxt);
   card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
   card(tax-s>=0?'To the hard cap':'Past the hard cap',money(Math.abs(tax-s)),`Hard cap ${money(tax)}`,tax-s>=0?'':'bad');
   card('Injured reserve',`${irCount(T)}<small> / ${S.cfg.ir??1}</small>`,'');
@@ -11463,8 +11505,9 @@ function drawHome(){
       const ahead=rows.find(r=>r.rank===row.rank-1);
       cards.push(homeCard('Place',`${ordinal(row.rank)}${mv}`,
         ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`));
-      const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T);
-      cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,''));
+      const cap=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
+      cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,
+        gt.played||gt.locked?`${gt.played?`${gt.played} tonight, live`:''}${gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} locked in`:''}`:''));
     }
     if(lineupsOpen()){
       const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
@@ -13110,7 +13153,7 @@ function netChip(){
        if(per==null){ useProj=true; PROJSRC='szn'; }
        else { useProj=per!=='act'; if(per==='agg'||per==='mine'||LIVEW.includes(per)) PROJSRC=per; } }catch(e){}
   loadLab();
-  if(me&&me!=='__comm__'&&!S.teams[me])me=null;
+  followMe();
   $('rTeam').innerHTML='<option value="">All players</option>'
     +'<option value="FA">Free agents</option>'
     +(me&&!isComm()?'<option value="@mine">My team</option><option value="@watch">My watch list</option>':'')

@@ -406,6 +406,17 @@ season first) for the manager list and last season's team name; `managerNamed()`
 spots a club named after its manager; `gmLooksWrong()` a manager record that is
 the team name. A warning above the table counts all three.
 
+**A signed-in GM follows his club through a rename** (`renamedTo()`, `followMe()`,
+called where a gone club used to sign him out): his own work is stored and
+encrypted under the club's name, so a commissioner rename made it look lost. This
+browser's copies move (`moveClubLocals()`, now including the watch list) and are
+re-seeded under the new name. A removed club still signs him out.
+
+**Games played counts tonight live** (`gamesTonight()`): starters who have appeared
+in a box score tonight (up to the cap) are added to My Team's and Home's Games
+cards and to the pace, and starters in a game under way who have not yet appeared
+are shown as "locked in". Drops away once the morning's scoring has the night.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
