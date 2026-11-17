@@ -438,6 +438,15 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - **Rivalry**: the Tale of the Tape's footer adds the managers' all-time record
   against each other from HIST (`rivalry()`).
 - **Maxed out**: a Games card at exactly the cap turns gold.
+- **At the buzzer**: a game seen in its last minute (4th or OT, clock ≤ 1:00, or
+  "End of") on one update and final on the next; a player in it who scored in
+  between gets a quiet amber "at the buzzer" on his Game line (`HEAT.buzz`, fed by
+  `noteHeat(players, games)`).
+- **Ice cold no more**: the live line names a category the club ranks last in for
+  the season and leads tonight.
+- **/jam** in chat posts nothing and jams that screen.
+- **The trophy room**: the Standings trophy is a button (`data-trophies`) that opens
+  the rafters (`openTrophies()`): each title, its team name and roto total.
 - **Findable, not obvious**: the logo's tooltip hints at the five clicks; the Konami
   code is printed at the bottom of Historical Data in the Jam theme only (`.konhint`).
 - Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's

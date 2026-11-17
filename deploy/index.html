@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.11">
+<meta name="ll-build" content="2026-11-17.12">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1073,7 +1073,18 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .mefact.maxed b{color:#C9973A}
 .maxtag{color:#C9973A;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:var(--t1)}
 .boom small{display:block;margin-top:10px;font:700 clamp(14px,2.4vw,22px)/1.2 var(--body);color:#fff;text-shadow:2px 2px 0 #000;text-align:center}
-.tcount{display:inline-flex;align-items:center;gap:2px;margin-left:6px;color:#C9973A;font:700 var(--t1)/1 var(--mono);vertical-align:1px}
+.tcount{display:inline-flex;align-items:center;gap:2px;margin-left:6px;color:#C9973A;font:700 var(--t1)/1 var(--mono);vertical-align:1px;
+  background:none;border:0;padding:2px;cursor:pointer;border-radius:var(--r-s)}
+.tcount:hover{background:var(--soft)}
+.rafters{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:6px 0 4px}
+.rafter{display:flex;flex-direction:column;align-items:center;gap:2px;width:112px;min-height:150px;padding:14px 8px 34px;box-sizing:border-box;text-align:center;
+  background:#B8862E;color:#1A1206;clip-path:polygon(0 0,100% 0,100% 82%,50% 100%,0 82%)}
+.rafter b{font:700 var(--t4)/1 var(--mono)}
+.rafter small{font:700 9px/1.4 var(--body);letter-spacing:.1em;text-transform:uppercase}
+.rafter .rteam{font:600 var(--t1)/1.25 var(--body);margin-top:6px}
+.rafter .rpts{font:400 var(--t1) var(--mono);opacity:.8}
+.buzz{color:var(--amber)}
+.icy{margin-left:6px;color:#4F8FD6;font-weight:600}
 .origin{position:fixed;z-index:150;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));max-height:80vh;overflow:auto;
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 20px 50px rgba(0,0,0,.5);padding:18px 20px}
 .ostory{list-style:none;margin:0 0 12px;padding:0;font-size:var(--t2)}
@@ -10518,10 +10529,15 @@ function drawLineup(){
        moves you to, and an arrow on each category that moved. */
     const rc=(liveRace()||{})[T], arr=k=>{ const v=rc&&rc.cat[k]; return v>0?'<span class="up">\u25B2</span>':v<0?'<span class="dn">\u25BC</span>':''; };
     const race=rc?` \u00b7 roto <b class="${rc.pts>0?'up':rc.pts<0?'dn':''}">${sgn(rc.pts)}</b>${rc.rank!==rc.rank0?`, ${ordinal(rc.rank0)} \u2192 <b>${ordinal(rc.rank)}</b>`:`, still ${ordinal(rc.rank)}`}`:'';
+    /* Ice cold no more: a category we rank last in for the season, won tonight. */
+    const icy=(()=>{ const rows=SCORE.standings||[], mine=rows.find(r=>r.club===T), lt=liveTotals(); if(!mine||!lt||!lt[T]) return [];
+      const night=standingsFor({[LIVENOW.day]:lt}), tn=night.find(r=>r.club===T); if(!tn) return [];
+      return Object.keys(mine.cat||{}).filter(k=>mine.cat[k]===Math.min(...rows.map(r=>r.cat[k]))&&tn.cat[k]===Math.max(...night.map(r=>r.cat[k]))); })();
+    const icyTxt=icy.length?` <span class="icy" title="Last in the league in ${icy.join(', ')} this season; first tonight">Ice cold no more: ${icy.map(k=>k==='P3'?'3P':k).join(', ')}</span>`:'';
     const fast=fastOn()&&LUMODE==='now'?htmlEsc(new Date(FAST.at).toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'numeric',minute:'2-digit'})):'';
     return `<p class="lulivebar"><span class="livetag">live</span> <b>Tonight so far</b>${race} \u00b7 ${t.GP} counted${lc.over&&lc.over.length?`, ${lc.over.length} over the cap`:''}:
       ${t.PTS} PTS${arr('PTS')} \u00b7 ${t.REB} REB${arr('REB')} \u00b7 ${t.AST} AST${arr('AST')} \u00b7 ${t.P3} 3P${arr('P3')} \u00b7 ${t.STL} STL${arr('STL')} \u00b7 ${t.BLK} BLK${arr('BLK')} \u00b7 ${t.TO} TO${arr('TO')} \u00b7
-      FG ${pc(t.FG,t.FGA)}${arr('FG%')} \u00b7 FT ${pc(t.FT,t.FTA)}${arr('FT%')} <span class="lutip">${fast?`your players ${fast} PT, club totals ${htmlEsc(liveStamp())}`:`updated ${htmlEsc(liveStamp())}`}; final in the morning</span></p>`; })());
+      FG ${pc(t.FG,t.FGA)}${arr('FG%')} \u00b7 FT ${pc(t.FT,t.FTA)}${arr('FT%')}${icyTxt} <span class="lutip">${fast?`your players ${fast} PT, club totals ${htmlEsc(liveStamp())}`:`updated ${htmlEsc(liveStamp())}`}; final in the morning</span></p>`; })());
   const lustat=[open?`<b class="bad">${open} spot${open===1?'':'s'} open</b>`:'All 15 filled',
     `${bench.length} on the bench`, tourney?'Preseason tournament':'',
     lockedN?`${lockedN} locked`:'', `${playing.length} playing ${ahead?'that night':'tonight'}`].filter(Boolean).join(' \u00b7 ');
@@ -10583,8 +10599,9 @@ function drawLineup(){
     const ttl=htmlEsc((vs?vs+' \u00b7 ':'')+clock12(t.at));
     /* Under way or over: where the game is, from the live feed ("Q3 4:12", "Final"). */
     const g=lk&&!ahead?nowGame(nm):null, gl=g&&(g.state==='in'||g.final)?(g.final?'Final':g.detail||'Live'):'';
+    const bz=g&&g.final&&HEAT.day===luNight()&&HEAT.buzz[espnIdOf(nm)]?'<span class="buzz" title="Scored in the last minute of the game">at the buzzer</span>':'';
     return lk
-      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}${gl?`<span class="${g.final?'':'lunow'}">${htmlEsc(gl)}</span>`:'Locked'}</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}</small></span>`
+      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}${gl?`<span class="${g.final?'':'lunow'}">${htmlEsc(gl)}</span>`:'Locked'}</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}${bz?' \u00b7 '+bz:''}</small></span>`
       : `<span class="lugame" title="${ttl}"><span class="lutime">${htmlEsc(clock12(t.at).replace(/ PT$/,''))}</span> ${htmlEsc(t.opp||t.team)}<small>${t.opp?htmlEsc(t.team):''}</small></span>`;
   };
   /* GP, then the nine categories (or, in the Contract view, what he is owed),
@@ -10826,6 +10843,8 @@ function chatReplyTo(id){
 async function postChat(text){
   const body=String(text||'').trim();
   if(!body) return;
+  /* A secret: "/jam" posts nothing and just jams this screen (2026-11-16). */
+  if(/^\/jam$/i.test(body)){ showBoom('BOOMSHAKALAKA!'); return; }
   if(!me) return alert('Sign in to post.');
   if(body.length>CHATMAX) return alert(`Keep it under ${CHATMAX} characters — that one is ${body.length}.`);
   const m={ts:now(),by:isComm()?'Commissioner':me,text:body};
@@ -12478,7 +12497,7 @@ async function loadLiveNow(force){
     if(!lv||lv.at===LIVENOW.at) return false;
     const byKey={}; Object.values(lv.players||{}).forEach(p=>{ byKey[nameKey(p.n)]=p; });
     LIVENOW={...lv,byKey,got:Date.now()};
-    noteHeat(lv.players);
+    noteHeat(lv.players,lv.games);
     return true;
   }catch(e){ return false; }
 }
@@ -12567,7 +12586,7 @@ async function fastTick(){
     await Promise.all(want.map(async id=>{ try{ Object.assign(players,boxFrom(await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json())); }catch(e){} }));
     const byKey={}; Object.values(players).forEach(p=>{ byKey[nameKey(p.n)]=p; });
     FAST={day:n,at:Date.now(),games,players,byKey,busy:false};
-    noteHeat(players);
+    noteHeat(players,games);
     drawLineup();
   }catch(e){ FAST.busy=false; }
 }
@@ -12579,11 +12598,26 @@ setInterval(fastTick,60e3);
    five minutes, or the page's own minute for your starters) each player's
    points and threes are noted, and over the last eight minutes of real time
    7+ points or 2 threes is heating up, 12+ or 3 threes is on fire. */
-const HEAT={day:'',p:{}};
+const HEAT={day:'',p:{},g:{},buzz:{}};
 const HEATWIN=8*60e3;
-function noteHeat(players){
+/* At the buzzer: a game seen in its last minute of the fourth (or overtime) on
+   one update and final on the next, and a player in it who scored in between.
+   Approximate, like the flames — it is read from box scores, not play-by-play. */
+const lastMinute=d=>{ const s=String(d||''); if(!/4th|OT/i.test(s)) return false;
+  if(/^end/i.test(s)) return true; const m=/(\d{1,2}):(\d{2})/.exec(s); return !!m&&(+m[1]*60+(+m[2]))<=60; };
+function noteHeat(players,games){
   const n=luNight(), t=Date.now();
-  if(HEAT.day!==n){ HEAT.day=n; HEAT.p={}; }
+  if(HEAT.day!==n){ HEAT.day=n; HEAT.p={}; HEAT.g={}; HEAT.buzz={}; }
+  /* Games that just went final out of their last minute: who scored since the last look. */
+  Object.entries(games||{}).forEach(([gid,g])=>{
+    const was=HEAT.g[gid];
+    if(g.final&&was&&!was.final&&lastMinute(was.detail)){
+      const codes=new Set([g.home,g.away]);
+      Object.entries(players||{}).forEach(([id,pl])=>{ const a=HEAT.p[id], last=a&&a[a.length-1];
+        if(pl&&codes.has(pl.t)&&last&&(+pl.s.PTS||0)>last.PTS) HEAT.buzz[id]=1; });
+    }
+    HEAT.g[gid]={final:!!g.final,detail:g.detail||''};
+  });
   Object.entries(players||{}).forEach(([id,pl])=>{ if(!pl||!pl.s) return;
     const a=HEAT.p[id]||(HEAT.p[id]=[]), last=a[a.length-1];
     if(last&&last.PTS===(+pl.s.PTS||0)&&last.P3===(+pl.s.P3||0)){ last.t=t; return; }   // nothing new: just still true now
@@ -12627,8 +12661,24 @@ function bannersHtml(t){
 /* A trophy and a count, where a row has no room for pennants (Standings). */
 function titleTag(t){
   const n=titlesOf(managerOf(t)).length;
-  return n?`<span class="tcount" title="${n} championship${n===1?'':'s'}: ${titlesOf(managerOf(t)).map(x=>shortSeason(x.season)).join(', ')}">${TROPHYSVG}${n>1?n:''}</span>`:'';
+  return n?`<button type="button" class="tcount" data-trophies="${htmlEsc(t)}" title="${n} championship${n===1?'':'s'}: ${titlesOf(managerOf(t)).map(x=>shortSeason(x.season)).join(', ')}">${TROPHYSVG}${n>1?n:''}</button>`:'';
 }
+/* The trophy room: a click on the trophies unfurls the rafters — each title, the
+   team name it was won under, and its roto total. */
+function openTrophies(t){
+  const gm=managerOf(t), ts=titlesOf(gm); if(!ts.length) return;
+  let d=$('trophyCard');
+  if(!d){ d=document.createElement('div'); d.id='trophyCard'; d.className='origin'; d.setAttribute('role','dialog'); document.body.appendChild(d); }
+  d.setAttribute('aria-label',`${gm}: championships`);
+  d.innerHTML=`<button type="button" class="act" data-tclose aria-label="Close" style="float:right">\u2715</button>
+    <h2 style="margin-top:0">${htmlEsc(gm)}</h2><p class="note">${ts.length} championship${ts.length===1?'':'s'}, hanging in the rafters.</p>
+    <div class="rafters">${ts.map(x=>{ const r=(HIST[x.season]||[]).find(z=>z.rk===1&&z.gm===gm)||{};
+      return `<div class="rafter"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champions</small><span class="rteam">${htmlEsc(x.team)}</span><span class="rpts">${r.tot!=null?r.tot+' pts':''}</span></div>`; }).join('')}</div>`;
+  d.hidden=false;
+  d.querySelector('[data-tclose]').onclick=()=>{ d.hidden=true; };
+}
+document.addEventListener('click',e=>{ const b=e.target&&e.target.closest&&e.target.closest('[data-trophies]'); if(b){ e.stopPropagation(); openTrophies(b.dataset.trophies); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('trophyCard')) $('trophyCard').hidden=true; });
 
 /* The origin story: click the logo five times. Everyone gets the league's
    champions year by year; a manager signed in also gets his own seasons, from
