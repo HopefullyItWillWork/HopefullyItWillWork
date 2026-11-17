@@ -15,7 +15,7 @@
 
 import { seasonOf } from "./scorerun.mjs";
 import { seasonStandings, keysFor } from "./score.mjs";
-import { SLOTS } from "./lineups.mjs";
+import { SLOTS, lineupFor } from "./lineups.mjs";
 import { clubCtx, daysByName, byClubName } from "./clubs.mjs";
 import { nameKey } from "./nba.mjs";
 import { SB, ymd, tipsFrom, daysBefore } from "./stats.mjs";
@@ -170,7 +170,8 @@ async function tonightFor(s, clubEntry, cfg, season, today, cache) {
   if (!tips || !Object.keys(byKey).length) return null;
   const teamOf = (n) => { for (const k of keysFor(n, cfg.alias, cfg.espn)) if (byKey[k]) return byKey[k]; return null; };
   const plays = (n) => { const t = teamOf(n); return !!(t && tips[t]); };
-  const s0 = (clubEntry && clubEntry.lu && clubEntry.lu.s) || {};
+  /* A night set ahead counts: the lineup for today, not just the current one. */
+  const s0 = ((clubEntry && lineupFor(clubEntry, today)) || {}).s || {};
   const starters = SLOTS.map((id) => s0[id]).filter(Boolean);
   const startSet = new Set(starters.map(nameKey));
   const bench = ((clubEntry && clubEntry.r) || [])

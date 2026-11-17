@@ -4,7 +4,7 @@
 
 import { applyFixes, fixesOn } from "./statfix.mjs";
 import { ctxFor } from "./clubids.mjs";
-import { lineupsOn } from "./lineups.mjs";
+import { lineupsOn, lineupFor } from "./lineups.mjs";
 import { scoreNight, keysFor } from "./score.mjs";
 import { resolveEntry, keyOf } from "./clubs.mjs";
 import { nameKey } from "./nba.mjs";
@@ -27,7 +27,8 @@ export async function diagnose(s, { club, day }) {
   out.serverClubs = Object.entries(ctx.teams).map(([n, t]) => ({ name: n, id: t && t.id, live: ctx.live.includes(n) }));
   out.renames = renames.filter((r) => r && (r.from === club || r.to === club || (id && ctx.byName[r.from] === id))).slice(-6);
   const t = ctx.teams[club] || (out.clubId && ctx.teams[ctx.nameOf[out.clubId]]) || null;
-  out.serverLineup = t && t.lu && t.lu.s ? Object.values(t.lu.s).filter(Boolean) : null;
+  const lu = t && lineupFor(t, day);   // a night set ahead counts
+  out.serverLineup = lu && lu.s ? Object.values(lu.s).filter(Boolean) : null;
   if (!out.clubId) { out.problem = "The server has no club by that name, or by any name it was renamed from."; return out; }
 
   /* 2. The lineup history it would score from. */

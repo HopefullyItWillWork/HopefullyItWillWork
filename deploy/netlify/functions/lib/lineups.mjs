@@ -109,21 +109,31 @@ export function lineupFor(team, day) {
   return lu && lu.s ? lu : null;
 }
 
-/* The morning carry-forward: one entry per club that has a lineup and has
-   nothing recorded yet today. Run before any game, so it is always the
-   baseline a night's scoring starts from. */
+/* The morning carry-forward: one entry per club whose lineup for today, as the
+   rosters hold it (lineupFor: tonight's, or a night set ahead), is not what was
+   last filed for today. Run before any game. Until 2026-11-16 it only wrote for a
+   club with nothing filed yet; with nights set ahead, something filed days ago (a
+   plan, later changed or cleared) could then stand. No game has tipped this early,
+   so filing the rosters' answer is always right, and it repairs a save whose
+   record never reached the server. A commissioner override is never touched. */
 export async function carryLineups(store, tz, teams) {
   const day = dayIn(tz);
   const have = await lineupsOn(store, day);
-  /* Who has an entry today, by id — a club renamed this morning still has one. */
-  const haveId = new Set();
+  /* The last entry today per club, by id — a club renamed this morning still has one. */
+  const last = {};
   for (const [name, list] of Object.entries(have))
-    for (const e of list) haveId.add(e.cid || (teams[name] && teams[name].id) || name);
+    for (const e of list) {
+      const k = e.cid || (teams[name] && teams[name].id) || name;
+      if (!last[k] || e.at >= last[k].at) last[k] = e;
+    }
   const done = [];
   for (const club of Object.keys(teams || {})) {
     const lu = lineupFor(teams[club], day);
     const cid = teams[club] && teams[club].id;
-    if (!lu || !lu.s || have[club] || (cid && haveId.has(cid))) continue;
+    if (!lu || !lu.s) continue;
+    const prev = (cid && last[cid]) || last[club];
+    if (prev && prev.src === "override") continue;
+    if (prev && JSON.stringify(cleanSlots(prev.s)) === JSON.stringify(cleanSlots(lu.s))) continue;
     await recordLineup(store, tz, { club, cid, s: lu.s, by: "nightly", src: "carry" });
     done.push(club);
   }

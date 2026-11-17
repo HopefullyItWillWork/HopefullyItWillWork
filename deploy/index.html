@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.3">
+<meta name="ll-build" content="2026-11-17.4">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10052,6 +10052,18 @@ async function clearLineup(team){
   await commit({kind:'edit',team,detail:ahead?`Lineup for ${shortDay(D)} cleared`:'Lineup cleared'},['rosters']);
   await logLineup(team,D);
 }
+/* Drop every night set ahead, so tonight's lineup carries forward again. Each
+   of those nights is re-filed with tonight's lineup, so scoring stops using the
+   plan at once (the morning carry would also catch it). */
+async function clearPlans(team){
+  if(!canEdit(team)) return alert('You can only set your own lineup.');
+  const days=Object.keys(S.teams[team].luf||{}).filter(d=>d>luNight()).sort();
+  if(!days.length) return;
+  if(!confirm(`Clear the lineups you set ahead for ${days.map(shortDay).join(', ')}? Tonight\u2019s lineup will carry forward to them instead.`)) return;
+  delete S.teams[team].luf;
+  await commit({kind:'edit',team,detail:`Lineups set ahead cleared (${days.map(shortDay).join(', ')})`},['rosters']);
+  for(const d of days) await logLineup(team,d);
+}
 /* Fill every open, unlocked slot with the best available man who fits it. The
    scarcest slot goes first — centre, then the named positions, then utility —
    because filling utility first strands a centre on the bench. */
@@ -10279,6 +10291,7 @@ function drawLineup(){
   const D=luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
   /* Live tonight (lib/live.mjs): the Tonight view, and the club's totals so far. */
   const liveOk=!ahead&&!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0;
+  const planned=Object.keys((S.teams[meTeam()]||{}).luf||{}).filter(d=>d>luNight()).sort();
   const nowOn=liveOk&&LUMODE==='now';
   if($('luHead')) $('luHead').hidden=pastView;
   if($('luSlots')) $('luSlots').hidden=pastView;
@@ -10337,6 +10350,8 @@ function drawLineup(){
       ${lost.map(htmlEsc).join(', ')}. Bench them, or reorder, to choose who uses the last games.</div>`:''}
     ${tourney?`<p class="note"><b>Preseason tournament, ${htmlEsc(preSpan())}.</b> Your lineup was filled for you and
       carries forward each night; change it any time. Just for fun \u2014 none of it counts toward the season.</p>`:''}
+    ${!ahead&&planned.length?`<p class="note">You have set the lineup ahead for <b>${planned.map(d=>htmlEsc(shortDay(d))).join(', ')}</b>.
+      Changes here carry forward only until the first of those.${can?' <button type="button" class="linkbtn" id="luUnplan">Clear them and carry tonight\u2019s forward</button>':''}</p>`:''}
     ${ahead?`<p class="note">Setting the lineup for <b>${htmlEsc(when)}</b>. It holds from that night on until you change it; tonight\u2019s lineup is not touched.${
       lu.plan?'':' Until you change something here it is the lineup carried forward.'}</p>`:''}
     ${schedKnown(D)?'':`<p class="note">${htmlEsc(ahead&&!schedOn(D)?'Loading that night\u2019s schedule\u2026':lineupNote(D))}</p>`}`;
@@ -10550,6 +10565,7 @@ function drawLineup(){
     if($('luAuto')) $('luAuto').onclick=()=>autoLineup(T);
     if($('luTonight')) $('luTonight').onclick=()=>tonightLineup(T);
     if($('luClear')) $('luClear').onclick=()=>clearLineup(T);
+    if($('luUnplan')) $('luUnplan').onclick=()=>clearPlans(T);
   }
 }
 

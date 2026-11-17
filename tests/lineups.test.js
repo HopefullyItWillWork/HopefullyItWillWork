@@ -48,6 +48,19 @@ const tick = () => new Promise(r => setTimeout(r, 3));
   ok('a second run the same day does nothing', again.length === 0 && t.m.size === 2);
   const e = (await lineupsOn(t, dayIn(TZ)))['N. Fink'][0];
   ok('marked as a carry', e.src === 'carry' && e.by === 'nightly');
+  {
+    /* Something filed for today earlier (a plan made days ago, since cleared) that
+       no longer matches the club: the carry files the club's lineup over it. */
+    const st = memStore(), today = dayIn(TZ);
+    await recordLineup(st, TZ, { club: 'P', cid: 'c_p', s: { C: 'Old' }, src: 'plan', day: today });
+    await tick();
+    const ran = await carryLineups(st, TZ, { P: { id: 'c_p', lu: { d: today, s: { C: 'New' } } } });
+    const L = (await lineupsOn(st, today)).P;
+    ok('a stale entry for today is carried over', ran.join() === 'P' && L[L.length - 1].s.C === 'New', JSON.stringify(L));
+    await recordLineup(st, TZ, { club: 'P', cid: 'c_p', s: { C: 'Comm' }, src: 'override', day: today });
+    await tick();
+    ok('an override is never carried over', (await carryLineups(st, TZ, { P: { id: 'c_p', lu: { d: today, s: { C: 'New' } } } })).length === 0);
+  }
 
   console.log('\n== a commissioner override beats the GM\u2019s own saves ==');
   {

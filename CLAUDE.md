@@ -349,7 +349,12 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
   one writer; plans for nights reached are dropped as it writes.
 - Server: `POST /api/lineups` takes `day` (yesterday to 30 days ahead) and files
   the save under it (`src:"plan"` for a night ahead); the time is still the
-  server's. The morning carry copies `lineupFor()`, not `lu`. Pruning (a release,
+  server's. The morning carry copies `lineupFor()`, not `lu`. **The carry now files a club
+  whenever its lineup for the day differs from the last entry filed for it** (not
+  only when nothing is filed): a plan filed days ago and since changed or cleared
+  would otherwise stand. Overrides are never carried over. The daily email's
+  "tonight" and the scoring diagnostics read `lineupFor()` too. Tonight's view
+  lists nights set ahead, with **Clear them** (`clearPlans()`, re-files those nights). Pruning (a release,
   the IR, waivers) clears a man from every plan too and re-files them.
 - The **OUT/DTD chip opens the player card** (`data-player`), which leads with the
   report and the news. A no-game row dims its numbers to .7 and nothing else.
