@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.19">
+<meta name="ll-build" content="2026-11-17.20">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -736,6 +736,10 @@ color:#fff;font:700 var(--t1)/17px var(--body);text-align:center;vertical-align:
 .chartlegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-family:var(--body);font-size:var(--t1)}
 .chartlegend span{display:flex;align-items:center;gap:5px;color:var(--steel);cursor:pointer}
 .chartlegend span.off{opacity:.32}
+.chart .chpick{cursor:pointer}
+.scroller #paceTbl{min-width:0;width:100%}
+#paceTbl td,#paceTbl th{white-space:nowrap}
+#chTabs .toggle{display:inline-flex}
 .chartlegend i{width:14px;height:2.5px;border-radius:var(--r-s)}
 .feed{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:15px 16px;margin-top:14px}
 .feed h5{font-family:var(--body);font-weight:600;font-size:var(--t2);letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-bottom:8px}
@@ -892,6 +896,7 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .mast.gmin .mast-in{flex-wrap:nowrap}
   .standtbl .gpcap,.standtbl .histnames{display:none}
   .standtbl td:nth-child(2){max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #paceTbl td:first-child{max-width:150px;overflow:hidden;text-overflow:ellipsis}
   .lubtns{margin-left:0}
   /* The arrows step through nights; the picker and Export are desktop things. */
   h2.luh .lunav input[type=date],h2.luh #expMine2{display:none}
@@ -1425,8 +1430,8 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <select id="standPer" aria-label="Period" style="width:auto" hidden></select>
       <span class="fcount" id="realStandNote"></span></div>
     <div id="realStand"></div>
-    <h2 class="sub">Rolling 15 days</h2>
-    <div class="filters">
+    <h2 class="sub">Charts</h2>
+    <div class="filters"><span id="chTabs"></span>
       <select id="trCat"><option value="PTS">Points</option><option value="REB">Rebounds</option>
         <option value="AST">Assists</option><option value="P3">Threes</option><option value="STL">Steals</option>
         <option value="BLK">Blocks</option><option value="TO">Turnovers</option>
@@ -13341,7 +13346,154 @@ function rolling(cat){
   });
   return {dates,series:out};
 }
+/* ---- Home's charts (2026-11-17): three tabs over one box ----
+   Rolling 15 days (drawTrend's own chart), The race (roto points in the
+   season-to-date standings after every night, standingsFor() so it cannot
+   disagree with Standings) and Games pace (games played against an even pace to
+   the cap, gamesPace()'s rule, so it agrees with the Games card). Facts only:
+   neither says what to do about it. CHARTVIEW is per browser (ll_chart);
+   CHARTPICK, a club tapped to pick it out, lasts this visit. */
+var CHARTVIEW=(()=>{ try{ const v=localStorage.getItem('ll_chart'); return ['roll','race','pace'].includes(v)?v:'roll'; }catch(e){ return 'roll'; } })();
+let CHARTPICK='', RACECACHE={key:'',v:null};
+function chartTabs(){
+  if(!$('chTabs')) return;
+  const b=(v,t)=>`<button type="button" data-chv="${v}" aria-pressed="${CHARTVIEW===v}">${t}</button>`;
+  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games pace')}</div>`;
+  if($('chTabs').innerHTML!==html){ $('chTabs').innerHTML=html;
+    $('chTabs').querySelectorAll('[data-chv]').forEach(x=>x.onclick=()=>{ CHARTVIEW=x.dataset.chv;
+      try{ localStorage.setItem('ll_chart',CHARTVIEW); }catch(e){} drawTrend(); }); }
+  $('trCat').hidden=CHARTVIEW!=='roll';
+}
+const chMine=()=>me&&me!=='__comm__'&&S.teams&&S.teams[me]?me:null;
+/* The drawing's width is the box's own, so its 11px text renders at 11px: Home's
+   column is ~530px, and an 880-wide drawing scaled down to it was unreadable. */
+const chW=()=>{ const w=REALDOM&&$('chartWrap')?$('chartWrap').clientWidth-26:0; return w>0?Math.max(340,Math.min(880,w)):880; };
+const chMD=d=>`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+d.slice(5,7)-1]} ${+d.slice(8,10)}`;
+const chShort=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+/* Labels down the right edge: in order, never closer than `gap`, kept on the chart. */
+function chSpread(items,gap,bottom){
+  items.sort((a,b)=>a.y-b.y);
+  for(let i=1;i<items.length;i++) if(items[i].y<items[i-1].y+gap) items[i].y=items[i-1].y+gap;
+  const over=items.length?items[items.length-1].y-bottom:0;
+  if(over>0) items.forEach(it=>it.y-=over);
+  return items;
+}
+/* Pure: each club's roto points in the season-to-date standings after each night. */
+function raceSeries(days){
+  const dates=Object.keys(days||{}).sort(), pts={}, upto={};
+  dates.forEach(d=>{ upto[d]=days[d];
+    standingsFor(upto).forEach(r=>(pts[r.club]=pts[r.club]||[]).push(r.pts)); });
+  return {dates,pts};
+}
+/* Pure: games played per club per night against an even pace to `cap` by `endD`. */
+function paceSeries(days,cap,endD){
+  const dates=Object.keys(days||{}).sort(); if(!dates.length) return null;
+  const span=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+  const total=span(dates[0],endD)+1, par=dates.map(d=>cap*(span(dates[0],d)+1)/total);
+  const gp={}, run={};
+  dates.forEach(d=>Object.keys(S.teams||{}).forEach(c=>{ run[c]=(run[c]||0)+(((days[d]||{})[c]||{}).GP||0); (gp[c]=gp[c]||[]).push(run[c]); }));
+  const last=dates[dates.length-1], el=span(dates[0],last)+1, left=Math.max(0,span(last,endD));
+  const rows=Object.keys(gp).map(c=>{ const used=gp[c][dates.length-1], rate=used/el, pj=Math.round(used+rate*left);
+    const at=pj>cap&&rate>0?dPlus(last,Math.ceil((cap-used)/rate)):'';
+    return {club:c,used,vs:Math.round(used-par[par.length-1]),pj,at}; }).sort((a,b)=>b.pj-a.pj||a.club.localeCompare(b.club));
+  return {dates,par,gp,rows,endD};
+}
+/* The shared frame: grid, y labels, x dates. */
+function chFrame(W,H,L,R,T,B,lo,hi,step,dates,xAt,fmt){
+  const y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  let g='';
+  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step)
+    g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)" stroke-width="1"/>
+      <text x="${L-7}" y="${y(v)+4}" text-anchor="end" style="fill:var(--dim)" font-size="10" font-family="monospace">${fmt(v)}</text>`;
+  const k=Math.max(1,Math.ceil(dates.length/(W<480?3:W<600?4:7)));
+  dates.forEach((d,i)=>{ if(i%k&&i!==dates.length-1) return;
+    if(i!==dates.length-1&&dates.length-1-i<k*0.85) return;
+    g+=`<text x="${xAt(i)}" y="${H-9}" text-anchor="middle" style="fill:var(--dim)" font-size="10" font-family="var(--body)">${chMD(d)}</text>`; });
+  return {g,y};
+}
+const chPath=(vals,x,y)=>vals.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+function chLineStyle(c,mine,focus){
+  return c===mine?'stroke:var(--amber);stroke-width:3':c===focus?'stroke:var(--dyn);stroke-width:2.2':'stroke:var(--steel);stroke-width:1.5;stroke-opacity:.45';
+}
+function chWire(){
+  $('chartWrap').querySelectorAll('[data-pick]').forEach(e=>e.onclick=()=>{
+    CHARTPICK=CHARTPICK===e.dataset.pick?'':e.dataset.pick; drawTrend(); });
+}
+function drawRace(){
+  const key=(SCORE.got||0)+'|'+TEAMS().join('\u0001');
+  if(RACECACHE.key!==key) RACECACHE={key,v:raceSeries(DAILY)};
+  const {dates,pts}=RACECACHE.v, n=dates.length, clubs=Object.keys(pts);
+  if(n<2){ $('chartWrap').innerHTML='<div class="empty">The race starts after the second night of games.</div>'; return; }
+  $('trStatus').textContent=`${n} nights · ${chMD(dates[0])} to ${chMD(dates[n-1])}`;
+  const W=chW(), narrow=W<640, tiny=W<480, H=narrow?300:330, L=30, R=tiny?122:narrow?172:214, T=12, B=26;
+  const all=clubs.flatMap(c=>pts[c]);
+  const lo=Math.max(0,Math.floor((Math.min(...all)-3)/10)*10), hi=Math.min(clubs.length*9,Math.ceil((Math.max(...all)+3)/10)*10);
+  const x=i=>L+(W-L-R)*i/(n-1);
+  const {g,y}=chFrame(W,H,L,R,T,B,lo,hi,10,dates,x,v=>v);
+  const fin=clubs.slice().sort((a,b)=>pts[b][n-1]-pts[a][n-1]||a.localeCompare(b));
+  const mine=chMine(), mr=mine?fin.indexOf(mine):-1;
+  const focus=CHARTPICK&&pts[CHARTPICK]?CHARTPICK:(mr>0?fin[mr-1]:mr===0?fin[1]:'');
+  const order=clubs.filter(c=>c!==mine&&c!==focus).concat([focus,mine].filter(Boolean));
+  const lines=order.map(c=>`<path d="${chPath(pts[c],x,y)}" fill="none" style="${chLineStyle(c,mine,focus)}" stroke-linejoin="round" stroke-linecap="round" data-pick="${htmlEsc(c)}" class="chpick"/>`).join('');
+  const dots=[focus,mine].filter(Boolean).map(c=>`<circle cx="${x(n-1)}" cy="${y(pts[c][n-1])}" r="4" style="fill:${c===mine?'var(--amber)':'var(--dyn)'};stroke:var(--panel)" stroke-width="2"/>`).join('');
+  const labs=chSpread(fin.map((c,k)=>({c,k,y:y(pts[c][n-1])+4})),13,H-B);
+  const lab=labs.map(o=>{ const st=o.c===mine?'fill:var(--amber);font-weight:700':o.c===focus?'fill:var(--dyn);font-weight:700':'fill:var(--steel)';
+    return `<text x="${W-R+12}" y="${o.y}" style="${st}" font-size="11" font-family="var(--body)" data-pick="${htmlEsc(o.c)}" class="chpick">${o.k+1}  ${htmlEsc(chShort(o.c,tiny?11:narrow?17:21))}</text>
+      <text x="${W-4}" y="${o.y}" text-anchor="end" style="${st}" font-size="11" font-family="monospace">${pts[o.c][n-1]}</text>`; }).join('');
+  let peak='', fact='';
+  if(mine){
+    let pi=0; pts[mine].forEach((v,i)=>{ if(v>pts[mine][pi]) pi=i; });
+    peak=`<text x="${Math.min(Math.max(x(pi),L+60),W-R-60)}" y="${y(pts[mine][pi])-12}" text-anchor="middle" style="fill:var(--amber)" font-size="11" font-family="var(--body)">Your high: ${pts[mine][pi]}, ${chMD(dates[pi])}</text>`;
+    const firsts=dates.filter((d,i)=>clubs.every(c=>pts[c][i]<=pts[mine][i])).length;
+    const near=mr>0?`, ${pts[fin[mr-1]][n-1]-pts[mine][n-1]} back of ${htmlEsc(fin[mr-1])}`:mr===0?`, ${pts[mine][n-1]-pts[fin[1]][n-1]} ahead of ${htmlEsc(fin[1])}`:'';
+    fact=`Now ${ordinal(mr+1)}${near}. 1st (or tied for it) after ${firsts} of ${n} nights.`;
+  }
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roto points after every night, by club">${g}${lines}${dots}${lab}${peak}</svg>
+    <div class="chartlegend">${mine?'<span><i style="background:var(--amber)"></i>You</span>':''}${focus?`<span><i style="background:var(--dyn)"></i>${CHARTPICK?htmlEsc(focus):'The club above you'}</span>`:''}<span>${mine||focus?'<i style="background:var(--steel)"></i>Everyone else · ':''}tap a name to pick it out</span></div>
+    ${fact?`<p class="note" style="margin:8px 0 0">${fact}</p>`:''}</div>`;
+  chWire();
+}
+function drawPace(){
+  const cap=SCORE.cap||S.cfg.gamecap||920, endD=S.cfg.seasonEnd||`${(+String(curSeason()).slice(0,4))+1}-04-12`;
+  const P=paceSeries(DAILY,cap,endD);
+  if(!P||P.dates.length<3){ $('chartWrap').innerHTML='<div class="empty">Games pace starts after the third night of games.</div>'; return; }
+  const {dates,par,gp,rows}=P, n=dates.length;
+  $('trStatus').textContent=`even pace to ${cap} by ${chMD(endD)}`;
+  const span=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+  const W=chW(), narrow=W<640, H=narrow?240:280, L=36, R=narrow?104:120, T=12, B=26;
+  const v={}; Object.keys(gp).forEach(c=>v[c]=gp[c].map((u,i)=>u-par[i]));
+  const all=Object.values(v).flat();
+  const lo=Math.min(-10,Math.floor((Math.min(...all)-2)/10)*10), hi=Math.max(10,Math.ceil((Math.max(...all)+2)/10)*10);
+  const x=i=>L+(W-L-R)*span(dates[0],dates[i])/Math.max(1,span(dates[0],dates[n-1]));
+  const {g,y}=chFrame(W,H,L,R,T,B,lo,hi,10,dates,x,u=>(u>0?'+':'')+u);
+  const mine=chMine(), focus=CHARTPICK&&v[CHARTPICK]?CHARTPICK:'';
+  const order=Object.keys(v).filter(c=>c!==mine&&c!==focus).concat([focus,mine].filter(Boolean));
+  const lines=order.map(c=>`<path d="${chPath(v[c],x,y)}" fill="none" style="${chLineStyle(c,mine,focus)}" stroke-linejoin="round" data-pick="${htmlEsc(c)}" class="chpick"/>`).join('');
+  const zero=`<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" style="stroke:var(--steel)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="${W-R}" y="${y(0)+15}" text-anchor="end" style="fill:var(--steel)" font-size="11" font-family="var(--body)">Even pace to ${cap}</text>
+    <text x="${L+6}" y="${T+12}" style="fill:var(--dim)" font-size="11" font-family="var(--body)">Ahead of pace</text>
+    <text x="${L+6}" y="${H-B-6}" style="fill:var(--dim)" font-size="11" font-family="var(--body)">Behind pace</text>`;
+  const ends=[focus,mine].filter(Boolean).map(c=>{ const u=v[c][n-1], col=c===mine?'var(--amber)':'var(--dyn)';
+    return `<circle cx="${x(n-1)}" cy="${y(u)}" r="4" style="fill:${col};stroke:var(--panel)" stroke-width="2"/>
+      <text x="${x(n-1)+8}" y="${y(u)+4}" style="fill:${col};font-weight:700" font-size="11" font-family="var(--body)">${c===mine?'You':htmlEsc(chShort(c,10))} ${u>=0?'+':''}${Math.round(u)}</text>`; }).join('');
+  const tr=rows.map(r=>`<tr data-pick="${htmlEsc(r.club)}" class="chpick${r.club===mine?' sel':''}" style="cursor:pointer">
+      <td class="l">${clubBadge(r.club)} ${htmlEsc(r.club)}</td><td>${r.used}</td>
+      <td style="color:${r.vs<0?'var(--steel)':'var(--chalk)'}">${r.vs>0?'+':''}${r.vs}</td>
+      <td>${r.pj.toLocaleString('en-US')}</td><td class="l">${r.at?chMD(r.at):'—'}</td></tr>`).join('');
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Games played against an even pace to ${cap}">${g}${zero}${lines}${ends}</svg>
+    <div class="scroller" style="margin-top:10px"><table id="paceTbl" class="standtbl"><thead><tr><th class="l">Club</th><th>GP</th><th>vs pace</th><th>On pace for</th><th class="l">Reaches ${cap}</th></tr></thead><tbody>${tr}</tbody></table></div>
+    <p class="note explain" style="margin:8px 0 0">Pace is games per day so far, carried to the regular season’s last night (${chMD(endD)}): the rule the Games card and the weekly email use. A starter past ${cap} does not count, in slot order. Tap a club to pick out its line.</p></div>`;
+  chWire();
+}
 function drawTrend(){
+  chartTabs();
+  if(CHARTVIEW==='race'||CHARTVIEW==='pace'){
+    if(!DAILY||!Object.keys(DAILY).length){ $('trStatus').textContent='';
+      $('chartWrap').innerHTML=`<div class="empty">${daysToOpener()?`The charts start on opening night — ${daysToOpener()} day${daysToOpener()===1?'':'s'} to go.`:'The charts start with the first night of games.'}</div>`;
+      $('feedHelp').innerHTML=''; return; }
+    $('feedHelp').innerHTML='';
+    return CHARTVIEW==='race'?drawRace():drawPace();
+  }
   const cat=$('trCat').value;
   if(!DAILY||!Object.keys(DAILY).length){
     $('trStatus').textContent='';

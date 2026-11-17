@@ -471,6 +471,22 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's
   champion cards, and reusing the name broke them.
 
+### Home's charts: three tabs (2026-11-17)
+
+Home's chart box has a tab row (`#chTabs`, `CHARTVIEW`, `ll_chart`): **Rolling 15
+days** (the old chart, `drawTrend()`), **The race** (`drawRace()`, pure
+`raceSeries(days)`: each club's roto points in the season-to-date standings after
+every night, through `standingsFor()`, so its last night IS the Standings table)
+and **Games pace** (`drawPace()`, pure `paceSeries(days, cap, end)`: games played
+minus an even pace to the cap by the season's end, `S.cfg.seasonEnd` or Apr 12,
+with a table of games, vs pace, on pace for and the date the club reaches the cap;
+`gamesPace()`'s rule, so it agrees with the Games card). Your club is gold, the
+club directly above you blue on the race; tapping a line, a name or a table row
+picks a club out (`CHARTPICK`, this visit only). The drawing's width is the box's
+own (`chW()`), so text renders at its real size; the old 880-wide chart scaled to
+60% in Home's column. Facts only. Mockup: the "Season charts" page of
+claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs.
+
 ### Weekly awards (2026-11-16)
 
 Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,

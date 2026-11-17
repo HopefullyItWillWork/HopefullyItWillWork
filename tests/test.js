@@ -4641,6 +4641,29 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.cfg.phase = keep;
   }
 
+  console.log('\n== Home charts: the race and games pace ==');
+  {
+    const CS=g('S'), T=g('TEAMS')(), A=T[0], B=T[1];
+    const line=(gp,pts)=>({FG:4*gp,FGA:9*gp,FT:2*gp,FTA:3*gp,P3:gp,REB:5*gp,AST:3*gp,STL:gp,BLK:gp,TO:2*gp,PTS:pts,GP:gp});
+    const days={'2026-10-20':{[A]:line(10,100),[B]:line(8,90)},'2026-10-21':{[A]:line(9,80),[B]:line(12,140)},'2026-10-22':{[A]:line(11,120),[B]:line(9,70)}};
+    const R=g('raceSeries')(days);
+    ok('the race has a point per club per night', R.dates.length===3 && T.every(t=>R.pts[t].length===3));
+    const st=g('standingsFor')(days);
+    ok('its last night is the standings, exactly', T.every(t=>R.pts[t][2]===st.find(r=>r.club===t).pts));
+    const P=g('paceSeries')(days,920,'2027-04-12');
+    const rowA=P.rows.find(r=>r.club===A);
+    ok('pace: games played add up', rowA.used===30 && P.gp[A].join()==='10,19,30');
+    ok('pace: on pace for agrees with the Games card rule', rowA.pj===g('gamesPace')(30,920,days,'2026-27','2027-04-12').projected);
+    ok('pace: a club not on pace for 920 has no date', P.rows.every(r=>r.pj>920 ? /^\d{4}-\d{2}-\d{2}$/.test(r.at) : r.at===''));
+    const keepD=g('SCORE').days;
+    ctx.__X.SCORE.days=days;
+    for(const v of ['race','pace','roll']){
+      let err=''; try{ ctx.CHARTVIEW=v; if(ctx.__X) ctx.__X.CHARTVIEW=v; g('loadDaily'); g('drawTrend')(); }catch(e){ err=e.message; }
+      ok('the '+v+' tab draws without throwing', !err, err);
+    }
+    ctx.__X.SCORE.days=keepD;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 
