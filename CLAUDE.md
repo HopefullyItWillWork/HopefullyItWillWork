@@ -373,6 +373,19 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
   Standings: Season to date adds tonight (`liveTotals()`), and Last night becomes
   **Tonight (live)**; the note says live and when. Everything live is labelled so.
 
+- **Tonight's race** (`liveRace()`): the season table without and with tonight so
+  far, by club. Standings put ▲/▼ on a place that moved and ±roto beside the total;
+  the lineup's live line says "roto +2, 3rd → 2nd" and arrows the categories that moved.
+- **Your players, every minute** (`fastTick()`, `FAST`): with the Tonight view open
+  the page asks ESPN itself (CORS allows it, ~45KB a game compressed) for the games
+  your starters are in. Only per-player lines come from it — `nowLine()`/`nowGame()`
+  prefer it — club totals and standings stay the server's; the line says both times.
+- **When it falls behind**: `liveStale()` (no fresh copy for 15 minutes during
+  games) shows a warning on the lineup and the standings. `live-run` is the last run
+  (skips written only when the reason changes), and the morning's `score-nightly`
+  writes `live-drift` (`driftOf()`: official minus live, per club). Commissioner ›
+  Stats and scoring shows both in a **Live stats** cell, with **Live update now**.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).

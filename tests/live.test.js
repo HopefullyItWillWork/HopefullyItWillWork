@@ -1,7 +1,7 @@
 /* Live stats (lib/live.mjs): the pure half. The night rolls at 4 AM league time,
    the gate keeps ESPN out of it before the first tip, on a night with no games
    and once every game is final, and the scoreboard is read into game states. */
-import { nightAt, gate, liveGames } from '../deploy/netlify/functions/lib/live.mjs';
+import { nightAt, gate, liveGames, driftOf } from '../deploy/netlify/functions/lib/live.mjs';
 
 let fails = 0, ran = 0;
 const ok = (name, cond, extra = '') => { ran++; if (cond) console.log('  PASS  ' + name);
@@ -33,6 +33,11 @@ ok('in progress kept with its clock', g['1'] && g['1'].state === 'in' && g['1'].
 ok('final kept', g['2'] && g['2'].final);
 ok('postponed dropped', !g['3']);
 ok('other season types dropped', !g['4']);
+
+console.log('\n== live against the morning ==');
+const d = driftOf({ a: { totals: { PTS: 10, GP: 2 } }, c: { totals: { PTS: 5 } } }, { a: { PTS: 14, GP: 2 }, b: { PTS: 3 }, c: { PTS: 5 } });
+ok('only what differs is kept', JSON.stringify(d) === JSON.stringify({ a: { PTS: 4 }, b: { PTS: 3 } }), JSON.stringify(d));
+ok('nothing differs, nothing listed', Object.keys(driftOf({ a: { totals: { PTS: 1 } } }, { a: { PTS: 1 } })).length === 0);
 
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);

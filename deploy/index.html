@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.2">
+<meta name="ll-build" content="2026-11-17.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1046,6 +1046,10 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lulivebar{margin:8px 0 0;font-size:var(--t2);color:var(--steel)}
 .lulivebar b{color:var(--chalk)}
 .lugame .lunow{color:var(--tax);font-weight:600}
+.dn{color:var(--tax)}
+.lulivebar .up,.lulivebar .dn{font-size:var(--t1);margin-left:2px}
+.lulivebar.warnline{color:var(--tax)}
+.rdelta{font-size:var(--t1);font-weight:600;margin-left:3px}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
    category. Plain in the two ledger themes; the Jam theme dresses it up. ---- */
@@ -2061,6 +2065,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <button class="btn ghost" id="hCheck">Check again</button>
       <button class="btn ghost" id="hStats">Fetch stats now</button>
       <button class="btn" id="hScore">Rescore now</button>
+      <button class="btn ghost" id="hLive" title="Fetch tonight\u2019s box scores and score them live now (at most once a minute)">Live update now</button>
     </div>
     <h3 class="sub" style="margin-top:14px">Names ESPN does not know</h3>
     <p class="note explain">Players under contract whose name matches nobody on an NBA roster at ESPN. Most are simply
@@ -4465,12 +4470,13 @@ function drawAdmin(){
     const run=async(url,what)=>{
       try{
         const r=await fetch(url,{method:'POST'}), j=await r.json().catch(()=>({}));
-        projToast(r.status===429?`${what} ran less than five minutes ago`:r.ok?`${what} done`:`${what} failed`);
+        projToast(r.status===429?`${what} ran too recently \u2014 try again shortly`:r.ok?`${what} done`:`${what} failed`);
       }catch(e){ projToast(`${what} failed`); }
       await Promise.all([drawHealth(true),loadDaily(true)]);
     };
     $('hStats').onclick=()=>run('/api/stats?run=1','Stats fetch');
     $('hScore').onclick=()=>run('/api/score?run=1','Rescore');
+    $('hLive').onclick=async()=>{ await run('/api/score?live=1&force=1','Live update'); if(await loadLiveNow(true)){ render(); drawStandings(); } };
   }
   drawHealth(); sfWire(); loWire(); cfWire();
   if($('tipBox')&&!$('tipBox').dataset.built){
@@ -10299,10 +10305,17 @@ function drawLineup(){
   /* Tonight so far for this club, from the live scoring: what has counted, in
      all nine, and when it was last refreshed. Provisional until the morning. */
   const lc=liveOk&&(LIVENOW.clubs||{})[T];
-  const liveStrip=!lc?'':(()=>{ const t=lc.totals, pc=(m,a)=>a?(100*m/a).toFixed(1)+'%':'\u2014';
-    return `<p class="lulivebar"><span class="livetag">live</span> <b>Tonight so far</b> \u00b7 ${t.GP} counted${lc.over&&lc.over.length?`, ${lc.over.length} over the cap`:''}:
-      ${t.PTS} PTS \u00b7 ${t.REB} REB \u00b7 ${t.AST} AST \u00b7 ${t.P3} 3P \u00b7 ${t.STL} STL \u00b7 ${t.BLK} BLK \u00b7 ${t.TO} TO \u00b7
-      FG ${pc(t.FG,t.FGA)} \u00b7 FT ${pc(t.FT,t.FTA)} <span class="lutip">updated ${htmlEsc(liveStamp())}; final in the morning</span></p>`; })();
+  const stale=ahead?'':liveStale();
+  const liveStrip=(stale?`<p class="lulivebar warnline"><span class="livetag">live</span> ${htmlEsc(stale)} The morning\u2019s scoring is not affected.</p>`:'')
+    +(!lc?'':(()=>{ const t=lc.totals, pc=(m,a)=>a?(100*m/a).toFixed(1)+'%':'\u2014';
+    /* What tonight is doing to the race: roto points gained or lost, the place it
+       moves you to, and an arrow on each category that moved. */
+    const rc=(liveRace()||{})[T], arr=k=>{ const v=rc&&rc.cat[k]; return v>0?'<span class="up">\u25B2</span>':v<0?'<span class="dn">\u25BC</span>':''; };
+    const race=rc?` \u00b7 roto <b class="${rc.pts>0?'up':rc.pts<0?'dn':''}">${sgn(rc.pts)}</b>${rc.rank!==rc.rank0?`, ${ordinal(rc.rank0)} \u2192 <b>${ordinal(rc.rank)}</b>`:`, still ${ordinal(rc.rank)}`}`:'';
+    const fast=fastOn()&&LUMODE==='now'?htmlEsc(new Date(FAST.at).toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'numeric',minute:'2-digit'})):'';
+    return `<p class="lulivebar"><span class="livetag">live</span> <b>Tonight so far</b>${race} \u00b7 ${t.GP} counted${lc.over&&lc.over.length?`, ${lc.over.length} over the cap`:''}:
+      ${t.PTS} PTS${arr('PTS')} \u00b7 ${t.REB} REB${arr('REB')} \u00b7 ${t.AST} AST${arr('AST')} \u00b7 ${t.P3} 3P${arr('P3')} \u00b7 ${t.STL} STL${arr('STL')} \u00b7 ${t.BLK} BLK${arr('BLK')} \u00b7 ${t.TO} TO${arr('TO')} \u00b7
+      FG ${pc(t.FG,t.FGA)}${arr('FG%')} \u00b7 FT ${pc(t.FT,t.FTA)}${arr('FT%')} <span class="lutip">${fast?`your players ${fast} PT, club totals ${htmlEsc(liveStamp())}`:`updated ${htmlEsc(liveStamp())}`}; final in the morning</span></p>`; })());
   const lustat=[open?`<b class="bad">${open} spot${open===1?'':'s'} open</b>`:'All 15 filled',
     `${bench.length} on the bench`, tourney?'Preseason tournament':'',
     lockedN?`${lockedN} locked`:'', `${playing.length} playing ${ahead?'that night':'tonight'}`].filter(Boolean).join(' \u00b7 ');
@@ -10328,7 +10341,8 @@ function drawLineup(){
       lu.plan?'':' Until you change something here it is the lineup carried forward.'}</p>`:''}
     ${schedKnown(D)?'':`<p class="note">${htmlEsc(ahead&&!schedOn(D)?'Loading that night\u2019s schedule\u2026':lineupNote(D))}</p>`}`;
   $('luHead').querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
-    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); }catch(e){} drawLineup(); });
+    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); }catch(e){} drawLineup();
+    if(LUMODE==='now'&&!fastOn()) fastTick(); });
 
   /* Lineup, bench and injured reserve are one table down the page rather than
      three boxes in two columns. They hold the same nine columns and a GM reads
@@ -12234,8 +12248,8 @@ async function loadLiveNow(force){
   try{
     const r=await fetch('/api/score?live=1',{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
-    const lv=(await r.json()).live;
-    LIVENOW.got=Date.now();
+    const j=await r.json(), lv=j.live;
+    LIVENOW.got=Date.now(); LIVERUN={run:j.run||null,drift:j.drift||null};
     if(!lv||lv.at===LIVENOW.at) return false;
     const byKey={}; Object.values(lv.players||{}).forEach(p=>{ byKey[nameKey(p.n)]=p; });
     LIVENOW={...lv,byKey,got:Date.now()};
@@ -12246,17 +12260,91 @@ async function loadLiveNow(force){
 const liveOn=()=>LIVENOW.day&&LIVENOW.day===luNight()?LIVENOW:null;
 /* A player's line tonight so far: ESPN's id first, then the name. */
 function nowLine(name){
+  const id=espnIdOf(name), F=fastOn();
+  const f=F&&((id&&F.players[id])||F.byKey[nameKey(name)]||F.byKey[nameKey(canon(name))]);
+  if(f) return f;
   const L=liveOn(); if(!L) return null;
-  const id=espnIdOf(name);
   return (id&&L.players[id])||L.byKey[nameKey(name)]||L.byKey[nameKey(canon(name))]||null;
 }
 /* Where his club's game is tonight: {state:'pre'|'in'|'post', detail:'Q3 4:12', final}. */
+const teamCodes=tm=>new Set([tm,TRICODE[tm],...Object.keys(TRICODE).filter(k=>TRICODE[k]===tm)].filter(Boolean));
 function nowGame(name){
-  const L=liveOn(); if(!L) return null;
   const tm=nbaTeamOf(name); if(!tm) return null;
-  const codes=new Set([tm,TRICODE[tm],...Object.keys(TRICODE).filter(k=>TRICODE[k]===tm)].filter(Boolean));
-  return Object.values(L.games||{}).find(g=>codes.has(g.home)||codes.has(g.away))||null;
+  const codes=teamCodes(tm), find=G=>Object.values(G||{}).find(g=>codes.has(g.home)||codes.has(g.away))||null;
+  const F=fastOn(), L=liveOn();
+  return (F&&find(F.games))||(L&&find(L.games))||null;
 }
+/* ---- #3: when the live feed falls behind (2026-11-16) ----
+   During games the server writes every five minutes; more than fifteen
+   minutes without a fresh copy is said out loud rather than left frozen. */
+var LIVERUN={run:null,drift:null};
+function liveStale(){
+  if(!liveWanted()) return '';
+  const n=luNight(), L=LIVENOW.day===n?LIVENOW:null;
+  const sc=schedOn(n), tips=Object.values((sc&&sc.tips)||{}).map(tipMinutes).filter(v=>v!=null);
+  const since=L&&L.at?Math.round((Date.now()-Date.parse(L.at))/60000):null;
+  if(since!=null) return since>15?`Live stats are delayed \u2014 the last update was ${since} minutes ago.`:'';
+  return tips.length&&nightMinutes(n)>Math.min(...tips)+15?'Live stats have not arrived yet tonight.':'';
+}
+/* ---- #1: what tonight is doing to the race ----
+   The season table before tonight and with tonight so far, side by side, by club:
+   rank, roto points and each category's points. Pure on SCORE and LIVENOW. */
+let RACE={key:'',v:null};
+function liveRace(){
+  const lt=liveTotals(); if(!lt) return null;
+  const key=LIVENOW.at+'|'+(SCORE.got||0);
+  if(RACE.key===key) return RACE.v;
+  const by=rows=>Object.fromEntries(rows.map(r=>[r.club,r]));
+  const before=by(standingsFor(SCORE.days||{})), after=by(standingsFor({...(SCORE.days||{}),[LIVENOW.day]:lt}));
+  const v={};
+  Object.keys(after).forEach(c=>{ const a=after[c], b=before[c]; if(b) v[c]={rank0:b.rank,rank:a.rank,pts:a.pts-b.pts,
+    cat:Object.fromEntries(Object.keys(a.cat||{}).map(k=>[k,(a.cat[k]||0)-((b.cat||{})[k]||0)]))}; });
+  RACE={key,v}; return v;
+}
+const sgn=v=>(v>0?'+':v<0?'\u2212':'\u00b1')+(Math.abs(v)%1?Math.abs(v).toFixed(1):Math.abs(v));
+/* ---- #2: your own players, faster (2026-11-16) ----
+   While the Tonight view is open, the page asks ESPN itself every minute for the
+   games your starters are in (ESPN allows it; ~45KB a game, compressed). Only
+   per-player lines come from here; club totals and the standings stay the
+   server's five-minute scoring, so the screen says which time is which. */
+let FAST={day:'',at:0,games:{},players:{},byKey:{},busy:false};
+const fastOn=()=>FAST.day&&FAST.day===luNight()?FAST:null;
+const ESPNSB='https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+const ESPNSUM='https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary';
+function boxFrom(sum){
+  const out={}, num=v=>{ const n=parseFloat(v); return isFinite(n)?n:0; }, pair=v=>String(v||'0-0').split('-').map(num);
+  ((sum&&sum.boxscore&&sum.boxscore.players)||[]).forEach(tm=>{
+    const st=(tm.statistics&&tm.statistics[0])||{}, k=st.keys||[], at=x=>k.indexOf(x), ab=(tm.team&&tm.team.abbreviation)||'';
+    (st.athletes||[]).forEach(a=>{ const v=a.stats||[]; if(a.didNotPlay||!v.length||!a.athlete) return;
+      const [fg,fga]=pair(v[at('fieldGoalsMade-fieldGoalsAttempted')]), [p3]=pair(v[at('threePointFieldGoalsMade-threePointFieldGoalsAttempted')]),
+        [ft,fta]=pair(v[at('freeThrowsMade-freeThrowsAttempted')]);
+      out[String(a.athlete.id)]={n:a.athlete.displayName||'',t:ab,s:{MP:num(v[at('minutes')]),FG:fg,FGA:fga,FT:ft,FTA:fta,P3:p3,
+        TRB:num(v[at('rebounds')]),AST:num(v[at('assists')]),STL:num(v[at('steals')]),BLK:num(v[at('blocks')]),TOV:num(v[at('turnovers')]),PTS:num(v[at('points')])}}; }); });
+  return out;
+}
+async function fastTick(){
+  if(FAST.busy||document.hidden||LUMODE!=='now'||!me||!liveWanted()) return;
+  const w=$('luWrap'); if(!w||w.hidden||!w.offsetParent||LUVIEW.day) return;
+  FAST.busy=true;
+  try{
+    const n=luNight(), sb=await (await fetch(`${ESPNSB}?dates=${n.replace(/-/g,'')}`,{cache:'no-store'})).json();
+    const T=meTeam(), mine=new Set();
+    SLOTIDS.forEach(id=>{ const nm=lineupOf(T).s[id], tm=nm&&nbaTeamOf(nm); if(tm) teamCodes(tm).forEach(c=>mine.add(c)); });
+    const games={}, want=[];
+    (sb.events||[]).forEach(e=>{ const st=(e.status&&e.status.type)||{}, c=(e.competitions||[])[0]||{};
+      const side=h=>{ const x=(c.competitors||[]).find(y=>y.homeAway===h); return (x&&x.team&&x.team.abbreviation)||''; };
+      const g={home:side('home'),away:side('away'),final:!!st.completed,state:st.state||'',detail:st.shortDetail||''};
+      games[e.id]=g;
+      const had=FAST.day===n&&FAST.games[e.id];
+      if((mine.has(g.home)||mine.has(g.away))&&(g.state==='in'||(g.final&&!(had&&had.final)))) want.push(e.id); });
+    const players=FAST.day===n?{...FAST.players}:{};
+    await Promise.all(want.map(async id=>{ try{ Object.assign(players,boxFrom(await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json())); }catch(e){} }));
+    const byKey={}; Object.values(players).forEach(p=>{ byKey[nameKey(p.n)]=p; });
+    FAST={day:n,at:Date.now(),games,players,byKey,busy:false};
+    drawLineup();
+  }catch(e){ FAST.busy=false; }
+}
+setInterval(fastTick,60e3);
 /* Clubs' totals tonight, by name, in the shape SCORE.days holds — or null. */
 function liveTotals(){
   const L=liveOn(); if(!L||(SCORE.days||{})[L.day]) return null;
@@ -12425,8 +12513,8 @@ async function drawHealth(force){
   if(force||Date.now()-HEALTH.at>60000){
     const get=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); return r.ok?await r.json():null; }catch(e){ return null; } };
     if(await probeAPI()){
-      const [st,sc]=await Promise.all([get('/api/stats'),get('/api/score')]);
-      HEALTH={at:Date.now(),st:st&&st.data,sc};
+      const [st,sc,lv]=await Promise.all([get('/api/stats'),get('/api/score'),get('/api/score?live=1')]);
+      HEALTH={at:Date.now(),st:st&&st.data,sc,lv};
     } else HEALTH={at:Date.now()};
   }
   const st=HEALTH.st||{}, sr=st.lastRun, sc=HEALTH.sc||{}, cr=sc.lastRun;
@@ -12446,6 +12534,16 @@ async function drawHealth(force){
       ${row('NBA rosters',!!NBAP.n,NBAP.at?ago(new Date(NBAP.at).toISOString()):'not loaded',`${NBAP.n} players`)}
       ${row('Injury report',!!NBAP.injv,NBAP.injv?`${NBAP.injn||0} listed`:'not fetched yet',
         NBAP.injv?'from ESPN\u2019s rosters, with them':'arrives with the next roster refresh')}
+      ${(()=>{ const lv=HEALTH.lv||{}, ru=lv.run, dr=lv.drift;
+        const main=!ru?'not run yet':ru.error?'error '+ago(ru.at):ru.skipped?'idle':ago(ru.at);
+        const sub=!ru?'every 5 minutes during games':ru.error?htmlEsc(ru.error.slice(0,80))
+          :ru.skipped?`${htmlEsc(ru.skipped)}${ru.lastOk?` \u00b7 last ran ${ago(ru.lastOk)}`:''}`
+          :`${ru.games} game${ru.games===1?'':'s'}, ${ru.fetched} box score${ru.fetched===1?'':'s'} read${ru.ms?` in ${(ru.ms/1000).toFixed(1)}s`:''}`;
+        const dc=dr?Object.entries(dr.clubs||{}):[];
+        const big=dc.flatMap(([c,d])=>Object.entries(d).filter(([k])=>!/A$/.test(k)).map(([k,v])=>({c,k,v}))).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v))[0];
+        const drift=!dr?'':!dc.length?` \u00b7 ${htmlEsc(shortDay(dr.day))}: live matched the morning`
+          :` \u00b7 ${htmlEsc(shortDay(dr.day))}: the morning differed for ${dc.length} club${dc.length===1?'':'s'}${big?` (most: ${htmlEsc(big.c)} ${big.k} ${sgn(big.v)})`:''}`;
+        return row('Live stats',!(ru&&ru.error),main,sub+drift); })()}
       ${row('Tip-offs today',SCHED.ok,SCHED.ok?(n=>n+' club'+(n===1?'':'s'))(Object.keys(SCHED.tips).length):'unavailable',
         SCHED.ok?(Object.keys(SCHED.tips).length?'locks are live':'no games tonight'):htmlEsc(SCHED.reason||''))}
     </dl>${errs(sr)}${errs(cr)}`;
@@ -12548,7 +12646,11 @@ function drawStandBox(B){
     :win?standingsFor(Object.fromEntries(scored.filter(d=>d>=win.from&&d<=win.to).map(d=>[d,SCORE.days[d]])))
     :lt?standingsFor({...SCORE.days,[lday]:lt})
     :(SCORE.standings||[]);
-  const livetag=lt&&!win?` \u00b7 <span class="livetag">live</span> tonight so far, ${htmlEsc(liveStamp())}`:'';
+  const stl=liveStale();
+  const livetag=(lt&&!win?` \u00b7 <span class="livetag">live</span> tonight so far, ${htmlEsc(liveStamp())}`:'')
+    +(stl&&!win?` \u00b7 <span class="bad">${htmlEsc(stl)}</span>`:'');
+  /* Tonight's movement beside each club's place and roto total (season view only). */
+  const race=lt&&!win&&mode!=='night'?liveRace():null;
   const wk=win;   // a window is drawn like the old week: games without the cap
   const played=rows.some(r=>r.tot.GP>0);
   const dto=daysToOpener();
@@ -12573,10 +12675,12 @@ function drawStandBox(B){
       <th data-k="fg">FG%</th><th data-k="ft">FT%</th><th data-k="p3">3P</th><th data-k="reb">REB</th>
       <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
-      <td class="l">${r.rank}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+      <td class="l">${r.rank}${race&&race[r.club]&&race[r.club].rank!==race[r.club].rank0
+        ?(race[r.club].rank<race[r.club].rank0?` <small class="up" title="Up from ${race[r.club].rank0} tonight">\u25B2${race[r.club].rank0-race[r.club].rank}</small>`
+          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
       <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP}<span class="gpcap"> / ${cap}</span>`:r.tot.GP}</td>
       ${Object.keys(CK).map(c=>`<td>${val(r,c)}</td>`).join('')}
-      <td class="rating rotot">${r.pts}</td></tr>`).join('')}</tbody></table></div>`;
+      <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
   sortable(B.tbl,B.sort,'tot',true); redraw[B.sort]=drawStandings;
 }
 function rolling(cat){

@@ -82,7 +82,53 @@ async function getJSON(url, ms = 8000) {
 }
 const readJSON = async (s, key) => { try { const raw = await s.get(key); return raw ? JSON.parse(raw) : null; } catch { return null; } };
 
-export async function runLive(s, { now = new Date(), force = false } = {}) {
+/* Pure: how far the morning's official totals moved from the last live copy of
+   the same night, per club and key — only what differs. Shown to the
+   commissioner, so how much the live numbers drift is visible, not guessed. */
+const DKEYS = ["PTS", "REB", "AST", "P3", "STL", "BLK", "TO", "FG", "FGA", "FT", "FTA", "GP"];
+export function driftOf(liveClubs, official) {
+  const out = {};
+  for (const id of new Set([...Object.keys(liveClubs || {}), ...Object.keys(official || {})])) {
+    const a = ((liveClubs || {})[id] || {}).totals || {}, b = (official || {})[id] || {};
+    const d = {};
+    for (const k of DKEYS) { const v = (b[k] || 0) - (a[k] || 0); if (v) d[k] = v; }
+    if (Object.keys(d).length) out[id] = d;
+  }
+  return out;
+}
+
+/* After the morning's scoring: compare it with the live copy of that night. */
+export async function recordDrift(s, seasonKey) {
+  const live = await readJSON(s, "live");
+  if (!live || !live.day || !seasonKey) return null;
+  const idx = await readJSON(s, "score-" + seasonKey);
+  const official = idx && idx.data && idx.data.days && idx.data.days[live.day];
+  if (!official) return null;
+  const out = { day: live.day, at: new Date().toISOString(), liveAt: live.at, clubs: driftOf(live.clubs, official) };
+  await s.set("live-drift", JSON.stringify(out));
+  return out;
+}
+
+/* The last run, for the commissioner's panel: every real run, every error, and
+   a skip only when its reason changed (a quiet afternoon is one write, not 60). */
+async function noteRun(s, run) {
+  const prev = await readJSON(s, "live-run");
+  if (run.skipped && prev && prev.skipped === run.skipped && prev.night === run.night) return;
+  await s.set("live-run", JSON.stringify({ ...run, at: new Date().toISOString(),
+    lastOk: run.ok && !run.skipped ? new Date().toISOString() : (prev && prev.lastOk) || null }));
+}
+
+export async function runLive(s, opts = {}) {
+  const t0 = Date.now();
+  let out;
+  try { out = await runLiveOnce(s, opts); }
+  catch (e) { out = { ok: false, night: nightAt(TZ(), opts.now || new Date()).day, error: String((e && e.message) || e) }; }
+  out.ms = Date.now() - t0;
+  try { await noteRun(s, out); } catch { /* the status is a nicety */ }
+  return out;
+}
+
+async function runLiveOnce(s, { now = new Date(), force = false } = {}) {
   const { day: night, min } = nightAt(TZ(), now);
   const prev = await readJSON(s, "live");
   if (!force) {
