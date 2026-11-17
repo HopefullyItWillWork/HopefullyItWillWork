@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-16.11">
+<meta name="ll-build" content="2026-11-17.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -992,7 +992,7 @@ label img.hs[data-player]{cursor:inherit}
 .injline{margin:0 90px 12px 0;font-size:var(--t2)}
 .injline .t{color:var(--steel);font-size:var(--t1);margin-left:4px}
 .inj{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:var(--r-s);font:700 var(--t1)/1.4 var(--body);
-  letter-spacing:.06em;background:var(--tbi-b);color:var(--amber);vertical-align:middle;cursor:help;flex:none}
+  letter-spacing:.06em;background:var(--tbi-b);color:var(--amber);vertical-align:middle;cursor:pointer;flex:none}
 .inj.out{background:var(--trf-b);color:var(--tax)}
 [data-theme="jam"] .inj{border:2px solid #000;border-radius:0}
 td>.hs,.pkn~.hs,label.pk>.hs{width:24px;height:24px;margin-right:6px}
@@ -1038,9 +1038,8 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lugame .lutime{display:inline-block;font-weight:600;font-size:var(--t1);color:var(--ink);background:var(--amber);border-radius:999px;padding:1px 8px;margin-right:2px}
 .lugame .lulock{display:inline-flex;align-items:center;gap:5px;color:var(--steel)}
 .lugame.lk small{color:var(--dim)}
-.lurow:has(.lugame.nog)>*:not(.luacts){opacity:.55}
-.lurow:has(.lugame.nog)>.luacts summary{opacity:.55}
-.lurow:has(.lugame.nog)>.luacts details[open] summary{opacity:1}
+/* Subtle (2026-11-16): the numbers dim a little; the name, picture and menu stay. */
+.lurow:has(.lugame.nog)>span:not(.luacts):not(.lugame):not(:first-child):not(:nth-child(2)){opacity:.7}
 .luhdr span:nth-child(3){text-align:left}
 
 /* ---- Tale of the tape (Home): your club against one you pick, category by
@@ -2706,7 +2705,7 @@ function startPolling(){
       if(chatOn() && await loadChat()) drawChat();
       // The schedule is a once-a-day fetch: only when the league date rolls over.
       if(S.cfg.pre && PRE.day!==dayKey()){ await loadPre(); }
-      if(lineupsOpen() && (SCHED.day!==dayKey()||NBAP.day!==dayKey()||SCORE.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers(),loadDaily()]); render(); }
+      if(lineupsOpen() && (SCHED.day!==luNight()||NBAP.day!==dayKey()||SCORE.day!==dayKey())){ await Promise.all([loadSchedule(),loadNbaPlayers(),loadDaily()]); render(); }
       /* Standings and games played: every 30 minutes (loadDaily decides), so a tab left open
          through the morning's scoring or a commissioner's correction catches up. */
       else if(SCORE.ok&&Date.now()-(SCORE.got||0)>=30*60e3){ await loadDaily(); render(); }
@@ -3000,7 +2999,7 @@ async function toggleIR(team,idx){
     if(seasonLive()){
       const lu=lineupOf(team);
       SLOTIDS.forEach(id=>{ if(canon(lu.s[id])===canon(p.n)){ was=slotLabel(id); lu.s[id]=''; } });
-      if(was) S.teams[team].lu={d:dayKey(),s:lu.s};
+      if(was) putLineup(team,luNight(),lu.s);
     }
     await commit({kind:'edit',team,
       detail:`${p.n} moved to injured reserve${was?` \u2014 ${was} spot opened`:''}`},['rosters']);
@@ -3158,7 +3157,10 @@ async function commit(entry,only){
     const pruned = slices.includes('rosters') ? pruneLineups() : [];
     const putOk = await Store.put(S,{only: slices});
     ok = logOk && putOk;
-    if(putOk) for(const t of pruned) await logLineup(t);
+    if(putOk) for(const t of pruned){
+      await logLineup(t);
+      for(const d of Object.keys(S.teams[t].luf||{}).filter(d=>d>luNight())) await logLineup(t,d);
+    }
   }catch(e){ ok=false; }
   setSync(ok?'ok':'err', ok
     ? (HAS_API?`Shared \u00b7 ${S.log.length} transactions`:`Saved locally \u00b7 ${S.log.length} transactions`)
@@ -3174,11 +3176,15 @@ function pruneLineups(){
   const changed=[];
   TEAMS().forEach(t=>{
     const lu=S.teams[t]&&S.teams[t].lu;
-    if(!lu||!lu.s) return;
+    if((!lu||!lu.s)&&!S.teams[t].luf) return;
     const ok=new Set(S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)).map(p=>canon(p.n)));
     let hit=false;
-    Object.keys(lu.s).forEach(id=>{ const n=lu.s[id]; if(n&&!ok.has(canon(n))){ lu.s[id]=''; hit=true; } });
-    if(hit){ S.teams[t].lu={d:dayKey(),s:lu.s}; changed.push(t); }
+    /* Its night stays as it was: re-dating it would put it ahead of a plan. */
+    if(lu&&lu.s) Object.keys(lu.s).forEach(id=>{ const n=lu.s[id]; if(n&&!ok.has(canon(n))){ lu.s[id]=''; hit=true; } });
+    /* And every night planned ahead. */
+    Object.values(S.teams[t].luf||{}).forEach(pl=>{ if(!pl||!pl.s) return;
+      Object.keys(pl.s).forEach(id=>{ const n=pl.s[id]; if(n&&!ok.has(canon(n))){ pl.s[id]=''; hit=true; } }); });
+    if(hit) changed.push(t);
   });
   return changed;
 }
@@ -9721,15 +9727,33 @@ function slotOk(id,name){
   if(k==='U') return true;
   return posSet(name).has(k);
 }
-function lineupOf(t){
-  const lu=(S.teams[t]||{}).lu;
+/* The lineup for a night (tonight by default). A night can be set ahead: those
+   plans are `luf = {day: {s, at}}` on the club, beside the current `lu = {d, s}`.
+   The newest plan on or before the night wins unless the current lineup was set
+   on or after that plan's night, so a plan persists until it is changed and an
+   edit to tonight does not overwrite a night already planned. lineupFor() in
+   lib/lineups.mjs is the same rule for the server's morning carry. */
+function lineupOf(t,day){
+  day=day||luNight();
+  const T=S.teams[t]||{}, cur=T.lu, plans=T.luf||{};
+  const k=Object.keys(plans).filter(d=>d<=day&&plans[d]&&plans[d].s).sort().pop();
+  const lu=k&&k>((cur&&cur.d)||'')?{d:k,s:plans[k].s}:cur;
   const s={};
   SLOTIDS.forEach(id=>{ s[id]=(lu&&lu.s&&typeof lu.s[id]==='string')?lu.s[id]:''; });
-  return {d:(lu&&lu.d)||'', s};
+  return {d:(lu&&lu.d)||'', s, plan:!!(k&&lu&&lu.d===k&&day>luNight())};
+}
+/* Write a night's lineup: tonight's becomes the current one, a night ahead a
+   plan. Plans for nights already reached are dropped as they are written over. */
+function putLineup(t,day,s){
+  const n=luNight(), T=S.teams[t];
+  const plans={}; Object.entries(T.luf||{}).forEach(([d,v])=>{ if(d>n) plans[d]=v; });
+  if(day>n) plans[day]={s,at:new Date().toISOString()};
+  else T.lu={d:n,s};
+  if(Object.keys(plans).length) T.luf=plans; else delete T.luf;
 }
 /* Everyone under contract, not on the IR, not already in a slot. */
-function benchOf(t){
-  const s=lineupOf(t).s, taken=new Set(Object.values(s).filter(Boolean).map(canon));
+function benchOf(t,day){
+  const s=lineupOf(t,day).s, taken=new Set(Object.values(s).filter(Boolean).map(canon));
   return S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)&&!taken.has(canon(p.n)));
 }
 const irOf=t=>S.teams[t].r.filter(p=>contracted(p)&&onIR(p));
@@ -9758,6 +9782,21 @@ function dayKey(at){
       year:'numeric',month:'2-digit',day:'2-digit'}).format(at||new Date());
   }catch(e){ return (at||new Date()).toISOString().slice(0,10); }
 }
+/* The lineup's night (2026-11-16). The calendar day rolls at midnight Eastern,
+   which is 9 PM in the league's Pacific evening, with the late games still on:
+   the lineup jumped to tomorrow while tonight's games were being played. The
+   night now rolls at LUROLL, 4 AM Eastern: after the last game ends and before
+   the morning carry-forward (09:15 UTC) copies it. Everything about the
+   lineup — tonight's schedule, the lock, the night a save is filed under —
+   reads luNight(); dayKey() is still the date everything else is stamped with. */
+const LUROLL=240;
+function luNight(){
+  const d=dayKey(); if(minutesNow()>=LUROLL) return d;
+  const t=new Date(d+'T12:00:00Z'); t.setUTCDate(t.getUTCDate()-1); return t.toISOString().slice(0,10);
+}
+/* The night the lineup screen is showing: tonight, or a night ahead being
+   planned. A past night is the Results view and never edited. */
+function luDay(){ const n=luNight(), v=LUVIEW&&LUVIEW.day; return v&&v>n?v:n; }
 function minutesNow(){
   try{
     const p=new Intl.DateTimeFormat('en-GB',{timeZone:leagueTZ(),hour:'2-digit',
@@ -9771,25 +9810,34 @@ function minutesNow(){
    league publishes it. The commissioner's box is an override for when a time is
    wrong or the feed is down, not the way tip-offs normally arrive. */
 let SCHED={day:'',tips:{},ok:false,reason:''};
-async function loadSchedule(force){
-  const day=dayKey();
-  if(!force&&SCHED.day===day&&SCHED.ok) return SCHED;
-  if(!await probeAPI()){ SCHED={day,tips:{},ok:false,reason:'no league database'}; return SCHED; }
-  try{
+/* Every night's schedule fetched so far, by day: tonight's is also SCHED, and a
+   night ahead is fetched when the GM opens it to plan (2026-11-16). */
+var SCHEDS={};
+const schedOn=day=>SCHEDS[day]||(SCHED.day===day?SCHED:null);
+async function loadSchedule(force,day){
+  day=day||luNight();
+  const night=day===luNight(), have=SCHEDS[day];
+  if(!force&&have&&have.ok){ if(night) SCHED=have; return have; }
+  let v;
+  if(!await probeAPI()) v={day,tips:{},ok:false,reason:'no league database'};
+  else try{
     const r=await fetch(`/api/schedule?day=${encodeURIComponent(day)}`,{cache:'no-store'});
     if(!r.ok) throw new Error('http '+r.status);
     const j=await r.json();
-    SCHED={day,tips:(j&&j.tips)||{},opp:(j&&j.opp)||{},ok:!(j&&j.reason),reason:(j&&j.reason)||''};
-  }catch(e){ SCHED={day,tips:{},ok:false,reason:'schedule unavailable'}; }
-  return SCHED;
+    v={day,tips:(j&&j.tips)||{},opp:(j&&j.opp)||{},ok:!(j&&j.reason),reason:(j&&j.reason)||''};
+  }catch(e){ v={day,tips:{},ok:false,reason:'schedule unavailable'}; }
+  SCHEDS[day]=v; if(night) SCHED=v;
+  return v;
 }
+/* Is anything known about a night's games, from the feed or the commissioner? */
+const schedKnown=day=>{ const sc=schedOn(day); return !!(sc&&sc.ok)||Object.keys((S.cfg.sched||{})[day]||{}).length>0; };
 /* The workbook writes six clubs shorter than the NBA's own tricodes. Fold them
    together rather than editing 336 rows of NBATM, and look a code up both ways
    so either source answers. */
 const TRICODE={GS:'GSW',NO:'NOP',NY:'NYK',SA:'SAS',UTAH:'UTA',WSH:'WAS'};
 function tipFor(team,day){
   const over=(S.cfg.sched||{})[day]||{};          // the commissioner's correction wins
-  const feed=(SCHED.day===day?SCHED.tips:{})||{};
+  const feed=((schedOn(day)||{}).tips)||{};
   const alt=TRICODE[team];
   for(const src of [over,feed]){
     if(src[team]!=null) return src[team];
@@ -9801,7 +9849,7 @@ function tipFor(team,day){
    only (the commissioner's override carries times, not match-ups), so a club the
    override alone knows about has a time and no opponent. Codes are ESPN's. */
 function oppFor(team,day){
-  const o=(SCHED.day===day&&SCHED.opp)||{}, alt=TRICODE[team];
+  const o=((schedOn(day)||{}).opp)||{}, alt=TRICODE[team];
   const back=Object.keys(TRICODE).find(k=>TRICODE[k]===team);
   return o[team]||(alt&&o[alt])||(back&&o[back])||'';
 }
@@ -9867,18 +9915,28 @@ function espnPosOf(name){
 function nbaTeamOf(name){
   return espnTeamOf(name)||NBATM[canon(name)]||null;
 }
-function tipOf(name,at){
+function tipOf(name,day){
+  day=day||luNight();
   const tm=nbaTeamOf(name);
   if(!tm) return null;
-  const v=tipFor(tm,dayKey(at));
+  const v=tipFor(tm,day);
   if(v==null) return null;
   const m=tipMinutes(v);
-  return m==null?null:{team:tm,at:m,opp:oppFor(tm,dayKey(at))};
+  return m==null?null:{team:tm,at:m,opp:oppFor(tm,day)};
 }
-function lockOf(name,at){
-  const t=tipOf(name,at);
+/* Minutes into `day`'s evening right now: past midnight, last night's clock
+   reads 24:30 rather than 00:30, so every game of that night is locked; a
+   night still to come has no clock at all yet. */
+function nightMinutes(day){
+  const today=dayKey();
+  return day<today?minutesNow()+1440*Math.min(2,Math.round((Date.parse(today)-Date.parse(day))/864e5))
+    :day>today?-1:minutesNow();
+}
+function lockOf(name,day){
+  day=day||luNight();
+  const t=tipOf(name,day);
   if(!t) return {locked:false,why:''};
-  return minutesNow()>=t.at
+  return nightMinutes(day)>=t.at
     ? {locked:true,why:`Locked \u2014 ${t.team} tipped off at ${clock12(t.at)}`}
     : {locked:false,why:`${t.team} tips off at ${clock12(t.at)}`};
 }
@@ -9913,17 +9971,17 @@ function clock12(m){
   const h=Math.floor(v/60), mm=String(v%60).padStart(2,'0');
   return `${(h%12)||12}:${mm} ${h<12?'AM':'PM'} PT`;
 }
-const isLocked=name=>lockOf(name).locked;
+const isLocked=(name,day)=>lockOf(name,day).locked;
 /* Why a club cannot be edited at all, or '' when it can. */
-function lineupNote(){
-  const day=dayKey();
-  const clubs=new Set([...Object.keys((S.cfg.sched||{})[day]||{}),
-                       ...Object.keys(SCHED.day===day?SCHED.tips:{})]);
-  if(clubs.size) return `${clubs.size} club${clubs.size===1?'':'s'} playing tonight — `
+function lineupNote(day){
+  day=day||luNight();
+  const sc=schedOn(day)||{tips:{},ok:false,reason:''}, that=day===luNight()?'tonight':'that night';
+  const clubs=new Set([...Object.keys((S.cfg.sched||{})[day]||{}),...Object.keys(sc.tips||{})]);
+  if(clubs.size) return `${clubs.size} club${clubs.size===1?'':'s'} playing ${that} — `
     +'each player locks when his own game tips off.';
-  return SCHED.ok
-    ? 'No NBA games tonight, so nothing locks.'
-    : `Tip-off times unavailable${SCHED.reason?' ('+SCHED.reason+')':''}, so nothing is locked.`;
+  return sc.ok
+    ? `No NBA games ${that}, so nothing locks.`
+    : `Tip-off times unavailable${sc.reason?' ('+sc.reason+')':''}, so nothing is locked.`;
 }
 /* Every lineup save is also sent to /api/lineups, which stamps it with the
    server's clock and keeps it for good (lib/lineups.mjs). The lineup in
@@ -9931,27 +9989,30 @@ function lineupNote(){
    each tip-off. Failure here never blocks the save — the morning carry-forward
    still has the club's lineup — but it is said out loud, because a lost entry
    is a change that scoring will not see. */
-async function logLineup(team){
+async function logLineup(team,day){
   if(!HAS_API) return;
+  day=day||luNight();
   try{
     const r=await fetch('/api/lineups',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({club:team,s:lineupOf(team).s,by:isComm()?'Commissioner':(me||'')})});
+      body:JSON.stringify({club:team,s:lineupOf(team,day).s,day,src:day>luNight()?'plan':'save',
+        by:isComm()?'Commissioner':(me||'')})});
     if(!r.ok) throw new Error('http '+r.status);
   }catch(e){ projToast('Lineup saved, but its time stamp did not reach the server. Save it again to be safe.'); }
 }
 /* ---- moves ---- */
 async function setSlot(team,id,name){
+  const D=luDay(), ahead=D>luNight();
   if(!canEdit(team)) return alert('You can only set your own lineup.');
   if(!lineupsOpen()) return alert('Lineups open once the commissioner sets the season live.');
   if(!SLOTIDS.includes(id)) return;
-  const lu=lineupOf(team), was=lu.s[id];
-  if(was&&isLocked(was))
-    return alert(`${was} is locked for tonight — ${lockOf(was).why}.`);
+  const lu=lineupOf(team,D), was=lu.s[id];
+  if(was&&isLocked(was,D))
+    return alert(`${was} is locked for tonight — ${lockOf(was,D).why}.`);
   if(name){
     const p=S.teams[team].r.find(x=>canon(x.n)===canon(name));
     if(!p||!contracted(p)) return alert(`${name} is not under contract for ${team}.`);
     if(onIR(p)) return alert(`${p.n} is on the injured reserve. Activate him first.`);
-    if(isLocked(p.n)) return alert(`${p.n} is locked for tonight — ${lockOf(p.n).why}.`);
+    if(isLocked(p.n,D)) return alert(`${p.n} is locked for tonight — ${lockOf(p.n,D).why}.`);
     if(!slotOk(id,p.n))
       return alert(`${p.n} plays ${posText(p.n)} and cannot fill the ${slotLabel(id)} spot.`);
     /* One player, one slot. Moving him out of the old one is what a GM means. */
@@ -9960,32 +10021,34 @@ async function setSlot(team,id,name){
   } else {
     lu.s[id]='';
   }
-  S.teams[team].lu={d:dayKey(),s:lu.s};
-  await commit({kind:'edit',team,detail: name
-    ? `${name} started at ${slotLabel(id)}` : `${slotLabel(id)} spot cleared`},['rosters']);
-  await logLineup(team);
+  putLineup(team,D,lu.s);
+  await commit({kind:'edit',team,detail:(ahead?`${shortDay(D)}: `:'')+(name
+    ? `${name} started at ${slotLabel(id)}` : `${slotLabel(id)} spot cleared`)},['rosters']);
+  await logLineup(team,D);
 }
 async function clearLineup(team){
+  const D=luDay(), ahead=D>luNight();
   if(!canEdit(team)) return alert('You can only set your own lineup.');
-  const lu=lineupOf(team);
-  const stuck=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id]));
+  const lu=lineupOf(team,D);
+  const stuck=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id],D));
   if(!confirm(stuck.length
     ? `Clear the lineup? ${stuck.length} locked player${stuck.length===1?'':'s'} will stay put.`
-    : 'Clear every spot in tonight’s lineup?')) return;
-  SLOTIDS.forEach(id=>{ if(lu.s[id]&&!isLocked(lu.s[id])) lu.s[id]=''; });
-  S.teams[team].lu={d:dayKey(),s:lu.s};
-  await commit({kind:'edit',team,detail:'Lineup cleared'},['rosters']);
-  await logLineup(team);
+    : `Clear every spot in the lineup for ${ahead?shortDay(D):'tonight'}?`)) return;
+  SLOTIDS.forEach(id=>{ if(lu.s[id]&&!isLocked(lu.s[id],D)) lu.s[id]=''; });
+  putLineup(team,D,lu.s);
+  await commit({kind:'edit',team,detail:ahead?`Lineup for ${shortDay(D)} cleared`:'Lineup cleared'},['rosters']);
+  await logLineup(team,D);
 }
 /* Fill every open, unlocked slot with the best available man who fits it. The
    scarcest slot goes first — centre, then the named positions, then utility —
    because filling utility first strands a centre on the bench. */
 async function autoLineup(team){
+  const D=luDay(), ahead=D>luNight();
   if(!canEdit(team)) return alert('You can only set your own lineup.');
   if(!lineupsOpen()) return alert('Lineups open once the commissioner sets the season live.');
-  const lu=lineupOf(team);
+  const lu=lineupOf(team,D);
   const used=new Set(Object.values(lu.s).filter(Boolean).map(canon));
-  const pool=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p)&&!used.has(canon(p.n))&&!isLocked(p.n))
+  const pool=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p)&&!used.has(canon(p.n))&&!isLocked(p.n,D))
     .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
   let filled=0;
   SLOTIDS.forEach(id=>{
@@ -9995,9 +10058,9 @@ async function autoLineup(team){
     lu.s[id]=pool.splice(i,1)[0].n; filled++;
   });
   if(!filled) return projToast('Nothing left to fill');
-  S.teams[team].lu={d:dayKey(),s:lu.s};
+  putLineup(team,D,lu.s);
   await commit({kind:'edit',team,detail:`Lineup auto-filled — ${filled} spot${filled===1?'':'s'}`},['rosters']);
-  await logLineup(team);
+  await logLineup(team,D);
 }
 /* Start the players who have a game tonight. Every slot not locked is cleared
    and refilled in two passes — first only men whose club plays tonight, then
@@ -10010,37 +10073,40 @@ async function autoLineup(team){
    everyone else is reseated — men with a game tonight first, then the rest —
    each scarcest slot first, best rated first. The preseason tournament fills
    every club's lineup with this too. */
-function bestLineup(team){
+function bestLineup(team,D){
+  D=D||luNight();
   const roster=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p));
-  const lu=lineupOf(team), s={};
-  SLOTIDS.forEach(id=>{ s[id]=lu.s[id]&&isLocked(lu.s[id])?lu.s[id]:''; });
+  const lu=lineupOf(team,D), s={};
+  SLOTIDS.forEach(id=>{ s[id]=lu.s[id]&&isLocked(lu.s[id],D)?lu.s[id]:''; });
   const used=new Set(Object.values(s).filter(Boolean).map(canon));
   const rt=n=>rtg(n)??-99;
-  const pool=roster.filter(p=>!used.has(canon(p.n))&&!isLocked(p.n)).sort((a,b)=>rt(b.n)-rt(a.n));
+  const pool=roster.filter(p=>!used.has(canon(p.n))&&!isLocked(p.n,D)).sort((a,b)=>rt(b.n)-rt(a.n));
   const fill=want=>SLOTIDS.forEach(id=>{
     if(s[id]) return;
     const i=pool.findIndex(p=>want(p)&&slotOk(id,p.n));
     if(i>=0) s[id]=pool.splice(i,1)[0].n;
   });
-  fill(p=>!!tipOf(p.n));
+  fill(p=>!!tipOf(p.n,D));
   fill(()=>true);
   return s;
 }
 async function tonightLineup(team){
+  const D=luDay(), ahead=D>luNight();
   if(!canEdit(team)) return alert('You can only set your own lineup.');
   if(!lineupsOpen()) return alert('Lineups open once the commissioner sets the season live.');
   const roster=S.teams[team].r.filter(p=>contracted(p)&&!onIR(p));
-  if(!roster.some(p=>tipOf(p.n)))
-    return alert(SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length
-      ? 'Nobody on your roster plays tonight.'
-      : 'Tip-off times are not available right now, so there is no way to tell who plays tonight.');
-  if(!confirm('Rebuild tonight\u2019s lineup? Locked players stay put. Everyone else is reseated: '
-    +'players with a game tonight first, best rated first, then the rest in any open spots.')) return;
-  const s=bestLineup(team);
-  const playing=SLOTIDS.filter(id=>s[id]&&tipOf(s[id])).length;
-  S.teams[team].lu={d:dayKey(),s};
-  await commit({kind:'edit',team,detail:`Lineup set for tonight \u2014 ${playing} starter${playing===1?'':'s'} with a game`},['rosters']);
-  await logLineup(team);
+  const when=ahead?shortDay(D):'tonight';
+  if(!roster.some(p=>tipOf(p.n,D)))
+    return alert(schedKnown(D)
+      ? `Nobody on your roster plays ${ahead?'on '+when:'tonight'}.`
+      : `Tip-off times are not available right now, so there is no way to tell who plays ${ahead?'on '+when:'tonight'}.`);
+  if(!confirm(`Rebuild the lineup for ${when}? Locked players stay put. Everyone else is reseated: `
+    +'players with a game that night first, best rated first, then the rest in any open spots.')) return;
+  const s=bestLineup(team,D);
+  const playing=SLOTIDS.filter(id=>s[id]&&tipOf(s[id],D)).length;
+  putLineup(team,D,s);
+  await commit({kind:'edit',team,detail:`Lineup set for ${when} \u2014 ${playing} starter${playing===1?'':'s'} with a game`},['rosters']);
+  await logLineup(team,D);
 }
 
 /* The nine scoring categories as the lineup shows them, in the order the league
@@ -10147,29 +10213,43 @@ function rosStatNote(){
    the Results code below (drawLastNight), which then hides its own controls. */
 var LUVIEW={day:'',mode:'day'};
 function scoredDays(){ return [...new Set([...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})])].sort(); }
-function luGo(day){ LUVIEW.day=day&&day<dayKey()?day:''; drawLineup(); drawLastNight(); }
-function drawLuNav(){ dateBar($('luNav'),LUVIEW,luGo,'luDate'); }
+/* LUAHEAD: how far ahead a lineup can be set (2026-11-16). */
+const LUAHEAD=14;
+const luPast=()=>!!LUVIEW.day&&LUVIEW.day<luNight();
+function luGo(day){
+  const n=luNight();
+  if(day&&day>dPlus(n,LUAHEAD)) day=dPlus(n,LUAHEAD);
+  LUVIEW.day=day&&day!==n?day:'';
+  /* A night ahead needs its own schedule for the Game column and Best for that night. */
+  if(LUVIEW.day>n&&!schedOn(LUVIEW.day)) loadSchedule(false,LUVIEW.day).then(()=>drawLineup());
+  drawLineup(); drawLastNight();
+}
+function drawLuNav(){ dateBar($('luNav'),LUVIEW,luGo,'luDate',LUAHEAD); }
 /* The date bar itself, for any view state V ({day, mode}): tonight, or an
    earlier night or week. go(day) moves it; '' is tonight. */
-function dateBar(box,V,go,dateId){
+function dateBar(box,V,go,dateId,ahead){
   if(!box) return;
   const LUVIEW=V, luGo=go;
-  const today=dayKey(), days=scoredDays(), v=LUVIEW.day, past=!!v;
-  const step=LUVIEW.mode==='week'?7:1;
-  const prev=past?dPlus(v,-step):(days.filter(d=>d<today).pop()||dPlus(today,-1));
-  const label=!past?`Tonight \u00b7 ${shortDay(today)}`
+  /* "Tonight" is the lineup's night, which rolls at 4 AM Eastern, not midnight. */
+  const today=luNight(), days=scoredDays(), v=LUVIEW.day, past=!!v&&v<today, fut=!!v&&v>today;
+  const last=ahead?dPlus(today,ahead):today;
+  const step=past&&LUVIEW.mode==='week'?7:1;
+  const prev=v?dPlus(v,-step):(days.filter(d=>d<today).pop()||dPlus(today,-1));
+  const next=v?dPlus(v,step):dPlus(today,1);
+  const label=!v?`Tonight \u00b7 ${shortDay(today)}`
+    :fut?`${shortDay(v)} \u00b7 ahead`
     :LUVIEW.mode==='week'?`Week of ${shortDay(weekOf(v).from)}`:shortDay(v);
   box.innerHTML=`<div class="lunav">
     <button class="btn ghost" data-lv="prev" aria-label="Earlier">\u25C0</button>
     <span class="lnday">${htmlEsc(label)}</span>
-    <button class="btn ghost" data-lv="next" aria-label="Later"${past?'':' disabled'}>\u25B6</button>
-    <input type="date" class="mono" id="${dateId}" value="${v||today}" max="${today}" aria-label="Pick a night">
+    <button class="btn ghost" data-lv="next" aria-label="Later"${(v||ahead)&&next<=last?'':' disabled'}>\u25B6</button>
+    <input type="date" class="mono" id="${dateId}" value="${v||today}" max="${last}" aria-label="Pick a night">
     ${past?`<div class="toggle"><button data-lm="day" aria-pressed="${LUVIEW.mode==='day'}">Day</button>
-      <button data-lm="week" aria-pressed="${LUVIEW.mode==='week'}">Week</button></div>
-      <button class="btn" data-lv="now">Tonight</button>`:''}</div>`;
+      <button data-lm="week" aria-pressed="${LUVIEW.mode==='week'}">Week</button></div>`:''}
+    ${v?'<button class="btn" data-lv="now">Tonight</button>':''}</div>`;
   box.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.lv;
-    luGo(k==='now'?'':k==='prev'?prev:dPlus(v,step)); });
+    luGo(k==='now'?'':k==='prev'?prev:next); });
   box.querySelectorAll('[data-lm]').forEach(b=>b.onclick=()=>{ LUVIEW.mode=b.dataset.lm; luGo(LUVIEW.day); });
   $(dateId).onchange=e=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) luGo(e.target.value); };
 }
@@ -10181,38 +10261,40 @@ function drawLineup(){
   if($('rosWrap')) $('rosWrap').hidden=!wrap.hidden;
   if(wrap.hidden) return;
   drawLuNav();
-  const pastView=!!LUVIEW.day;
+  const pastView=luPast();
+  /* D: the night on screen — tonight, or a night ahead being planned (2026-11-16). */
+  const D=luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
   if($('luHead')) $('luHead').hidden=pastView;
   if($('luSlots')) $('luSlots').hidden=pastView;
   if(pastView) return;
-  const T=meTeam(), lu=lineupOf(T), can=canEdit(T);
-  const bench=benchOf(T), ir=irOf(T);
+  const T=meTeam(), lu=lineupOf(T,D), can=canEdit(T);
+  const bench=benchOf(T,D), ir=irOf(T);
   const open=SLOTIDS.filter(id=>!lu.s[id]).length;
-  const lockedN=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id])).length;
+  const lockedN=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id],D)).length;
   const irMax=S.cfg.ir??1;
   /* The game cap. Starters whose club plays tonight each use a game, counted
      top-down in slot order once the morning scores this night; anything past
      the cap is discarded. Nothing is blocked — the GM manages his own games —
      but he is told, by name, who would not count. */
   const cap=SCORE.cap||S.cfg.gamecap||920, used=gamesUsed(T), room=Math.max(0,cap-used);
-  const playing=SLOTIDS.filter(id=>lu.s[id]&&tipOf(lu.s[id]));
+  const playing=SLOTIDS.filter(id=>lu.s[id]&&tipOf(lu.s[id],D));
   const tourney=!seasonLive();          // the preseason tournament: no game cap, no IR
   /* Starters whose position no longer fits their slot — ESPN's eligibility
      moved under a lineup set earlier. Told, not fixed: which way to shuffle is
      the GM's call. */
   const misfit=SLOTIDS.filter(id=>lu.s[id]&&!slotOk(id,lu.s[id])).map(id=>`${lu.s[id]} (${slotLabel(id)}, plays ${posText(lu.s[id])})`);
-  const lost=tourney?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
+  const lost=tourney||ahead?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   /* One toolbar: the view, then what is true tonight in a line of text (games
      and the IR are in the club strip above), then the buttons. */
   const lustat=[open?`<b class="bad">${open} spot${open===1?'':'s'} open</b>`:'All 15 filled',
     `${bench.length} on the bench`, tourney?'Preseason tournament':'',
-    lockedN?`${lockedN} locked`:'', `${playing.length} playing tonight`].filter(Boolean).join(' \u00b7 ');
+    lockedN?`${lockedN} locked`:'', `${playing.length} playing ${ahead?'that night':'tonight'}`].filter(Boolean).join(' \u00b7 ');
   $('luHead').innerHTML=`<div class="lutools"><div class="toggle" role="group" aria-label="Columns">${
       [['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
        ['ctr','Contract','Salary owed by season, years, option, rights']].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
-    ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game tonight first">Best for tonight</button>
+    ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
       <button class="btn ghost" id="luClear">Bench all</button></span>`:''}</div>
     ${misfit.length?`<div class="warn"><b>Not eligible where they are:</b> ${misfit.map(htmlEsc).join(', ')}.
@@ -10223,7 +10305,9 @@ function drawLineup(){
       ${lost.map(htmlEsc).join(', ')}. Bench them, or reorder, to choose who uses the last games.</div>`:''}
     ${tourney?`<p class="note"><b>Preseason tournament, ${htmlEsc(preSpan())}.</b> Your lineup was filled for you and
       carries forward each night; change it any time. Just for fun \u2014 none of it counts toward the season.</p>`:''}
-    ${SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length?'':`<p class="note">${htmlEsc(lineupNote())}</p>`}`;
+    ${ahead?`<p class="note">Setting the lineup for <b>${htmlEsc(when)}</b>. It holds from that night on until you change it; tonight\u2019s lineup is not touched.${
+      lu.plan?'':' Until you change something here it is the lineup carried forward.'}</p>`:''}
+    ${schedKnown(D)?'':`<p class="note">${htmlEsc(ahead&&!schedOn(D)?'Loading that night\u2019s schedule\u2026':lineupNote(D))}</p>`}`;
   $('luHead').querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
     LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); }catch(e){} drawLineup(); });
 
@@ -10245,12 +10329,12 @@ function drawLineup(){
   /* Tonight's game for a man, as its own column: club and tip-off, "Locked"
      once it has started, "No game" when his club is idle and the schedule is
      known — and nothing at all when there is no schedule to say either. */
-  const known=SCHED.ok||Object.keys((S.cfg.sched||{})[dayKey()]||{}).length>0;
+  const known=schedKnown(D);
   const game=(nm,ir)=>{
     if(!nm||ir) return '<span class="lugame"></span>';
-    const t=tipOf(nm);
+    const t=tipOf(nm,D);
     if(!t) return `<span class="lugame nog">${known?'No game':''}</span>`;
-    const lk=minutesNow()>=t.at;
+    const lk=nightMinutes(D)>=t.at;
     /* The opponent leads, as on ESPN ("@SA 5:00 PM"); his own club moves to the small line. */
     const vs=t.opp?(t.opp[0]==='@'?`${t.team} at ${t.opp.slice(1)}`:`${t.team} vs ${t.opp}`):'';
     /* 2026-11-16: a game to come is a time pill, a started one says Locked with a
@@ -10312,7 +10396,7 @@ function drawLineup(){
     /* One "⋯" per row (2026-11-16) instead of three or four outlined buttons.
        A native <details>, so it opens with no script; rmenuPlace() pins the list
        to the viewer's screen so a scrolling table cannot clip it. */
-    const irOk=can&&!isLocked(nm)&&ir.length<irMax;
+    const irOk=can&&!isLocked(nm,D)&&ir.length<irMax;
     return `<span class="luacts"><details class="rmenu" data-nm="${htmlEsc(nm)}"><summary aria-label="Actions for ${htmlEsc(nm)}">${DOTSVG}</summary><div class="rmpop" role="menu">${
       irOk?`<button type="button" role="menuitem" data-toir="${htmlEsc(nm)}">Move to injured reserve</button>`:''}${
       termOpen(T,p)?`<button type="button" role="menuitem" data-mrt="${i}">Set contract length</button>`:''}<button type="button" role="menuitem" data-mrb="${i}">${p.blk?'Take off the trade block':'Put on the trade block'}</button>${
@@ -10326,7 +10410,7 @@ function drawLineup(){
        fits it (ESPN changed it) — otherwise the select reads "empty" while he
        is still in the lineup and still counts. */
     const elig=[...bench, ...(cur?S.teams[T].r.filter(p=>canon(p.n)===canon(cur)):[])]
-      .filter(p=>(slotOk(id,p.n)||canon(p.n)===canon(cur))&&!isLocked(p.n))
+      .filter(p=>(slotOk(id,p.n)||canon(p.n)===canon(cur))&&!isLocked(p.n,D))
       .sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99));
     /* A starter can be sent to the bench or to any other open spot he fits, not
        only swapped for somebody off the bench. `@<slot>` values are moves. */
@@ -10340,7 +10424,7 @@ function drawLineup(){
       +'</optgroup>';
   };
   const slotRows=SLOTIDS.map(id=>{
-    const nm=lu.s[id], lk=nm?lockOf(nm):{locked:false,why:''};
+    const nm=lu.s[id], lk=nm?lockOf(nm,D):{locked:false,why:''};
     const L=nm?luLine(nm):null;
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
@@ -10356,7 +10440,7 @@ function drawLineup(){
      actually eligible for, and nothing else. */
   const openFor=name=>SLOTIDS.filter(id=>!lu.s[id]&&slotOk(id,name));
   const benchRows=bench.slice().sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99)).map(p=>{
-    const lk=lockOf(p.n), where=openFor(p.n), L=luLine(p.n);
+    const lk=lockOf(p.n,D), where=openFor(p.n), L=luLine(p.n);
     return `<div class="lurow bench${lk.locked?' locked':''}">
       <span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lurowctl">
@@ -11457,7 +11541,8 @@ function injTag(name){
   const tip=[i.s,i.d,i.r?`expected back ${injBack(i.r)}`:'',i.note||''].filter(Boolean).join(' \u00b7 ');
   /* An OUT chip carries the expected return, the one thing a GM wants from it. */
   const back=(k==='OUT'||k==='SUSP')&&/^\d{4}-\d{2}-\d{2}$/.test(i.r||'')?` \u00b7 ${+i.r.slice(5,7)}/${+i.r.slice(8,10)}`:'';
-  return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" title="${htmlEsc(tip)}">${htmlEsc(k)}${back}</span>`;
+  /* A click opens the player card, which leads with the full report and the news (2026-11-16). */
+  return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" data-player="${htmlEsc(name)}" title="${htmlEsc(tip)}">${htmlEsc(k)}${back}</span>`;
 }
 
 /* ================= INFO BUTTONS =================
@@ -11695,7 +11780,7 @@ document.addEventListener('click',e=>{
    earlier nights, from the same results code. It resets to tonight when a
    different club is picked. */
 var CLUBVIEW={team:'',day:'',mode:'day'};
-function clubGo(day){ CLUBVIEW.day=day&&day<dayKey()?day:''; drawClubLive(); }
+function clubGo(day){ CLUBVIEW.day=day&&day<luNight()?day:''; drawClubLive(); }
 function drawClubLive(){
   const box=$('clubLive'); if(!box) return;
   const t=activeTeam; if(!t||!S.teams[t]){ box.innerHTML=''; return; }
@@ -11951,7 +12036,7 @@ function loWire(){
           +(sm.noTip?` (${sm.noTip} box-score players had no game time)`:'')+'. Check the night and the club.';
       const e={ts:now(),by:isComm()?'Commissioner':me,kind:'edit',team:club,detail:`Lineup for ${day} set by the commissioner`};
       S.log.unshift(e); appendLog([e]).catch(()=>{});
-      if($('loKeep').checked){ S.teams[club].lu={d:dayKey(),s:sl}; await commit(null,['rosters']); await logLineup(club); }
+      if($('loKeep').checked){ putLineup(club,luNight(),sl); await commit(null,['rosters']); await logLineup(club); }
       loadDaily(true); drawHealth(true);
     }catch(err){ $('loMsg').textContent='Could not reach the server'; }
   };
@@ -12069,7 +12154,7 @@ async function fillPreLineups(ask){
   const empty=TEAMS().filter(t=>!SLOTIDS.some(id=>lineupOf(t).s[id]));
   if(!empty.length) return projToast('Every club already has a lineup');
   if(ask&&!confirm(`Fill the lineup for ${empty.length} club${empty.length===1?'':'s'} with nothing set: ${empty.join(', ')}?`)) return;
-  empty.forEach(t=>{ S.teams[t].lu={d:dayKey(),s:bestLineup(t)}; });
+  empty.forEach(t=>{ S.teams[t].lu={d:luNight(),s:bestLineup(t)}; });
   await commit({kind:'edit',detail:`Preseason tournament lineups filled \u2014 ${empty.join(', ')}`},['rosters']);
   for(const t of empty) await logLineup(t);
   projToast(`Filled ${empty.length} lineup${empty.length===1?'':'s'}`);
@@ -12135,7 +12220,7 @@ async function drawLastNight(){
      tonight, the chosen night or week otherwise. */
   const combined=!!($('luWrap')&&!$('luWrap').hidden);
   if(wrap.classList) wrap.classList.toggle('combined',combined);
-  wrap.hidden=!T||(combined?!LUVIEW.day:!scored.length);
+  wrap.hidden=!T||(combined?!luPast():!scored.length);
   if(wrap.hidden) return;
   if(combined){ RES.day=LUVIEW.day; RES.mode=LUVIEW.mode; }
   if(!RES.day) RES.day=scored[scored.length-1];

@@ -95,6 +95,20 @@ export function lineupAt(entries, when) {
   return hit;
 }
 
+/* Lineups set ahead (2026-11-16). A GM can set the lineup for a night still to
+   come; it is kept on the club as `luf = {day: {s, at}}`, beside the current
+   lineup `lu = {d, s}`. The lineup for a night is the newest plan on or before
+   it, unless the current lineup was set on or after that plan's night — the
+   same rule as the page's lineupOf()/lineupFor(). A plan therefore persists
+   until it is changed, and tonight's edits do not overwrite a night already
+   planned. */
+export function lineupFor(team, day) {
+  const lu = (team && team.lu) || null, plans = (team && team.luf) || {};
+  const k = Object.keys(plans).filter((d) => d <= day && plans[d] && plans[d].s).sort().pop();
+  if (k && k > ((lu && lu.d) || "")) return { d: k, s: plans[k].s };
+  return lu && lu.s ? lu : null;
+}
+
 /* The morning carry-forward: one entry per club that has a lineup and has
    nothing recorded yet today. Run before any game, so it is always the
    baseline a night's scoring starts from. */
@@ -107,7 +121,7 @@ export async function carryLineups(store, tz, teams) {
     for (const e of list) haveId.add(e.cid || (teams[name] && teams[name].id) || name);
   const done = [];
   for (const club of Object.keys(teams || {})) {
-    const lu = teams[club] && teams[club].lu;
+    const lu = lineupFor(teams[club], day);
     const cid = teams[club] && teams[club].id;
     if (!lu || !lu.s || have[club] || (cid && haveId.has(cid))) continue;
     await recordLineup(store, tz, { club, cid, s: lu.s, by: "nightly", src: "carry" });

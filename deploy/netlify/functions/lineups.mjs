@@ -21,7 +21,7 @@ import { store, read, isCommissioner } from "./lib/league.mjs";
 import { clubCtx } from "./lib/clubs.mjs";
 import { runScore, runPstats } from "./lib/scorerun.mjs";
 import { ensureIds } from "./lib/clubids.mjs";
-import { recordLineup, lineupsOn } from "./lib/lineups.mjs";
+import { recordLineup, lineupsOn, dayIn } from "./lib/lineups.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const TZ = () => process.env.LEAGUE_TZ || "America/New_York";
@@ -78,7 +78,20 @@ export default async (req) => {
       /* A name the club used to have (a stale tab after a rename) still means that club. */
       const name = await clubNamed(s, teams, club);
       if (!name || !teams[name]) return json({ ok: false, error: `no club named ${club}` }, 404);
-      const entry = await recordLineup(s, TZ(), { club: name, cid: teams[name].id, s: body.s, by: String(body.by || "").slice(0, 60) });
+      /* The night this lineup is for (2026-11-16): tonight, last night while the
+         page still shows it (before 4 AM league time), or a night ahead that the
+         GM is planning. Filed under that night; the time stamp is still the
+         server's, so a save can never reach a game that has already tipped. */
+      let day = "";
+      if (body.day != null) {
+        day = String(body.day);
+        const today = dayIn(TZ());
+        const plus = (d, n) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < plus(today, -1) || day > plus(today, 30))
+          return json({ ok: false, error: "day must be from yesterday to 30 days ahead" }, 400);
+      }
+      const entry = await recordLineup(s, TZ(), { club: name, cid: teams[name].id, s: body.s,
+        by: String(body.by || "").slice(0, 60), day: day || undefined, src: body.src === "plan" ? "plan" : "save" });
       return json({ ok: true, at: entry.at, day: entry.day });
     }
     if (req.method === "GET") {

@@ -329,6 +329,31 @@ Mockup: claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (shape option B chosen).
 - **`.scroller` tables sit on `--panel`**, pinned column included; the pinned cell
   used to paint the page colour and read as an inverted block in light.
 
+### The lineup's night, and nights set ahead (2026-11-16)
+
+- **The night rolls at 4 AM Eastern, not midnight** (`LUROLL`, `luNight()`). At
+  midnight Eastern the West Coast games were still on, and the lineup jumped to
+  tomorrow under a Pacific GM at 9 PM. `luNight()` is what the lineup, the lock,
+  the schedule fetch, Home's Tonight card and both date bars read; `dayKey()` is
+  still the date everything else is stamped with. Past midnight, last night's
+  clock reads 24:xx (`nightMinutes()`), so all of its games stay locked. 4 AM is
+  after the last game and before the morning carry (09:15 UTC).
+- **A lineup can be set up to 14 nights ahead** (`LUAHEAD`): the date bar's ▶ and
+  date picker go forward, and that night is edited exactly like tonight (its own
+  schedule, `SCHEDS[day]`, fetched on open; nothing locks). It is stored as a plan,
+  `S.teams[t].luf = {day: {s, at}}`, beside `lu = {d, s}`. **The lineup for a night
+  is the newest plan on or before it, unless `lu` was set on or after that plan's
+  night** — `lineupOf(t, day)` in the page, `lineupFor(team, day)` in
+  `lib/lineups.mjs`, the same rule. So a plan persists until changed, and editing
+  tonight does not overwrite a night already planned. `putLineup(t, day, s)` is the
+  one writer; plans for nights reached are dropped as it writes.
+- Server: `POST /api/lineups` takes `day` (yesterday to 30 days ahead) and files
+  the save under it (`src:"plan"` for a night ahead); the time is still the
+  server's. The morning carry copies `lineupFor()`, not `lu`. Pruning (a release,
+  the IR, waivers) clears a man from every plan too and re-files them.
+- The **OUT/DTD chip opens the player card** (`data-player`), which leads with the
+  report and the news. A no-game row dims its numbers to .7 and nothing else.
+
 ### Five changes from the second mockup (2026-11-16)
 
 Mockup: the "Six changes" page of claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs (3, rating colours, was not taken).
