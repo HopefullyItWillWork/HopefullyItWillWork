@@ -1805,14 +1805,14 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.sched = {[g('luNight')()]: {[tm]: '00:00'}};
   ok('his club tipped off, so he is locked', g('isLocked')(withTeam) === true);
   ok('the reason names the club and the time',
-     /tipped off at 12:00 AM/.test(g('lockOf')(withTeam).why), g('lockOf')(withTeam).why);
+     /tipped off at 9:00 PM PT/.test(g('lockOf')(withTeam).why), g('lockOf')(withTeam).why);
   ok('a team-mate on a LATER game is still free', g('isLocked')(other) === false,
      g('NBATM')[g('canon')(other)] + ' ' + JSON.stringify(g('lockOf')(other)));
   ok('and his row shows when he will lock', g('lockOf')(other).why === '',
      g('lockOf')(other).why);
   g('S').cfg.sched = {[g('luNight')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
   ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
-  ok('but the screen tells him the time', /11:59 PM/.test(g('lockOf')(other).why),
+  ok('but the screen tells him the time', /8:59 PM PT/.test(g('lockOf')(other).why),
      g('lockOf')(other).why);
   ok('the note counts tonight’s clubs', /2 clubs playing tonight/.test(g('lineupNote')()),
      g('lineupNote')());
@@ -2078,7 +2078,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   g('S').cfg.sched = {[night]: {[short]: '23:59'}};
   ok('his own time wins', g('isLocked')(someone) === false,
      JSON.stringify(g('lockOf')(someone)));
-  ok('and the row shows the overridden time', /11:59 PM/.test(g('lockOf')(someone).why),
+  ok('and the row shows the overridden time', /8:59 PM PT/.test(g('lockOf')(someone).why),
      g('lockOf')(someone).why);
   const another = g('S').teams['N. Fink'].r.find(p => g('contracted')(p)
     && g('NBATM')[g('canon')(p.n)] && g('NBATM')[g('canon')(p.n)] !== short);
@@ -4359,9 +4359,10 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     sel.value = other; sel.onchange();
     h = document.getElementById('homeTape').innerHTML;
     ok('picking a club redraws against it', new RegExp('value="'+other.replace('.','\\.')+'" selected').test(h), other);
-    ok('...and remembers it', JSON.parse(ctx.localStorage.getItem('ll_tape')).Osborn===other);
+    // A GM's pick lasts this visit only (TAPEPEEK, 2026-11-16): never stored.
+    ok('...and is not stored for a GM', !JSON.parse(ctx.localStorage.getItem('ll_tape')||'{}').Osborn);
     g('drawTape')();
-    ok('...across a redraw', new RegExp('value="'+other.replace('.','\\.')+'" selected').test(document.getElementById('homeTape').innerHTML));
+    ok('...but holds across a redraw', new RegExp('value="'+other.replace('.','\\.')+'" selected').test(document.getElementById('homeTape').innerHTML));
     X.me = '__comm__';
     g('drawTape')();
     h = document.getElementById('homeTape').innerHTML;
@@ -4444,7 +4445,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.ROSTAT=keepR;
 
     ctx.LUVIEW.day=''; g('luGo')('2999-01-01');
-    ok('the date bar never goes past tonight', ctx.LUVIEW.day==='');
+    // Nights ahead can be planned (2026-11-16), up to LUAHEAD and no further.
+    ok('the date bar stops LUAHEAD nights ahead', ctx.LUVIEW.day===g('dPlus')(g('luNight')(),g('LUAHEAD')), ctx.LUVIEW.day);
     g('luGo')('2026-10-01');
     ok('an earlier night is kept', ctx.LUVIEW.day==='2026-10-01');
     g('luGo')('');
@@ -4470,8 +4472,8 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   {
     const NB=g('NBAP'), keepI=NB.inj;
     NB.inj={[g('nameKey')('Nikola Jokic')]:{s:'Out',d:'Knee sprain',r:'2026-11-01'},[g('nameKey')('Luka Doncic')]:{s:'Day-To-Day'}};
-    ok('an Out player gets a red OUT chip, through canon()', /class="inj out"[^>]*>OUT</.test(g('injTag')('Nikola Jokić')));
-    ok('the chip carries the detail and return date', /Knee sprain/.test(g('injTag')('Nikola Jokić')) && /2026-11-01/.test(g('injTag')('Nikola Jokić')));
+    ok('an Out player gets a red OUT chip, through canon()', /class="inj out"[^>]*>OUT\b/.test(g('injTag')('Nikola Jokić')));
+    ok('the chip carries the detail and return date', /Knee sprain/.test(g('injTag')('Nikola Jokić')) && /OUT<span class="injback"> \u00b7 11\/1</.test(g('injTag')('Nikola Jokić')));
     ok('day-to-day reads DTD', />DTD</.test(g('injTag')('Luka Doncic')));
     ok('a healthy player gets nothing', g('injTag')('Stephen Curry')==='');
     NB.injv=true;

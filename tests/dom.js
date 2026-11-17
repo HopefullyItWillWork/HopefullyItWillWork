@@ -24,7 +24,12 @@ class El {
     this.id = id || ''; this._doc = doc; this.tagName = (tag||'div').toUpperCase();
     this._html = ''; this.textContent = ''; this._value = ''; this.hidden = false;
     this.className = ''; this.title = ''; this.checked = false; this.disabled = false;
-    this.style = new Proxy({}, {get:(t,k)=>t[k]||'', set:(t,k,v)=>{t[k]=v; return true;}});
+    this.style = new Proxy({}, {get:(t,k)=>{
+      // CSSStyleDeclaration's methods: custom properties (--luacts) are set this way.
+      if(k==='setProperty') return (n,v)=>{ t[n]=String(v); };
+      if(k==='removeProperty') return (n)=>{ const v=t[n]; delete t[n]; return v||''; };
+      if(k==='getPropertyValue') return (n)=>t[n]||'';
+      return t[k]||''; }, set:(t,k,v)=>{t[k]=v; return true;}});
     this.dataset = {}; this.attrs = {}; this.children = []; this.listeners = {};
     this.classList = {
       add:(...c)=>{ c.forEach(x=>{ if(!this.className.split(/\s+/).includes(x)) this.className=(this.className+' '+x).trim(); }); },

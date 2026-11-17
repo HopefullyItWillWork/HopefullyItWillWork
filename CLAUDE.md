@@ -1970,7 +1970,7 @@ The reliable method is a Node DOM stub that actually executes the script and
 exercises the functions. It lives in `tests/`:
 
 ```
-node tests/test.js        the app: 927 assertions against the real functions
+node tests/test.js        the app: 1251 assertions against the real functions
 node tests/smoke.js       renders every view in BOTH season phases, as signed-out,
                           commissioner and each GM — the live season is what opens
                           the lineup block, the IR and the lock
@@ -1979,6 +1979,14 @@ node tests/mail.test.js   the mail functions' pure logic, no Netlify runtime
 
 If you are checking that code *parses* rather than *runs*, you are testing the
 wrong thing.
+
+The server-side suites (`tests/*.test.js`) run the same way. `tweets.test.js`
+imports the Anthropic SDK, so run `npm install` in `deploy/` first (the lock file
+it writes is not committed). `clubs.test.js`'s in-memory store decodes keys the
+way Netlify does, which is what makes the `?`/`#`/`%` key tests mean anything.
+All fourteen passed on 2026-11-17, the first full run since October: the main
+suite had been stopping at the lineup tests because the DOM stub had no
+`style.setProperty`.
 
 Point it at an older build to prove a test is not vacuous:
 `node tests/test.js /tmp/old.html`.

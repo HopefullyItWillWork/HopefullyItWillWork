@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.17">
+<meta name="ll-build" content="2026-11-17.18">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -877,6 +877,11 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   thead th[data-k],.scroller thead th[data-s]{padding-top:11px;padding-bottom:11px}
   tbody td.pname{padding-top:11px;padding-bottom:11px}
 }
+/* The lineup's name cell is 170px below 1240: headshot, "OUT · 11/22" and the
+   select left the select 41px ("Ty"). The date stays in the tooltip and the card. */
+@media(max-width:1240px){ .lurowctl .injback{display:none} }
+/* "178 / 920" is one figure: it wrapped onto two lines at tablet widths. */
+.standtbl td:has(>.gpcap){white-space:nowrap}
 /* Phone: the masthead stacked four rows before any content. */
 @media(max-width:640px){
   /* The tab bar is fixed to the bottom here, so the header need not follow the
@@ -2795,6 +2800,12 @@ function startPolling(){
         if(j[k]&&j[k].rev!==REV[k]){ REV[k]=j[k].rev; applySlice(k,j[k].data); setBase(k,j[k].data); changed=true; }
       });
       if(changed){ render(); setSync('ok','Updated'); }
+      /* A rename (from any browser, this one included) re-keys the standings: the
+         server files scores by club id and names them on read, so a copy fetched
+         before the rename is filed under the old name and every screen reading
+         it by the new one showed dashes. Refetch both at once. */
+      { const sig=TEAMS().join('\u0001');
+        if(CLUBSIG&&CLUBSIG!==sig){ CLUBSIG=sig; await Promise.all([loadDaily(true),liveWanted()?loadLiveNow(true):null]); render(); } }
       // Chat lives outside ?key=all, and only matters while somebody is reading
       // it — no point polling a room nobody has open.
       if(chatOn() && await loadChat()) drawChat();
@@ -11904,7 +11915,7 @@ function injTag(name){
   const k=injShort(i.s);
   const tip=[i.s,i.d,i.r?`expected back ${injBack(i.r)}`:'',i.note||''].filter(Boolean).join(' \u00b7 ');
   /* An OUT chip carries the expected return, the one thing a GM wants from it. */
-  const back=(k==='OUT'||k==='SUSP')&&/^\d{4}-\d{2}-\d{2}$/.test(i.r||'')?` \u00b7 ${+i.r.slice(5,7)}/${+i.r.slice(8,10)}`:'';
+  const back=(k==='OUT'||k==='SUSP')&&/^\d{4}-\d{2}-\d{2}$/.test(i.r||'')?`<span class="injback"> \u00b7 ${+i.r.slice(5,7)}/${+i.r.slice(8,10)}</span>`:'';
   /* A click opens the player card, which leads with the full report and the news (2026-11-16). */
   return `<span class="inj${k==='OUT'||k==='SUSP'?' out':''}" data-player="${htmlEsc(name)}" title="${htmlEsc(tip)}">${htmlEsc(k)}${back}</span>`;
 }
@@ -12529,6 +12540,7 @@ async function fillPreLineups(ask){
   projToast(`Filled ${empty.length} lineup${empty.length===1?'':'s'}`);
   render();
 }
+let CLUBSIG='';   // the club list the standings were last fetched under (the poll)
 async function loadDaily(force){
   const day=dayKey();
   /* Re-read every 30 minutes, not once a day: scoring finishes in the morning and a
@@ -12542,6 +12554,7 @@ async function loadDaily(force){
       const j=await r.json();
       SCORE={day,days:(j&&j.days)||{},standings:(j&&j.standings)||[],
         cap:(j&&j.cap)||S.cfg.gamecap||920,ok:!!(j&&j.days),lastRun:j&&j.lastRun,got:Date.now()};
+      CLUBSIG=TEAMS().join('\u0001');
     }catch(e){ /* keep what we had */ }
   }
   DAILY=Object.keys(SCORE.days).length?SCORE.days:null;
