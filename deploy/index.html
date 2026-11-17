@@ -11987,6 +11987,7 @@ function tapeData(src,a,b){
   });
   return {cats,leadA:cats.filter(c=>c.win==='a').length,leadB:cats.filter(c=>c.win==='b').length};
 }
+var TAPEPEEK=null;   // a GM's look at another club, this visit only
 function tapeStore(){ try{return JSON.parse(localStorage.getItem('ll_tape')||'{}')||{};}catch(e){return {};} }
 function tapeSave(k,v){ const o=tapeStore(); o[k]=v; try{localStorage.setItem('ll_tape',JSON.stringify(o));}catch(e){} }
 function tapeInit(c){ return String(c).split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
@@ -11997,7 +11998,10 @@ function drawTape(){
   const key=mine||'__any';
   const pick=v=>v&&S.teams[v]?v:null;
   const a=mine||pick(saved[key+'.a'])||src.order[0];
-  let b=pick(saved[key]); if(!b||b===a) b=tapeDefault(src.order,a);
+  /* A GM always opens on the club directly above him (2026-11-16): the one to
+     catch. He can look at another for this visit (TAPEPEEK), but it is not
+     remembered, and it follows the standings as they move. */
+  let b=mine?pick(TAPEPEEK):pick(saved[key]); if(!b||b===a) b=tapeDefault(src.order,a);
   const D=tapeData(src,a,b), N=src.N;
   const rkText=x=>x?(x.tie?'T':'')+ordinal(x.r):'\u2014';
   const w=x=>x?Math.max(4,(N-x.r+1)/N*100).toFixed(1):0;
@@ -12028,7 +12032,7 @@ function drawTape(){
   box.dataset.h=html; box.innerHTML=html; infoNotes(box);
   const sa=$('tapeA'), sb=$('tapeB');
   if(sa) sa.onchange=()=>{ tapeSave(key+'.a',sa.value); drawTape(); };
-  if(sb) sb.onchange=()=>{ tapeSave(key,sb.value); drawTape(); };
+  if(sb) sb.onchange=()=>{ if(mine) TAPEPEEK=sb.value; else tapeSave(key,sb.value); drawTape(); };
 }
 /* Last night's best: the latest scored night (the season's, else the
    preseason tournament's), every player a club started, ranked by a simple

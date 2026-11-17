@@ -135,9 +135,10 @@ night and nothing more is claimed for it.
 
 **The tale of the tape** (`#homeTape`, `drawTape()`) is on Home in every
 theme: the GM's club against **any club he picks**, its league rank in all
-nine categories side by side, and who leads each. The pick is remembered per
-club in this browser (`ll_tape`); it defaults to the club directly above (below
-for the leader). Signed out or as the commissioner, both sides are pickable.
+nine categories side by side, and who leads each. A signed-in GM always opens on the club directly above
+him (below for the leader), following the standings; picking another lasts this
+visit only (`TAPEPEEK`, 2026-11-16). Signed out or as the commissioner the picks
+are remembered (`ll_tape`). Signed out or as the commissioner, both sides are pickable.
 Season results once a night is scored (`SCORE.standings`, the same roto points
 the Standings table shows); before that, `standings()`'s projection under the
 stats period in front of the GM, and the header says which. `tapeRanks()`,
