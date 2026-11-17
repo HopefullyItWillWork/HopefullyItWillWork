@@ -454,9 +454,13 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
 - **Chat commands** (post nothing): `/jam`, `/shoes`, `/onfire` (your starters'
   flames for a minute, `FIREME`), `/heatcheck` (who is heating up league-wide,
   `openHeatCheck()`).
-- **Trip-dub**: a starter with three double-digit categories tonight (`tripDub()`).
-- **Kobe watch**: anyone at 60+ in a game under way gets a thin bar at the top of
-  every page (`drawKobe()`, from `render()`).
+- **Stat feats** (`featsOf()`, over PTS/REB/AST/STL/BLK): trip-dub (three in double
+  figures) is a quiet chip; **5×5** (all five at 5+), **quad-dub** (four in double
+  figures) and **5×10** are gold chips, a bar at the top of every page for the
+  night, and one arcade call per player per night per browser (`featCall()`,
+  `ll_feat_<night>`).
+- **Kobe watch**: anyone at 60+ in a game under way shares that bar (`drawKobe()`,
+  from `render()`).
 - **Day one**: picking 2016-10-25 on the lineup date bar says "Nothing here yet.
   Hopefully it'll work." and opens the origin card.
 - **The trophy room**: the pennants are a button (`data-trophies`) that opens the

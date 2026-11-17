@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.16">
+<meta name="ll-build" content="2026-11-17.17">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1096,6 +1096,7 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .rafter .rpts{font:400 var(--t1) var(--mono);opacity:.8}
 .buzz{color:var(--amber)}
 .tripdub{display:inline-block;margin-left:6px;padding:0 5px;border-radius:var(--r-s);font:700 var(--t1)/1.5 var(--body);color:var(--amber);background:var(--soft);flex:none;white-space:nowrap}
+.tripdub.rare{color:#1A1206;background:#E0A340;box-shadow:0 0 0 1px #C9973A,0 0 8px rgba(224,163,64,.5)}
 .kobe{position:sticky;top:0;z-index:120;text-align:center;padding:4px 12px;font:700 var(--t1)/1.5 var(--body);letter-spacing:.08em;text-transform:uppercase;color:#1A1206;background:#E0A340}
 .rule0{border-color:var(--amber)}
 .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
@@ -12789,25 +12790,51 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('originCard')) $('originCard').hidden=true; });
 
-/* Triple-double, live: three of points, rebounds, assists, steals and blocks in
-   double figures tonight. A small chip, only when it happens. */
-function tripDub(name){
-  const b=nowLine(name), x=b&&b.s; if(!x) return '';
-  const n=['PTS','TRB','AST','STL','BLK'].filter(k=>(+x[k]||0)>=10).length;
-  return n>=3?`<span class="tripdub" title="Triple-double tonight">${n>=4?'Quad-dub':'Trip-dub'}</span>`:'';
+/* Stat feats, live (2026-11-16). Over points, rebounds, assists, steals and
+   blocks: three in double figures is a trip-dub; five at 5+ is a five-by-five;
+   four in double figures a quadruple-double; all five a 5x10. The rare three get
+   a bar at the top of every page for the night and one arcade call per player. */
+const FEATK=['PTS','TRB','AST','STL','BLK'];
+function featsOf(x){
+  if(!x) return null;
+  const tens=FEATK.filter(k=>(+x[k]||0)>=10).length, fives=FEATK.every(k=>(+x[k]||0)>=5);
+  const out=[];
+  if(tens>=5) out.push({k:'5x10',lab:'5\u00d710',rare:1,call:'FIVE BY TEN?!'});
+  else if(tens===4) out.push({k:'quad',lab:'Quad-dub',rare:1,call:'QUADRUPLE-DOUBLE!'});
+  if(fives) out.push({k:'5x5',lab:'5\u00d75',rare:1,call:'FIVE BY FIVE!'});
+  if(tens===3) out.push({k:'trip',lab:'Trip-dub',rare:0});
+  return out.length?out:null;
 }
-/* Kobe watch: anyone at 60+ in a game under way, at the top of every page. */
+function tripDub(name){
+  const b=nowLine(name), f=featsOf(b&&b.s); if(!f) return '';
+  return f.map(x=>`<span class="tripdub${x.rare?' rare':''}" title="${x.lab} tonight">${x.lab}</span>`).join('');
+}
+const lineOf=x=>FEATK.filter(k=>(+x[k]||0)>0).map(k=>`${x[k]} ${({PTS:'pts',TRB:'reb',AST:'ast',STL:'stl',BLK:'blk'})[k]}`).join(', ');
+/* The bar at the top of every page: Kobe watch (60+ in a game under way) and any
+   rare feat tonight, for the rest of the night. */
 function drawKobe(){
   let bar=$('kobeBar');
-  const L=liveOn(), F=fastOn(), seen={}, hot=[];
+  const L=liveOn(), F=fastOn(), seen={}, msgs=[];
   [F,L].forEach(src=>{ if(!src) return; Object.entries(src.players||{}).forEach(([id,p])=>{
-    if(seen[id]||!p||!p.s||(+p.s.PTS||0)<60) return; seen[id]=1;
+    if(seen[id]||!p||!p.s) return; seen[id]=1;
     const g=Object.values(src.games||{}).find(x=>x.home===p.t||x.away===p.t);
-    if(g&&g.state==='in') hot.push(p); }); });
-  if(!hot.length){ if(bar) bar.hidden=true; return; }
+    if((+p.s.PTS||0)>=60&&g&&g.state==='in') msgs.push(`Kobe watch: ${p.n} has ${p.s.PTS}`);
+    (featsOf(p.s)||[]).filter(f=>f.rare).forEach(f=>{
+      msgs.push(`${f.lab==='Quad-dub'?'Quadruple-double':f.lab}: ${p.n}, ${lineOf(p.s)}`);
+      featCall(id,f,p); });
+  }); });
+  if(!msgs.length){ if(bar) bar.hidden=true; return; }
   if(!bar){ bar=document.createElement('div'); bar.id='kobeBar'; bar.className='kobe'; bar.setAttribute('role','status'); document.body.prepend(bar); }
-  bar.textContent=hot.map(p=>`Kobe watch: ${p.n} has ${p.s.PTS}`).join(' \u00b7 ');
+  bar.textContent=msgs.join(' \u00b7 ');
   bar.hidden=false;
+}
+/* One call per player, feat and night, per browser. */
+function featCall(id,f,p){
+  const key='ll_feat_'+luNight();
+  let seen={}; try{ seen=JSON.parse(localStorage.getItem(key)||'{}')||{}; }catch(e){}
+  if(seen[id+':'+f.k]) return;
+  seen[id+':'+f.k]=1; try{ localStorage.setItem(key,JSON.stringify(seen)); }catch(e){}
+  showBoom(f.call,p.n,2600);
 }
 /* /heatcheck: everyone heating up or on fire tonight, league-wide. */
 function openHeatCheck(){
