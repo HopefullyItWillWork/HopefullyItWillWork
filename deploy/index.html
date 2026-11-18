@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.1">
+<meta name="ll-build" content="2026-11-18.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1081,6 +1081,8 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
   background:#B8862E;color:#1A1206;clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%);font-family:var(--body)}
 .pennant b{font:700 11px/1.1 var(--mono)}
 .pennant small{font:700 8px/1.4 var(--body);letter-spacing:.06em;text-transform:uppercase}
+.pennants.poop{margin-left:6px}
+.pennant.poop{width:11.5px;height:12px;padding:0;background:#5A3A1E;clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%)}
 .tapeall{margin-top:4px;color:var(--dim)}
 .awards{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:14px 16px;margin:14px 0}
 .awlist{list-style:none;margin:10px 0 0;padding:0}
@@ -12860,12 +12862,29 @@ function titlesOf(gm){
 }
 const TROPHYSVG='<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h8v2h3v2.5A3.5 3.5 0 0 1 11.7 9 4.5 4.5 0 0 1 9 11.4V13h3v2H4v-2h3v-1.6A4.5 4.5 0 0 1 4.3 9 3.5 3.5 0 0 1 1 5.5V3h3V1zm0 4H3v.5c0 .8.4 1.5 1 1.9V5zm8 0v2.4c.6-.4 1-1.1 1-1.9V5h-1z"/></svg>';
 /* The banners, rafters style: one pennant per title, newest last. */
+const POOPMSG='Champ for 2 secs';
+function poopBanner(t){
+  /* Self-destructs after April 11, 2027 (league date, end of day). */
+  if(dayKey()>'2027-04-11') return '';
+  return managerOf(t)==='Mark Christman'?`<button type="button" class="pennants poop" data-champ2 aria-label="${POOPMSG}"><span class="pennant poop" title="${POOPMSG}"></span></button>`:'';
+}
+function openChamp2(){
+  let d=$('trophyCard');
+  if(!d){ d=document.createElement('div'); d.id='trophyCard'; d.className='origin'; d.setAttribute('role','dialog'); document.body.appendChild(d); }
+  d.setAttribute('aria-label',POOPMSG);
+  d.innerHTML=`<button type="button" class="act" data-tclose aria-label="Close" style="float:right">\u2715</button>
+    <h2 style="margin-top:0">${POOPMSG}</h2><p>Congratulations you were champ at a random date and a random time. You must be a fan of <a href="https://www.youtube.com/watch?v=ev8KcVu2GZY" target="_blank" rel="noopener">Disco Duck</a> by Rick Dees and His Cast of Idiots which topped the charts in 1976. No one will remember you or your accomplishments. This banner will self destruct on April 11, 2027</p>`;
+  d.hidden=false;
+  d.querySelector('[data-tclose]').onclick=()=>{ d.hidden=true; };
+}
+document.addEventListener('click',e=>{ const b=e.target&&e.target.closest&&e.target.closest('[data-champ2]'); if(b){ e.stopPropagation(); openChamp2(); } });
 function bannersHtml(t){
-  const ts=titlesOf(managerOf(t)); if(!ts.length) return '';
+  const poop=poopBanner(t);
+  const ts=titlesOf(managerOf(t)); if(!ts.length) return poop;
   /* A button: it opens the trophy room. Only a club with a title has pennants, so
      nobody is reminded of what they have not won (2026-11-16: no trophies in Standings). */
   return `<button type="button" class="pennants" data-trophies="${htmlEsc(t)}" aria-label="${ts.length} championship${ts.length===1?'':'s'}: ${ts.map(x=>shortSeason(x.season)).join(', ')}. Open the trophy room">${
-    ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champs</small></span>`).join('')}</button>`;
+    ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champs</small></span>`).join('')}</button>`+poop;
 }
 /* A trophy and a count, where a row has no room for pennants (Standings). */
 function titleTag(t){
