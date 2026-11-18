@@ -1811,7 +1811,10 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and his row shows when he will lock', g('lockOf')(other).why === '',
      g('lockOf')(other).why);
   g('S').cfg.sched = {[g('luNight')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
-  ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
+  // 23:59 is still to come, except between midnight and 4 AM Eastern, when the
+  // night has not rolled yet and the clock reads 24:xx (luNight, 2026-11-16).
+  const lateGone = g('nightMinutes')(g('luNight')()) >= 23*60+59;
+  ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === lateGone);
   ok('but the screen tells him the time', /8:59 PM PT/.test(g('lockOf')(other).why),
      g('lockOf')(other).why);
   ok('the note counts tonight’s clubs', /2 clubs playing tonight/.test(g('lineupNote')()),
@@ -1899,10 +1902,14 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('so the active roster drops by one', g('headcount')('Brice') === full - 1);
   const secondIdx = BR().r.findIndex(p => g('contracted')(p) && !g('onIR')(p));
   ctx.__alerts.length = 0;
+  // A full IR offers a swap (2026-11-18); declining it changes nothing.
+  let asked = '';
+  ctx.confirm = (m) => { asked = m; return false; };
   await g('toggleIR')('Brice', secondIdx);
-  ok('a second man cannot join him with only one slot',
-     g('irCount')('Brice') === 1 && /already has 1 player/.test(ctx.__alerts[0] || ''),
-     JSON.stringify(ctx.__alerts));
+  ctx.confirm = () => true;
+  ok('a second man on a full IR is offered a swap, not refused',
+     /Swap/.test(asked) && asked.includes(hurt) && ctx.__alerts.length === 0, asked);
+  ok('...and declining it changes nothing', g('irCount')('Brice') === 1 && BR().r[hurtIdx].ir === true && !BR().r[secondIdx].ir);
   ctx.__alerts.length = 0;
 
   console.log('\n== activating him when the roster is full asks who goes ==');
@@ -1921,12 +1928,30 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
      && document.getElementById('swTitle').textContent.includes(hurt),
      document.getElementById('swTitle').textContent);
   const who = document.getElementById('swWho');
-  ok('and offers the active roster to release',
-     who.innerHTML.split('<option').length - 1 === full, who.innerHTML.split('<option').length - 1);
-  ok('it does not offer the hurt player himself', !who.innerHTML.includes('value="' + irIdx2 + '"'));
+  const cutN = (who.innerHTML.match(/value="cut:/g) || []).length, irN = (who.innerHTML.match(/value="ir:/g) || []).length;
+  ok('and offers the active roster to release', cutN === full, cutN);
+  ok('and, first, to move to the IR in his place', irN > 0 && who.innerHTML.indexOf('value="ir:') < who.innerHTML.indexOf('value="cut:'), irN);
+  ok('it does not offer the hurt player himself', !who.innerHTML.includes(':' + irIdx2 + '"'));
+
+  console.log('\n== the IR swap: one goes on, he comes off, nobody released ==');
+  const cutsBefore = (BR().cuts || []).length, irPick = who.innerHTML.match(/value="(ir:\d+)"/)[1];
+  const swapName = BR().r[+irPick.slice(3)].n;
+  who.value = irPick;
+  await document.getElementById('swGo').onclick({});
+  ok('the hurt man is active again', !BR().r.find(p => p.n === hurt).ir);
+  ok('the other is on the IR', !!BR().r.find(p => p.n === swapName).ir, swapName);
+  ok('nobody was released', (BR().cuts || []).length === cutsBefore);
+  ok('the counts did not move', g('irCount')('Brice') === 1 && g('headcount')('Brice') === full);
+  ok('it is logged as one move', g('S').log.some(e => new RegExp(swapName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' moved to injured reserve and ').test(e.detail || '')));
+  // put things back (hurt man on the IR, the other active) and reopen the dialog
+  BR().r.find(p => p.n === swapName).ir = false;
+  BR().r.find(p => p.n === hurt).ir = true;
+  await g('toggleIR')('Brice', BR().r.findIndex(p => p.n === hurt));
+  ok('the dialog reopens for the release path', document.getElementById('dlgSwap').open === true);
 
   console.log('\n== the swap releases one and activates the other ==');
-  const dropIdx = +who.value;
+  who.value = (who.innerHTML.match(/value="(cut:\d+)"/) || [])[1];
+  const dropIdx = +String(who.value).slice(4);
   const dropName = BR().r[dropIdx].n;
   await document.getElementById('swGo').onclick({});
   ok('the released man is gone', !BR().r.some(p => p.n === dropName), dropName);
@@ -2076,7 +2101,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
   console.log('\n== a commissioner override beats the feed, for that club only ==');
   g('S').cfg.sched = {[night]: {[short]: '23:59'}};
-  ok('his own time wins', g('isLocked')(someone) === false,
+  ok('his own time wins', g('isLocked')(someone) === (g('nightMinutes')(g('luNight')()) >= 23*60+59),
      JSON.stringify(g('lockOf')(someone)));
   ok('and the row shows the overridden time', /8:59 PM PT/.test(g('lockOf')(someone).why),
      g('lockOf')(someone).why);

@@ -27,10 +27,11 @@ ok('no schedule cached: ask', gate({ prev: null, sched: null, night: 'd', min: 6
 console.log('\n== the scoreboard ==');
 const ev = (id, state, done, name = 'STATUS_IN_PROGRESS', ty = 2) => ({ id, date: '2026-11-17T00:00Z', season: { type: ty },
   status: { type: { state, completed: done, shortDetail: done ? 'Final' : 'Q3 4:12', name } },
-  competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'BOS' } }, { homeAway: 'away', team: { abbreviation: 'ORL' } }] }] });
+  competitions: [{ competitors: [{ homeAway: 'home', score: '78', team: { abbreviation: 'BOS' } }, { homeAway: 'away', score: '74', team: { abbreviation: 'ORL' } }] }] });
 const g = liveGames({ events: [ev('1', 'in', false), ev('2', 'post', true), ev('3', 'pre', false, 'STATUS_POSTPONED'), ev('4', 'in', false, 'X', 1)] }, new Set([2]));
 ok('in progress kept with its clock', g['1'] && g['1'].state === 'in' && g['1'].detail === 'Q3 4:12' && g['1'].home === 'BOS');
 ok('final kept', g['2'] && g['2'].final);
+ok('the score rides along, home and away', g['1'].hs === 78 && g['1'].as === 74);
 ok('postponed dropped', !g['3']);
 ok('other season types dropped', !g['4']);
 

@@ -487,6 +487,27 @@ own (`chW()`), so text renders at its real size; the old 880-wide chart scaled t
 60% in Home's column. Facts only. Mockup: the "Season charts" page of
 claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs.
 
+**All three share one frame** (2026-11-17): `chFrame()` (grid, dates as "Oct 20"),
+`chW()` sizing, `chLineStyle()` (you gold, a pick blue, the rest grey),
+`chLabels()` (clubs ranked down the right with their value; turnovers rank fewest
+first) and `chLegend()`. The rolling chart (`drawRoll()`) used to colour every
+club, label dates 10-20, dip below zero and toggle clubs off from its legend.
+
+**Scores in the Game column** (2026-11-17): both live feeds carry `hs`/`as`
+(`liveGames()` in `lib/live.mjs`, and `fastTick()`); `gameScore(g, name)` turns
+them to the player's side. Final: "W 111–102" over "Final · @TOR · NY"; under way,
+the running score under the clock.
+
+**My Team opens on Tonight once your first game is on** (2026-11-17): the first
+lineup draw after one of the GM's own starters has tipped, with live numbers in,
+switches `LUMODE` to `now` once per night per browser (`ll_luauto`); picking a view
+by hand while live also sets it, so his choice stands for the night. Not for the
+commissioner viewing a club.
+
+**Place is live** (`placeNow()`): while tonight's games are on, My Team's and
+Home's Place cards read the standings with tonight so far added (the live line's
+and the Standings table's numbers), tagged live, with where the night started.
+
 ### Weekly awards (2026-11-16)
 
 Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,
@@ -872,6 +893,15 @@ every path that drops somebody writes the same `cuts` entry and carries the same
 waiver rules. The release happens *before* the activation: the other order leaves
 the roster illegal for the length of a statement, and a merge or a poll reading
 it in between would see a club one over.
+
+**An IR swap needs no release** (2026-11-18). Activating a man onto a full roster
+opens the same dialog, but its first group is *Move to the injured reserve*: the
+active players, those ESPN lists as out first, with the report; a man whose game
+has started is left off. *Release* is the second group, and the button turns to
+the red Release and activate only when a release is picked. Putting a man on a
+full IR asks to swap him with the one there. Both go through `irSwap(team,
+outIdx, inIdx)`: one write, the counts unchanged, the man going on loses his
+lineup spot in the same save.
 
 **Closing the season empties the IR**, which can leave a club at 16 active. It is
 told, not fixed — which player goes is the GM's call, not the commissioner's. The

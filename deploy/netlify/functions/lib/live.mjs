@@ -61,10 +61,12 @@ export function liveGames(scoreboard, types) {
     const st = (e.status && e.status.type) || {};
     if (/POSTPONED|CANCELED|CANCELLED|SUSPENDED/.test(String(st.name || ""))) continue;
     const comp = (e.competitions && e.competitions[0]) || {};
-    const side = (h) => { const c = (comp.competitors || []).find((x) => x.homeAway === h);
-      return (c && c.team && c.team.abbreviation) || ""; };
+    const team = (h) => (comp.competitors || []).find((x) => x.homeAway === h) || {};
+    const side = (h) => (team(h).team && team(h).team.abbreviation) || "";
+    /* The score, once there is one: the Game column shows it (2026-11-17). */
+    const pts = (h) => { const v = parseInt(team(h).score, 10); return Number.isFinite(v) ? v : null; };
     const t = Date.parse(e.date || comp.date || "");
-    out[String(e.id)] = { home: side("home"), away: side("away"), ty: ty || null,
+    out[String(e.id)] = { home: side("home"), away: side("away"), hs: pts("home"), as: pts("away"), ty: ty || null,
       tip: Number.isFinite(t) ? new Date(t).toISOString() : null,
       final: !!st.completed, state: st.state || "", detail: st.shortDetail || st.detail || "" };
   }
