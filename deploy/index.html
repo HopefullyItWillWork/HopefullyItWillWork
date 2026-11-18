@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.4">
+<meta name="ll-build" content="2026-11-18.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -13338,7 +13338,7 @@ function drawEspnMiss(){
    lib/score.mjs — most clubs' worth of points for the best in a category down
    to 1, fewest turnovers best, ties split — computed here so a single week can
    be ranked. The season itself still comes from the server's copy. */
-function standingsFor(days){
+function standingsFor(days,perGame){
   const K=['FG','FGA','FT','FTA','P3','REB','AST','STL','BLK','TO','PTS','GP'], tot={};
   TEAMS().forEach(t=>tot[t]=Object.fromEntries(K.map(k=>[k,0])));
   Object.values(days).forEach(n=>Object.entries(n||{}).forEach(([c,t])=>{
@@ -13346,7 +13346,7 @@ function standingsFor(days){
     if(!into) return;
     K.forEach(k=>into[k]+=t[k]||0); }));
   const names=Object.keys(tot);
-  const val=(c,k)=>k==='FG%'?(tot[c].FGA?tot[c].FG/tot[c].FGA:0):k==='FT%'?(tot[c].FTA?tot[c].FT/tot[c].FTA:0):tot[c][k];
+  const val=(c,k)=>k==='FG%'?(tot[c].FGA?tot[c].FG/tot[c].FGA:0):k==='FT%'?(tot[c].FTA?tot[c].FT/tot[c].FTA:0):perGame?(tot[c].GP?tot[c][k]/tot[c].GP:0):tot[c][k];
   const pts={},cat={}; names.forEach(c=>{pts[c]=0;cat[c]={};});
   ['FG%','FT%','P3','REB','AST','STL','BLK','TO','PTS'].forEach(k=>names.forEach(c=>{
     const v=val(c,k), better=names.filter(o=>k==='TO'?val(o,k)<v:val(o,k)>v).length,
@@ -13467,13 +13467,20 @@ function rolling(cat){
    CHARTPICK, a club tapped to pick it out, lasts this visit. */
 var CHARTVIEW=(()=>{ try{ const v=localStorage.getItem('ll_chart'); return ['roll','race','pace'].includes(v)?v:'roll'; }catch(e){ return 'roll'; } })();
 let CHARTPICK='', RACECACHE={key:'',v:null};
+/* The race, normalised for games played (2026-11-18): each club's counting stats
+   per game played, so a club that has played fewer games is not behind for it.
+   Percentages are unchanged. Per browser (ll_racenorm). */
+var RACENORM=(()=>{ try{ return localStorage.getItem('ll_racenorm')==='1'; }catch(e){ return false; } })();
 function chartTabs(){
   if(!$('chTabs')) return;
   const b=(v,t)=>`<button type="button" data-chv="${v}" aria-pressed="${CHARTVIEW===v}">${t}</button>`;
-  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games pace')}</div>`;
+  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games pace')}</div>`
+    +(CHARTVIEW==='race'?`<div class="toggle" role="group" aria-label="Race basis" style="margin-left:8px"><button type="button" data-chn="0" aria-pressed="${!RACENORM}" title="Season totals, as the Standings table ranks them">Totals</button><button type="button" data-chn="1" aria-pressed="${RACENORM}" title="Each club's stats per game played, so fewer games played is not a handicap">Per game played</button></div>`:'');
   if($('chTabs').innerHTML!==html){ $('chTabs').innerHTML=html;
     $('chTabs').querySelectorAll('[data-chv]').forEach(x=>x.onclick=()=>{ CHARTVIEW=x.dataset.chv;
-      try{ localStorage.setItem('ll_chart',CHARTVIEW); }catch(e){} drawTrend(); }); }
+      try{ localStorage.setItem('ll_chart',CHARTVIEW); }catch(e){} drawTrend(); });
+    $('chTabs').querySelectorAll('[data-chn]').forEach(x=>x.onclick=()=>{ RACENORM=x.dataset.chn==='1';
+      try{ localStorage.setItem('ll_racenorm',RACENORM?'1':'0'); }catch(e){} drawTrend(); }); }
   $('trCat').hidden=CHARTVIEW!=='roll';
 }
 const chMine=()=>me&&me!=='__comm__'&&S.teams&&S.teams[me]?me:null;
@@ -13491,10 +13498,10 @@ function chSpread(items,gap,bottom){
   return items;
 }
 /* Pure: each club's roto points in the season-to-date standings after each night. */
-function raceSeries(days){
+function raceSeries(days,perGame){
   const dates=Object.keys(days||{}).sort(), pts={}, upto={};
   dates.forEach(d=>{ upto[d]=days[d];
-    standingsFor(upto).forEach(r=>(pts[r.club]=pts[r.club]||[]).push(r.pts)); });
+    standingsFor(upto,perGame).forEach(r=>(pts[r.club]=pts[r.club]||[]).push(r.pts)); });
   return {dates,pts};
 }
 /* Pure: games played per club per night against an even pace to `cap` by `endD`. */
@@ -13578,8 +13585,8 @@ function drawRoll(){
   chWire();
 }
 function drawRace(){
-  const key=(SCORE.got||0)+'|'+TEAMS().join('\u0001');
-  if(RACECACHE.key!==key) RACECACHE={key,v:raceSeries(DAILY)};
+  const key=(SCORE.got||0)+'|'+(RACENORM?1:0)+'|'+TEAMS().join('\u0001');
+  if(RACECACHE.key!==key) RACECACHE={key,v:raceSeries(DAILY,RACENORM)};
   const {dates,pts}=RACECACHE.v, n=dates.length, clubs=Object.keys(pts);
   if(n<2){ $('chartWrap').innerHTML='<div class="empty">The race starts after the second night of games.</div>'; return; }
   $('trStatus').textContent=`${n} nights · ${chMD(dates[0])} to ${chMD(dates[n-1])}`;
@@ -13601,9 +13608,9 @@ function drawRace(){
     peak=`<text x="${Math.min(Math.max(x(pi),L+60),W-R-60)}" y="${y(pts[mine][pi])-12}" text-anchor="middle" style="fill:var(--amber)" font-size="11" font-family="var(--body)">Your high: ${pts[mine][pi]}, ${chMD(dates[pi])}</text>`;
     const firsts=dates.filter((d,i)=>clubs.every(c=>pts[c][i]<=pts[mine][i])).length;
     const near=mr>0?`, ${pts[fin[mr-1]][n-1]-pts[mine][n-1]} back of ${htmlEsc(fin[mr-1])}`:mr===0?`, ${pts[mine][n-1]-pts[fin[1]][n-1]} ahead of ${htmlEsc(fin[1])}`:'';
-    fact=`Now ${ordinal(mr+1)}${near}. 1st (or tied for it) after ${firsts} of ${n} nights.`;
+    fact=`Now ${ordinal(mr+1)}${near}. 1st (or tied for it) after ${firsts} of ${n} nights.${RACENORM?' Counting stats per game played; percentages as they are.':''}`;
   }
-  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roto points after every night, by club">${g}${lines}${dots}${lab}${peak}</svg>
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roto points after every night, by club${RACENORM?', per game played':''}">${g}${lines}${dots}${lab}${peak}</svg>
     ${chLegend(mine,focus,'The club above you')}
     ${fact?`<p class="note" style="margin:8px 0 0">${fact}</p>`:''}</div>`;
   chWire();
