@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.3">
+<meta name="ll-build" content="2026-11-18.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -6164,6 +6164,10 @@ function liveClub(name){
   return TEAMS().find(t=>S.teams[t].r.some(x=>!x.cut&&canon(x.n)===c))||null;
 }
 const isFreeAgent=name=>!signedClub(name);
+/* The club a screen should file him under: the one he is signed with, or in the
+   offseason the one whose expiring deal he is on (ownerOf's "(expiring)"). In
+   season an expiring man is a free agent, so he belongs to nobody. */
+const heldBy=name=>signedClub(name)||(seasonLive()?null:liveClub(name));
 function ownerOf(name){
   const t=signedClub(name);
   if(t) return t;
@@ -11551,8 +11555,8 @@ function drawRater(){
   const all=R.rows.concat(R.unrated);
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
      means nobody has committed salary for next season. */
-  const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?liveClub(n)===meTeam()
-    :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):liveClub(n)===tf);
+  const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?heldBy(n)===meTeam()
+    :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):heldBy(n)===tf);
   let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))&&who(p.n)
     &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
@@ -11573,7 +11577,7 @@ function drawRater(){
      standings. The commissioner login has no club, so nothing is. */
   const myT=me&&!isComm()?me:null;
   $('raterBody').innerHTML=rows.map(p=>{
-    const oc=raterClub(p.n), tr=myT&&liveClub(p.n)===myT?'<tr class="mine">':'<tr>';
+    const oc=raterClub(p.n), tr=myT&&heldBy(p.n)===myT?'<tr class="mine">':'<tr>';
     if(!p.z) return `${tr}<td class="l">&#8212;</td><td class="pname" data-player="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
       <td class="hide2">${p.g}</td>${stats&&p.s?RCATS.map(c=>rawCell(p,c,basis,'')).join('')
         :`<td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>`}
@@ -13334,7 +13338,7 @@ function drawEspnMiss(){
    lib/score.mjs — most clubs' worth of points for the best in a category down
    to 1, fewest turnovers best, ties split — computed here so a single week can
    be ranked. The season itself still comes from the server's copy. */
-function standingsFor(days){
+function standingsFor(days,perGame){
   const K=['FG','FGA','FT','FTA','P3','REB','AST','STL','BLK','TO','PTS','GP'], tot={};
   TEAMS().forEach(t=>tot[t]=Object.fromEntries(K.map(k=>[k,0])));
   Object.values(days).forEach(n=>Object.entries(n||{}).forEach(([c,t])=>{
@@ -13342,7 +13346,7 @@ function standingsFor(days){
     if(!into) return;
     K.forEach(k=>into[k]+=t[k]||0); }));
   const names=Object.keys(tot);
-  const val=(c,k)=>k==='FG%'?(tot[c].FGA?tot[c].FG/tot[c].FGA:0):k==='FT%'?(tot[c].FTA?tot[c].FT/tot[c].FTA:0):tot[c][k];
+  const val=(c,k)=>k==='FG%'?(tot[c].FGA?tot[c].FG/tot[c].FGA:0):k==='FT%'?(tot[c].FTA?tot[c].FT/tot[c].FTA:0):perGame?(tot[c].GP?tot[c][k]/tot[c].GP:0):tot[c][k];
   const pts={},cat={}; names.forEach(c=>{pts[c]=0;cat[c]={};});
   ['FG%','FT%','P3','REB','AST','STL','BLK','TO','PTS'].forEach(k=>names.forEach(c=>{
     const v=val(c,k), better=names.filter(o=>k==='TO'?val(o,k)<v:val(o,k)>v).length,
@@ -13437,12 +13441,13 @@ function drawStandBox(B){
       <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
   sortable(B.tbl,B.sort,'tot',true); redraw[B.sort]=drawStandings;
 }
-function rolling(cat){
+function rolling(cat,span){
+  const SPAN=span||15;
   const dates=Object.keys(DAILY).sort();
   const clubs=[...new Set(dates.flatMap(d=>Object.keys(DAILY[d])))].sort();
   const out=clubs.map(c=>({club:c,pts:[]}));
   dates.forEach((d,i)=>{
-    const win=dates.slice(Math.max(0,i-14),i+1);
+    const win=dates.slice(Math.max(0,i-SPAN+1),i+1);
     out.forEach(s=>{
       let num=0,den=0,tot=0;
       win.forEach(w=>{const e=DAILY[w]&&DAILY[w][s.club];if(!e)return;
@@ -13461,16 +13466,23 @@ function rolling(cat){
    the cap, gamesPace()'s rule, so it agrees with the Games card). Facts only:
    neither says what to do about it. CHARTVIEW is per browser (ll_chart);
    CHARTPICK, a club tapped to pick it out, lasts this visit. */
-var CHARTVIEW=(()=>{ try{ const v=localStorage.getItem('ll_chart'); return ['roll','race','pace'].includes(v)?v:'roll'; }catch(e){ return 'roll'; } })();
+var CHARTVIEW=(()=>{ try{ const v=localStorage.getItem('ll_chart'); return ['roll','daily','race','pace'].includes(v)?v:'roll'; }catch(e){ return 'roll'; } })();
 let CHARTPICK='', RACECACHE={key:'',v:null};
+/* The race, normalised for games played (2026-11-18): each club's counting stats
+   per game played, so a club that has played fewer games is not behind for it.
+   Percentages are unchanged. Per browser (ll_racenorm). */
+var RACENORM=(()=>{ try{ return localStorage.getItem('ll_racenorm')==='1'; }catch(e){ return false; } })();
 function chartTabs(){
   if(!$('chTabs')) return;
   const b=(v,t)=>`<button type="button" data-chv="${v}" aria-pressed="${CHARTVIEW===v}">${t}</button>`;
-  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games pace')}</div>`;
+  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('daily','Daily')}${b('race','The race')}${b('pace','Games pace')}</div>`
+    +(CHARTVIEW==='race'?`<div class="toggle" role="group" aria-label="Race basis" style="margin-left:8px"><button type="button" data-chn="0" aria-pressed="${!RACENORM}" title="Season totals, as the Standings table ranks them">Totals</button><button type="button" data-chn="1" aria-pressed="${RACENORM}" title="Each club's stats per game played, so fewer games played is not a handicap">Per game played</button></div>`:'');
   if($('chTabs').innerHTML!==html){ $('chTabs').innerHTML=html;
     $('chTabs').querySelectorAll('[data-chv]').forEach(x=>x.onclick=()=>{ CHARTVIEW=x.dataset.chv;
-      try{ localStorage.setItem('ll_chart',CHARTVIEW); }catch(e){} drawTrend(); }); }
-  $('trCat').hidden=CHARTVIEW!=='roll';
+      try{ localStorage.setItem('ll_chart',CHARTVIEW); }catch(e){} drawTrend(); });
+    $('chTabs').querySelectorAll('[data-chn]').forEach(x=>x.onclick=()=>{ RACENORM=x.dataset.chn==='1';
+      try{ localStorage.setItem('ll_racenorm',RACENORM?'1':'0'); }catch(e){} drawTrend(); }); }
+  $('trCat').hidden=CHARTVIEW!=='roll'&&CHARTVIEW!=='daily';
 }
 const chMine=()=>me&&me!=='__comm__'&&S.teams&&S.teams[me]?me:null;
 /* The drawing's width is the box's own, so its 11px text renders at 11px: Home's
@@ -13487,10 +13499,10 @@ function chSpread(items,gap,bottom){
   return items;
 }
 /* Pure: each club's roto points in the season-to-date standings after each night. */
-function raceSeries(days){
+function raceSeries(days,perGame){
   const dates=Object.keys(days||{}).sort(), pts={}, upto={};
   dates.forEach(d=>{ upto[d]=days[d];
-    standingsFor(upto).forEach(r=>(pts[r.club]=pts[r.club]||[]).push(r.pts)); });
+    standingsFor(upto,perGame).forEach(r=>(pts[r.club]=pts[r.club]||[]).push(r.pts)); });
   return {dates,pts};
 }
 /* Pure: games played per club per night against an even pace to `cap` by `endD`. */
@@ -13542,12 +13554,12 @@ function chLegend(mine,focus,aboveText){
 }
 /* Rolling 15 days, on the same frame as the race (2026-11-17): it used to colour
    every club, label dates 10-20, dip below zero and scale to 60% in Home's column. */
-function drawRoll(){
+function drawRoll(daily){
   if(!DAILY||!Object.keys(DAILY).length){ $('trStatus').textContent=''; $('feedHelp').innerHTML='';
     $('chartWrap').innerHTML=`<div class="empty">${daysToOpener()?`The charts start on opening night \u2014 ${daysToOpener()} day${daysToOpener()===1?'':'s'} to go.`:'The charts start with the first night of games.'}</div>`; return; }
   $('feedHelp').innerHTML='';
   const cat=$('trCat').value, pct=cat==='FG'||cat==='FT', inv=cat==='TO';
-  const {dates,series}=rolling(cat), n=dates.length;
+  const {dates,series}=rolling(cat,daily?1:15), n=dates.length;
   if(n<2){ $('chartWrap').innerHTML='<div class="empty">The rolling chart starts after the second night of games.</div>'; $('trStatus').textContent=''; return; }
   $('trStatus').textContent=`${n} nights \u00b7 ${chMD(dates[0])} to ${chMD(dates[n-1])}`;
   const vals={}; series.forEach(s=>{ if(S.teams&&S.teams[s.club]) vals[s.club]=s.pts; });
@@ -13568,14 +13580,14 @@ function drawRoll(){
   const dots=[focus,mine].filter(Boolean).filter(c=>last(c)!=null).map(c=>`<circle cx="${x(n-1)}" cy="${y(last(c))}" r="4" style="fill:${c===mine?'var(--amber)':'var(--dyn)'};stroke:var(--panel)" stroke-width="2"/>`).join('');
   const labs=chLabels(fin.filter(c=>last(c)!=null),last,v=>pct?(v*100).toFixed(1):Math.round(v).toLocaleString('en-US'),y,W,R,H,B,mine,focus,n);
   const name=$('trCat').selectedOptions&&$('trCat').selectedOptions[0]?$('trCat').selectedOptions[0].textContent:cat;
-  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${htmlEsc(name)} over the last 15 days, by club">${g}${lines}${dots}${labs}</svg>
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${htmlEsc(name)} ${daily?'each night':'over the last 15 days'}, by club">${g}${lines}${dots}${labs}</svg>
     ${chLegend(mine,focus,'')}
-    <p class="note" style="margin:8px 0 0">${pct?`${htmlEsc(name)} over the 15 nights up to each date.`:`${htmlEsc(name)} totalled over the 15 nights up to each date${inv?'; fewer is better':''}.`}</p></div>`;
+    <p class="note" style="margin:8px 0 0">${daily?(pct?`${htmlEsc(name)} on each night alone.`:`${htmlEsc(name)} totalled on each night alone${inv?'; fewer is better':''}. A club with no game that night shows zero.`):pct?`${htmlEsc(name)} over the 15 nights up to each date.`:`${htmlEsc(name)} totalled over the 15 nights up to each date${inv?'; fewer is better':''}.`}</p></div>`;
   chWire();
 }
 function drawRace(){
-  const key=(SCORE.got||0)+'|'+TEAMS().join('\u0001');
-  if(RACECACHE.key!==key) RACECACHE={key,v:raceSeries(DAILY)};
+  const key=(SCORE.got||0)+'|'+(RACENORM?1:0)+'|'+TEAMS().join('\u0001');
+  if(RACECACHE.key!==key) RACECACHE={key,v:raceSeries(DAILY,RACENORM)};
   const {dates,pts}=RACECACHE.v, n=dates.length, clubs=Object.keys(pts);
   if(n<2){ $('chartWrap').innerHTML='<div class="empty">The race starts after the second night of games.</div>'; return; }
   $('trStatus').textContent=`${n} nights · ${chMD(dates[0])} to ${chMD(dates[n-1])}`;
@@ -13597,9 +13609,9 @@ function drawRace(){
     peak=`<text x="${Math.min(Math.max(x(pi),L+60),W-R-60)}" y="${y(pts[mine][pi])-12}" text-anchor="middle" style="fill:var(--amber)" font-size="11" font-family="var(--body)">Your high: ${pts[mine][pi]}, ${chMD(dates[pi])}</text>`;
     const firsts=dates.filter((d,i)=>clubs.every(c=>pts[c][i]<=pts[mine][i])).length;
     const near=mr>0?`, ${pts[fin[mr-1]][n-1]-pts[mine][n-1]} back of ${htmlEsc(fin[mr-1])}`:mr===0?`, ${pts[mine][n-1]-pts[fin[1]][n-1]} ahead of ${htmlEsc(fin[1])}`:'';
-    fact=`Now ${ordinal(mr+1)}${near}. 1st (or tied for it) after ${firsts} of ${n} nights.`;
+    fact=`Now ${ordinal(mr+1)}${near}. 1st (or tied for it) after ${firsts} of ${n} nights.${RACENORM?' Counting stats per game played; percentages as they are.':''}`;
   }
-  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roto points after every night, by club">${g}${lines}${dots}${lab}${peak}</svg>
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roto points after every night, by club${RACENORM?', per game played':''}">${g}${lines}${dots}${lab}${peak}</svg>
     ${chLegend(mine,focus,'The club above you')}
     ${fact?`<p class="note" style="margin:8px 0 0">${fact}</p>`:''}</div>`;
   chWire();
@@ -13646,7 +13658,7 @@ function drawTrend(){
     $('feedHelp').innerHTML='';
     return CHARTVIEW==='race'?drawRace():drawPace();
   }
-  drawRoll();
+  drawRoll(CHARTVIEW==='daily');
 }
 $('trCat').onchange=drawTrend;
 if($('faTabSearch'))$('faTabSearch').oninput=drawFA;
