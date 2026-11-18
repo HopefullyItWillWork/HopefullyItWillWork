@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.3">
+<meta name="ll-build" content="2026-11-18.4">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -6164,6 +6164,10 @@ function liveClub(name){
   return TEAMS().find(t=>S.teams[t].r.some(x=>!x.cut&&canon(x.n)===c))||null;
 }
 const isFreeAgent=name=>!signedClub(name);
+/* The club a screen should file him under: the one he is signed with, or in the
+   offseason the one whose expiring deal he is on (ownerOf's "(expiring)"). In
+   season an expiring man is a free agent, so he belongs to nobody. */
+const heldBy=name=>signedClub(name)||(seasonLive()?null:liveClub(name));
 function ownerOf(name){
   const t=signedClub(name);
   if(t) return t;
@@ -11551,8 +11555,8 @@ function drawRater(){
   const all=R.rows.concat(R.unrated);
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
      means nobody has committed salary for next season. */
-  const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?liveClub(n)===meTeam()
-    :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):liveClub(n)===tf);
+  const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?heldBy(n)===meTeam()
+    :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):heldBy(n)===tf);
   let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))&&who(p.n)
     &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
@@ -11573,7 +11577,7 @@ function drawRater(){
      standings. The commissioner login has no club, so nothing is. */
   const myT=me&&!isComm()?me:null;
   $('raterBody').innerHTML=rows.map(p=>{
-    const oc=raterClub(p.n), tr=myT&&liveClub(p.n)===myT?'<tr class="mine">':'<tr>';
+    const oc=raterClub(p.n), tr=myT&&heldBy(p.n)===myT?'<tr class="mine">':'<tr>';
     if(!p.z) return `${tr}<td class="l">&#8212;</td><td class="pname" data-player="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
       <td class="hide2">${p.g}</td>${stats&&p.s?RCATS.map(c=>rawCell(p,c,basis,'')).join('')
         :`<td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>`}
