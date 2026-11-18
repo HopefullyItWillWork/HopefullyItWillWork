@@ -74,3 +74,28 @@ export function windowsFrom(plog) {
   }
   return { asOf, pre: !reg.length, windows };
 }
+
+/* A player's last `n` games for the player card (2026-11-18), counting the nights
+   his NBA club played without him: those come back as {day, t, dnp:true}, so a
+   missed game shows as an empty row instead of vanishing. `nights` is plog's
+   entries, newest first. His club is the one on his newest line; with no line at
+   all, the club the page sends (`team`), so a man out all season still shows his
+   club's games. A night counts as his club's when anyone on it carries that club. */
+export function lastGames(nights, keys, team = "", n = 5) {
+  for (const k of keys) {
+    let club = "";
+    for (const [, night] of nights) { const x = night.p && night.p[k]; if (x && x.t) { club = x.t; break; } }
+    if (!club && !team) continue;
+    club = club || team;
+    const games = [];
+    let seen = false;
+    for (const [day, night] of nights) {
+      const x = night.p && night.p[k];
+      if (x) { seen = true; games.push({ day, t: x.t || "", s: x.s }); }
+      else if (Object.values(night.p || {}).some((y) => y && y.t === club)) games.push({ day, t: club, dnp: true });
+      if (games.length >= n) break;
+    }
+    if (seen || team) return games;
+  }
+  return [];
+}
