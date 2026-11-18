@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.21">
+<meta name="ll-build" content="2026-11-17.22">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10440,6 +10440,7 @@ function luTotals(r){
 /* My Team's one table (2026-11-13): the lineup became the roster. Stats shows the
    stats period's line and PR; Contract swaps the nine categories for what each man
    is owed, like the old My roster table's Contract view. Per browser. */
+const luAutoNight=()=>{ try{ return localStorage.getItem('ll_luauto')||''; }catch(e){ return ''; } };
 var LUMODE=(()=>{ try{ const v=localStorage.getItem('ll_lumode'); return ['ctr','rtg','trend','news'].includes(v)?v:'stats'; }catch(e){ return 'stats'; } })();
 /* The lineup's category keys → the rater's (REB is TRB, TO is TOV, the rates are FG/FT). */
 const LU2R={PTS:'PTS',TRB:'REB',AST:'AST',P3:'P3',STL:'STL',BLK:'BLK',TOV:'TO',FGP:'FG',FTP:'FT'};
@@ -10576,6 +10577,16 @@ function drawLineup(){
   /* Live tonight (lib/live.mjs): the Tonight view, and the club's totals so far. */
   const liveOk=!ahead&&!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0;
   const planned=Object.keys((S.teams[meTeam()]||{}).luf||{}).filter(d=>d>luNight()).sort();
+  /* Tonight by default once the GM's own first game is on (2026-11-17): the first
+     draw after one of his starters has tipped (and live numbers exist) opens the
+     Tonight view, once per night per browser (ll_luauto), so a GM who then picks
+     Stats or Contract stays there. Not for the commissioner viewing a club. */
+  if(liveOk&&LUMODE!=='now'&&me&&meTeam()===me&&luAutoNight()!==luNight()){
+    const st=SLOTIDS.map(id=>lineupOf(me,D).s[id]).filter(Boolean);
+    if(st.some(nm=>{ const t=tipOf(nm,D); return t&&nightMinutes(D)>=t.at; })){
+      LUMODE='now'; try{ localStorage.setItem('ll_luauto',luNight()); }catch(e){}
+      setTimeout(()=>{ if(!fastOn()) fastTick(); },0); }
+  }
   const nowOn=liveOk&&LUMODE==='now';
   if($('luHead')) $('luHead').hidden=pastView;
   if($('luSlots')) $('luSlots').hidden=pastView;
@@ -10645,7 +10656,7 @@ function drawLineup(){
       lu.plan?'':' Until you change something here it is the lineup carried forward.'}</p>`:''}
     ${schedKnown(D)?'':`<p class="note">${htmlEsc(ahead&&!schedOn(D)?'Loading that night\u2019s schedule\u2026':lineupNote(D))}</p>`}`;
   $('luHead').querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
-    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); }catch(e){} drawLineup();
+    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); if(liveOk) localStorage.setItem('ll_luauto',luNight()); }catch(e){} drawLineup();
     if(LUMODE==='now'&&!fastOn()) fastTick(); });
 
   /* Lineup, bench and injured reserve are one table down the page rather than

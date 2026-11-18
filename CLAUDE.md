@@ -498,6 +498,12 @@ club, label dates 10-20, dip below zero and toggle clubs off from its legend.
 them to the player's side. Final: "W 111–102" over "Final · @TOR · NY"; under way,
 the running score under the clock.
 
+**My Team opens on Tonight once your first game is on** (2026-11-17): the first
+lineup draw after one of the GM's own starters has tipped, with live numbers in,
+switches `LUMODE` to `now` once per night per browser (`ll_luauto`); picking a view
+by hand while live also sets it, so his choice stands for the night. Not for the
+commissioner viewing a club.
+
 **Place is live** (`placeNow()`): while tonight's games are on, My Team's and
 Home's Place cards read the standings with tonight so far added (the live line's
 and the Standings table's numbers), tagged live, with where the night started.

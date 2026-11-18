@@ -1811,7 +1811,10 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
   ok('and his row shows when he will lock', g('lockOf')(other).why === '',
      g('lockOf')(other).why);
   g('S').cfg.sched = {[g('luNight')()]: {[tm]: '00:00', [g('NBATM')[g('canon')(other)]]: '23:59'}};
-  ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === false);
+  // 23:59 is still to come, except between midnight and 4 AM Eastern, when the
+  // night has not rolled yet and the clock reads 24:xx (luNight, 2026-11-16).
+  const lateGone = g('nightMinutes')(g('luNight')()) >= 23*60+59;
+  ok('with a late tip-off on file he is still unlocked', g('isLocked')(other) === lateGone);
   ok('but the screen tells him the time', /8:59 PM PT/.test(g('lockOf')(other).why),
      g('lockOf')(other).why);
   ok('the note counts tonight’s clubs', /2 clubs playing tonight/.test(g('lineupNote')()),
@@ -2076,7 +2079,7 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
 
   console.log('\n== a commissioner override beats the feed, for that club only ==');
   g('S').cfg.sched = {[night]: {[short]: '23:59'}};
-  ok('his own time wins', g('isLocked')(someone) === false,
+  ok('his own time wins', g('isLocked')(someone) === (g('nightMinutes')(g('luNight')()) >= 23*60+59),
      JSON.stringify(g('lockOf')(someone)));
   ok('and the row shows the overridden time', /8:59 PM PT/.test(g('lockOf')(someone).why),
      g('lockOf')(someone).why);
