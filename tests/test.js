@@ -4706,6 +4706,17 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ok('a release with no signing beside it stands alone', /Anthony Black released/.test(F[2].html));
   }
 
+  console.log('\n== the rater lists every rostered player, rookies included ==');
+  {
+    const CS=g('S'), T=g('TEAMS')()[0], keep=CS.teams[T].r.slice();
+    CS.teams[T].r.push({n:'Zz Rookie Test',p:'G',y:{[g('curSeason')()]:1},o:'',b:'',acq:2026,cut:false});
+    g('setProjMode')('act'); document.getElementById('rTeam').value=T; X.me=T; g('goTab')('v-players'); g('drawRater')();
+    const body=document.getElementById('raterBody').innerHTML;
+    ok('a rostered player with no stats row is on his club\u2019s list', /Zz Rookie Test/.test(body));
+    ok('...marked as having no games, not rated', /no games on file/.test(body));
+    CS.teams[T].r=keep; document.getElementById('rTeam').value='';
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

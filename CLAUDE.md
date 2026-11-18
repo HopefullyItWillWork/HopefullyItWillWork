@@ -508,6 +508,15 @@ commissioner viewing a club.
 Home's Place cards read the standings with tonight so far added (the live line's
 and the Standings table's numbers), tagged live, with where the night started.
 
+### The rater lists everyone, rookies included (2026-11-18)
+
+The Players list was built from `RATER` (2025-26) alone, so this season's rookies and
+call-ups were missing, even filtered to their own club. `drawRater()` now scores
+`raterTablePool()` (`ratingPool()`, the same field PR uses everywhere, with a live
+rookie under his roster spelling so the club filter finds him) and appends
+`rosteredWithout(R)`: any rostered man with no line in the period, as an unrated
+"no games on file" row. On Season, 61 players not in last season's table now show.
+
 ### Around the league: one line per move (2026-11-18)
 
 Home's feed runs the moves through `feedMoves()` (pure): a "X released — $1.00 —
