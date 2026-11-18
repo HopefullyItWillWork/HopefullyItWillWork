@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.6">
+<meta name="ll-build" content="2026-11-18.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -12890,8 +12890,11 @@ function bannersHtml(t){
   const ts=titlesOf(managerOf(t)); if(!ts.length) return poop;
   /* A button: it opens the trophy room. Only a club with a title has pennants, so
      nobody is reminded of what they have not won (2026-11-16: no trophies in Standings). */
+  /* One manager's pennants read "Chamfs" (2026-11-18, a brother's easter egg). The
+     hover text and the trophy room still say champions; only the block letters slip. */
+  const word=managerOf(t)==='Nathan Daman'?'Chamfs':'Champs';
   return `<button type="button" class="pennants" data-trophies="${htmlEsc(t)}" aria-label="${ts.length} championship${ts.length===1?'':'s'}: ${ts.map(x=>shortSeason(x.season)).join(', ')}. Open the trophy room">${
-    ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champs</small></span>`).join('')}</button>`+poop;
+    ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>${word}</small></span>`).join('')}</button>`+poop;
 }
 /* A trophy and a count, where a row has no room for pennants (Standings). */
 function titleTag(t){
