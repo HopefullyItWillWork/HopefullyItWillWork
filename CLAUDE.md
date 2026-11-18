@@ -1119,6 +1119,13 @@ label says. Below that a label of `Yes` buys **nothing** — `rightsOf()` reads
 read for **Early Bird**, which is a mid-season signing before the deadline and
 has nothing to do with three years.
 
+**Rights never follow a free agent to a new club** (2026-11-18). `signPlayer()`
+clears `p.b` when it moves an expiring man from another club, as the auction does:
+eleven 2026 auction winners arrived carrying their old club's `Early` or `Yes`, and
+Early Bird is read straight off the label, so three of them handed the new club an
+exception it never earned. Re-signed by his own club, he keeps it. The live labels
+were corrected the same day (logged as one edit).
+
 The one exception is an entry with **no acquisition year at all** — twelve in the
 seed. Tenure cannot be computed, so the label is all there is and it is honoured,
 which errs towards leaving a club the rights it believes it has.
