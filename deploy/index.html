@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.20">
+<meta name="ll-build" content="2026-11-17.21">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1057,6 +1057,9 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lugame.nog{color:var(--dim)}
 .lugame .lutime{display:inline-block;font-weight:600;font-size:var(--t1);color:var(--ink);background:var(--amber);border-radius:999px;padding:1px 8px;margin-right:2px}
 .lugame .lulock{display:inline-flex;align-items:center;gap:5px;color:var(--steel)}
+.lugame .luwin{color:var(--space);font-weight:700;font-family:var(--mono)}
+.lugame .luloss{color:var(--steel);font-weight:700;font-family:var(--mono)}
+.lugame small b.lunow{font-family:var(--mono);font-weight:600}
 .lugame.lk small{color:var(--dim)}
 /* Subtle (2026-11-16): the numbers dim a little; the name, picture and menu stay. */
 .lurow:has(.lugame.nog)>span:not(.luacts):not(.lugame):not(:first-child):not(:nth-child(2)){opacity:.7}
@@ -6026,8 +6029,20 @@ function gamesTonight(T){
   const room=Math.max(0,(SCORE.cap||S.cfg.gamecap||920)-gamesUsed(T));
   return {played:Math.min(played,room),locked:Math.min(locked,Math.max(0,room-played))};
 }
+/* Place, live (2026-11-17): while tonight's games are on, the standings with
+   tonight so far added, as the live line and the Standings table already show
+   them; otherwise the scored season. {rows, live, before} — before is the place
+   at the start of the night, only when live. */
+function placeNow(){
+  const lt=typeof liveTotals==='function'?liveTotals():null;
+  if(!lt) return {rows:SCORE.standings||[],live:false,before:null};
+  const key=LIVENOW.at+'|'+(SCORE.got||0);
+  if(PLACECACHE.key!==key) PLACECACHE={key,v:{rows:standingsFor({...(SCORE.days||{}),[LIVENOW.day]:lt}),live:true,before:SCORE.standings||[]}};
+  return PLACECACHE.v;
+}
+var PLACECACHE={key:'',v:null};
 function meStrip(T,s,sc,cap,tax){
-  const row=(SCORE.standings||[]).find(r=>r.club===T);
+  const PN=placeNow(), row=PN.rows.find(r=>r.club===T), was=PN.live&&(PN.before||[]).find(r=>r.club===T);
   const gc=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
   /* Tonight counts toward the pace as a night played once anyone has played. */
   const pace=gamesPace(used,gc,gt.played?{...(SCORE.days||{}),[luNight()]:{}}:SCORE.days,curSeason(),S.cfg.seasonEnd);
@@ -6035,7 +6050,8 @@ function meStrip(T,s,sc,cap,tax){
     gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} more locked in`:''}`:'';
   const dead=deadSalary(T);
   const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
-  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>`,'me');
+  if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>${
+    was?`<br><span class="livetag">live</span> ${was.rank===row.rank?'same as the start of the night':`was ${ordinal(was.rank)} before tonight`}`:''}`,'me');
   /* Exactly the cap is a craft in this league: the card turns gold (2026-11-16). */
   if(used>=gc){ card('Games',`${used}<small> / ${gc}</small>`,`<span class="maxtag">Maxed out</span>`+tonightTxt,'maxed'); } else
   card('Games',`${used}<small> / ${gc}</small>`,(pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played')+tonightTxt);
@@ -10664,8 +10680,15 @@ function drawLineup(){
     /* Under way or over: where the game is, from the live feed ("Q3 4:12", "Final"). */
     const g=lk&&!ahead?nowGame(nm):null, gl=g&&(g.state==='in'||g.final)?(g.final?'Final':g.detail||'Live'):'';
     const bz=g&&g.final&&HEAT.day===luNight()&&HEAT.buzz[espnIdOf(nm)]?'<span class="buzz" title="Scored in the last minute of the game">at the buzzer</span>':'';
+    /* The score, from his side (2026-11-17): "W 112–108" once final, the running
+       score under the clock while it is on. Both feeds carry it. */
+    const sc=gameScore(g,nm);
+    const where=`${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}`;
+    const top=g&&g.final&&sc?`<span class="${sc.res==='W'?'luwin':sc.res==='L'?'luloss':''}">${sc.res?sc.res+' ':''}${sc.own}\u2013${sc.opp}</span>`
+      :gl?`<span class="${g.final?'':'lunow'}">${htmlEsc(gl)}</span>`:'Locked';
+    const sub=g&&g.final&&sc?`Final \u00b7 ${where}`:sc&&g.state==='in'?`<b class="lunow">${sc.own}\u2013${sc.opp}</b> \u00b7 ${where}`:where;
     return lk
-      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}${gl?`<span class="${g.final?'':'lunow'}">${htmlEsc(gl)}</span>`:'Locked'}</span><small>${htmlEsc(t.opp||t.team)}${t.opp?' \u00b7 '+htmlEsc(t.team):''}${bz?' \u00b7 '+bz:''}</small></span>`
+      ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}${top}</span><small>${sub}${bz?' \u00b7 '+bz:''}</small></span>`
       : `<span class="lugame" title="${ttl}"><span class="lutime">${htmlEsc(clock12(t.at).replace(/ PT$/,''))}</span> ${htmlEsc(t.opp||t.team)}<small>${t.opp?htmlEsc(t.team):''}</small></span>`;
   };
   /* GP, then the nine categories (or, in the Contract view, what he is owed),
@@ -11682,19 +11705,22 @@ function drawHome(){
   const T=me&&!isComm()&&S.teams[me]?me:null;
   const cards=[];
   if(T){
-    const rows=SCORE.standings||[], row=rows.find(r=>r.club===T);
+    const PN=placeNow(), rows=PN.rows, row=rows.find(r=>r.club===T);
     if(row&&row.tot&&row.tot.GP>0){
-      /* Movement since the night before: the same standings without the latest night. */
+      /* Movement since the night before: the same standings without the latest night.
+         Live, it is movement since the start of tonight. */
       const days=Object.keys(SCORE.days||{}).sort();
       let mv='';
-      if(days.length>1){
+      if(PN.live){ const p=(PN.before||[]).find(r=>r.club===T), d=p?p.rank-row.rank:0;
+        mv=d>0?` <span class="up">\u25B2${d}</span>`:d<0?` <span class="down">\u25BC${-d}</span>`:''; }
+      else if(days.length>1){
         const prev=standingsFor(Object.fromEntries(days.slice(0,-1).map(d=>[d,SCORE.days[d]])));
         const p=prev.find(r=>r.club===T); const d=p?p.rank-row.rank:0;
         mv=d>0?` <span class="up">\u25B2${d}</span>`:d<0?` <span class="down">\u25BC${-d}</span>`:'';
       }
       const ahead=rows.find(r=>r.rank===row.rank-1);
       cards.push(homeCard('Place',`${ordinal(row.rank)}${mv}`,
-        ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`));
+        `${PN.live?'<span class="livetag">live</span> ':''}${ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`}`));
       const cap=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
       cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,
         used>=cap?'<span class="maxtag">Maxed out</span>':gt.played||gt.locked?`${gt.played?`${gt.played} tonight, live`:''}${gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} locked in`:''}`:''));
@@ -12640,6 +12666,14 @@ function nowGame(name){
   const F=fastOn(), L=liveOn();
   return (F&&find(F.games))||(L&&find(L.games))||null;
 }
+/* The score from one player's side: {own, opp, res:'W'|'L'|''} (res only once
+   final), or null before there is a score. */
+function gameScore(g,name){
+  if(!g||g.hs==null||g.as==null) return null;
+  const tm=nbaTeamOf(name), home=tm&&teamCodes(tm).has(g.home);
+  const own=home?g.hs:g.as, opp=home?g.as:g.hs;
+  return {own,opp,res:g.final&&own!==opp?(own>opp?'W':'L'):''};
+}
 /* ---- #3: when the live feed falls behind (2026-11-16) ----
    During games the server writes every five minutes; more than fifteen
    minutes without a fresh copy is said out loud rather than left frozen. */
@@ -12699,7 +12733,8 @@ async function fastTick(){
     const games={}, want=[];
     (sb.events||[]).forEach(e=>{ const st=(e.status&&e.status.type)||{}, c=(e.competitions||[])[0]||{};
       const side=h=>{ const x=(c.competitors||[]).find(y=>y.homeAway===h); return (x&&x.team&&x.team.abbreviation)||''; };
-      const g={home:side('home'),away:side('away'),final:!!st.completed,state:st.state||'',detail:st.shortDetail||''};
+      const pts=h=>{ const x=(c.competitors||[]).find(y=>y.homeAway===h), v=parseInt(x&&x.score,10); return isFinite(v)?v:null; };
+      const g={home:side('home'),away:side('away'),hs:pts('home'),as:pts('away'),final:!!st.completed,state:st.state||'',detail:st.shortDetail||''};
       games[e.id]=g;
       const had=FAST.day===n&&FAST.games[e.id];
       if((mine.has(g.home)||mine.has(g.away))&&(g.state==='in'||(g.final&&!(had&&had.final)))) want.push(e.id); });
@@ -13419,6 +13454,52 @@ function chWire(){
   $('chartWrap').querySelectorAll('[data-pick]').forEach(e=>e.onclick=()=>{
     CHARTPICK=CHARTPICK===e.dataset.pick?'':e.dataset.pick; drawTrend(); });
 }
+/* A step that gives about four grid lines over a range: 1, 2 or 5 × a power of ten. */
+function chStep(range){ const r=range/4, p=Math.pow(10,Math.floor(Math.log10(r||1))), m=r/p; return (m<1.5?1:m<3.5?2:5)*p; }
+/* Clubs down the right edge, ranked best first: the race and the rolling chart share it. */
+function chLabels(fin,val,fmtv,y,W,R,H,B,mine,focus,n){
+  const tiny=W<480, narrow=W<640;
+  return chSpread(fin.map((c,k)=>({c,k,y:y(val(c))+4})),13,H-B).map(o=>{
+    const st=o.c===mine?'fill:var(--amber);font-weight:700':o.c===focus?'fill:var(--dyn);font-weight:700':'fill:var(--steel)';
+    return `<text x="${W-R+12}" y="${o.y}" style="${st}" font-size="11" font-family="var(--body)" data-pick="${htmlEsc(o.c)}" class="chpick">${o.k+1}  ${htmlEsc(chShort(o.c,tiny?11:narrow?17:21))}</text>
+      <text x="${W-4}" y="${o.y}" text-anchor="end" style="${st}" font-size="11" font-family="monospace">${fmtv(val(o.c))}</text>`; }).join('');
+}
+function chLegend(mine,focus,aboveText){
+  return `<div class="chartlegend">${mine?'<span><i style="background:var(--amber)"></i>You</span>':''}${focus?`<span><i style="background:var(--dyn)"></i>${CHARTPICK?htmlEsc(focus):aboveText}</span>`:''}<span>${mine||focus?'<i style="background:var(--steel)"></i>Everyone else \u00b7 ':''}tap a name to pick it out</span></div>`;
+}
+/* Rolling 15 days, on the same frame as the race (2026-11-17): it used to colour
+   every club, label dates 10-20, dip below zero and scale to 60% in Home's column. */
+function drawRoll(){
+  if(!DAILY||!Object.keys(DAILY).length){ $('trStatus').textContent=''; $('feedHelp').innerHTML='';
+    $('chartWrap').innerHTML=`<div class="empty">${daysToOpener()?`The charts start on opening night \u2014 ${daysToOpener()} day${daysToOpener()===1?'':'s'} to go.`:'The charts start with the first night of games.'}</div>`; return; }
+  $('feedHelp').innerHTML='';
+  const cat=$('trCat').value, pct=cat==='FG'||cat==='FT', inv=cat==='TO';
+  const {dates,series}=rolling(cat), n=dates.length;
+  if(n<2){ $('chartWrap').innerHTML='<div class="empty">The rolling chart starts after the second night of games.</div>'; $('trStatus').textContent=''; return; }
+  $('trStatus').textContent=`${n} nights \u00b7 ${chMD(dates[0])} to ${chMD(dates[n-1])}`;
+  const vals={}; series.forEach(s=>{ if(S.teams&&S.teams[s.club]) vals[s.club]=s.pts; });
+  const clubs=Object.keys(vals); if(!clubs.length){ $('chartWrap').innerHTML='<div class="empty">Nothing to plot.</div>'; return; }
+  const all=clubs.flatMap(c=>vals[c]).filter(v=>v!=null);
+  const mn=Math.min(...all), mx=Math.max(...all), step=chStep((mx-mn)||1);
+  const lo=pct?Math.floor(mn/step)*step:Math.max(0,Math.floor(mn/step)*step), hi=Math.ceil(mx/step)*step||step;
+  const W=chW(), narrow=W<640, tiny=W<480, H=narrow?300:330, L=pct?42:44, R=tiny?122:narrow?172:214, T=12, B=26;
+  const x=i=>L+(W-L-R)*i/(n-1);
+  const fmt=v=>pct?(v*100).toFixed(1)+'%':Math.round(v).toLocaleString('en-US');
+  const {g,y}=chFrame(W,H,L,R,T,B,lo,hi,step,dates,x,fmt);
+  const last=c=>{ const a=vals[c]; for(let i=a.length-1;i>=0;i--) if(a[i]!=null) return a[i]; return null; };
+  const fin=clubs.slice().sort((a,b)=>((inv?last(a)-last(b):last(b)-last(a))||a.localeCompare(b)));
+  const mine=chMine(), focus=CHARTPICK&&vals[CHARTPICK]?CHARTPICK:'';
+  const order=clubs.filter(c=>c!==mine&&c!==focus).concat([focus,mine].filter(Boolean));
+  const path=c=>{ let d='', pen=false; vals[c].forEach((v,i)=>{ if(v==null){ pen=false; return; } d+=`${pen?'L':'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)} `; pen=true; }); return d; };
+  const lines=order.map(c=>`<path d="${path(c)}" fill="none" style="${chLineStyle(c,mine,focus)}" stroke-linejoin="round" stroke-linecap="round" data-pick="${htmlEsc(c)}" class="chpick"/>`).join('');
+  const dots=[focus,mine].filter(Boolean).filter(c=>last(c)!=null).map(c=>`<circle cx="${x(n-1)}" cy="${y(last(c))}" r="4" style="fill:${c===mine?'var(--amber)':'var(--dyn)'};stroke:var(--panel)" stroke-width="2"/>`).join('');
+  const labs=chLabels(fin.filter(c=>last(c)!=null),last,v=>pct?(v*100).toFixed(1):Math.round(v).toLocaleString('en-US'),y,W,R,H,B,mine,focus,n);
+  const name=$('trCat').selectedOptions&&$('trCat').selectedOptions[0]?$('trCat').selectedOptions[0].textContent:cat;
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${htmlEsc(name)} over the last 15 days, by club">${g}${lines}${dots}${labs}</svg>
+    ${chLegend(mine,focus,'')}
+    <p class="note" style="margin:8px 0 0">${pct?`${htmlEsc(name)} over the 15 nights up to each date.`:`${htmlEsc(name)} totalled over the 15 nights up to each date${inv?'; fewer is better':''}.`}</p></div>`;
+  chWire();
+}
 function drawRace(){
   const key=(SCORE.got||0)+'|'+TEAMS().join('\u0001');
   if(RACECACHE.key!==key) RACECACHE={key,v:raceSeries(DAILY)};
@@ -13436,10 +13517,7 @@ function drawRace(){
   const order=clubs.filter(c=>c!==mine&&c!==focus).concat([focus,mine].filter(Boolean));
   const lines=order.map(c=>`<path d="${chPath(pts[c],x,y)}" fill="none" style="${chLineStyle(c,mine,focus)}" stroke-linejoin="round" stroke-linecap="round" data-pick="${htmlEsc(c)}" class="chpick"/>`).join('');
   const dots=[focus,mine].filter(Boolean).map(c=>`<circle cx="${x(n-1)}" cy="${y(pts[c][n-1])}" r="4" style="fill:${c===mine?'var(--amber)':'var(--dyn)'};stroke:var(--panel)" stroke-width="2"/>`).join('');
-  const labs=chSpread(fin.map((c,k)=>({c,k,y:y(pts[c][n-1])+4})),13,H-B);
-  const lab=labs.map(o=>{ const st=o.c===mine?'fill:var(--amber);font-weight:700':o.c===focus?'fill:var(--dyn);font-weight:700':'fill:var(--steel)';
-    return `<text x="${W-R+12}" y="${o.y}" style="${st}" font-size="11" font-family="var(--body)" data-pick="${htmlEsc(o.c)}" class="chpick">${o.k+1}  ${htmlEsc(chShort(o.c,tiny?11:narrow?17:21))}</text>
-      <text x="${W-4}" y="${o.y}" text-anchor="end" style="${st}" font-size="11" font-family="monospace">${pts[o.c][n-1]}</text>`; }).join('');
+  const lab=chLabels(fin,c=>pts[c][n-1],v=>v,y,W,R,H,B,mine,focus,n);
   let peak='', fact='';
   if(mine){
     let pi=0; pts[mine].forEach((v,i)=>{ if(v>pts[mine][pi]) pi=i; });
@@ -13449,7 +13527,7 @@ function drawRace(){
     fact=`Now ${ordinal(mr+1)}${near}. 1st (or tied for it) after ${firsts} of ${n} nights.`;
   }
   $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Roto points after every night, by club">${g}${lines}${dots}${lab}${peak}</svg>
-    <div class="chartlegend">${mine?'<span><i style="background:var(--amber)"></i>You</span>':''}${focus?`<span><i style="background:var(--dyn)"></i>${CHARTPICK?htmlEsc(focus):'The club above you'}</span>`:''}<span>${mine||focus?'<i style="background:var(--steel)"></i>Everyone else · ':''}tap a name to pick it out</span></div>
+    ${chLegend(mine,focus,'The club above you')}
     ${fact?`<p class="note" style="margin:8px 0 0">${fact}</p>`:''}</div>`;
   chWire();
 }
@@ -13481,6 +13559,7 @@ function drawPace(){
       <td style="color:${r.vs<0?'var(--steel)':'var(--chalk)'}">${r.vs>0?'+':''}${r.vs}</td>
       <td>${r.pj.toLocaleString('en-US')}</td><td class="l">${r.at?chMD(r.at):'—'}</td></tr>`).join('');
   $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Games played against an even pace to ${cap}">${g}${zero}${lines}${ends}</svg>
+    ${chLegend(mine,focus,'')}
     <div class="scroller" style="margin-top:10px"><table id="paceTbl" class="standtbl"><thead><tr><th class="l">Club</th><th>GP</th><th>vs pace</th><th>On pace for</th><th class="l">Reaches ${cap}</th></tr></thead><tbody>${tr}</tbody></table></div>
     <p class="note explain" style="margin:8px 0 0">Pace is games per day so far, carried to the regular season’s last night (${chMD(endD)}): the rule the Games card and the weekly email use. A starter past ${cap} does not count, in slot order. Tap a club to pick out its line.</p></div>`;
   chWire();
@@ -13494,40 +13573,7 @@ function drawTrend(){
     $('feedHelp').innerHTML='';
     return CHARTVIEW==='race'?drawRace():drawPace();
   }
-  const cat=$('trCat').value;
-  if(!DAILY||!Object.keys(DAILY).length){
-    $('trStatus').textContent='';
-    $('chartWrap').innerHTML=`<div class="empty">${daysToOpener()?`The race chart starts on opening night \u2014 ${daysToOpener()} day${daysToOpener()===1?'':'s'} to go.`:'The race chart starts with the first night of games.'}</div>`;
-    $('feedHelp').innerHTML='';
-    return;
-  }
-  const {dates,series}=rolling(cat);
-  $('trStatus').textContent=`${dates.length} days · through ${dates[dates.length-1]}`;
-  $('feedHelp').innerHTML='';
-  const W=880,H=320,L=52,R=14,T=14,B=34;
-  const vis=series.filter(s=>!hidden.has(s.club));
-  const all=vis.flatMap(s=>s.pts).filter(v=>v!=null);
-  if(!all.length){$('chartWrap').innerHTML='<div class="empty">Nothing to plot.</div>';return;}
-  let lo=Math.min(...all),hi=Math.max(...all); const pad=(hi-lo)*0.12||1; lo-=pad;hi+=pad;
-  const pct=cat==='FG'||cat==='FT';
-  const x=i=>L+(W-L-R)*(dates.length>1?i/(dates.length-1):0.5);
-  const y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
-  const grid=[0,.25,.5,.75,1].map(f=>{const v=lo+(hi-lo)*f;
-    return `<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="#232E3C" stroke-width="1"/>
-      <text x="${L-7}" y="${y(v)+4}" text-anchor="end" fill="#4E5B6B" font-size="10" font-family="monospace">${pct?v.toFixed(3):Math.round(v)}</text>`;}).join('');
-  const step=Math.max(1,Math.floor(dates.length/6));
-  const xlab=dates.map((d,i)=>i%step?'':`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="#4E5B6B" font-size="10" font-family="monospace">${d.slice(5)}</text>`).join('');
-  const lines=series.map((s,i)=>{
-    if(hidden.has(s.club))return '';
-    const pts=s.pts.map((v,j)=>v==null?null:`${x(j)},${y(v)}`).filter(Boolean).join(' ');
-    return `<polyline points="${pts}" fill="none" stroke="${PAL[i%PAL.length]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
-  }).join('');
-  $('chartWrap').innerHTML=`<div class="chart">
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rolling 15 day ${cat} by club">${grid}${xlab}${lines}</svg>
-    <div class="chartlegend">${series.map((s,i)=>
-      `<span data-c="${s.club}" class="${hidden.has(s.club)?'off':''}"><i style="background:${PAL[i%PAL.length]}"></i>${s.club}</span>`).join('')}</div></div>`;
-  $('chartWrap').querySelectorAll('[data-c]').forEach(e=>e.onclick=()=>{
-    hidden.has(e.dataset.c)?hidden.delete(e.dataset.c):hidden.add(e.dataset.c);drawTrend();});
+  drawRoll();
 }
 $('trCat').onchange=drawTrend;
 if($('faTabSearch'))$('faTabSearch').oninput=drawFA;

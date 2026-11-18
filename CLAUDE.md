@@ -487,6 +487,21 @@ own (`chW()`), so text renders at its real size; the old 880-wide chart scaled t
 60% in Home's column. Facts only. Mockup: the "Season charts" page of
 claude.ai/artifact/KiW7s36rLwrjYLbUvkbvrs.
 
+**All three share one frame** (2026-11-17): `chFrame()` (grid, dates as "Oct 20"),
+`chW()` sizing, `chLineStyle()` (you gold, a pick blue, the rest grey),
+`chLabels()` (clubs ranked down the right with their value; turnovers rank fewest
+first) and `chLegend()`. The rolling chart (`drawRoll()`) used to colour every
+club, label dates 10-20, dip below zero and toggle clubs off from its legend.
+
+**Scores in the Game column** (2026-11-17): both live feeds carry `hs`/`as`
+(`liveGames()` in `lib/live.mjs`, and `fastTick()`); `gameScore(g, name)` turns
+them to the player's side. Final: "W 111–102" over "Final · @TOR · NY"; under way,
+the running score under the clock.
+
+**Place is live** (`placeNow()`): while tonight's games are on, My Team's and
+Home's Place cards read the standings with tonight so far added (the live line's
+and the Standings table's numbers), tagged live, with where the night started.
+
 ### Weekly awards (2026-11-16)
 
 Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,
