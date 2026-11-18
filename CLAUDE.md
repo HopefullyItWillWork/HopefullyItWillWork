@@ -894,6 +894,15 @@ waiver rules. The release happens *before* the activation: the other order leave
 the roster illegal for the length of a statement, and a merge or a poll reading
 it in between would see a club one over.
 
+**An IR swap needs no release** (2026-11-18). Activating a man onto a full roster
+opens the same dialog, but its first group is *Move to the injured reserve*: the
+active players, those ESPN lists as out first, with the report; a man whose game
+has started is left off. *Release* is the second group, and the button turns to
+the red Release and activate only when a release is picked. Putting a man on a
+full IR asks to swap him with the one there. Both go through `irSwap(team,
+outIdx, inIdx)`: one write, the counts unchanged, the man going on loses his
+lineup spot in the same save.
+
 **Closing the season empties the IR**, which can leave a club at 16 active. It is
 told, not fixed — which player goes is the GM's call, not the commissioner's. The
 same step drops every stored lineup, since there is no season to have one for.

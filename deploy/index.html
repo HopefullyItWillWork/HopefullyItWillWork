@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-17.22">
+<meta name="ll-build" content="2026-11-18.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2372,11 +2372,11 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 <dialog id="dlgSwap"><form method="dialog" class="dlg">
   <h4 id="swTitle">Activate</h4><p id="swSub"></p>
   <div class="fields">
-    <div><label for="swWho">Release</label><select id="swWho"></select></div>
+    <div><label for="swWho">In his place</label><select id="swWho"></select></div>
   </div>
   <p class="note" id="swNote"></p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>
-    <button class="btn danger" id="swGo" value="ok">Release and activate</button></div>
+    <button class="btn" id="swGo" value="ok">Swap</button></div>
 </form></dialog>
 
 <dialog id="dlgPin"><form method="dialog" class="dlg">
@@ -3102,8 +3102,17 @@ async function toggleIR(team,idx){
   if(!p) return;
   if(!contracted(p)) return alert(`${p.n} is not under contract for this season.`);
   if(!p.ir){
-    if(irCount(team)>=(S.cfg.ir??1))
-      return alert(`${team} already has ${S.cfg.ir??1} player${(S.cfg.ir??1)===1?'':'s'} on the injured reserve.`);
+    if(irCount(team)>=(S.cfg.ir??1)){
+      /* A full IR is a swap, not a refusal (2026-11-18): he goes on, the man
+         there comes back. The active count does not change, so it always fits. */
+      const on=S.teams[team].r.map((x,i)=>({x,i})).filter(({x})=>contracted(x)&&onIR(x));
+      if(seasonLive()&&isLocked(p.n)) return alert(`${p.n} is locked for tonight \u2014 ${lockOf(p.n).why}.`);
+      if(on.length===1){
+        if(!confirm(`The injured reserve is full. Swap: ${p.n} goes on the IR and ${on[0].x.n} comes off it?`)) return;
+        return irSwap(team,idx,on[0].i);
+      }
+      return alert(`${team} already has ${S.cfg.ir??1} players on the injured reserve. Activate one of them first, or use Activate on him to swap.`);
+    }
     /* A man whose game has started is settled for the night, in the lineup or
        out of it. The injured reserve is not a way around that. */
     if(seasonLive()&&isLocked(p.n))
@@ -3130,28 +3139,56 @@ async function toggleIR(team,idx){
      not put him in one either. */
   await commit({kind:'edit',team,detail:`${p.n} activated from injured reserve`},['rosters']);
 }
+/* One write: `outIdx` goes on the injured reserve, `inIdx` comes off it
+   (2026-11-18). The counts do not move, so it is always legal; the man going on
+   loses his lineup spot in the same save, as toggleIR() does. */
+async function irSwap(team,outIdx,inIdx){
+  if(!canEdit(team)) return alert('You can only change your own club.');
+  const r=S.teams[team].r, out=r[outIdx], back=r[inIdx];
+  if(!out||!back||!onIR(back)||onIR(out)) return;
+  if(seasonLive()&&isLocked(out.n)) return alert(`${out.n} is locked for tonight \u2014 ${lockOf(out.n).why}.`);
+  out.ir=true; back.ir=false;
+  let was='';
+  if(seasonLive()){
+    const lu=lineupOf(team);
+    SLOTIDS.forEach(id=>{ if(canon(lu.s[id])===canon(out.n)){ was=slotLabel(id); lu.s[id]=''; } });
+    if(was) putLineup(team,luNight(),lu.s);
+  }
+  await commit({kind:'edit',team,detail:`${out.n} moved to injured reserve and ${back.n} activated${was?` \u2014 ${was} spot opened`:''}`},['rosters']);
+  if(was) await logLineup(team);
+}
 let swapping=null;
 function openSwap(team,idx){
   const p=S.teams[team].r[idx];
   swapping={team,idx};
   $('swTitle').textContent=`Activating ${p.n}`;
   $('swSub').textContent=`${team} already carries ${headcount(team)} active players, the limit. `
-    +`Bringing ${p.n} back means releasing somebody. Pick who, or cancel and leave him on the injured reserve.`;
-  const opts=S.teams[team].r
-    .map((x,i)=>({x,i}))
-    .filter(({x,i})=>i!==idx&&contracted(x)&&!onIR(x))
-    .sort((a,b)=>(salNow(a.x)||0)-(salNow(b.x)||0));
-  $('swWho').innerHTML=opts.map(({x,i})=>
-    `<option value="${i}">${htmlEsc(x.n)} \u00b7 ${money(salNow(x))}</option>`).join('');
-  $('swNote').textContent=seasonLive()
-    ? 'The released salary stays on your cap until the season ends. A two-year-or-longer deal cannot be re-signed by this club until the next offseason.'
-    : 'The released salary comes off immediately and every remaining year is voided.';
+    +`Bringing ${p.n} back means another player goes on the injured reserve in his place, or is released. Pick who, or cancel and leave him there.`;
+  const act=S.teams[team].r.map((x,i)=>({x,i})).filter(({x,i})=>i!==idx&&contracted(x)&&!onIR(x));
+  /* IR swap first (2026-11-18): players ESPN lists as hurt lead, with what it says;
+     a man whose game has started cannot go on the IR. */
+  const hurt=({x})=>{ const j=injOf(x.n); return j?(/out|susp/i.test(j.s)?0:1):2; };
+  const irOpts=act.filter(({x})=>!(seasonLive()&&isLocked(x.n))).sort((a,b)=>hurt(a)-hurt(b)||a.x.n.localeCompare(b.x.n));
+  const cutOpts=act.slice().sort((a,b)=>(salNow(a.x)||0)-(salNow(b.x)||0));
+  $('swWho').innerHTML=`<optgroup label="Move to the injured reserve">${irOpts.map(({x,i})=>{ const j=injOf(x.n);
+      return `<option value="ir:${i}">${htmlEsc(x.n)}${j?` \u00b7 ${htmlEsc(injShort(j.s))}${j.d?' ('+htmlEsc(j.d)+')':''}`:''}</option>`; }).join('')}</optgroup>
+    <optgroup label="Release">${cutOpts.map(({x,i})=>`<option value="cut:${i}">${htmlEsc(x.n)} \u00b7 ${money(salNow(x))}</option>`).join('')}</optgroup>`;
+  const sync=()=>{ const cut=/^cut:/.test($('swWho').value);
+    $('swGo').textContent=cut?'Release and activate':'Swap';
+    $('swGo').className='btn'+(cut?' danger':'');
+    $('swNote').textContent=!cut?`${p.n} comes off the injured reserve and the player you pick goes on it. Nobody is released, and his lineup spot, if he has one, is cleared.`
+      :seasonLive()?'The released salary stays on your cap until the season ends. A two-year-or-longer deal cannot be re-signed by this club until the next offseason.'
+      :'The released salary comes off immediately and every remaining year is voided.'; };
+  $('swWho').onchange=sync;
+  sync();
   openModal('dlgSwap');
 }
 $('swGo').onclick=async e=>{
   if(!swapping) return;
   const {team,idx}=swapping;
-  const drop=parseInt($('swWho').value);
+  const pick=String($('swWho').value||'');
+  if(/^ir:/.test(pick)){ swapping=null; return irSwap(team,parseInt(pick.slice(3)),idx); }
+  const drop=parseInt(pick.replace(/^cut:/,''));
   const hurt=S.teams[team].r[idx], out=S.teams[team].r[drop];
   if(!hurt||!out||drop===idx){ swapping=null; return; }
   if(!confirm(`Release ${out.n} at ${money(salNow(out))} and activate ${hurt.n}?`)){
