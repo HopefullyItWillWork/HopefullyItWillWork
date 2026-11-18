@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.2">
+<meta name="ll-build" content="2026-11-18.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -973,6 +973,9 @@ th.rotot,td.rotot{position:sticky;right:0;background:var(--panel);border-left:2p
 thead th.rotot{z-index:3}
 tr.sel td.rotot{background:var(--sel)}
 .standtbl tr.sel td{background:var(--sel)}
+.clublink{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.clublink:hover{text-decoration:underline}
+.clublink:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 #raterTbl tr.mine td{background:var(--sel)}
 #raterTbl tr.mine td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 
@@ -13362,6 +13365,9 @@ const STANDBOX={
   me:{box:'meStand',per:'meStandPer',note:'meStandNote',mode:'meStandMode',tbl:'meStandTbl',sort:'mestand'},
   lg:{box:'lgStand',per:'lgStandPer',note:'lgStandNote',mode:'lgStandMode',tbl:'lgStandTbl',sort:'lgstand'}};
 function drawStandings(){ drawStandBox(STANDBOX.home); drawStandBox(STANDBOX.lg); }
+document.addEventListener('click',e=>{ const b=e.target&&e.target.closest&&e.target.closest('[data-clubgo]');
+  if(!b||!S||!S.teams||!S.teams[b.dataset.clubgo]) return;
+  activeTeam=b.dataset.clubgo; goTab('v-contracts'); render(); window.scrollTo(0,0); });
 function drawStandBox(B){
   const box=$(B.box); if(!box) return;
   const scored=Object.keys(SCORE.days||{}).sort(), cap=SCORE.cap||920, last=scored[scored.length-1];
@@ -13425,7 +13431,7 @@ function drawStandBox(B){
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
       <td class="l">${r.rank}${race&&race[r.club]&&race[r.club].rank!==race[r.club].rank0
         ?(race[r.club].rank<race[r.club].rank0?` <small class="up" title="Up from ${race[r.club].rank0} tonight">\u25B2${race[r.club].rank0-race[r.club].rank}</small>`
-          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}${htmlEsc(r.club)}${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}<button type="button" class="clublink" data-clubgo="${htmlEsc(r.club)}" title="Open ${htmlEsc(r.club)}">${htmlEsc(r.club)}</button>${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
       <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP}<span class="gpcap"> / ${cap}</span>`:r.tot.GP}</td>
       ${Object.keys(CK).map(c=>`<td>${val(r,c)}</td>`).join('')}
       <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
