@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.9">
+<meta name="ll-build" content="2026-11-18.10">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -11474,7 +11474,31 @@ function syncDynBox(){
   if(m0&&document.activeElement!==m0) m0.value=String(RDYN.minMp);
 }
 /* Why a player is listed but carries no rating. */
+/* The rater's pool: ratingPool() (so a rookie in a live window is in the field,
+   exactly as he is for PR everywhere else), with each such rookie under his ROSTER
+   spelling where a club holds him, so the club filter finds him (2026-11-18). */
+function raterTablePool(){
+  const pool=ratingPool();
+  if(!usingLive()) return pool;
+  const byN=new Map(pool.filter(p=>!RIDX[canon(p.n)]).map(p=>[p.n,p]));
+  TEAMS().forEach(t=>S.teams[t].r.forEach(x=>{
+    if(!contracted(x)||RIDX[canon(x.n)]) return;
+    const l=liveLine(x.n,PROJSRC), e=l&&byN.get(l.n);
+    if(e){ e.n=x.n; e.p=e.p||posShow(x.n); byN.delete(l.n); } }));
+  return pool;
+}
+/* Rostered players the scored table has no row for: no RATER row and no line in
+   the period. Stat-less rows, so they show as unrated rather than not at all. */
+function rosteredWithout(R){
+  const have=new Set(R.rows.concat(R.unrated).map(p=>canon(p.n))), out=[];
+  TEAMS().forEach(t=>S.teams[t].r.forEach(x=>{
+    if(!contracted(x)||have.has(canon(x.n))) return;
+    have.add(canon(x.n));
+    out.push({n:x.n,t:'',p:posShow(x.n),g:0,s:null,z:null,tot:null,rk:null}); }));
+  return out;
+}
 function unratedWhy(p,R){
+  if(!p.s) return 'no games on file';
   if((+p.g||0)<R.minG) return `under ${R.minG} games &#8212; not rated`;
   if(R.minMp!=null&&raterMin(p)==null) return 'no minutes on file &#8212; not rated';
   if(R.minMp!=null) return `under ${R.minMp} minutes a game &#8212; not rated`;
@@ -11550,9 +11574,11 @@ function drawRater(){
      against fifteen team-mates says a club's fourth-best guard is average, which
      is true of nothing. The dynamic rater's own filters DO define the field, and
      that difference is the entire reason it is a separate mode. */
-  const R=raterScore(raterPool(),raterOpts());
+  const R=raterScore(raterTablePool(),raterOpts());
   drawDynBox(R);
-  const all=R.rows.concat(R.unrated);
+  /* A rostered man with no line anywhere (a rookie yet to play, or a period with
+     no box scores for him) still belongs on his club's list (2026-11-18). */
+  const all=R.rows.concat(R.unrated, rosteredWithout(R));
   /* The club filter reads live state, not RATER's frozen `t`, and "free agents"
      means nobody has committed salary for next season. */
   const who=n=>!tf||(tf==='FA'?isFreeAgent(n):tf==='@mine'?heldBy(n)===meTeam()
