@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.11">
+<meta name="ll-build" content="2026-11-18.12">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -736,6 +736,7 @@ color:#fff;font:700 var(--t1)/17px var(--body);text-align:center;vertical-align:
 .chartlegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-family:var(--body);font-size:var(--t1)}
 .chartlegend span{display:flex;align-items:center;gap:5px;color:var(--steel);cursor:pointer}
 .chartlegend span.off{opacity:.32}
+.glog tr.dnp td{color:var(--dim)}
 .chart .chpick{cursor:pointer}
 .scroller #paceTbl{min-width:0;width:100%}
 #paceTbl td,#paceTbl th{white-space:nowrap}
@@ -7935,7 +7936,9 @@ async function glogLoad(name){
   if(hit&&Date.now()-hit.at<5*60*1000) return hit.games;
   if(!await probeAPI()) return null;
   try{
-    const r=await fetch('/api/score?log='+encodeURIComponent(id),{cache:'no-store'});
+    /* His NBA club, so a game he missed comes back as an empty row (2026-11-18). */
+    const tm=(typeof nbaTeamOf==='function'&&nbaTeamOf(name))||'';
+    const r=await fetch('/api/score?log='+encodeURIComponent(id)+(tm?'&team='+encodeURIComponent(tm):''),{cache:'no-store'});
     if(!r.ok) return null;
     const j=await r.json(); GLOG[id]={at:Date.now(),games:j.games||[]};
     return GLOG[id].games;
@@ -7948,6 +7951,8 @@ function glogHtml(games){
   const d=day=>{ const [,m,dd]=day.split('-'); return `${+m}/${+dd}`; };
   return `<h5>LAST 5 GAMES</h5><table><thead><tr><th>Date</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th>
     <th>STL</th><th>BLK</th><th>TO</th><th>FG</th><th>FT</th></tr></thead><tbody>${games.map(g=>{const s=g.s||{};
+    /* A night his club played without him: the row stays, empty (2026-11-18). */
+    if(g.dnp) return `<tr class="dnp" title="His club played; he did not"><td>${d(g.day)}</td><td>DNP</td>${'<td>\u2014</td>'.repeat(9)}</tr>`;
     return `<tr><td>${d(g.day)}</td><td>${Math.round(s.MP||0)}</td><td>${s.PTS||0}</td><td>${s.TRB||0}</td><td>${s.AST||0}</td>
       <td>${s.P3||0}</td><td>${s.STL||0}</td><td>${s.BLK||0}</td><td>${s.TOV||0}</td><td>${mk(s.FG,s.FGA)}</td><td>${mk(s.FT,s.FTA)}</td></tr>`;}).join('')}</tbody></table>`;
 }

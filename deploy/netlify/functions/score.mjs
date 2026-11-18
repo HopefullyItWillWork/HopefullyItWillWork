@@ -39,6 +39,7 @@ import { seasonStandings } from "./lib/score.mjs";
 import { daysByName, byClubName } from "./lib/clubs.mjs";
 import { ctxFor, migrateIds } from "./lib/clubids.mjs";
 import { runLive } from "./lib/live.mjs";
+import { lastGames } from "./lib/pstats.mjs";
 
 const H = { "content-type": "application/json", "cache-control": "no-store" };
 const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: H });
@@ -117,16 +118,9 @@ export default async (req) => {
       const all = Object.entries(plog.nights || {});
       const reg = all.filter(([, n]) => !n.pre);
       const nights = (reg.length ? reg : all).sort((a, b) => b[0].localeCompare(a[0]));
-      for (const k of keys) {
-        const games = [];
-        for (const [day, n] of nights) {
-          const x = n.p && n.p[k];
-          if (x) games.push({ day, t: x.t || "", s: x.s });
-          if (games.length >= 5) break;
-        }
-        if (games.length) return json({ ok: true, games });
-      }
-      return json({ ok: true, games: [] });
+      /* Games he missed come back too, as {dnp:true} (2026-11-18): lastGames(). */
+      const team = String(url.searchParams.get("team") || "").replace(/[^A-Za-z]/g, "").slice(0, 5);
+      return json({ ok: true, games: lastGames(nights, keys, team) });
     }
     /* Tonight, live (lib/live.mjs): provisional, kept apart from the season. */
     if (url.searchParams.get("live")) {
