@@ -508,6 +508,15 @@ commissioner viewing a club.
 Home's Place cards read the standings with tonight so far added (the live line's
 and the Standings table's numbers), tagged live, with where the night started.
 
+### Around the league: one line per move (2026-11-18)
+
+Home's feed runs the moves through `feedMoves()` (pure): a "X released — $1.00 —
+to sign Y" and Y's signing are one line ("Signed Y, $1.00 × 1 yr (Early Bird);
+released X"), a bare release of the same man by the same club within ten minutes
+of one of those is dropped (the sheet's two spellings of Poeltl logged him twice),
+and the club is shown under its name today (`renamedTo()`). The log and the
+Transactions page are unchanged.
+
 ### Weekly awards (2026-11-16)
 
 Home, under the tape (`#homeAwards`, `drawAwards()`, pure `weeklyAwards(days,
