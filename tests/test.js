@@ -4717,6 +4717,29 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.teams[T].r=keep; document.getElementById('rTeam').value='';
   }
 
+  console.log('\n== games missed ==');
+  {
+    const L=g('LIVE'), CS=g('S'), keep=L.szn, T=g('TEAMS')()[0];
+    const nm=CS.teams[T].r.find(g('contracted')).n, team=g('nbaTeamOf')(nm)||'DEN';
+    const k=g('nameKey')(nm);
+    L.szn={day:g('dayKey')(),asOf:'2026-11-17',players:{[k]:{n:nm,t:team,g:10,s:{}}},teams:{[team]:14},miss:{[k]:{m:4,o:3}}};
+    let x=g('missedOf')(nm,'szn');
+    ok('missed games read from the window', x&&x.m===4&&x.o===3&&x.tg===14&&x.g===10, JSON.stringify(x));
+    L.szn.miss={};
+    x=g('missedOf')(nm,'szn');
+    ok('no entry: his club’s games less his own', x&&x.m===4&&x.o===0, JSON.stringify(x));
+    ok('the card line says it', /4 of .*14 this season/.test(g('missLineHtml')(nm)), g('missLineHtml')(nm));
+    const byClub=g('missedByClub')().find(r=>r.t===T);
+    ok('the club table counts him', byClub&&byClub.m>=4&&byClub.who.some(w=>w.n===nm), JSON.stringify(byClub&&byClub.who.slice(0,2)));
+    L.szn.players={};
+    x=g('missedOf')(nm,'szn');
+    ok('no line at all: his club\u2019s games only if ESPN has him on a roster now',
+      g('espnTeamOf')(nm)?(x&&x.m===14):x===null, JSON.stringify(x));
+    L.szn={...L.szn,teams:null};
+    ok('no counts yet: nothing claimed', g('missedOf')(nm,'szn')===null);
+    if(keep) L.szn=keep; else delete L.szn;
+  }
+
   console.log('\n== rights do not follow a free agent to a new club ==');
   {
     const CS=g('S'), [A,B]=g('TEAMS')(), cur=g('curSeason')(), keepPh=CS.cfg.phase, keepCap=CS.cfg.cap;

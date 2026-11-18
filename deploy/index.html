@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.13">
+<meta name="ll-build" content="2026-11-18.14">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -737,6 +737,11 @@ color:#fff;font:700 var(--t1)/17px var(--body);text-align:center;vertical-align:
 .chartlegend span{display:flex;align-items:center;gap:5px;color:var(--steel);cursor:pointer}
 .chartlegend span.off{opacity:.32}
 .glog tr.dnp td{color:var(--dim)}
+.glog td.dnpwhy{text-align:left;font-family:var(--body)}
+#raterTbl td.miss small{display:block;color:var(--dim);font-size:var(--t1);white-space:nowrap}
+#raterTbl td.miss.none{color:var(--dim)}
+#lgMissTbl{min-width:0}
+#lgMissTbl tr.mine td{background:var(--sel)}
 .chart .chpick{cursor:pointer}
 .scroller #paceTbl{min-width:0;width:100%}
 #paceTbl td,#paceTbl th{white-space:nowrap}
@@ -1514,6 +1519,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <select id="lgStandPer" aria-label="Period" style="width:auto" hidden></select>
       <span class="fcount" id="lgStandNote"></span></div>
     <div id="lgStand"></div>
+    <div id="lgMissed"></div>
   </div>
   <div class="subview" id="v-contracts" data-subview hidden>
     <h2>Payroll &#8212; committed salary</h2>
@@ -1884,6 +1890,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <thead><tr>
         <th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
         <th class="hide2" data-k="g">G</th>
+        <th data-k="miss" title="Games his NBA club played without him, in the stats period (Season under 2025–26 or Projection). Under it: his club’s games, and how many he missed while on ESPN’s injury report.">Missed</th>
         <th data-k="FG">FG%</th><th data-k="FT">FT%</th><th data-k="P3">3P</th><th data-k="REB">REB</th>
         <th data-k="AST">AST</th><th data-k="STL">STL</th><th data-k="BLK">BLK</th><th data-k="TO">TO</th>
         <th data-k="PTS">PTS</th><th data-k="tot" title="Player rating">PR</th>
@@ -5235,7 +5242,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();
+  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();drawMissed();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -7016,6 +7023,49 @@ async function loadWaivers(force){
   try{ const r=await fetch('/api/waivers',{cache:'no-store'}); if(r.ok){ WVSTATE=await r.json(); WVAT=Date.now(); } }catch(e){}
   return WVSTATE;
 }
+/* League › Standings: games lost to absences (2026-11-18). Each club's roster
+   today — contracted men, the IR included — and how many of their NBA clubs'
+   games this season they have missed (missedOf(), 'szn'), how many of those
+   while on ESPN's injury report, and who missed the most. A man is counted for
+   the club he is on now, wherever he was when he missed them. Facts only. */
+function missedByClub(){
+  const out=[];
+  for(const t of TEAMS()){
+    const r=((S.teams[t]&&S.teams[t].r)||[]).filter(contracted);
+    let m=0,o=0; const who=[];
+    for(const p of r){ const x=missedOf(p.n,'szn'); if(!x) continue; m+=x.m; o+=x.o; if(x.m) who.push({n:p.n,m:x.m}); }
+    who.sort((a,b)=>b.m-a.m||a.n.localeCompare(b.n));
+    out.push({t,m,o,k:who.length,who});
+  }
+  return out;
+}
+function drawMissed(){
+  const box=$('lgMissed'); if(!box||offscreen('lgMissed')) return;
+  if(!missReady('szn')){ box.innerHTML=''; return; }
+  const rows=missedByClub();
+  const S0=SORTS.lgmiss||{col:'m',desc:true};
+  const v=(r,c)=>c==='t'?r.t:r[c];
+  rows.sort((a,b)=>cmp(v(a,S0.col),v(b,S0.col),S0.desc));
+  const myT=me&&!isComm()?me:null;
+  /* The injury log is new: until it has listed anyone, a column of zeros would
+     read as "none of it was injury". */
+  const logged=rows.some(r=>r.o>0), oc=r=>logged?r.o:'&#8212;';
+  const html=`<h2 style="margin-top:28px">Games missed</h2>
+    <p class="note explain">Games each club’s players have missed this season: nights their NBA club played without them,
+      counted for the club they are on today. “On the report” is how many of those ESPN’s injury report listed
+      them — the report has only been saved since Nov 18, so earlier misses have no reason on file.</p>
+    <div class="scroller"><table id="lgMissTbl"><thead><tr><th class="l" data-k="t">Club</th><th data-k="m">Games missed</th>
+      <th data-k="o">On the report</th><th data-k="k">Players</th><th class="l">Most missed</th></tr></thead><tbody>${rows.map(r=>
+      `<tr${r.t===myT?' class="mine"':''}><td class="l">${clubBadge(r.t)} ${htmlEsc(r.t)}</td><td class="mono"><b>${r.m}</b></td>
+        <td class="mono">${oc(r)}</td><td class="mono">${r.k}</td><td class="l" data-nopos>${r.who.slice(0,3).map(w=>
+          `<span class="pname" data-player="${htmlEsc(w.n)}">${htmlEsc(w.n)}</span> <span class="mono" style="color:var(--dim)">${w.m}</span>`).join(', ')||'&#8212;'}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="note"><button type="button" class="linkbtn" id="lgMissAll">Every player, most games missed first →</button></p>`;
+  if(box.dataset.sig!==html){ box.innerHTML=html; box.dataset.sig=html; }
+  sortable('lgMissTbl','lgmiss','m',true);
+  const b=$('lgMissAll'); if(b) b.onclick=()=>{ SORTS.rater={col:'miss',desc:true}; goTab('v-rater'); };
+}
+redraw.lgmiss=drawMissed;
 function drawWaivers(){
   const box=$('wvBody'); if(!box||offscreen('wvBody')) return;
   if(!WVSTATE||Date.now()-WVAT>60000) loadWaivers().then(()=>{ if(WVSTATE) drawWaivers(); });
@@ -7359,7 +7409,7 @@ async function loadLive(w){
   if(!await probeAPI()) return LIVE[w]||null;
   try{
     const r=await fetch(`/api/score?stats=${w}`,{cache:'no-store'});
-    if(r.ok){ const j=await r.json(); LIVE[w]={day:dayKey(),asOf:j.asOf,pre:!!j.pre,players:j.players||{}}; }
+    if(r.ok){ const j=await r.json(); LIVE[w]={day:dayKey(),asOf:j.asOf,pre:!!j.pre,players:j.players||{},teams:j.teams||null,miss:j.miss||null}; }
   }catch(e){}
   return LIVE[w]||null;
 }
@@ -7367,9 +7417,60 @@ async function loadLive(w){
    espnTeamOf(): the commissioner's ESPN map, ESPNNAME, then the name itself. */
 function liveLine(name,w){
   const L=LIVE[w]; if(!L) return null;
-  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{}, P=L.players;
+  return liveIn(L.players,name);
+}
+function liveIn(P,name){
+  if(!P) return null;
+  const c=canon(name), mine=(S.cfg&&S.cfg.espn)||{};
   const e=mine[name]||mine[c]||ESPNNAME[name]||ESPNNAME[c];
   return (e&&P[nameKey(e)])||P[nameKey(name)]||P[nameKey(c)]||null;
+}
+/* ---- games missed (2026-11-18) ----
+   lib/pstats.mjs counts, per window, the nights each NBA club played (`teams`)
+   and, per player, the nights his club played without him (`miss[k].m`) and how
+   many of those ESPN's injury report listed him (`.o`, from the injury log, which
+   started 2026-11-18). Facts only: a missed game is a missed game, whatever the
+   reason, and the report is the only reason on file. Season ('szn') unless the
+   stats period is itself a live window. */
+const missWin=()=>usingLive()?PROJSRC:'szn';
+let MISSLOADING=false;
+function missReady(w){
+  if(LIVE[w]&&LIVE[w].teams) return true;
+  if(!LIVE[w]&&!MISSLOADING){ MISSLOADING=true; loadLive(w).then(()=>{ MISSLOADING=false; if(LIVE[w]) render(); }); }
+  return false;
+}
+function missedOf(name,w){
+  w=w||missWin();
+  const L=LIVE[w]; if(!L||!L.teams) return null;
+  /* No line this season: only a man on a current ESPN roster is charged with his
+     club's games. NBATM is last season's table, and a retired or unsigned man
+     on it would otherwise be "missing" every game of a club he left. */
+  const line=liveIn(L.players,name), t=(line&&line.t)||espnTeamOf(name);
+  if(!t) return null;
+  const tg=L.teams[t]||0, x=liveIn(L.miss,name);
+  const m=x?x.m:Math.max(0,tg-(line?line.g:0));
+  return {m, o:x?x.o||0:0, tg, g:line?line.g:0, t};
+}
+function missCell(name){
+  const x=missReady(missWin())?missedOf(name):null;
+  if(!x) return '<td class="miss">&#8212;</td>';
+  const tip=`Missed ${x.m} of ${x.t}’s ${x.tg} games${x.o?` · ${x.o} while on ESPN’s injury report`:''}`;
+  return `<td class="miss${x.m?'':' none'}" title="${htmlEsc(tip)}">${x.m}<small>of ${x.tg}${x.o?' · '+x.o+' inj':''}</small></td>`;
+}
+/* The player card's line: the season, whatever the stats period. */
+function missLineHtml(name){
+  const x=missedOf(name,'szn');
+  if(!x) return '';
+  if(!x.tg) return '';
+  return `<div class="okbox injline missline"><b>Games missed:</b> ${x.m?`${x.m} of ${htmlEsc(x.t)}’s ${x.tg} this season`
+    :`none — he has played all ${x.tg} of ${htmlEsc(x.t)}’s games`}${x.o?` · ${x.o} while on ESPN’s injury report`:''}</div>`;
+}
+function missLineFill(root){
+  root.querySelectorAll('[data-missline]').forEach(el=>{
+    const n=el.dataset.missline;
+    const put=()=>{ if(el.isConnected) el.innerHTML=missLineHtml(n); };
+    if(LIVE.szn&&LIVE.szn.teams) put(); else loadLive('szn').then(put);
+  });
 }
 /* The games floor for a rating: RMING (15) on a full season of numbers, but a
    7-day window has three or four games at most, so a live window uses 30% of the
@@ -7863,7 +7964,7 @@ function openPlayerCard(name){
   const wb=isFreeAgent(name)||isWatched(name)?watchBtn(name):'';
   const sc=signCell(name);
   box.innerHTML=headshot(name,'lg')+(wb||sc?`<div class="watchrow">${wb}${wb?`<span>${isWatched(name)?'On your watch list':'Watch this free agent'}</span>`:''}${sc?`<span class="cardsign">${sc}</span>`:''}</div>`:'')
-    +injLine(name)+playerCard(name);
+    +injLine(name)+`<div data-missline="${htmlEsc(name)}"></div>`+playerCard(name);
   wirePlayerCard(box);
   openModal('dlgPlayer');
 }
@@ -7966,7 +8067,8 @@ function glogHtml(games){
   return `<h5>LAST 5 GAMES</h5><table><thead><tr><th>Date</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th>
     <th>STL</th><th>BLK</th><th>TO</th><th>FG</th><th>FT</th></tr></thead><tbody>${games.map(g=>{const s=g.s||{};
     /* A night his club played without him: the row stays, empty (2026-11-18). */
-    if(g.dnp) return `<tr class="dnp" title="His club played; he did not"><td>${d(g.day)}</td><td>DNP</td>${'<td>\u2014</td>'.repeat(9)}</tr>`;
+    if(g.dnp) return `<tr class="dnp" title="His club played; he did not${g.why?` \u00b7 ESPN listed him ${htmlEsc(g.why)}`:''}"><td>${d(g.day)}</td><td>DNP</td>${
+      g.why?`<td colspan="9" class="dnpwhy">ESPN injury report: ${htmlEsc(g.why)}</td>`:'<td>\u2014</td>'.repeat(9)}</tr>`;
     return `<tr><td>${d(g.day)}</td><td>${Math.round(s.MP||0)}</td><td>${s.PTS||0}</td><td>${s.TRB||0}</td><td>${s.AST||0}</td>
       <td>${s.P3||0}</td><td>${s.STL||0}</td><td>${s.BLK||0}</td><td>${s.TOV||0}</td><td>${mk(s.FG,s.FGA)}</td><td>${mk(s.FT,s.FTA)}</td></tr>`;}).join('')}</tbody></table>`;
 }
@@ -7977,7 +8079,7 @@ function glogFill(root){
   });
 }
 function wirePlayerCard(root){
-  glogFill(root);
+  glogFill(root); missLineFill(root);
   root.querySelectorAll('[data-editproj]').forEach(b=>b.onclick=()=>openProj(b.dataset.editproj));
   root.querySelectorAll('[data-clrproj]').forEach(b=>b.onclick=async()=>{
     delete PROJ[b.dataset.clrproj]; await saveProj(); render();});
@@ -11609,7 +11711,8 @@ function drawRater(){
   let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))&&who(p.n)
     &&(!pf||(p.p||'').includes(pf)));
   const S0=SORTS.rater||{col:'tot',desc:true};
-  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='tot'?p.tot:(p.z?p.z[c]:null);
+  const mval=n=>{ const x=missedOf(n); return x?x.m:null; };
+  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='miss'?mval(p.n):c==='tot'?p.tot:(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   const H2=$('raterH2');
   if(H2) H2.textContent='Players \u2014 '+projSrcLabel();
@@ -11628,10 +11731,10 @@ function drawRater(){
   $('raterBody').innerHTML=rows.map(p=>{
     const oc=raterClub(p.n), tr=myT&&heldBy(p.n)===myT?'<tr class="mine">':'<tr>';
     if(!p.z) return `${tr}<td class="l">&#8212;</td><td class="pname" data-player="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
-      <td class="hide2">${p.g}</td>${stats&&p.s?RCATS.map(c=>rawCell(p,c,basis,'')).join('')
+      <td class="hide2">${p.g}</td>${missCell(p.n)}${stats&&p.s?RCATS.map(c=>rawCell(p,c,basis,'')).join('')
         :`<td colspan="${span}" class="unrated" style="text-align:center">${unratedWhy(p,R)}</td>`}
       <td class="unrated">&#8212;</td>${actCell(p.n)}</tr>`;
-    return `${tr}<td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>
+    return `${tr}<td class="l">${p.rk}</td><td class="pname" data-player="${p.n}">${p.n}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>${missCell(p.n)}
       ${RCATS.map(c=>{
         /* A category the GM has switched off keeps its column — the row would
            otherwise change width under him — but shows the number with no
