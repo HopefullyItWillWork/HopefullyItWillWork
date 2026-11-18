@@ -517,6 +517,15 @@ rookie under his roster spelling so the club filter finds him) and appends
 `rosteredWithout(R)`: any rostered man with no line in the period, as an unrated
 "no games on file" row. On Season, 61 players not in last season's table now show.
 
+### The player card counts missed games (2026-11-18)
+
+"Last 5 games" is his NBA club's last five games, not his: `lastGames()` in
+`lib/pstats.mjs` (pure, `tests/pstats.test.js`) walks `plog` newest first and returns
+`{day, t, dnp:true}` for a night his club played without him (a night counts as his
+club's when anyone on it carries that club). His club is the one on his newest line,
+else the `team` the page sends (`nbaTeamOf()`), so a man out all season still shows
+his club's games. The card draws a DNP row of dashes.
+
 ### Around the league: one line per move (2026-11-18)
 
 Home's feed runs the moves through `feedMoves()` (pure): a "X released — $1.00 —
