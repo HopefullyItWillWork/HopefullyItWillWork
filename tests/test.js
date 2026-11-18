@@ -4689,6 +4689,23 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     ctx.__X.SCORE.days=keepD;
   }
 
+  console.log('\n== Around the league: one line per move ==');
+  {
+    const T=g('TEAMS')()[0], E=(ts,kind,detail)=>({ts,kind,team:T,detail});
+    const moves=[
+      E('2026-11-17T18:11:39.721Z','sign','Saddiq Bey \u2014 $1.00 \u00d7 1 yr (in-season, Early Bird)'),
+      E('2026-11-17T18:11:39.289Z','cut','Kris Dunn released \u2014 $1.00 \u2014 to sign Saddiq Bey'),
+      E('2026-11-17T18:10:29.797Z','sign','Jalen Smith \u2014 $1.00 \u00d7 1 yr (in-season, Early Bird)'),
+      E('2026-11-17T18:10:29.456Z','cut','Jakob Poeltl released \u2014 $1.00 \u2014 to sign Jalen Smith'),
+      E('2026-11-17T18:08:35.642Z','cut','Jakob Poetl released \u2014 $1.00'),
+      E('2026-11-14T14:55:26.567Z','cut','Anthony Black released \u2014 $1.00')];
+    const F=g('feedMoves')(moves);
+    ok('five entries are two moves, plus an unrelated release', F.length===3, JSON.stringify(F.map(f=>f.html)));
+    ok('a signing and its release read as one line', /^Signed Saddiq Bey, \$1\.00 \u00d7 1 yr \(Early Bird\); released Kris Dunn$/.test(F[0].html), F[0].html);
+    ok('the same release logged twice under two spellings is told once', !F.some(f=>/Poetl released/.test(f.html)));
+    ok('a release with no signing beside it stands alone', /Anthony Black released/.test(F[2].html));
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

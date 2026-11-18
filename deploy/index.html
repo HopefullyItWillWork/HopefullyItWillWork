@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.8">
+<meta name="ll-build" content="2026-11-18.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -11756,6 +11756,36 @@ function drawAwards(){
       <span class="awc">${clubBadge(x.club)}${htmlEsc(x.club)}</span><span class="awt">${htmlEsc(x.txt)}</span></li>`).join('')}</ul></section>`;
   if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
 }
+/* One line per roster move for Home's feed (2026-11-18). A signing onto a full
+   roster logs two entries — "X released — $1.00 — to sign Y" and "Y — $1.00 ×
+   1 yr (…)" — and they read as one: "Signed Y, $1.00 × 1 yr (Early Bird);
+   released X". A bare release of the same man by the same club within ten
+   minutes of one of those is the same release logged twice (the sheet's two
+   spellings of Poeltl did it) and is dropped. The club is shown under its name
+   today; the log itself keeps the old one. Pure on the moves, newest first. */
+function feedMoves(moves){
+  const RE=/^(.+?) released \u2014 (\$[\d.,]+) \u2014 to sign (.+)$/, SG=/^(.+?) \u2014 (.+)$/;
+  const near=(a,b)=>Math.abs(Date.parse(a.ts)-Date.parse(b.ts))<=10*60e3;
+  const now=t=>S.teams&&S.teams[t]?t:(renamedTo(t)||t);
+  /* Pass one: each "released X to sign Y" with Y's signing. */
+  const pairOf={}, signUsed=new Set(), paired=[];
+  moves.forEach((e,i)=>{ const m=e.kind==='cut'&&RE.exec(e.detail||''); if(!m) return;
+    const j=moves.findIndex((x,k)=>!signUsed.has(k)&&x.kind==='sign'&&x.team===e.team&&near(x,e)&&canon((SG.exec(x.detail||'')||[])[1]||'')===canon(m[3]));
+    if(j<0) return;
+    signUsed.add(j); pairOf[i]=j; paired.push({team:e.team,n:canon(m[1]),ts:e.ts}); });
+  /* Pass two: one line each, in log order; a bare release already told by a pair is dropped. */
+  const out=[];
+  moves.forEach((e,i)=>{
+    if(signUsed.has(i)) return;
+    if(pairOf[i]!=null){ const m=RE.exec(e.detail), sg=SG.exec(moves[pairOf[i]].detail), terms=sg[2].replace(/\((?:in-season, )?/,'(');
+      out.push({team:now(e.team),ts:moves[pairOf[i]].ts,html:`Signed ${htmlEsc(sg[1])}, ${htmlEsc(terms)}; released ${htmlEsc(m[1])}`}); return; }
+    if(e.kind==='cut'&&!/ to sign | to activate /.test(e.detail||'')){
+      const who=canon(String(e.detail||'').split(' released')[0]);
+      if(paired.some(p=>p.team===e.team&&p.n===who&&near(p,e))) return; }
+    out.push({team:now(e.team),ts:e.ts,html:htmlEsc(e.detail||'')});
+  });
+  return out;
+}
 function drawHome(){
   if(!$('homeSnap')) return;
   drawAwards();
@@ -11812,10 +11842,11 @@ function drawHome(){
   }
   $('homeOff').innerHTML=off;
 
-  /* Around the league: the latest roster moves, newest first. */
-  const mv=rosterMoves(S.log||[]).slice(0,6);
+  /* Around the league: the latest roster moves, newest first, one line per move
+     (feedMoves: a signing and the release that made room for it are one move). */
+  const mv=feedMoves(rosterMoves(S.log||[]).slice(0,30)).slice(0,6);
   $('homeFeed').innerHTML=`<div id="homeLive"></div>`+(mv.length?`<div class="hfeed">${mv.map(e=>`<div>${clubBadge(e.team)}
-      <b>${htmlEsc(e.team||'')}</b> ${htmlEsc(e.detail||'')}<span class="ago">${htmlEsc(agoText(e.ts))}</span></div>`).join('')}</div>`
+      <b>${htmlEsc(e.team||'')}</b> ${e.html}<span class="ago">${htmlEsc(agoText(e.ts))}</span></div>`).join('')}</div>`
       :'<div class="empty">Quiet so far. The first trade of the season gets top billing here.</div>')
     +`<div class="hfoot"><button class="btn ghost" data-go="v-log">All transactions</button>
       <button class="btn ghost" data-go="v-chat">Chat${CHATNEW?` \u00b7 ${CHATNEW} new`:''}</button></div>`;
