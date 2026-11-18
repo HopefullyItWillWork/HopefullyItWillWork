@@ -4717,6 +4717,24 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     CS.teams[T].r=keep; document.getElementById('rTeam').value='';
   }
 
+  console.log('\n== rights do not follow a free agent to a new club ==');
+  {
+    const CS=g('S'), [A,B]=g('TEAMS')(), cur=g('curSeason')(), keepPh=CS.cfg.phase, keepCap=CS.cfg.cap;
+    CS.cfg.phase='offseason'; CS.cfg.cap=999;
+    const keepA=CS.teams[A].r.slice(), keepB=CS.teams[B].r.slice();
+    // an expiring man on A with Early Bird
+    CS.teams[A].r.push({n:'Zz Rights Test',p:'G',y:{},o:'',b:'Early',acq:2025,cut:false});
+    await g('signPlayer')('Zz Rights Test', B, 4.50, 1, {force:true});
+    const p=CS.teams[B].r.find(x=>x.n==='Zz Rights Test');
+    ok('won by another club, he arrives with no rights', p && p.b==='' && p.acq===g('leagueYear')(), JSON.stringify(p));
+    CS.teams[B].r=keepB;
+    CS.teams[A].r.push({n:'Zz Rights Test 2',p:'G',y:{},o:'',b:'Early',acq:2025,cut:false});
+    await g('signPlayer')('Zz Rights Test 2', A, 4.50, 1, {force:true});
+    const q=CS.teams[A].r.find(x=>x.n==='Zz Rights Test 2');
+    ok('re-signed by his own club, he keeps them', q && q.b==='Early' && q.acq===2025, JSON.stringify(q));
+    CS.teams[A].r=keepA; CS.cfg.phase=keepPh; CS.cfg.cap=keepCap;
+  }
+
   console.log('\n== no stray alerts ==');
   ok('nothing alerted', ctx.__alerts.length===0, JSON.stringify(ctx.__alerts));
 

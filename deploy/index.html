@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.10">
+<meta name="ll-build" content="2026-11-18.11">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -3444,7 +3444,11 @@ async function signPlayer(name,team,price,years,opts){
          The league year, not the wall clock — a signing made in January 2027
          belongs to the 2026-27 season. */
       p.y=y;p.o='';delete p.on;delete p.auc;p.acq=p.acq&&t===team?p.acq:leagueYear();
-      if(t!==team) unlist(p);
+      /* Rights travel in a trade, never with a free agent (2026-11-18): a man won
+         at auction from another club arrived carrying that club's "Early" or "Yes",
+         and Early Bird is read straight off the label. Re-signed by his own club,
+         he keeps it. */
+      if(t!==team){ unlist(p); p.b=''; }
       S.teams[team].r.push(p);moved=true;break;}
   }
   if(!moved) S.teams[team].r.push({n:name,p:'',y,o:'',b:'',acq:leagueYear(),cut:false});
@@ -12947,8 +12951,8 @@ function bannersHtml(t){
   const ts=titlesOf(managerOf(t)); if(!ts.length) return poop;
   /* A button: it opens the trophy room. Only a club with a title has pennants, so
      nobody is reminded of what they have not won (2026-11-16: no trophies in Standings). */
-  /* One manager's pennants read "Chamfs" (2026-11-18, a brother's easter egg). The
-     hover text and the trophy room still say champions; only the block letters slip. */
+  /* One manager's pennants read "Chamfs" and his rafters "Chamfions" (2026-11-18, a
+     brother's easter egg). The hover text still says champions; only the block letters slip. */
   const word=managerOf(t)==='Nathan Daman'?'Chamfs':'Champs';
   return `<button type="button" class="pennants" data-trophies="${htmlEsc(t)}" aria-label="${ts.length} championship${ts.length===1?'':'s'}: ${ts.map(x=>shortSeason(x.season)).join(', ')}. Open the trophy room">${
     ts.map(x=>`<span class="pennant" title="${htmlEsc(shortSeason(x.season))} champions \u00b7 ${htmlEsc(x.team)} (${htmlEsc(managerOf(t))})"><b>${htmlEsc(shortSeason(x.season))}</b><small>${word}</small></span>`).join('')}</button>`+poop;
@@ -12968,7 +12972,7 @@ function openTrophies(t){
   d.innerHTML=`<button type="button" class="act" data-tclose aria-label="Close" style="float:right">\u2715</button>
     <h2 style="margin-top:0">${htmlEsc(gm)}</h2><p class="note">${ts.length} championship${ts.length===1?'':'s'}, hanging in the rafters.</p>
     <div class="rafters">${ts.map(x=>{ const r=(HIST[x.season]||[]).find(z=>z.rk===1&&z.gm===gm)||{};
-      return `<div class="rafter"><b>${htmlEsc(shortSeason(x.season))}</b><small>Champions</small><span class="rteam">${htmlEsc(x.team)}</span><span class="rpts">${r.tot!=null?r.tot+' pts':''}</span></div>`; }).join('')}</div>`;
+      return `<div class="rafter"><b>${htmlEsc(shortSeason(x.season))}</b><small>${gm==='Nathan Daman'?'Chamfions':'Champions'}</small><span class="rteam">${htmlEsc(x.team)}</span><span class="rpts">${r.tot!=null?r.tot+' pts':''}</span></div>`; }).join('')}</div>`;
   d.hidden=false;
   d.querySelector('[data-tclose]').onclick=()=>{ d.hidden=true; };
 }
