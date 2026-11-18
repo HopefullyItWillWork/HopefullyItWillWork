@@ -125,6 +125,14 @@ stylesheet: striped and hardwood bands on the masthead, bevelled arcade tabs
 and buttons, hard black shadows on cards. Mockup:
 claude.ai/artifact/6tT3QbD4Sd6XrNLMMEDir1.
 
+**Arcade headshots** (2026-11-18): under Jam, every `.hs` gets `filter:url(#jamhs)`,
+an SVG filter defined once at the top of `<body>`: saturation 1.6, then each channel
+cut to four flat bands. Jam's 2px black ring is the outline (an outline filter only
+traced the circle, since the headshot sits on a solid background). A browser filter
+on the same ESPN image; nothing stored. Measured over the 647-row Players list: no
+difference in frame time. Mockups (A arcade, B sprite, C comic) were in the
+2026-11-18 session; A was chosen.
+
 **The arcade fonts stay off the tables.** Bungee (`--arcade`) is on headings
 and the brand, Press Start 2P (`--pixel`) on tabs and the small labels, VT323
 (`--led`) on scoreboard figures (Home's cards, the tape). Body text is Chakra
