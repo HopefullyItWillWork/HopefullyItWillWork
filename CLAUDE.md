@@ -534,6 +534,24 @@ club's when anyone on it carries that club). His club is the one on his newest l
 else the `team` the page sends (`nbaTeamOf()`), so a man out all season still shows
 his club's games. The card draws a DNP row of dashes.
 
+### Games missed and the injury log (2026-11-18)
+
+- **Counted from the box scores**: `windowsFrom(plog, injlog)` in `lib/pstats.mjs`
+  adds, per window, `teams` (nights each NBA club played; a night is a club's when
+  anyone on it carries that club) and `miss[k] = {m, o}` (nights his club played
+  without him, and how many of those ESPN's report listed him). His club is the one
+  on his newest line, else the injury log's. `GET /api/score?stats=<w>` returns both
+  (null until the first rebuild after this shipped).
+- **The injury log** (`lib/injlog.mjs`, pure): every `nbaplayers` refresh folds the
+  report into the `injlog` blob under the league night (4 AM roll), merging within
+  a night. It started 2026-11-18, so earlier misses have no reason on file.
+- Page: `missedOf(name, w)` (a man with no line this season is charged only if a
+  current ESPN roster has him — `NBATM` is last season's), a **Missed** column on
+  the Players list (the stats period, Season under 2025–26/Projection; sortable),
+  **League › Standings › Games missed** (`drawMissed()`, `missedByClub()`: each
+  club's roster today), the player card's "Games missed" line (`missLineHtml()`)
+  and the DNP rows carry the report when the log has it (`lastGames(…, injlog)`).
+
 ### Around the league: one line per move (2026-11-18)
 
 Home's feed runs the moves through `feedMoves()` (pure): a "X released — $1.00 —

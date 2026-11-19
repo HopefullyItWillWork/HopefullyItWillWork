@@ -179,7 +179,7 @@ export async function runPstats(s, { now = Date.now, days = [] } = {}) {
   }
   await writeKey(s, "plog-" + season.key, prevLog, plog);
   const prevStats = await readKey(s, "pstats-" + season.key);
-  const w = windowsFrom(plog);
+  const w = windowsFrom(plog, (await readKey(s, "injlog")).data);
   const lastRun = { at: new Date().toISOString(), done, left, errors, ms: now() - start };
   await writeKey(s, "pstats-" + season.key, prevStats, { ...w, lastRun });
   return lastRun;

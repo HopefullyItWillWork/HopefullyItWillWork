@@ -10,7 +10,9 @@
    POST /api/score?run=1&pre=1     -> rescore the tournament now
    GET  /api/score?ids=1           -> what every stored club name resolves to (dry run)
    POST /api/score?ids=1           -> file the stored history under club ids now
-   GET  /api/score?stats=d15       -> one rolling window, per game: { asOf, pre, w, players:{<nameKey>:{n,t,g,s}} }
+   GET  /api/score?stats=d15       -> one rolling window, per game: { asOf, pre, w, players:{<nameKey>:{n,t,g,s}},
+                                      teams:{<NBA code>:nights}, miss:{<nameKey>:{m,o}} } (games missed, and how
+                                      many while on ESPN's injury report; null before the first rebuild)
                                       (d7, d15, d30 or szn; lib/pstats.mjs)
    POST /api/score?run=1&stats=1   -> rebuild the rolling stats now
    GET  /api/score?diag=1&club=<name>&day=<date>
@@ -120,7 +122,8 @@ export default async (req) => {
       const nights = (reg.length ? reg : all).sort((a, b) => b[0].localeCompare(a[0]));
       /* Games he missed come back too, as {dnp:true} (2026-11-18): lastGames(). */
       const team = String(url.searchParams.get("team") || "").replace(/[^A-Za-z]/g, "").slice(0, 5);
-      return json({ ok: true, games: lastGames(nights, keys, team) });
+      const injlog = (await read(s, "injlog")).data;
+      return json({ ok: true, games: lastGames(nights, keys, team, 5, injlog) });
     }
     /* Tonight, live (lib/live.mjs): provisional, kept apart from the season. */
     if (url.searchParams.get("live")) {
@@ -141,7 +144,9 @@ export default async (req) => {
       const w = String(url.searchParams.get("stats"));
       const all = (await read(s, "pstats-" + season.key)).data || {};
       return json({ asOf: all.asOf || null, pre: !!all.pre, w,
-        players: (all.windows && all.windows[w]) || {}, lastRun: all.lastRun || null });
+        players: (all.windows && all.windows[w]) || {},
+        teams: (all.teams && all.teams[w]) || null, miss: (all.miss && all.miss[w]) || null,
+        lastRun: all.lastRun || null });
     }
     if (req.method === "POST" && url.searchParams.get("run") && url.searchParams.get("stats")) {
       return json({ ok: true, run: await runPstats(s) });

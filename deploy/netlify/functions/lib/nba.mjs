@@ -15,6 +15,8 @@
    `t` is ESPN's code (GS, NY, SA, UTAH, WSH, NO) — the same codes the tip-off
    feed uses, so a player's club and tonight's schedule always agree. */
 
+import { injNight, noteInjuries } from "./injlog.mjs";
+
 export const TEAMS = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
 
 /* A name reduced to letters only, accents and suffixes gone: "V. J. Edgecombe"
@@ -202,6 +204,12 @@ export async function freshPlayers(s, maxAge) {
       }
     }
     await s.set("nbaplayers", JSON.stringify(got));
+    /* The injury log (lib/injlog.mjs): never lets a failure reach the caller. */
+    try {
+      const raw = await s.get("injlog");
+      const night = injNight(process.env.LEAGUE_TZ || "America/New_York");
+      await s.set("injlog", JSON.stringify(noteInjuries(raw ? JSON.parse(raw) : null, got.players, night, nameKey)));
+    } catch { /* the log is a bonus */ }
     return { ...got, cached: false };
   } catch (e) {
     if (have) return { ...have, cached: true, stale: true, error: String((e && e.message) || e) };
