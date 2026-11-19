@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-18.13">
+<meta name="ll-build" content="2026-11-19.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -313,7 +313,7 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
 .lurow.empty{background:var(--panel2)}
 /* Fade the cells, never the row: opacity on the row would fade the open ⋯ menu
    inside it too, and let the rows below show through it (2026-11-16). */
-.lurow.locked>*:not(.luacts){opacity:.72}
+.lurow.locked>*:not(.luacts):not(.luslot):not(.lupick){opacity:.72}
 .luhdr{background:var(--panel2);font-family:var(--body);font-size:var(--t1);letter-spacing:.06em;
   text-transform:uppercase;color:var(--dim);padding:5px 11px}
 .luhdr span{text-align:right}
@@ -414,7 +414,23 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
      that scrolls, so they stay reachable — the old fault was a button past the
      edge of a row that did NOT scroll. */
   .lurow>.luacts{position:static;box-shadow:none}
+  /* 2026-11-19: the header locks while the rows scroll. A sticky row needs a
+     scrolling ancestor and .luslots already scrolls sideways (which makes it the
+     sticky container for both axes), so it also gets a height: the lineup scrolls
+     inside it, the Slot / Bench / IR header rows stay at the top (the next section's
+     header takes over from the last), and the slot and name columns stay pinned left. */
+  .luslots{overflow-y:auto;max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px);
+    overscroll-behavior-x:contain;overscroll-behavior-y:auto}
+  .luhdr{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--line)}
+  .lurow{padding:4px 8px}
+  .lurow>.luslot,.luhdr>span:first-child{left:0}
 }
+/* Pinned cells must be opaque. Fading the cell itself (opacity .72 on a locked
+   row) let the stats scrolling underneath show through the player's name, so the
+   pinned cells fade their contents instead and keep their own background. */
+.lurow.locked>*:not(.luacts):not(.luslot):not(.lupick){opacity:.72}
+.lurow.locked>.lupick>*{opacity:.72}
+.lurow:has(.lugame.nog)>span:not(.luacts):not(.lugame):not(.luslot):not(.lupick){opacity:.7}
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
    bottom to be read and a new post lands where the eye already is. */
 .chatbox{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-bottom:4px}
