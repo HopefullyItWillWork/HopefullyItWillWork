@@ -552,6 +552,15 @@ his club's games. The card draws a DNP row of dashes.
   club's roster today), the player card's "Games missed" line (`missLineHtml()`)
   and the DNP rows carry the report when the log has it (`lastGames(…, injlog)`).
 
+### A club's roster on League › Clubs; the Daily chart's gaps (2026-11-19)
+
+- `clubTableHtml()` (from `drawClubLive()`): the picked club's whole roster —
+  starters, bench (`BN`), IR — under **Stats / Trending / Ratings** (`CLUBMODE`,
+  `ll_clubmode`), My Team's views for anyone's club. Stats follows the Stats bar's
+  Per game / Totals (`luTotals()`) — it used to ignore it — and carries PR.
+- Home's **Daily** chart (`rolling(cat, 1)`): a club with no game that night is a
+  gap, not a zero, and so is a FG%/FT% night under `DAYMINATT` attempts (10 / 5).
+
 ### Around the league: one line per move (2026-11-18)
 
 Home's feed runs the moves through `feedMoves()` (pure): a "X released — $1.00 —

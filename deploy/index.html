@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-19.5">
+<meta name="ll-build" content="2026-11-19.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -373,6 +373,7 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
    .rosterwrap sizes to its column instead. */
 .rosterwrap table{min-width:0}
 tbody tr.isir td{opacity:.55}
+#clubLuTbl tr.clbn td:first-child{color:var(--dim)}
 tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:var(--steel)}
 /* ---- the lineup keeps all nine categories on a phone ----
    These rules used to drop the last four stats below 1000px and the last SEVEN
@@ -12557,33 +12558,21 @@ function drawClubLive(){
   }
   html+=fireHtml(t);
   if(lineupsOpen()){
-    const lu=lineupOf(t), pc=(m,a)=>a?(100*m/a).toFixed(1):'&#8212;';
-    const line=n=>{
-      const r=pstat(n), s=r&&r.s;
-      if(!s) return '<td colspan="10" class="l" style="color:var(--dim)">no stats on file</td>';
-      return `<td>${r.g??'&#8212;'}</td>${['PTS','TRB','AST','P3','STL','BLK','TOV'].map(k=>`<td>${(+s[k]||0).toFixed(1)}</td>`).join('')}
-        <td>${pc(s.FG,s.FGA)}</td><td>${pc(s.FT,s.FTA)}</td>`;
-    };
+    const lu=lineupOf(t);
     const game=n=>{ const k=lockOf(n), tp=tipOf(n); return !tp?'<span style="color:var(--dim)">no game</span>'
-      :(k.locked?'Locked \u00b7 ':'')+`${tp.team}${tp.opp?' '+tp.opp:''} ${clock12(tp.at)}`; };
+      :(k.locked?'Locked · ':'')+`${tp.team}${tp.opp?' '+tp.opp:''} ${clock12(tp.at)}`; };
     const starters=SLOTIDS.filter(id=>lu.s[id]);
     if(CLUBVIEW.team!==t){ CLUBVIEW.team=t; CLUBVIEW.day=''; }
     html+=`<h2 class="sub">Lineup</h2><div id="clubNav"></div>`;
     if(CLUBVIEW.day){
       html+=`<div id="clubLnHead"></div><div id="clubLnBody"></div>`;
     } else {
-    html+=`<p class="fcount" style="margin:0 0 8px">${starters.length} of 15 set \u00b7 stats: ${htmlEsc(projSrcLabel())}</p>
-      <div class="scroller"><table id="clubLuTbl"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Game</th>
-        <th>G</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th></tr></thead><tbody>${
-        starters.map(id=>`<tr><td class="l">${slotLabel(id)}</td><td class="l pname" data-player="${htmlEsc(lu.s[id])}">${htmlEsc(lu.s[id])}</td>
-          <td class="l">${game(lu.s[id])}</td>${line(lu.s[id])}</tr>`).join('')
-        ||'<tr><td colspan="13" class="l" style="color:var(--dim)">Nobody started.</td></tr>'}
-      </tbody></table></div>`;
-    const bench=benchOf(t);
-    if(bench.length) html+=`<p class="note">Bench: ${bench.map(p=>`<span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>`).join(', ')}</p>`;
+      html+=clubTableHtml(t,lu,starters,game);
     }
   }
   box.innerHTML=html;
+  box.querySelectorAll('[data-clm]').forEach(b=>b.onclick=()=>{
+    CLUBMODE=b.dataset.clm; try{ localStorage.setItem('ll_clubmode',CLUBMODE); }catch(e){} drawClubLive(); });
   if(lineupsOpen()){
     dateBar($('clubNav'),CLUBVIEW,clubGo,'clubDate');
     if(CLUBVIEW.day) resultsInto(t,CLUBVIEW.mode,CLUBVIEW.day,'clubLnHead','clubLnBody','clubLnTbl');
@@ -12594,6 +12583,54 @@ function drawClubLive(){
     if(typeof drawTrade==='function') drawTrade();
     goTab('v-trade');
   };
+}
+/* League › Clubs: the picked club's whole roster (2026-11-19) — starters in slot
+   order, then the bench, then the IR — under three views, like My Team's:
+   Stats (the stats period, per game or totals by the Stats bar, and PR), Trending
+   (PR over 7, 15, 30 days and the season, and season rank) and Ratings (each
+   category's share of PR, with the number under it). Per browser (ll_clubmode). */
+var CLUBMODE=(()=>{ try{ const v=localStorage.getItem('ll_clubmode'); return ['trend','rtg'].includes(v)?v:'stats'; }catch(e){ return 'stats'; } })();
+function clubTableHtml(t,lu,starters,game){
+  const tot=PRBASIS==='tot', mode=CLUBMODE;
+  const TW=['d7','d15','d30','szn'];
+  if(mode==='trend') TW.forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['ctr'+w]){ ROSTRIED['ctr'+w]=1; loadLive(w).then(()=>drawClubLive()); } });
+  const R=S.teams[t].r.filter(contracted);
+  const inLu=new Set(starters.map(id=>lu.s[id]));
+  const rows=starters.map(id=>({lab:slotLabel(id),n:lu.s[id]}))
+    .concat(R.filter(p=>!onIR(p)&&!inLu.has(p.n)).map(p=>({lab:'BN',n:p.n})))
+    .concat(R.filter(onIR).map(p=>({lab:'IR',n:p.n,ir:true})));
+  const D='&#8212;';
+  const pr=n=>{ const v=rtg(n); return `<td class="rating">${v==null?D:(v>0?'+':'')+v.toFixed(2)}</td>`; };
+  const heads=mode==='trend'?['PR7','PR15','PR30','Season','Rank']
+    :LUCATS.map(([,l])=>l).concat(['PR']);
+  const cells=n=>{
+    if(mode==='trend'){
+      const f=w=>{ const x=trendOf(n,w); return `<td>${x?x.tot.toFixed(2):D}</td>`; };
+      const sz=trendOf(n,'szn');
+      return TW.map(f).join('')+`<td>${sz&&sz.rk?sz.rk:D}</td>`;
+    }
+    const r0=pstat(n), r=tot?luTotals(r0):r0;
+    if(!r||!r.s) return `<td colspan="${heads.length}" class="l" style="color:var(--dim)">no games in the period</td>`;
+    if(mode==='rtg'){
+      const z=rtgZ(n);
+      return LUCATS.map(([k])=>{ const v=z?z[LU2R[k]]:null;
+        return `<td class="zshot"${v!=null?` style="${zColor(v)}"`:''}>${v==null?D:(v>0?'+':'')+v.toFixed(2)}<small>${luCell(k,luVal(r,k),tot)}</small></td>`; }).join('')+pr(n);
+    }
+    return LUCATS.map(([k])=>`<td>${luCell(k,luVal(r,k),tot)}</td>`).join('')+pr(n);
+  };
+  const gp=n=>{ const r=pstat(n); return `<td>${r&&r.g!=null?r.g:D}</td>`; };
+  const tog=`<div class="toggle" role="group" aria-label="Columns">${[['stats','Stats','The stats period and basis in the Stats bar above, and PR'],
+    ['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
+    ['rtg','Ratings','Each category’s share of the player rating, summing to PR']].map(([v,l,ti])=>
+    `<button type="button" data-clm="${v}" aria-pressed="${mode===v}" title="${ti}">${l}</button>`).join('')}</div>`;
+  return `<div class="lutools" style="margin:0 0 8px">${tog}<span class="fcount">${starters.length} of 15 set · ${
+      mode==='trend'?'player rating by period':htmlEsc(projSrcLabel())+(tot?' · totals':' · per game')}</span></div>
+    <div class="scroller"><table id="clubLuTbl"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Game</th>
+      <th>G</th>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+      rows.map(x=>`<tr${x.ir?' class="isir"':x.lab==='BN'?' class="clbn"':''}><td class="l">${x.lab}</td><td class="l pname" data-player="${htmlEsc(x.n)}">${htmlEsc(x.n)}</td>
+        <td class="l">${x.ir?'<span style="color:var(--dim)">injured reserve</span>':game(x.n)}</td>${gp(x.n)}${cells(x.n)}</tr>`).join('')
+      ||`<tr><td colspan="${heads.length+4}" class="l" style="color:var(--dim)">Nobody on the roster.</td></tr>`}
+    </tbody></table></div>`;
 }
 
 /* ---- He's on fire (2026-10-15) ----
@@ -13712,6 +13749,7 @@ function drawStandBox(B){
       <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
   sortable(B.tbl,B.sort,'tot',true); redraw[B.sort]=drawStandings;
 }
+const DAYMINATT={FG:10,FT:5};
 function rolling(cat,span){
   const SPAN=span||15;
   const dates=Object.keys(DAILY).sort();
@@ -13721,6 +13759,12 @@ function rolling(cat,span){
     const win=dates.slice(Math.max(0,i-SPAN+1),i+1);
     out.forEach(s=>{
       let num=0,den=0,tot=0;
+      /* One night alone (the Daily tab, 2026-11-19): a club with no game is a gap,
+         not a zero, and so is a shooting night on too few attempts to mean
+         anything (DAYMINATT) — a 0-for-1 at the line dragged the chart to 0%. */
+      if(SPAN===1){ const e=DAILY[d]&&DAILY[d][s.club];
+        if(!e||!(e.GP>0)){ s.pts.push(null); return; }
+        if((cat==='FG'||cat==='FT')&&(e[cat+'A']||0)<DAYMINATT[cat]){ s.pts.push(null); return; } }
       win.forEach(w=>{const e=DAILY[w]&&DAILY[w][s.club];if(!e)return;
         if(cat==='FG'){num+=e.FG||0;den+=e.FGA||0;}
         else if(cat==='FT'){num+=e.FT||0;den+=e.FTA||0;}
@@ -13853,7 +13897,7 @@ function drawRoll(daily){
   const name=$('trCat').selectedOptions&&$('trCat').selectedOptions[0]?$('trCat').selectedOptions[0].textContent:cat;
   $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${htmlEsc(name)} ${daily?'each night':'over the last 15 days'}, by club">${g}${lines}${dots}${labs}</svg>
     ${chLegend(mine,focus,'')}
-    <p class="note" style="margin:8px 0 0">${daily?(pct?`${htmlEsc(name)} on each night alone.`:`${htmlEsc(name)} totalled on each night alone${inv?'; fewer is better':''}. A club with no game that night shows zero.`):pct?`${htmlEsc(name)} over the 15 nights up to each date.`:`${htmlEsc(name)} totalled over the 15 nights up to each date${inv?'; fewer is better':''}.`}</p></div>`;
+    <p class="note" style="margin:8px 0 0">${daily?(pct?`${htmlEsc(name)} on each night alone. A gap is a night with no games, or fewer than ${DAYMINATT[cat]} attempts.`:`${htmlEsc(name)} totalled on each night alone${inv?'; fewer is better':''}. A gap is a night with no games.`):pct?`${htmlEsc(name)} over the 15 nights up to each date.`:`${htmlEsc(name)} totalled over the 15 nights up to each date${inv?'; fewer is better':''}.`}</p></div>`;
   chWire();
 }
 function drawRace(){
