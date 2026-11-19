@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-19.1">
+<meta name="ll-build" content="2026-11-19.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -422,8 +422,16 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
   .luslots{overflow-y:auto;max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px);
     overscroll-behavior-x:contain;overscroll-behavior-y:auto}
   .luhdr{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--line)}
-  .lurow{padding:4px 8px}
+  .lurow{padding:4px 8px;gap:5px;min-width:700px;
+    grid-template-columns:34px 118px 74px 28px repeat(10,minmax(44px,50px)) var(--luacts,0px)}
+  .luhdr{min-width:700px}
   .lurow>.luslot,.luhdr>span:first-child{left:0}
+  /* The pinned name column is narrow so the stats get the screen: the slot select
+     is the name field, the name wraps to two lines, tags sit under it. */
+  .lurow>.lupick,.luhdr>span:nth-child(2){left:39px}
+  .lurowctl .luname{min-width:0;white-space:normal;line-height:1.15;font-size:var(--t2)}
+  .lurow select{font-size:var(--t1);padding:2px 3px}
+  .luslot{font-size:var(--t1);letter-spacing:0}
 }
 /* Pinned cells must be opaque. Fading the cell itself (opacity .72 on a locked
    row) let the stats scrolling underneath show through the player's name, so the
