@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-19.3">
+<meta name="ll-build" content="2026-11-19.4">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1690,7 +1690,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
         roster limit &#8212; activating a man from it when the club is full asks you which player to release. Go
         back a night with the arrows to see what scored.</p>
       <div id="luHead"></div>
-      <div class="luwrap" id="luWrap"><div class="luslots" id="luSlots"></div></div>
+      <div class="luwrap" id="luScroll"><div class="luslots" id="luSlots"></div></div>
     </div>
 
     <div id="lnWrap" hidden>
@@ -10698,7 +10698,7 @@ function shortNm(n){
 }
 /* The right-edge fade that says more columns are off screen goes at the end. */
 function luFade(){
-  const sc=$('luSlots'), w=$('luWrap'); if(!sc||!w) return;
+  const sc=$('luSlots'), w=$('luScroll'); if(!sc||!w) return;
   w.classList.toggle('atend', sc.scrollLeft+sc.clientWidth>=sc.scrollWidth-3);
 }
 document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='luSlots') luFade(); },true);
