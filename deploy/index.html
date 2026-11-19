@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-19.2">
+<meta name="ll-build" content="2026-11-19.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -385,6 +385,9 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
    The stat tracks keep a real minimum. Letting them shrink to fit is what makes
    a per-game number wrap to two lines, and a lineup row is already two lines
    tall now that each shooting cell carries its makes and attempts. */
+/* Desktop: the wrappers vanish, and the phone-only pieces stay hidden. */
+.lurow1,.lurow2,.do{display:contents}
+.mo,.lugm{display:none}
 /* 1240, not 1000: with GP and the actions the grid's own minimum is ~1190px,
    and above the breakpoint .luslots clips rather than scrolls. */
 @media (max-width:1240px){
@@ -422,23 +425,51 @@ tbody tr.isir td:first-child{text-decoration:line-through;text-decoration-color:
   .luslots{overflow-y:auto;max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px);
     overscroll-behavior-x:contain;overscroll-behavior-y:auto}
   .luhdr{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--line)}
-  .lurow{padding:4px 8px;gap:5px;min-width:700px;
-    grid-template-columns:34px 118px 74px 28px repeat(10,minmax(44px,50px)) var(--luacts,0px)}
-  .luhdr{min-width:700px}
+  /* The game is on the player's first line, so its own column goes; GP moves to
+     the end (after PR), so the first things you see are PTS, REB and AST. */
+  .lurow{padding:4px 8px;gap:5px;min-width:640px;
+    grid-template-columns:34px 140px repeat(10,minmax(44px,50px)) 30px var(--luacts,0px)}
+  .luhdr{min-width:640px}
+  .lurow>.lugame:not(.lugm),.luhdr>span:nth-child(3){display:none}
+  .lugp{order:20}
+  .lurow>.luacts{order:30}
   .lurow>.luslot,.luhdr>span:first-child{left:0}
-  /* The pinned name column is narrow so the stats get the screen: the slot select
-     is the name field, the name wraps to two lines, tags sit under it. */
   .lurow>.lupick,.luhdr>span:nth-child(2){left:39px}
-  .lurowctl .luname{min-width:0;white-space:normal;line-height:1.15;font-size:var(--t2)}
-  .lurow select{font-size:var(--t1);padding:2px 3px}
+  /* The 5px grid gap beside the pinned slot lets scrolled stats show through; paint it. */
+  .lurow>.lupick::before,.luhdr>span:nth-child(2)::before{content:"";position:absolute;left:-5px;top:0;bottom:0;width:5px;background:inherit}
+  .luhdr>span[data-ab]:first-child{font-size:0;letter-spacing:0;text-align:center}
+  .luhdr>span[data-ab]:first-child::after{content:attr(data-ab);font-size:var(--t1)}
   .luslot{font-size:var(--t1);letter-spacing:0}
+  /* Line one: photo, status and the game. Line two: the name and position. */
+  .lurowctl{flex-direction:column;align-items:flex-start;gap:2px;flex-wrap:nowrap}
+  .lurow1,.lurow2{display:flex;align-items:center;gap:4px;min-width:0;width:100%}
+  .lurow2{flex-wrap:wrap}
+  .lurow1 .lugm{margin-left:auto;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:var(--t1)}
+  .lurow1 .lugm .lutime{margin-right:0}
+  .mo{display:contents}
+  .do{display:none}
+  .lurowctl .luname{min-width:0;white-space:normal;line-height:1.15;font-size:var(--t2)}
+  .lurow select{font-size:var(--t1);padding:2px 3px;width:100%}
+  .lurow select.lustart{width:auto}
+  /* A game tonight tints the whole row, pinned cells included (they inherit it);
+     a night with no game for him fades the contents. */
+  .lurow.hasg{background:color-mix(in srgb,var(--amber) 13%,var(--panel))}
+  .lurow.bench.hasg{background:color-mix(in srgb,var(--amber) 13%,var(--panel2))}
+  .lurow.hasg>.luslot,.lurow.hasg>.lupick{background:inherit}
+  /* Tonight's total stays in view at the bottom while the starters scroll. */
+  .lurow.lutotal{position:sticky;bottom:0;z-index:4}
+  /* A fade on the right edge says there are more columns; gone at the end. */
+  .luwrap{position:relative}
+  .luwrap::after{content:"";position:absolute;top:0;bottom:1px;right:1px;width:26px;pointer-events:none;z-index:6;
+    background:linear-gradient(to right,transparent,color-mix(in srgb,var(--steel) 40%,transparent));
+    border-radius:0 var(--r) var(--r) 0}
+  .luwrap.atend::after{display:none}
 }
 /* Pinned cells must be opaque. Fading the cell itself (opacity .72 on a locked
    row) let the stats scrolling underneath show through the player's name, so the
    pinned cells fade their contents instead and keep their own background. */
 .lurow.locked>*:not(.luacts):not(.luslot):not(.lupick){opacity:.72}
 .lurow.locked>.lupick>*{opacity:.72}
-.lurow:has(.lugame.nog)>span:not(.luacts):not(.lugame):not(.luslot):not(.lupick){opacity:.7}
 /* Chat. The log is a plain column, newest first, so nothing has to scroll to the
    bottom to be read and a new post lands where the eye already is. */
 .chatbox{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-bottom:4px}
@@ -1090,7 +1121,9 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .lugame small b.lunow{font-family:var(--mono);font-weight:600}
 .lugame.lk small{color:var(--dim)}
 /* Subtle (2026-11-16): the numbers dim a little; the name, picture and menu stay. */
-.lurow:has(.lugame.nog)>span:not(.luacts):not(.lugame):not(:first-child):not(:nth-child(2)){opacity:.7}
+/* No game tonight: fade the contents. The pinned cells keep an opaque background and fade what is in them. */
+.lurow.nogm>span:not(.luacts):not(.luslot):not(.lupick){opacity:.5}
+.lurow.nogm>.lupick>*{opacity:.55}
 .luhdr span:nth-child(3){text-align:left}
 /* Live (2026-11-16): the tag, the club's line, a game under way. */
 .livetag{display:inline-block;font:700 var(--t1)/1.4 var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--tax);background:var(--trf-b);border-radius:var(--r-s);padding:0 6px}
@@ -1657,7 +1690,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
         roster limit &#8212; activating a man from it when the club is full asks you which player to release. Go
         back a night with the arrows to see what scored.</p>
       <div id="luHead"></div>
-      <div class="luslots" id="luSlots"></div>
+      <div class="luwrap" id="luWrap"><div class="luslots" id="luSlots"></div></div>
     </div>
 
     <div id="lnWrap" hidden>
@@ -10656,6 +10689,20 @@ function dateBar(box,V,go,dateId,ahead){
   box.querySelectorAll('[data-lm]').forEach(b=>b.onclick=()=>{ LUVIEW.mode=b.dataset.lm; luGo(LUVIEW.day); });
   $(dateId).onchange=e=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) luGo(e.target.value); };
 }
+/* 2026-11-19: "J. Butler" for a phone. A first name that is already an initial
+   ("A. Daman") or all capitals ("OG Anunoby") is left alone. */
+function shortNm(n){
+  const m=/^(\S+)\s+(.+)$/.exec(String(n||'').trim()); if(!m) return n;
+  const f=m[1]; if(/\.$/.test(f)||(f.length>1&&f===f.toUpperCase())||f.length<=1) return n;
+  return f[0]+'. '+m[2];
+}
+/* The right-edge fade that says more columns are off screen goes at the end. */
+function luFade(){
+  const sc=$('luSlots'), w=$('luWrap'); if(!sc||!w) return;
+  w.classList.toggle('atend', sc.scrollLeft+sc.clientWidth>=sc.scrollWidth-3);
+}
+document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='luSlots') luFade(); },true);
+try{ matchMedia('(max-width:640px)').addEventListener('change',()=>{ try{drawLineup();}catch(e){} }); }catch(e){}
 function drawLineup(){
   const wrap=$('luWrap'); if(!wrap) return;
   wrap.hidden = !me || !lineupsOpen();
@@ -10762,7 +10809,7 @@ function drawLineup(){
     ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
   if(trend) TRENDW.forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawLineup()); } });
   const CTRH=[0,1,2,3].map(n=>seasonAt(curSeason(),n)).concat(['Yrs','Option','Rights','Acq']);
-  const hdr=lab=>`<div class="lurow luhdr"><span>${lab}</span><span>Player</span><span>Game</span>${nowOn?'<span title="Minutes tonight">MIN</span>':'<span title="Games played in the period">GP</span>'}
+  const hdr=lab=>`<div class="lurow luhdr"><span data-ab="${({Slot:'Slot',Bench:'BN',IR:'IR'})[lab]||lab}">${lab}</span><span>Player</span><span>Game</span>${nowOn?'<span class="lugp" title="Minutes tonight">MIN</span>':'<span class="lugp" title="Games played in the period">GP</span>'}
     ${ctr?CTRH.map(l=>`<span>${htmlEsc(l)}</span>`).join('')+'<span></span>'
       :LUMODE==='news'?'<span class="lunews">Injury news</span>'
       :trend?TRENDH.map(([l,t])=>`<span title="${t}">${l}</span>`).join('')+'<span></span>'.repeat(9-TRENDH.length)
@@ -10795,6 +10842,18 @@ function drawLineup(){
       ? `<span class="lugame lk" title="${ttl}"><span class="lulock">${LOCKSVG}${top}</span><small>${sub}${bz?' \u00b7 '+bz:''}</small></span>`
       : `<span class="lugame" title="${ttl}"><span class="lutime">${htmlEsc(clock12(t.at).replace(/ PT$/,''))}</span> ${htmlEsc(t.opp||t.team)}<small>${t.opp?htmlEsc(t.team):''}</small></span>`;
   };
+  /* 2026-11-19: on a phone the game rides the player's first line (photo, status,
+     tip-off and opponent) so it never scrolls out of sight. The same markup as the
+     Game column, minus the small line; hidden on wide screens. */
+  const mini=(nm,ir)=>{
+    if(!nm||ir) return '';
+    const g=game(nm,ir); if(g.indexOf('lugame"></span>')>0) return '';
+    return g.replace('class="lugame','class="lugame lugm').replace(/<small>[\s\S]*?<\/small>/,'');
+  };
+  const MOB=typeof matchMedia==='function'&&matchMedia('(max-width:640px)').matches;
+  const nmShow=n=>MOB?shortNm(n):n;
+  /* A row's shading: a game tonight tints the whole row; a known night with no game dims it. */
+  const gcls=(nm,ir)=>!nm||ir?'':tipOf(nm,D)?' hasg':known?' nogm':'';
   /* GP, then the nine categories (or, in the Contract view, what he is owed),
      then PR, then the roster actions that used to live on the My roster table.
      On Totals the numbers are the period's totals, matching what PR is read from. */
@@ -10805,17 +10864,17 @@ function drawLineup(){
     if(nowOn){
       const b=nm&&nowLine(nm), x=b&&b.s;
       const pr=`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
-      if(!x) return `<span class="luv">${nm&&tipOf(nm,D)&&nightMinutes(D)>=tipOf(nm,D).at?'0':''}</span>`
+      if(!x) return `<span class="luv lugp">${nm&&tipOf(nm,D)&&nightMinutes(D)>=tipOf(nm,D).at?'0':''}</span>`
         +LUCATS.map(()=>`<span class="luv">${nm&&tipOf(nm,D)?'&#8212;':''}</span>`).join('')+pr;
       const r={s:x,tot:true};   // whole makes and attempts (luShot)
-      return `<span class="luv live">${Math.round(x.MP||0)}</span>`+LUCATS.map(([k])=>`<span class="luv live">${
+      return `<span class="luv live lugp">${Math.round(x.MP||0)}</span>`+LUCATS.map(([k])=>`<span class="luv live">${
         k==='FGP'||k==='FTP'?(luVal(r,k)==null?'&#8212;':(luVal(r,k)*100).toFixed(1)):String(Math.round(+x[k]||0))}${
         k==='FGP'||k==='FTP'?luShot(k,r):''}</span>`).join('')+pr;
     }
     /* No games in the period is no line, not a row of zeroes. */
     const r0=L&&L.r&&!L.live&&usingLive()&&!(+L.r.g)?null:L&&L.r;
     const r=r0&&!L.live&&tot?luTotals(r0):r0;
-    const gp=`<span class="luv">${nm&&L&&L.r&&!L.live?(L.r.g||0):''}</span>`;
+    const gp=`<span class="luv lugp">${nm&&L&&L.r&&!L.live?(L.r.g||0):''}</span>`;
     const pr=`<span class="luv">${nm&&rtg(nm)!=null?rtg(nm).toFixed(1):''}</span>`;
     if(ctr){
       const p=nm&&rosEntry(nm), D='&#8212;';
@@ -10865,7 +10924,7 @@ function drawLineup(){
       termOpen(T,p)?`<button type="button" role="menuitem" data-mrt="${i}">Set contract length</button>`:''}<button type="button" role="menuitem" data-mrb="${i}">${p.blk?'Take off the trade block':'Put on the trade block'}</button>${
       canEditContract()?`<button type="button" role="menuitem" data-mre="${i}">Edit contract</button>`:''}<hr><button type="button" role="menuitem" class="rmdanger" data-mrc="${i}">Release\u2026</button></div></details></span>`;
   };
-  const blankRow='<span class="luv"></span>'.repeat(11)+'<span class="luacts"></span>';
+  const blankRow='<span class="luv lugp"></span>'+'<span class="luv"></span>'.repeat(10)+'<span class="luacts"></span>';
 
   const opts=(id)=>{
     const cur=lu.s[id];
@@ -10883,19 +10942,20 @@ function drawLineup(){
         `<option value="@${k}">${slotLabel(k)}</option>`).join('')}</optgroup>`:'')
       +`<optgroup label="${cur?'Swap with the bench':'Start from the bench'}">`
       +elig.map(p=>`<option value="${htmlEsc(p.n)}"${canon(p.n)===canon(cur)?' selected':''}>${
-        htmlEsc(p.n)} \u00b7 ${posText(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('')
+        htmlEsc(nmShow(p.n))} \u00b7 ${posText(p.n)}${slotOk(id,p.n)?'':' (not eligible here)'}</option>`).join('')
       +'</optgroup>';
   };
   const slotRows=SLOTIDS.map(id=>{
     const nm=lu.s[id], lk=nm?lockOf(nm,D):{locked:false,why:''};
     const L=nm?luLine(nm):null;
-    return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}">
+    const l1=nm?`<span class="lurow1">${headshot(nm)}<span class="mo">${injTag(nm)}</span>${mini(nm)}</span>`:'';
+    return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}${gcls(nm)}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="lurowctl ro">${headshot(nm)}<span class="luname">${htmlEsc(nm)}</span>${posTag(nm)}${injTag(nm)}${ahead?'':heatTag(nm)+tripDub(nm)}</span>`
-        : can ? `<span class="lurowctl">${nm?headshot(nm)+injTag(nm):''}<select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span>`
+        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
+        : can ? `<span class="lurowctl">${nm?`<span class="lurow1">${headshot(nm)}${injTag(nm)}${mini(nm)}</span>`:''}<span class="lurow2"><select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span></span>`
 
-              : `<span class="lurowctl ro">${nm?headshot(nm):''}<span class="luname">${nm?htmlEsc(nm):'&#8212;'}</span>${nm?posTag(nm)+injTag(nm):''}</span>`}</span>
+              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname">${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
       ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
   }).join('');
 
@@ -10904,17 +10964,17 @@ function drawLineup(){
   const openFor=name=>SLOTIDS.filter(id=>!lu.s[id]&&slotOk(id,name));
   const benchRows=bench.slice().sort((a,b)=>((rtg(b.n))??-99)-((rtg(a.n))??-99)).map(p=>{
     const lk=lockOf(p.n,D), where=openFor(p.n), L=luLine(p.n);
-    return `<div class="lurow bench${lk.locked?' locked':''}">
+    return `<div class="lurow bench${lk.locked?' locked':''}${gcls(p.n)}">
       <span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lurowctl">
-        ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+        <span class="lurow1">${headshot(p.n)}${mini(p.n)}</span><span class="lurow2"><span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(nmShow(p.n))}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>${ahead?'':heatTag(p.n)+tripDub(p.n)}
         ${can&&!lk.locked ? (where.length
           ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
                <option value="">Start&#8230;</option>
                ${where.map(id=>`<option value="${id}">${slotLabel(id)}</option>`).join('')}</select>`
           : '<span class="lutip">no open spot</span>') : ''}
-        </span></span>
+        </span></span></span>
       ${game(p.n)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lutip">Nobody on the bench.</span></span>
@@ -10925,9 +10985,9 @@ function drawLineup(){
     return `<div class="lurow onir">
       <span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lurowctl">
-        ${headshot(p.n)}<span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>
+        <span class="lurow1">${headshot(p.n)}</span><span class="lurow2"><span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(nmShow(p.n))}</span>
         <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
-        ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span>
+        ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span></span>
       ${game(p.n,true)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lutip">Nobody on the injured reserve.</span></span>
@@ -10951,12 +11011,13 @@ function drawLineup(){
     const r={s:sum,tot:true};
     return `<div class="lurow lutotal"><span class="luslot k-T">TOT</span>
       <span class="lupick"><b>Tonight so far</b> <span class="lutip">${lines.length} of ${withG.length} starter${withG.length===1?'':'s'} with a game have played${on?` \u00b7 ${on} on the floor now`:''}</span></span>
-      <span class="lugame"></span><span class="luv">${Math.round(sum.MP)}</span>${LUCATS.map(([k])=>`<span class="luv">${
+      <span class="lugame"></span><span class="luv lugp">${Math.round(sum.MP)}</span>${LUCATS.map(([k])=>`<span class="luv">${
         k==='FGP'||k==='FTP'?(luVal(r,k)==null?'&#8212;':(luVal(r,k)*100).toFixed(1))+luShot(k,r):String(Math.round(+sum[k]||0))}</span>`).join('')}<span class="luv"></span><span class="luacts"></span></div>`;
   })();
   $('luSlots').innerHTML=hdr('Slot')+slotRows+totalRow
     +hdr('Bench')+benchRows
     +hdr('IR')+irRows;
+  luFade();
 
   if(can){
     $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>{
