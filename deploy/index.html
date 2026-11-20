@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-19.5">
+<meta name="ll-build" content="2026-11-20.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -807,8 +807,11 @@ color:#fff;font:700 var(--t1)/17px var(--body);text-align:center;vertical-align:
 .feed p{font-size:var(--t2);color:var(--steel);line-height:1.55;margin-bottom:10px}
 pre{background:var(--well);border:1px solid var(--line);border-radius:var(--r-s);padding:11px 13px;overflow-x:auto;
 font-family:var(--mono);font-size:var(--t1);line-height:1.55;color:var(--steel)}
-#dlgPlayer{max-width:460px;width:94%;overflow:visible}
-#dlgPlayer .dlg{position:relative}
+#dlgPlayer{max-width:560px;width:94%;overflow:hidden}
+#dlgPlayer .dlg{position:relative;display:flex;flex-direction:column;max-height:88dvh}
+/* The card scrolls inside itself (2026-11-20): the X and Close stay put, nothing is cut off. */
+#dlgPlayerBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:4px}
+#dlgPlayer .glog{overflow-x:auto}
 .xclose{position:absolute;top:6px;right:6px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
   background:var(--panel);color:var(--chalk);font-size:var(--t5);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .glog{margin-top:10px}
@@ -822,7 +825,9 @@ font-family:var(--mono);font-size:var(--t1);line-height:1.55;color:var(--steel)}
    stat rows are tightened so the whole card normally fits without scrolling. */
 @media (max-width:640px){
   #dlgPlayer{width:100%;max-width:100%;max-height:100dvh;height:100dvh;margin:0;border-radius:0;overflow:auto}
-  #dlgPlayer .dlg{padding:10px 12px}
+  #dlgPlayer .dlg{padding:10px 12px;max-height:none}
+  #dlgPlayerBody{overflow:visible}
+  .watchrow{padding-right:104px;min-height:0}
   #dlgPlayer .acts{display:none}
   #dlgPlayer .impact{padding:8px 10px;border:0;box-shadow:none}
   #dlgPlayer .impact h4{font-size:var(--t3);margin-bottom:1px;padding-right:44px}
@@ -1107,6 +1112,7 @@ h2.luh .lunav .lnday{font:700 var(--t4) var(--body);min-width:0;padding:0 4px}
 .pvhead{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:0 0 14px}
 .pvhead h2{margin:0;flex:1 1 auto}
 #v-players td.zraw{font-family:var(--mono)}
+.watchrow{padding-right:150px;min-height:40px}
 .watchrow .cardsign{margin-left:auto}
 #raterTbl td.acts>span{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
 .prhint{flex-basis:100%;font-size:var(--t2);color:var(--steel);margin-top:-4px}
@@ -1444,6 +1450,22 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 [data-theme="jam"] .mefact{border:3px solid #000;box-shadow:5px 5px 0 #000}
 [data-theme="jam"] .mefact b{font-family:var(--led);font-weight:400;font-size:44px;line-height:.9}
 [data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
+/* NBA Scores tab (2026-11-20) */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.sgame{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;cursor:pointer;text-align:left;color:var(--chalk);font:inherit;display:block;width:100%}
+.sgame:hover{border-color:var(--steel)}
+.sgame .sst{font-size:var(--t1);color:var(--steel);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.sgame .sst.live{color:var(--tax)}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0;font-size:var(--t3)}
+.srow .sc{font-family:var(--mono);font-size:var(--t4)}
+.srow.lose{color:var(--steel)}
+.sbox h3{margin:18px 0 6px;font-size:var(--t3)}
+.sbox .scroller table{width:100%}
+.sbox td.pn{cursor:pointer}
+.sbox td.pn:hover{text-decoration:underline}
+.sbox .dnp{color:var(--steel)}
+.sbox .sbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.sbox .sline{font-family:var(--mono);font-size:var(--t2);color:var(--steel)}
 </style>
 </head>
 <body>
@@ -1489,6 +1511,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     <!-- Every page in the one bar (2026-10-14): the Menu dropdown is gone. -->
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
+    <button role="tab" data-v="v-scores" aria-selected="false" id="scoresTab">NBA Scores</button>
   </nav>
 </header>
 <div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
@@ -2080,6 +2103,17 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
   </section>
 
 
+
+  <!-- ==== NBA SCORES (2026-11-20) ==== every game of a night, from ESPN directly
+       (CORS allows it, like fastTick); click a game for its box score, a player for his card. -->
+  <section class="view" id="v-scores" role="tabpanel" hidden>
+    <h2>NBA scores</h2>
+    <div class="sbox">
+      <div class="sbar" id="scBar"></div>
+      <div id="scList"></div>
+      <div id="scBox" hidden></div>
+    </div>
+  </section>
 
   <section class="view" id="v-admin" role="tabpanel" hidden>
     <h2>Commissioner tools</h2>
@@ -7967,6 +8001,7 @@ function goTab(id){
   /* Both tabs show the board's own numbers now — the auction its full table,
      My Team the one row for the player on the block — so both are a moment
      worth fetching what the other device wrote. */
+  if(id==='v-scores'&&typeof scoresOpen==='function') scoresOpen();
   if((id==='v-auction'||id==='v-me')&&typeof refreshStrat==='function') refreshStrat();
   // Chat is fetched on its own, not through ?key=all, so opening the tab is what
   // asks for it. Nothing is polled while nobody is looking.
@@ -12505,9 +12540,35 @@ function drawTape(){
 async function drawHomeBest(){
   const box=$('homeBest'); if(!box) return;
   const days=[...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})].sort();
-  const day=days[days.length-1];
+  let day=days[days.length-1];
+  /* Scoring runs in the morning, so the newest scored night can be days old.
+     When it is older than last night, read last night's box scores from ESPN
+     (every NBA player, labelled as not yet scored) so the date is current. */
+  const lastNight=scShift(luNight(),-1);
+  if(!day||day<lastNight){
+    if(HOMEBEST.day!==lastNight){
+      HOMEBEST={day:lastNight,rows:null,espn:true};
+      try{
+        const sb=await (await fetch(`${ESPNSB}?dates=${lastNight.replace(/-/g,'')}`,{cache:'no-store'})).json();
+        const ids=(sb.events||[]).filter(e=>e.status&&e.status.type&&e.status.type.completed).map(e=>e.id), all={};
+        await Promise.all(ids.map(async id=>{ try{ Object.assign(all,boxFrom(await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json())); }catch(e){} }));
+        HOMEBEST.rows=Object.values(all).map(p=>{ const st=p.s;
+          return {n:p.n,club:'',nba:p.t,s:st,gs:(st.PTS||0)+(st.TRB||0)+(st.AST||0)+2*((st.STL||0)+(st.BLK||0))-(st.TOV||0)}; })
+          .sort((a,b)=>b.gs-a.gs).slice(0,6);
+      }catch(e){ HOMEBEST.rows=[]; }
+    }
+    if(HOMEBEST.espn){
+      $('homeBestDay').textContent=shortDay(lastNight)+' · all NBA, not yet scored';
+      const rows=HOMEBEST.rows;
+      box.innerHTML=!rows?'<div class="empty">Loading…</div>':!rows.length?'<div class="empty">No box scores for last night.</div>'
+        :`<div class="hbest">${rows.map(r=>`<div>${headshot(r.n)}<b class="pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</b>
+        <span>${htmlEsc(r.nba)}</span>
+        <span class="mono">${r.s.PTS||0} pts · ${r.s.TRB||0} reb · ${r.s.AST||0} ast</span></div>`).join('')}</div>`;
+      return;
+    }
+  }
   if(!day){ box.innerHTML='<div class="empty">No box scores yet. The best lines land here the morning after every night of games.</div>'; $('homeBestDay').textContent=''; return; }
-  if(HOMEBEST.day!==day){
+  if(HOMEBEST.day!==day||HOMEBEST.espn){
     HOMEBEST={day,rows:null};
     try{
       const r=await fetch(`/api/score?day=${day}`,{cache:'no-store'});
@@ -13072,6 +13133,82 @@ async function fastTick(){
   }catch(e){ FAST.busy=false; }
 }
 setInterval(fastTick,60e3);
+
+/* ================= NBA SCORES (2026-11-20) =================
+   An ESPN-style games page. The page asks ESPN itself (as fastTick does): the
+   scoreboard for a night, then the summary for one game when it is opened.
+   Names go through data-player, so a click opens the shared player card. */
+var SC={day:'',games:[],gid:'',box:null,busy:false,err:'',at:0};
+const scShift=(d,n)=>{ const t=new Date(d+'T12:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
+function scoresOpen(){ if(!SC.day) SC.day=luNight(); scLoad(); }
+async function scLoad(){
+  if(SC.busy) return; SC.busy=true; SC.err='';
+  try{
+    const sb=await (await fetch(`${ESPNSB}?dates=${SC.day.replace(/-/g,'')}`,{cache:'no-store'})).json();
+    SC.games=(sb.events||[]).map(e=>{
+      const c=(e.competitions||[])[0]||{}, st=(e.status&&e.status.type)||{};
+      const side=h=>{ const x=(c.competitors||[]).find(y=>y.homeAway===h)||{}, t=x.team||{};
+        return {ab:t.abbreviation||'',name:t.displayName||t.shortDisplayName||'',score:x.score!=null&&x.score!==''?+x.score:null,
+          rec:((x.records||[])[0]||{}).summary||'',win:!!x.winner}; };
+      return {id:e.id,date:e.date,state:st.state||'',final:!!st.completed,detail:st.shortDetail||'',home:side('home'),away:side('away')};
+    }).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    SC.at=Date.now();
+  }catch(e){ SC.err='Could not reach ESPN for the scoreboard.'; }
+  SC.busy=false; drawScores();
+  if(SC.gid) scBox(SC.gid,true);
+}
+function scStatus(g){
+  if(g.state==='pre'){ try{ return new Date(g.date).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){ return g.detail; } }
+  return g.detail||(g.final?'Final':'');
+}
+function drawScores(){
+  const bar=$('scBar'), list=$('scList'), box=$('scBox'); if(!bar) return;
+  const d=new Date(SC.day+'T12:00:00Z'), lbl=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'});
+  bar.innerHTML=`<button class="btn" id="scPrev" aria-label="Previous day">&#9664;</button>
+    <input type="date" id="scDate" value="${SC.day}"><button class="btn" id="scNext" aria-label="Next day">&#9654;</button>
+    <button class="btn" id="scToday">Tonight</button><b>${htmlEsc(lbl)}</b>
+    ${SC.gid?'<button class="btn" id="scBack">&larr; All games</button>':''}`;
+  $('scPrev').onclick=()=>scGo(scShift(SC.day,-1)); $('scNext').onclick=()=>scGo(scShift(SC.day,1));
+  $('scToday').onclick=()=>scGo(luNight()); $('scDate').onchange=e=>{ if(e.target.value) scGo(e.target.value); };
+  if($('scBack')) $('scBack').onclick=()=>{ SC.gid=''; SC.box=null; drawScores(); };
+  list.hidden=!!SC.gid; box.hidden=!SC.gid;
+  if(!SC.gid){
+    list.innerHTML=SC.err?`<p class="note">${htmlEsc(SC.err)}</p>`:SC.busy&&!SC.games.length?'<p class="note">Loading…</p>'
+      :!SC.games.length?'<p class="note">No games on this date.</p>'
+      :`<div class="sgrid">${SC.games.map(g=>{ const row=(t,o)=>`<div class="srow${g.final&&!t.win&&t.score!=null&&t.score<o.score?' lose':''}"><span>${htmlEsc(t.ab)} <small class="sub2">${htmlEsc(t.rec)}</small></span><span class="sc">${t.score==null?'':t.score}</span></div>`;
+        return `<button type="button" class="sgame" data-sgame="${htmlEsc(g.id)}"><div class="sst${g.state==='in'?' live':''}">${htmlEsc(g.state==='in'?'Live · '+scStatus(g):scStatus(g))}</div>${row(g.away,g.home)}${row(g.home,g.away)}</button>`; }).join('')}</div>`;
+    list.querySelectorAll('[data-sgame]').forEach(b=>b.onclick=()=>{ SC.gid=b.dataset.sgame; SC.box=null; drawScores(); scBox(SC.gid); });
+  }else drawScoreBox();
+}
+function scGo(day){ SC.day=day; SC.gid=''; SC.box=null; SC.games=[]; drawScores(); SC.busy=false; scLoad(); }
+async function scBox(id,quiet){
+  try{ SC.box=await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json(); }
+  catch(e){ if(!quiet) SC.box={err:1}; }
+  if(SC.gid===id) drawScoreBox();
+}
+function drawScoreBox(){
+  const box=$('scBox'); if(!box) return;
+  const g=SC.games.find(x=>x.id===SC.gid), B=SC.box;
+  const head=g?`<div class="sline">${htmlEsc(g.away.ab)} ${g.away.score==null?'':g.away.score} &ndash; ${g.home.score==null?'':g.home.score} ${htmlEsc(g.home.ab)} &middot; ${htmlEsc(g.state==='in'?'Live · '+scStatus(g):scStatus(g))}</div>`:'';
+  if(!B){ box.innerHTML=head+'<p class="note">Loading box score…</p>'; return; }
+  if(B.err){ box.innerHTML=head+'<p class="note">Could not load this box score.</p>'; return; }
+  const teams=((B.boxscore&&B.boxscore.players)||[]);
+  if(!teams.length){ box.innerHTML=head+'<p class="note">No box score yet — it appears once the game tips off.</p>'; return; }
+  const H=['MIN','PTS','REB','AST','STL','BLK','TO','FG','3PT','FT','+/-'];
+  const K=['minutes','points','rebounds','assists','steals','blocks','turnovers','fieldGoalsMade-fieldGoalsAttempted','threePointFieldGoalsMade-threePointFieldGoalsAttempted','freeThrowsMade-freeThrowsAttempted','plusMinus'];
+  box.innerHTML=head+teams.map(tm=>{
+    const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=K.map(k=>keys.indexOf(k)), nm=(tm.team&&tm.team.displayName)||'';
+    const cell=(v,i)=>`<td class="num">${htmlEsc(i>=0&&v&&v[i]!=null&&v[i]!==''?v[i]:'—')}</td>`;
+    const rows=(st.athletes||[]).map(a=>{ const p=a.athlete||{}, v=a.stats||[], pos=(p.position&&p.position.abbreviation)||'';
+      return a.didNotPlay||!v.length
+        ?`<tr class="dnp"><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small>${htmlEsc(pos)}</small></td><td colspan="${H.length}">${htmlEsc(a.reason||'DNP')}</td></tr>`
+        :`<tr><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small class="sub2">${htmlEsc(pos)}</small></td>${ix.map(i=>cell(v,i)).join('')}</tr>`; }).join('');
+    const tot=st.totals||[], trow=tot.length?`<tr><th>Team</th>${ix.map(i=>cell(tot,i)).join('')}</tr>`:'';
+    return `<h3>${htmlEsc(nm)}</h3><div class="scroller"><table><thead><tr><th>Player</th>${H.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}${trow}</tbody></table></div>`;
+  }).join('')+'<p class="note">Click a player for his card.</p>';
+}
+/* Live games refresh once a minute while the page is open. */
+setInterval(()=>{ const v=$('v-scores'); if(v&&!v.hidden&&!document.hidden&&(SC.games.some(g=>g.state==='in')||SC.gid)) scLoad(); },60e3);
 
 /* ================= EASTER EGGS (2026-11-16) ================= */
 /* He's heating up / he's on fire. The feed has no play-by-play, so this reads
