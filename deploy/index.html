@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-19.5">
+<meta name="ll-build" content="2026-11-20.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1444,6 +1444,22 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 [data-theme="jam"] .mefact{border:3px solid #000;box-shadow:5px 5px 0 #000}
 [data-theme="jam"] .mefact b{font-family:var(--led);font-weight:400;font-size:44px;line-height:.9}
 [data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
+/* NBA Scores tab (2026-11-20) */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.sgame{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;cursor:pointer;text-align:left;color:var(--chalk);font:inherit;display:block;width:100%}
+.sgame:hover{border-color:var(--steel)}
+.sgame .sst{font-size:var(--t1);color:var(--steel);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.sgame .sst.live{color:var(--tax)}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0;font-size:var(--t3)}
+.srow .sc{font-family:var(--mono);font-size:var(--t4)}
+.srow.lose{color:var(--steel)}
+.sbox h3{margin:18px 0 6px;font-size:var(--t3)}
+.sbox .scroller table{width:100%}
+.sbox td.pn{cursor:pointer}
+.sbox td.pn:hover{text-decoration:underline}
+.sbox .dnp{color:var(--steel)}
+.sbox .sbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.sbox .sline{font-family:var(--mono);font-size:var(--t2);color:var(--steel)}
 </style>
 </head>
 <body>
@@ -1489,6 +1505,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     <!-- Every page in the one bar (2026-10-14): the Menu dropdown is gone. -->
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
+    <button role="tab" data-v="v-scores" aria-selected="false" id="scoresTab">NBA Scores</button>
   </nav>
 </header>
 <div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
@@ -2080,6 +2097,17 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
   </section>
 
 
+
+  <!-- ==== NBA SCORES (2026-11-20) ==== every game of a night, from ESPN directly
+       (CORS allows it, like fastTick); click a game for its box score, a player for his card. -->
+  <section class="view" id="v-scores" role="tabpanel" hidden>
+    <h2>NBA scores</h2>
+    <div class="sbox">
+      <div class="sbar" id="scBar"></div>
+      <div id="scList"></div>
+      <div id="scBox" hidden></div>
+    </div>
+  </section>
 
   <section class="view" id="v-admin" role="tabpanel" hidden>
     <h2>Commissioner tools</h2>
@@ -7967,6 +7995,7 @@ function goTab(id){
   /* Both tabs show the board's own numbers now — the auction its full table,
      My Team the one row for the player on the block — so both are a moment
      worth fetching what the other device wrote. */
+  if(id==='v-scores'&&typeof scoresOpen==='function') scoresOpen();
   if((id==='v-auction'||id==='v-me')&&typeof refreshStrat==='function') refreshStrat();
   // Chat is fetched on its own, not through ?key=all, so opening the tab is what
   // asks for it. Nothing is polled while nobody is looking.
@@ -13072,6 +13101,82 @@ async function fastTick(){
   }catch(e){ FAST.busy=false; }
 }
 setInterval(fastTick,60e3);
+
+/* ================= NBA SCORES (2026-11-20) =================
+   An ESPN-style games page. The page asks ESPN itself (as fastTick does): the
+   scoreboard for a night, then the summary for one game when it is opened.
+   Names go through data-player, so a click opens the shared player card. */
+var SC={day:'',games:[],gid:'',box:null,busy:false,err:'',at:0};
+const scShift=(d,n)=>{ const t=new Date(d+'T12:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
+function scoresOpen(){ if(!SC.day) SC.day=luNight(); scLoad(); }
+async function scLoad(){
+  if(SC.busy) return; SC.busy=true; SC.err='';
+  try{
+    const sb=await (await fetch(`${ESPNSB}?dates=${SC.day.replace(/-/g,'')}`,{cache:'no-store'})).json();
+    SC.games=(sb.events||[]).map(e=>{
+      const c=(e.competitions||[])[0]||{}, st=(e.status&&e.status.type)||{};
+      const side=h=>{ const x=(c.competitors||[]).find(y=>y.homeAway===h)||{}, t=x.team||{};
+        return {ab:t.abbreviation||'',name:t.displayName||t.shortDisplayName||'',score:x.score!=null&&x.score!==''?+x.score:null,
+          rec:((x.records||[])[0]||{}).summary||'',win:!!x.winner}; };
+      return {id:e.id,date:e.date,state:st.state||'',final:!!st.completed,detail:st.shortDetail||'',home:side('home'),away:side('away')};
+    }).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    SC.at=Date.now();
+  }catch(e){ SC.err='Could not reach ESPN for the scoreboard.'; }
+  SC.busy=false; drawScores();
+  if(SC.gid) scBox(SC.gid,true);
+}
+function scStatus(g){
+  if(g.state==='pre'){ try{ return new Date(g.date).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }catch(e){ return g.detail; } }
+  return g.detail||(g.final?'Final':'');
+}
+function drawScores(){
+  const bar=$('scBar'), list=$('scList'), box=$('scBox'); if(!bar) return;
+  const d=new Date(SC.day+'T12:00:00Z'), lbl=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'});
+  bar.innerHTML=`<button class="btn" id="scPrev" aria-label="Previous day">&#9664;</button>
+    <input type="date" id="scDate" value="${SC.day}"><button class="btn" id="scNext" aria-label="Next day">&#9654;</button>
+    <button class="btn" id="scToday">Tonight</button><b>${htmlEsc(lbl)}</b>
+    ${SC.gid?'<button class="btn" id="scBack">&larr; All games</button>':''}`;
+  $('scPrev').onclick=()=>scGo(scShift(SC.day,-1)); $('scNext').onclick=()=>scGo(scShift(SC.day,1));
+  $('scToday').onclick=()=>scGo(luNight()); $('scDate').onchange=e=>{ if(e.target.value) scGo(e.target.value); };
+  if($('scBack')) $('scBack').onclick=()=>{ SC.gid=''; SC.box=null; drawScores(); };
+  list.hidden=!!SC.gid; box.hidden=!SC.gid;
+  if(!SC.gid){
+    list.innerHTML=SC.err?`<p class="note">${htmlEsc(SC.err)}</p>`:SC.busy&&!SC.games.length?'<p class="note">Loading…</p>'
+      :!SC.games.length?'<p class="note">No games on this date.</p>'
+      :`<div class="sgrid">${SC.games.map(g=>{ const row=(t,o)=>`<div class="srow${g.final&&!t.win&&t.score!=null&&t.score<o.score?' lose':''}"><span>${htmlEsc(t.ab)} <small class="sub2">${htmlEsc(t.rec)}</small></span><span class="sc">${t.score==null?'':t.score}</span></div>`;
+        return `<button type="button" class="sgame" data-sgame="${htmlEsc(g.id)}"><div class="sst${g.state==='in'?' live':''}">${htmlEsc(g.state==='in'?'Live · '+scStatus(g):scStatus(g))}</div>${row(g.away,g.home)}${row(g.home,g.away)}</button>`; }).join('')}</div>`;
+    list.querySelectorAll('[data-sgame]').forEach(b=>b.onclick=()=>{ SC.gid=b.dataset.sgame; SC.box=null; drawScores(); scBox(SC.gid); });
+  }else drawScoreBox();
+}
+function scGo(day){ SC.day=day; SC.gid=''; SC.box=null; SC.games=[]; drawScores(); SC.busy=false; scLoad(); }
+async function scBox(id,quiet){
+  try{ SC.box=await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json(); }
+  catch(e){ if(!quiet) SC.box={err:1}; }
+  if(SC.gid===id) drawScoreBox();
+}
+function drawScoreBox(){
+  const box=$('scBox'); if(!box) return;
+  const g=SC.games.find(x=>x.id===SC.gid), B=SC.box;
+  const head=g?`<div class="sline">${htmlEsc(g.away.ab)} ${g.away.score==null?'':g.away.score} &ndash; ${g.home.score==null?'':g.home.score} ${htmlEsc(g.home.ab)} &middot; ${htmlEsc(g.state==='in'?'Live · '+scStatus(g):scStatus(g))}</div>`:'';
+  if(!B){ box.innerHTML=head+'<p class="note">Loading box score…</p>'; return; }
+  if(B.err){ box.innerHTML=head+'<p class="note">Could not load this box score.</p>'; return; }
+  const teams=((B.boxscore&&B.boxscore.players)||[]);
+  if(!teams.length){ box.innerHTML=head+'<p class="note">No box score yet — it appears once the game tips off.</p>'; return; }
+  const H=['MIN','PTS','REB','AST','STL','BLK','TO','FG','3PT','FT','+/-'];
+  const K=['minutes','points','rebounds','assists','steals','blocks','turnovers','fieldGoalsMade-fieldGoalsAttempted','threePointFieldGoalsMade-threePointFieldGoalsAttempted','freeThrowsMade-freeThrowsAttempted','plusMinus'];
+  box.innerHTML=head+teams.map(tm=>{
+    const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=K.map(k=>keys.indexOf(k)), nm=(tm.team&&tm.team.displayName)||'';
+    const cell=(v,i)=>`<td class="num">${htmlEsc(i>=0&&v&&v[i]!=null&&v[i]!==''?v[i]:'—')}</td>`;
+    const rows=(st.athletes||[]).map(a=>{ const p=a.athlete||{}, v=a.stats||[], pos=(p.position&&p.position.abbreviation)||'';
+      return a.didNotPlay||!v.length
+        ?`<tr class="dnp"><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small>${htmlEsc(pos)}</small></td><td colspan="${H.length}">${htmlEsc(a.reason||'DNP')}</td></tr>`
+        :`<tr><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small class="sub2">${htmlEsc(pos)}</small></td>${ix.map(i=>cell(v,i)).join('')}</tr>`; }).join('');
+    const tot=st.totals||[], trow=tot.length?`<tr><th>Team</th>${ix.map(i=>cell(tot,i)).join('')}</tr>`:'';
+    return `<h3>${htmlEsc(nm)}</h3><div class="scroller"><table><thead><tr><th>Player</th>${H.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}${trow}</tbody></table></div>`;
+  }).join('')+'<p class="note">Click a player for his card.</p>';
+}
+/* Live games refresh once a minute while the page is open. */
+setInterval(()=>{ const v=$('v-scores'); if(v&&!v.hidden&&!document.hidden&&(SC.games.some(g=>g.state==='in')||SC.gid)) scLoad(); },60e3);
 
 /* ================= EASTER EGGS (2026-11-16) ================= */
 /* He's heating up / he's on fire. The feed has no play-by-play, so this reads
