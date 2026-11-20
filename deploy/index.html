@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.6">
+<meta name="ll-build" content="2026-11-20.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -13880,7 +13880,7 @@ function rolling(cat,span){
    the cap, gamesPace()'s rule, so it agrees with the Games card). Facts only:
    neither says what to do about it. CHARTVIEW is per browser (ll_chart);
    CHARTPICK, a club tapped to pick it out, lasts this visit. */
-var CHARTVIEW=(()=>{ try{ const v=localStorage.getItem('ll_chart'); return ['roll','daily','race','pace'].includes(v)?v:'roll'; }catch(e){ return 'roll'; } })();
+var CHARTVIEW=(()=>{ try{ const v=localStorage.getItem('ll_chart'); return ['roll','race','pace'].includes(v)?v:'roll'; }catch(e){ return 'roll'; } })();
 let CHARTPICK='', RACECACHE={key:'',v:null};
 /* The race, normalised for games played (2026-11-18): each club's counting stats
    per game played, so a club that has played fewer games is not behind for it.
@@ -13889,14 +13889,14 @@ var RACENORM=(()=>{ try{ return localStorage.getItem('ll_racenorm')==='1'; }catc
 function chartTabs(){
   if(!$('chTabs')) return;
   const b=(v,t)=>`<button type="button" data-chv="${v}" aria-pressed="${CHARTVIEW===v}">${t}</button>`;
-  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('daily','Daily')}${b('race','The race')}${b('pace','Games pace')}</div>`
+  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games pace')}</div>`
     +(CHARTVIEW==='race'?`<div class="toggle" role="group" aria-label="Race basis" style="margin-left:8px"><button type="button" data-chn="0" aria-pressed="${!RACENORM}" title="Season totals, as the Standings table ranks them">Totals</button><button type="button" data-chn="1" aria-pressed="${RACENORM}" title="Each club's stats per game played, so fewer games played is not a handicap">Per game played</button></div>`:'');
   if($('chTabs').innerHTML!==html){ $('chTabs').innerHTML=html;
     $('chTabs').querySelectorAll('[data-chv]').forEach(x=>x.onclick=()=>{ CHARTVIEW=x.dataset.chv;
       try{ localStorage.setItem('ll_chart',CHARTVIEW); }catch(e){} drawTrend(); });
     $('chTabs').querySelectorAll('[data-chn]').forEach(x=>x.onclick=()=>{ RACENORM=x.dataset.chn==='1';
       try{ localStorage.setItem('ll_racenorm',RACENORM?'1':'0'); }catch(e){} drawTrend(); }); }
-  $('trCat').hidden=CHARTVIEW!=='roll'&&CHARTVIEW!=='daily';
+  $('trCat').hidden=CHARTVIEW!=='roll';
 }
 const chMine=()=>me&&me!=='__comm__'&&S.teams&&S.teams[me]?me:null;
 /* The drawing's width is the box's own, so its 11px text renders at 11px: Home's
@@ -14072,7 +14072,7 @@ function drawTrend(){
     $('feedHelp').innerHTML='';
     return CHARTVIEW==='race'?drawRace():drawPace();
   }
-  drawRoll(CHARTVIEW==='daily');
+  drawRoll(false);
 }
 $('trCat').onchange=drawTrend;
 if($('faTabSearch'))$('faTabSearch').oninput=drawFA;
