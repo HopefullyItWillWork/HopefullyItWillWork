@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.16">
+<meta name="ll-build" content="2026-11-20.17">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -4268,7 +4268,11 @@ function tags(p){
 }
 function drawDetail(){
   const t=activeTeam;if(!t)return;
-  const {cap,tax,roster}=S.cfg,s=committed(t),n=headcount(t),dead=deadMoney(t),cuts=S.teams[t].cuts||[];
+  const {cap,tax,roster}=S.cfg,s=committed(t),n=headcount(t),dead=deadMoney(t),
+    /* Release history lists in-season releases only (2026-11-20): an offseason release
+       (live:false) takes the salary off at once and is not part of the in-season record.
+       Older records carry no flag and were all made during the season they name. */
+    cuts=(S.teams[t].cuts||[]).filter(c=>c.live!==false);
   const sc=capCommitted(t), rx=s-sc;          // soft-cap total, and this year's rookies left out of it
   const mine=canEdit(t);
   const CS0=SORTS.cx||{col:'sal',desc:true};
