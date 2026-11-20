@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.10">
+<meta name="ll-build" content="2026-11-20.11">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -604,7 +604,7 @@ border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-
 .firegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
 .firecard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;
   display:flex;gap:12px;align-items:center;min-width:0}
-.firecard .hs.fireimg{position:static;width:64px;height:64px;margin:0;flex:none}
+.firecard .hs.fireimg{position:static;width:76px;height:76px;margin:0;flex:none}
 .firecard .firerk{font-family:var(--body);font-weight:700;font-size:var(--t5);color:var(--amber);flex:none}
 .firecard .firebody{min-width:0;display:flex;flex-direction:column;gap:2px}
 .firecard .firebody b{font-size:var(--t3)}
@@ -1463,6 +1463,11 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .nbgrid{display:grid;grid-template-columns:1fr;gap:18px}
 .nbtbl{width:100%}
 .nbgrid h3{margin:0 0 6px;font-size:var(--t3)}
+.clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
+.cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
+.ledgerbox{margin-top:22px;border-top:1px solid var(--line);padding-top:10px}
+.ledgerbox>summary{cursor:pointer;font:600 var(--t3) var(--body);color:var(--steel);padding:6px 0}
 .sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
 .sgame{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;cursor:pointer;text-align:left;color:var(--chalk);font:inherit;display:block;width:100%}
 .sgame:hover{border-color:var(--steel)}
@@ -1615,14 +1620,16 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     <div id="lgMissed"></div>
   </div>
   <div class="subview" id="v-contracts" data-subview hidden>
-    <h2>Payroll &#8212; committed salary</h2>
-    <div class="ledger" id="ledger"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">
-      <button class="btn ghost" id="expTeam">Export this club</button></div>
+    <div class="clubpick" id="clubPick" role="group" aria-label="Pick a club"></div>
     <div data-perbar="club"></div>
     <div id="clubTradeNote"></div>
     <div id="clubLive"></div>
     <div class="detail" id="detail"></div>
+    <details class="ledgerbox"><summary>League payroll &#8212; all clubs</summary>
+      <div class="ledger" id="ledger"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn ghost" id="expTeam">Export this club</button></div>
+    </details>
   </div>
   <div class="subview" id="v-history" data-subview hidden>
     <h2>Champions</h2>
@@ -4217,6 +4224,12 @@ function drawLedger(){
     const go=()=>{activeTeam=r.dataset.t;drawLedger();drawDetail();drawClubLive();};
     r.onclick=go;r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};
   });
+  /* The picker at the top of the page (2026-11-20): the same choice as a row of
+     chips, so the page opens on a club rather than on the payroll table. */
+  if($('clubPick')){
+    $('clubPick').innerHTML=TEAMS().map(t=>`<button type="button" class="cchip" data-t="${htmlEsc(t)}" aria-pressed="${t===activeTeam}">${clubBadge(t)}${htmlEsc(t)}${me===t?' &#9679;':''}</button>`).join('');
+    $('clubPick').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ activeTeam=b.dataset.t; drawLedger(); drawDetail(); drawClubLive(); });
+  }
   /* "n2" is the roster column; sort it by headcount. */
   sortable('ledTbl','led','n',false); redraw.led=drawLedger;
 }
@@ -4252,13 +4265,7 @@ function drawDetail(){
       <td class="${exp?'exp':''}">${exp?'&#8212;':salMark(p,0)}</td>
       <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':salMark(p,1)}</td>
       <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':salMark(p,2)}</td></tr>`;}).join('');
-  $('detail').innerHTML=`<div class="dhead"><h3>${t}</h3>${bannersHtml(t)}
-    ${gmName(t)?`<span class="pill gmpill" title="The GM on file for this club. It does not change when the club is renamed.">${htmlEsc(gmName(t))}</span>`:''}
-    <span class="pill">${n} of ${roster} under contract</span>
-    <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
-    <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the tax</span>
-    ${mine?`<span class="pill good">${isComm()?'You can edit this club'
-      :'Your club \u2014 you can sign, cut and list'}</span>`:''}</div>
+  $('detail').innerHTML=`<h2 class="sub">Contracts and cap</h2>
     <dl class="capgrid">
       <div class="capcell"><dt>Salary cap</dt><dd>${money(cap)}</dd></div>
       <div class="capcell"><dt>Salary spent</dt><dd class="amb">${money(s)}</dd></div>
@@ -12266,7 +12273,7 @@ function espnIdOf(name){
 }
 function headshot(name,cls){
   const id=espnIdOf(name); if(!id||!/^\d+$/.test(id)) return '';
-  const w=cls==='lg'?160:64;
+  const w=cls==='lg'||cls==='fireimg'?350:cls==='sm'?96:128;   // ESPN's full image is 350 wide; the small ones were 1x and blurry on retina
   // Clickable like the name beside it: the delegated [data-player] handler opens
   // the card. Not the card's own large picture.
   const dp=cls==='lg'?'':` data-player="${htmlEsc(name)}"`;
@@ -12648,6 +12655,11 @@ function drawClubLive(){
   const row=(SCORE.standings||[]).find(r=>r.club===t&&r.tot&&r.tot.GP>0);
   let html=`<div class="dhead"><h3>${clubBadge(t)}${htmlEsc(t)}</h3>${bannersHtml(t)}${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
     ${row?`<span class="pill">${ordinal(row.rank)} \u00b7 ${row.pts} pts</span><span class="pill">${row.tot.GP} games</span>`:''}
+    ${(()=>{ const {cap,tax,roster}=S.cfg, s=committed(t), sc=capCommitted(t), n=headcount(t);
+      return `<span class="pill">${n} of ${roster} under contract</span>
+      <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
+      <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the hard cap</span>`; })()}
+    ${canEdit(t)?`<span class="pill good">${isComm()?'You can edit this club':'Your club \u2014 you can sign, cut and list'}</span>`:''}
     ${me&&!isComm()&&me!==t?'<button class="btn ghost" id="clubTrade" style="margin-left:auto">Propose a trade</button>':''}</div>`;
   if(row){
     const cats=Object.entries(row.cat||{}).sort((a,b)=>b[1]-a[1]);
