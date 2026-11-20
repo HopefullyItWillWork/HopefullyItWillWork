@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.17">
+<meta name="ll-build" content="2026-11-20.18">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -360,9 +360,9 @@ details.rmenu>summary:focus-visible{outline:2px solid var(--amber);outline-offse
 /* A real minimum, or the name collapses to one letter a line the moment a
    control beside it wants room. It ellipsises rather than wrapping so every row
    stays one line tall and the stat columns keep their alignment. */
-.lurowctl .luname{flex:1 1 auto;min-width:120px;font-weight:500;line-height:1.25;
+.lurowctl .luname{flex:0 1 auto;min-width:0;font-weight:500;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lurowctl .pname{cursor:pointer}
+.lurowctl .pname,.luname[data-player]{cursor:pointer}
 .lurowctl .tag{flex:none;margin-left:0}
 .lustart{font-size:var(--t1);padding:2px 5px;flex:0 0 auto;max-width:104px}
 .lurowctl .act{margin-left:0;flex:none}
@@ -11205,10 +11205,10 @@ function drawLineup(o){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}${gcls(nm)}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname pname" data-player="${htmlEsc(nm)}">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
+        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname" data-player="${htmlEsc(nm)}">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
         : can ? `<span class="lurowctl">${nm?`<span class="lurow1">${headshot(nm)}${injTag(nm)}${mini(nm)}</span>`:''}<span class="lurow2"><select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span></span>`
 
-              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname${nm?' pname':''}"${nm?` data-player="${htmlEsc(nm)}"`:''}>${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
+              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname"${nm?` data-player="${htmlEsc(nm)}"`:''}>${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
       ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
   }).join('');
 
@@ -11220,8 +11220,7 @@ function drawLineup(o){
     return `<div class="lurow bench${lk.locked?' locked':''}${gcls(p.n)}">
       <span class="luslot k-B">BN</span>
       <span class="lupick"><span class="lurowctl">
-        <span class="lurow1">${headshot(p.n)}${mini(p.n)}</span><span class="lurow2"><span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(nmShow(p.n))}</span>
-        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>${ahead?'':heatTag(p.n)+tripDub(p.n)}
+        <span class="lurow1">${headshot(p.n)}<span class="mo">${injTag(p.n)}</span>${mini(p.n)}</span><span class="lurow2"><span class="luname" data-player="${htmlEsc(p.n)}">${htmlEsc(nmShow(p.n))}</span><span class="tag t-po">${htmlEsc(posText(p.n))}</span><span class="do">${injTag(p.n)}</span>${ahead?'':heatTag(p.n)+tripDub(p.n)}
         ${can&&!lk.locked ? (where.length
           ? `<select class="lustart" data-start="${htmlEsc(p.n)}" aria-label="Start ${htmlEsc(p.n)}">
                <option value="">Start&#8230;</option>
@@ -11238,8 +11237,7 @@ function drawLineup(o){
     return `<div class="lurow onir">
       <span class="luslot k-I">IR</span>
       <span class="lupick"><span class="lurowctl">
-        <span class="lurow1">${headshot(p.n)}</span><span class="lurow2"><span class="luname pname" data-player="${htmlEsc(p.n)}">${htmlEsc(nmShow(p.n))}</span>
-        <span class="tag t-po">${htmlEsc(posText(p.n))}</span>
+        <span class="lurow1">${headshot(p.n)}<span class="mo">${injTag(p.n)}</span></span><span class="lurow2"><span class="luname" data-player="${htmlEsc(p.n)}">${htmlEsc(nmShow(p.n))}</span><span class="tag t-po">${htmlEsc(posText(p.n))}</span><span class="do">${injTag(p.n)}</span>
         ${can?`<button class="act edit" data-fromir="${htmlEsc(p.n)}">Activate</button>`:''}</span></span></span>
       ${game(p.n,true)}${stats(p.n,L)}${acts(p.n)}</div>`;
   }).join('')||`<div class="lurow empty"><span class="luslot k-I">IR</span>
