@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.15">
+<meta name="ll-build" content="2026-11-20.16">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1469,6 +1469,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .sbox tr.mine>*,#nbRosTbl tr.mine>*{background:color-mix(in srgb,var(--amber) 16%,var(--panel))!important}
 .sbox tr.mine>td:first-child,#nbRosTbl tr.mine>td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .minepill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:var(--r-s);background:var(--amber);color:var(--panel);font:600 var(--t1) var(--body);letter-spacing:0;text-transform:none;vertical-align:middle}
+.drow.rk{grid-template-columns:1fr repeat(4,minmax(52px,.7fr))}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
@@ -8160,10 +8161,40 @@ $('dlgPlayer').addEventListener('click',e=>{
 const DCATS=[["g","Games",0],["PTS","Points",1],["TRB","Rebounds",1],["AST","Assists",1],
   ["P3","Threes",1],["STL","Steals",1],["BLK","Blocks",1],["TOV","Turnovers",1],
   ["FG","FG made",1],["FGA","FG att",1],["FT","FT made",1],["FTA","FT att",1]];
+/* A player with no 2025–26 row (this year's rookies, call-ups, anyone the preseason
+   table missed) still has this season's box scores: the card is built from the live
+   windows (7, 15, 30 days and the season) instead of saying "no stats on file", and
+   keeps the last-five log. Filled after the windows load (2026-11-20). */
+const RKCATS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO']];
+const RKWIN=[['d7','Last 7'],['d15','Last 15'],['d30','Last 30'],['szn','Season']];
+function rookieTable(name){
+  const L=RKWIN.map(([w])=>liveLine(name,w));
+  if(!L.some(x=>x&&x.g)) return '<div class="sub2">No games on file yet this season.</div>';
+  const f=(x,fn)=>x&&x.g?fn(x):'\u2014';
+  const row=(lab,fn)=>`<div class="drow rk"><span class="cat">${lab}</span>${L.map(x=>`<span class="av">${f(x,fn)}</span>`).join('')}</div>`;
+  let R=rtg(name); if(R==null){ try{ const t=trendOf(name,'szn'); R=t&&t.tot!=null?t.tot:null; }catch(e){} }
+  return `<div class="drow rk dhead2"><span class="cat">PER GAME</span>${RKWIN.map(([,l])=>`<span class="av">${l}</span>`).join('')}</div>`
+    +row('Games',x=>x.g)
+    +RKCATS.map(([k,l])=>row(l,x=>(+x.s[k]||0).toFixed(1))).join('')
+    +row('FG%',x=>pctText(shotPct(x.s.FG,x.s.FGA)))+row('FT%',x=>pctText(shotPct(x.s.FT,x.s.FTA)))
+    +`<div class="tot2"><span>Rating</span><b>${R==null?'\u2014':(R>0?'+':'')+R}</b></div>`;
+}
+function rookieCard(name,opts){
+  return `<div class="impact"><h4>${htmlEsc(name)}</h4>
+    <div class="sub2">${htmlEsc(ownerLabel(name))} \u00b7 ${htmlEsc(posShow(name)||'\u2014')} \u00b7 <span style="color:var(--dim)">this season</span></div>
+    <div data-rkbody="${htmlEsc(name)}"><div class="sub2">Loading this season\u2019s stats\u2026</div></div>
+    <div class="glog" data-glog="${htmlEsc(name)}"></div></div>`;
+}
+function rookieFill(root){
+  root.querySelectorAll('[data-rkbody]').forEach(el=>{
+    const n=el.dataset.rkbody;
+    Promise.all(LIVEW.map(w=>loadLive(w))).then(()=>{ if(el.isConnected) el.innerHTML=rookieTable(n); });
+  });
+}
 function playerCard(name,opts){
   opts=opts||{};
   const c=canon(name), b=RIDX[c];
-  if(!b) return `<div class="impact"><h4>${name}</h4><div class="sub2">no stats on file</div></div>`;
+  if(!b) return rookieCard(name,opts);
   /* The middle column is whatever source is switched on, so the card never
      disagrees with the table that opened it. The amber "edited" marks stay for
      the GM's own numbers only — the aggregate is nobody's edit. */
@@ -8249,7 +8280,7 @@ function glogFill(root){
   });
 }
 function wirePlayerCard(root){
-  glogFill(root); missLineFill(root);
+  glogFill(root); missLineFill(root); rookieFill(root);
   root.querySelectorAll('[data-editproj]').forEach(b=>b.onclick=()=>openProj(b.dataset.editproj));
   root.querySelectorAll('[data-clrproj]').forEach(b=>b.onclick=async()=>{
     delete PROJ[b.dataset.clrproj]; await saveProj(); render();});
