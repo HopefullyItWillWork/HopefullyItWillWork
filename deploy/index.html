@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.4">
+<meta name="ll-build" content="2026-11-20.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -12423,7 +12423,8 @@ function addHeadshots(root){ try{
   Array.prototype.forEach.call((root||document).querySelectorAll(sel),el=>{
     if(el.dataset.hsd===v) return; el.dataset.hsd=v;
     if((el.firstElementChild&&el.firstElementChild.classList.contains('hs'))
-       ||(el.previousElementSibling&&el.previousElementSibling.classList.contains('hs'))){
+       ||(el.previousElementSibling&&el.previousElementSibling.classList.contains('hs'))
+       ||(el.closest&&(c=>c&&c.querySelector('.hs'))(el.closest('.lurowctl')))){   // bench/IR rows draw their own picture in .lurow1
       const nm=el.dataset.hs||el.dataset.player;
       if(nm&&!el.querySelector('.inj')&&!(el.nextElementSibling&&el.nextElementSibling.classList.contains('inj'))){
         const t=injTag(nm); if(t) el.insertAdjacentHTML('beforeend',t); }
