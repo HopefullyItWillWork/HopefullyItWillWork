@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.18">
+<meta name="ll-build" content="2026-11-20.22">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1470,6 +1470,32 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .sbox tr.mine>td:first-child,#nbRosTbl tr.mine>td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .minepill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:var(--r-s);background:var(--amber);color:var(--panel);font:600 var(--t1) var(--body);letter-spacing:0;text-transform:none;vertical-align:middle}
 .drow.rk{grid-template-columns:1fr repeat(4,minmax(52px,.7fr))}
+.ltscroll{margin-top:4px}
+.ltbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 10px}
+.ltbar .ltscore{font:600 var(--t3) var(--body)}
+.ltscroll{overflow-x:auto}
+.ltcourt{position:relative;width:100%;min-width:620px;aspect-ratio:94/50;container-type:inline-size;border-radius:var(--r-l);overflow:hidden;
+  background:linear-gradient(90deg,#c98f4f,#d9a566 50%,#c98f4f);box-shadow:inset 0 0 0 2px #7a4c1e}
+.ltcourt svg{position:absolute;inset:0;width:100%;height:100%}
+.ltcourt .ltlogo{position:absolute;left:50%;top:50%;width:13cqw;height:13cqw;transform:translate(-50%,-50%);opacity:.9;object-fit:contain;pointer-events:none}
+.ltcourt .lttag{position:absolute;top:1.2cqw;font:700 1.5cqw var(--body);letter-spacing:.12em;color:rgba(60,30,5,.55);text-transform:uppercase}
+.ltdot{position:absolute;width:1.1cqw;height:1.1cqw;border-radius:50%;transform:translate(-50%,-50%);border:.15cqw solid rgba(0,0,0,.35)}
+.ltdot.make{background:#2fb344}.ltdot.miss{background:#e03131}
+.ltdot.ft{width:1cqw;height:1cqw}
+.ltico{position:absolute;width:4.4cqw;height:4.4cqw;transform:translate(-50%,-50%)}
+.ltico img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#e9e2d6;box-sizing:border-box;border:.4cqw solid var(--ring,#888);display:block}
+.ltico.mine img{box-shadow:0 0 0 .3cqw #fff,0 0 1.4cqw .5cqw var(--amber)}
+.ltico .ltpill{position:absolute;left:50%;bottom:-1.5cqw;transform:translateX(-50%);padding:0 .6cqw;border-radius:.8cqw;background:var(--ring,#888);color:#fff;font:700 1.15cqw/1.5 var(--body);white-space:nowrap}
+.ltico .ltx{position:absolute;inset:-.4cqw;font:900 5.2cqw/1 var(--body);color:#e03131;text-align:center;text-shadow:0 0 .4cqw #fff,0 0 .4cqw #fff;display:flex;align-items:center;justify-content:center}
+.ltico.k-make{--ring:#2fb344}.ltico.k-miss{--ring:#e03131}
+.ltico.k-ast{--ring:#9aa7b4}.ltico.k-ast img{border-style:double;border-width:.6cqw}
+.ltico.k-reb{--ring:#e8772e}.ltico.k-reb img{border-width:.6cqw}
+.ltico.k-to{--ring:#555}.ltico.k-stl{--ring:#8e44ad}.ltico.k-blk{--ring:#1c7ed6}
+.ltnew{animation:ltpop .7s cubic-bezier(.2,1.4,.4,1)}
+@keyframes ltpop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}60%{opacity:1}100%{transform:translate(-50%,-50%) scale(1)}}
+.ltlegend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 4px;font:500 var(--t2) var(--body);color:var(--steel)}
+.ltlegend i{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:5px;border:3px solid var(--c);box-sizing:border-box}
+.ltlegend i.d{background:var(--c);border-width:0}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
@@ -1763,6 +1789,13 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
         back a night with the arrows to see what scored.</p>
       <div id="luHead"></div>
       <div class="luwrap" id="luScroll"><div class="luslots" id="luSlots"></div></div>
+      <!-- The Court view (2026-11-20): a full court of the club's players' plays, from ESPN. -->
+      <div id="ltWrap" hidden>
+        <div class="ltbar" id="ltBar"></div>
+        <div class="scroller ltscroll"><div class="ltcourt" id="ltCourt"></div></div>
+        <div class="ltlegend" id="ltLegend"></div>
+        <p class="note" id="ltNote"></p>
+      </div>
     </div>
 
     <div id="lnWrap" hidden>
@@ -1924,6 +1957,14 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div><label for="setAbbr">Badge letters</label><input id="setAbbr" maxlength="3" autocomplete="off" style="text-transform:uppercase"></div>
       <div><label>Preview</label><div id="setBadgePrev" style="padding-top:6px"></div></div>
       <button class="btn" id="setBrandGo">Save colours</button>
+    </div>
+
+    <h2 class="sub">Home team logo</h2>
+    <p class="note explain">The NBA team whose logo sits at center court on My Team's Court view.</p>
+    <div class="form f4">
+      <div><label for="setNba">NBA team</label><select id="setNba"></select></div>
+      <div></div><div></div>
+      <button class="btn" id="setNbaGo">Save logo</button>
     </div>
 
     <h2 class="sub">Email</h2>
@@ -5247,6 +5288,8 @@ function drawSettings(){
   { const b=clubBrand(mine);
     if($('setColor')&&document.activeElement!==$('setColor')) $('setColor').value=b.c;
     if($('setAbbr')&&document.activeElement!==$('setAbbr')) $('setAbbr').value=b.ab;
+    if($('setNba')){ if(!$('setNba').options.length) $('setNba').innerHTML='<option value="">None</option>'+NBA30.map(t=>`<option value="${t[0]}">${htmlEsc(t[1])}</option>`).join('');
+      if(document.activeElement!==$('setNba')) $('setNba').value=(S.teams[mine]&&S.teams[mine].nba)||''; }
     if($('setBadgePrev')) $('setBadgePrev').innerHTML=clubBadge(mine)+htmlEsc(mine); }
   if($('setMailNote')) $('setMailNote').textContent = d.email
     ? `The league mails ${d.email}${digestWords(d.daily,d.weekly)}.`
@@ -5305,6 +5348,12 @@ function wireSettings(){
     S.teams[t].brand={c:c.toUpperCase(),ab};
     await commit({kind:'edit',team:t,detail:`Team colours set \u2014 ${ab} ${c.toUpperCase()}`},['rosters']);
     projToast('Colours saved');
+  };
+  if($('setNbaGo')) $('setNbaGo').onclick=async()=>{
+    const t=me; if(!t||isComm()||!S.teams[t]) return;
+    const v=$('setNba').value; S.teams[t].nba=v;
+    await commit({kind:'edit',team:t,detail:`Home team logo set \u2014 ${v||'none'}`},['rosters']);
+    projToast('Logo saved'); try{ ltDraw(); }catch(e){}
   };
   $('setEmailGo').onclick=async()=>{
     const t=me; if(!t||isComm()||!S.teams[t]) return;
@@ -10817,7 +10866,7 @@ function luTotals(r){
    stats period's line and PR; Contract swaps the nine categories for what each man
    is owed, like the old My roster table's Contract view. Per browser. */
 const luAutoNight=()=>{ try{ return localStorage.getItem('ll_luauto')||''; }catch(e){ return ''; } };
-var LUMODE=(()=>{ try{ const v=localStorage.getItem('ll_lumode'); return ['ctr','rtg','trend','news'].includes(v)?v:'stats'; }catch(e){ return 'stats'; } })();
+var LUMODE=(()=>{ try{ const v=localStorage.getItem('ll_lumode'); return ['ctr','rtg','trend','news','court'].includes(v)?v:'stats'; }catch(e){ return 'stats'; } })();
 /* The lineup's category keys → the rater's (REB is TRB, TO is TOV, the rates are FG/FT). */
 const LU2R={PTS:'PTS',TRB:'REB',AST:'AST',P3:'P3',STL:'STL',BLK:'BLK',TOV:'TO',FGP:'FG',FTP:'FT'};
 /* The two shooting cells carry the makes and attempts under the rate, like
@@ -10983,6 +11032,7 @@ function drawLineup(o){
   }
   const nowOn=liveOk&&LUMODE==='now';
   if(!RO){ HEAD.hidden=pastView; SLOTS.hidden=pastView; }
+  if(!RO&&$('ltWrap')) $('ltWrap').hidden=true;
   if(pastView) return;
   const T=RO?o.team:meTeam(), lu=lineupOf(T,D), can=RO?false:canEdit(T);
   const bench=benchOf(T,D), ir=irOf(T);
@@ -11029,7 +11079,7 @@ function drawLineup(o){
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
-       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights'],['court','Court','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
@@ -11056,6 +11106,12 @@ function drawLineup(o){
      three boxes in two columns. They hold the same nine columns and a GM reads
      them together — who is in, who is out, and who cannot play — so splitting
      them across a grid made the numbers stop lining up for no gain. */
+  if(!RO){
+    const court=LUMODE==='court';
+    if($('luScroll')) $('luScroll').hidden=court;
+    if($('ltWrap')) $('ltWrap').hidden=!court;
+    if(court){ ltEnter(); return; }
+  }
   const ctr=LUMODE==='ctr'&&!RO, tot=PRBASIS==='tot', trend=LUMODE==='trend';
   const TRENDW=['d7','d15','d30','szn'];
   const TRENDH=[['PR7','Player rating, last 7 days'],['PR15','Player rating, last 15 days'],
@@ -13402,6 +13458,150 @@ function drawNbRoster(){
   if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
 }
 setInterval(()=>{ const v=$('v-nbast'); if(v&&!v.hidden&&!document.hidden&&!NB.team&&Date.now()-NB.at>10*60e3) nbLoad(); },60e3);
+
+/* ================= MY TEAM › LIVE TRACKING (2026-11-20) =================
+   A full court drawn from ESPN's play-by-play (summary?event= -> plays[]), polled
+   every 10 seconds while a game is on. ESPN gives every shot a court position in ONE
+   half-court frame: x across the floor 0-50 ft, y up from the baseline in feet, the
+   basket at about (25, 5.25). Free throws carry a junk placeholder instead, so they
+   are drawn at the line. A steal rides on the turnover play (its second participant)
+   at the turnover's spot, a block on the missed shot's (second participant), and an
+   assist on the made shot's - so each has a location, but it is the shot's or the
+   turnover's, not the pass's. Offense (shots, free throws, assists, turnovers) is
+   drawn on the left half, defense (rebounds, steals, blocks) on the right. */
+const NBA30=[['ATL','Atlanta Hawks','atl'],['BOS','Boston Celtics','bos'],['BKN','Brooklyn Nets','bkn'],['CHA','Charlotte Hornets','cha'],
+ ['CHI','Chicago Bulls','chi'],['CLE','Cleveland Cavaliers','cle'],['DAL','Dallas Mavericks','dal'],['DEN','Denver Nuggets','den'],
+ ['DET','Detroit Pistons','det'],['GSW','Golden State Warriors','gs'],['HOU','Houston Rockets','hou'],['IND','Indiana Pacers','ind'],
+ ['LAC','LA Clippers','lac'],['LAL','Los Angeles Lakers','lal'],['MEM','Memphis Grizzlies','mem'],['MIA','Miami Heat','mia'],
+ ['MIL','Milwaukee Bucks','mil'],['MIN','Minnesota Timberwolves','min'],['NOP','New Orleans Pelicans','no'],['NYK','New York Knicks','ny'],
+ ['OKC','Oklahoma City Thunder','okc'],['ORL','Orlando Magic','orl'],['PHI','Philadelphia 76ers','phi'],['PHX','Phoenix Suns','phx'],
+ ['POR','Portland Trail Blazers','por'],['SAC','Sacramento Kings','sac'],['SAS','San Antonio Spurs','sa'],['TOR','Toronto Raptors','tor'],
+ ['UTA','Utah Jazz','utah'],['WAS','Washington Wizards','wsh']];
+var LT={day:'',games:[],byGame:{},names:{},seen:null,busy:false,err:'',at:0};
+const ltOk=c=>!!c&&c.x>=0&&c.x<=50&&c.y>=0&&c.y<=47;
+/* Plays -> things to draw. Pure. `plays` is ESPN's list, oldest first. */
+function ltParse(plays){
+  const out=[]; let ftn=0;
+  (plays||[]).forEach(p=>{
+    const t=(p.type&&p.type.text||'').replace(/\n/g,' '), tx=p.text||'', pt=p.participants||[], id=String(p.id);
+    const who=i=>pt[i]&&pt[i].athlete?String(pt[i].athlete.id):'', c=ltOk(p.coordinate)?p.coordinate:null;
+    if(p.shootingPlay&&/^Free Throw/i.test(t)){ out.push({k:'ft',id,made:!!p.scoringPlay,pid:who(0),n:ftn++}); return; }
+    if(p.shootingPlay&&c){
+      const made=!!p.scoringPlay;
+      out.push({k:'shot',id,x:c.x,y:c.y,made,pid:who(0),pts:p.pointsAttempted||(p.scoreValue||2),txt:tx});
+      if(made&&/assists\)/i.test(tx)&&who(1)) out.push({k:'ast',id:id+'a',x:c.x,y:c.y,pid:who(1),txt:tx});
+      if(!made&&/ blocks /i.test(tx)&&who(1)) out.push({k:'blk',id:id+'b',x:c.x,y:c.y,pid:who(1),txt:tx});
+      return; }
+    if(/Rebound/i.test(t)&&c&&who(0)){ out.push({k:'reb',id,x:c.x,y:c.y,pid:who(0),txt:tx}); return; }
+    if(/Turnover/i.test(t)&&c&&who(0)){
+      out.push({k:'to',id,x:c.x,y:c.y,pid:who(0),txt:tx});
+      if(/ steals\)/i.test(tx)&&who(1)) out.push({k:'stl',id:id+'s',x:c.x,y:c.y,pid:who(1),txt:tx});
+    }
+  });
+  return out;
+}
+/* Where a thing sits on the court as percentages. Offense left, defense right; the
+   right half is the same frame turned round. */
+function ltPos(e){
+  let x,y; const off=e.k==='shot'||e.k==='ft'||e.k==='ast'||e.k==='to';
+  if(e.k==='ft'){ const j=((e.n%7)-3)*0.7, v=((e.n%3)-1)*0.5; x=25+j; y=19+v; }
+  else { x=e.x; y=e.y; }
+  const sx=off?y*10:940-y*10, sy=off?x*10:500-x*10;
+  return [Math.min(97,Math.max(3,sx/9.4)), Math.min(96,Math.max(4,sy/5))];
+}
+function ltCourtSvg(){
+  const L='#fff', w='stroke="'+L+'" stroke-width="3" fill="none"';
+  const half=m=>{   // m=false: left half; true: mirrored
+    const g=`<rect x="0" y="170" width="190" height="160" ${w}/><circle cx="190" cy="250" r="60" ${w}/>
+      <path d="M0 30H140A237.5 237.5 0 0 1 140 470H0" ${w}/><path d="M52.5 210A40 40 0 0 1 52.5 290" ${w}/>
+      <path d="M40 220V280" stroke="${L}" stroke-width="6"/><circle cx="52.5" cy="250" r="7.5" ${w}/>`;
+    return m?`<g transform="translate(940 0) scale(-1 1)">${g}</g>`:g; };
+  return `<svg viewBox="0 0 940 500" preserveAspectRatio="none" aria-hidden="true"><rect x="3" y="3" width="934" height="494" ${w}/>
+    <path d="M470 3V497" ${w}/><circle cx="470" cy="250" r="60" ${w}/>${half(false)}${half(true)}</svg>`;
+}
+function ltHead(id){ return `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${encodeURIComponent(id)}.png&w=96&h=70`; }
+function ltMineFn(){
+  const t=meTeam(); if(!t||!S.teams[t]) return ()=>false;
+  const ks=new Set(); S.teams[t].r.forEach(p=>{ if(!contracted(p)) return; ks.add(nameKey(p.n)); ks.add(nameKey(canon(p.n))); });
+  return n=>ks.has(nameKey(n))||ks.has(nameKey(canon(n)));
+}
+/* Every play of tonight's games that belongs to a player on the club, oldest first. */
+function ltEvents(){
+  const mine=ltMineFn(), out=[];
+  Object.values(LT.byGame).forEach(G=>{
+    ltParse(G.plays).forEach(e=>{ const nm=LT.names[e.pid]; if(nm&&mine(nm)) out.push({...e,wc:G.wc[e.id.replace(/[abs]$/,'')]||0}); });
+  });
+  return out.sort((a,b)=>a.wc-b.wc);
+}
+function ltDraw(){
+  const box=$('ltCourt'); if(!box) return;
+  const ev=ltEvents(), fresh=LT.seen;
+  const shots=ev.filter(e=>e.k==='shot'), lastShots=new Set(shots.slice(-10).map(e=>e.id));
+  const specials=ev.filter(e=>e.k==='ast'||e.k==='reb'||e.k==='to'||e.k==='stl'||e.k==='blk').slice(-10);
+  const isNew=e=>fresh&&!fresh.has(e.id)?' ltnew':'';
+  const nm=pid=>LT.names[pid]||'';
+  const dots=ev.filter(e=>e.k==='ft'||(e.k==='shot'&&!lastShots.has(e.id))).map(e=>{
+    const [px,py]=ltPos(e);
+    return `<span class="ltdot ${e.made?'make':'miss'}${e.k==='ft'?' ft':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+(e.k==='ft'?' free throw':' shot')+(e.made?' made':' missed'))}"></span>`; }).join('');
+  const ico=(e,cls,pill,x)=>{ const [px,py]=ltPos(e), name=nm(e.pid);
+    return `<span class="ltico ${cls}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc(name+' — '+(e.txt||''))}"><img src="${ltHead(e.pid)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">${x?'<span class="ltx">✕</span>':''}${pill?`<span class="ltpill">${pill}</span>`:''}</span>`; };
+  const icons=shots.filter(e=>lastShots.has(e.id)).map(e=>ico(e,e.made?'k-make':'k-miss','',false)).join('')
+    +specials.map(e=>e.k==='ast'?ico(e,'k-ast','AST',false):e.k==='reb'?ico(e,'k-reb','REB',false):e.k==='to'?ico(e,'k-to','TO',true)
+      :e.k==='stl'?ico(e,'k-stl','STL',false):ico(e,'k-blk','BLK',false)).join('');
+  const home=NBA30.find(t=>t[0]===((S.teams[meTeam()]||{}).nba||''));
+  const logo=home?`<img class="ltlogo" alt="${htmlEsc(home[1])}" referrerpolicy="no-referrer" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.style.display='none'">`:'';
+  box.innerHTML=ltCourtSvg()+`<span class="lttag" style="left:2cqw">Offense</span><span class="lttag" style="right:2cqw">Defense &amp; rebounds</span>`+logo+dots+icons;
+  LT.seen=new Set(ev.map(e=>e.id));
+  const L=(c,t,d)=>`<span><i class="${d?'d':''}" style="--c:${c}"></i>${t}</span>`;
+  $('ltLegend').innerHTML=L('#2fb344','Make (last 10 shots wear the player’s photo)')+L('#e03131','Miss')+L('#2fb344','Older shot / free throw',1)
+    +L('#9aa7b4','Assist (dime)')+L('#e8772e','Rebound')+L('#555','Turnover ✕')+L('#8e44ad','Steal')+L('#1c7ed6','Block');
+  const started=LT.games.filter(g=>g.state!=='pre').length;
+  $('ltNote').textContent=LT.err?LT.err:!LT.games.length?'No NBA games on this date.'
+    :!started?'No games have tipped off yet — plays appear here as your players make them.'
+    :!ev.length?`None of ${meTeam()}’s players has a play yet in tonight’s games.`
+    :`${shots.length} shots, ${ev.filter(e=>e.k==='ft').length} free throws${LT.at?` · updated ${new Date(LT.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}`:''}. An assist, steal or block sits where the shot or turnover happened (ESPN gives no other location).`;
+}
+function ltBar(){
+  const live=LT.games.filter(g=>g.state==='in').length, tot=LT.games.length;
+  const home=NBA30.find(t=>t[0]===((S.teams[meTeam()]||{}).nba||''));
+  $('ltBar').innerHTML=`<span class="ltscore">${htmlEsc(luNight()===LT.day?'Tonight':LT.day)} \u00b7 ${tot} game${tot===1?'':'s'}${live?`, ${live} live`:''}</span>
+    ${home?'':'<span class="fcount">Pick your home team logo in Settings.</span>'}`;
+}
+async function ltLoadGames(){
+  try{
+    const sb=await (await fetch(`${ESPNSB}?dates=${LT.day.replace(/-/g,'')}`,{cache:'no-store'})).json();
+    LT.games=(sb.events||[]).map(e=>{
+      const st=(e.status&&e.status.type)||{};
+      return {id:e.id,date:e.date,state:st.state||'',final:!!st.completed};
+    });
+    LT.err='';
+  }catch(e){ LT.err='Could not reach ESPN.'; }
+  ltBar(); await ltLoadPlays(); 
+}
+/* A game that has started: fetch its plays; one that is final is fetched once. */
+async function ltLoadPlays(){
+  if(LT.busy) return; LT.busy=true;
+  try{
+    await Promise.all(LT.games.filter(g=>g.state!=='pre'&&!(g.final&&LT.byGame[g.id]&&LT.byGame[g.id].final)).map(async g=>{
+      try{
+        const j=await (await fetch(`${ESPNSUM}?event=${g.id}`,{cache:'no-store'})).json(), wc={};
+        ((j.boxscore&&j.boxscore.players)||[]).forEach(tm=>((tm.statistics&&tm.statistics[0]&&tm.statistics[0].athletes)||[]).forEach(a=>{ if(a.athlete) LT.names[String(a.athlete.id)]=a.athlete.displayName; }));
+        (j.plays||[]).forEach(p=>{ wc[String(p.id)]=Date.parse(p.wallclock||'')||0; });
+        LT.byGame[g.id]={plays:j.plays||[],wc,final:g.final};
+        LT.at=Date.now();
+      }catch(e){}
+    }));
+  }catch(e){}
+  LT.busy=false; ltDraw();
+}
+function ltEnter(){
+  if(LT.day!==luNight()){ LT.day=luNight(); LT.byGame={}; LT.seen=null; LT.games=[]; }
+  ltBar(); ltDraw(); ltLoadGames();
+}
+setInterval(()=>{ const v=$('ltWrap');
+  if(!v||v.hidden||document.hidden||!LT.games.length) return;
+  if(!LT.games.some(g=>g.state!=='post'&&!g.final)) return;      // nothing left to watch
+  LT.tick=(LT.tick||0)+1; if(LT.tick%3===0) ltLoadGames(); else ltLoadPlays(); },10e3);
 
 /* ================= EASTER EGGS (2026-11-16) ================= */
 /* He's heating up / he's on fire. The feed has no play-by-play, so this reads
