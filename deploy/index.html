@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.12">
+<meta name="ll-build" content="2026-11-20.14">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1461,11 +1461,30 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 [data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
 /* NBA Scores tab (2026-11-20) */
 .nbgrid{display:grid;grid-template-columns:1fr;gap:18px}
-.nbtbl{width:100%}
+.nbtbl{width:100%;table-layout:fixed}
+.nbtbl th:first-child,.nbtbl td:first-child{width:44px}
+.nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:72px;text-align:right}
+.nbtbl td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nbgrid h3{margin:0 0 6px;font-size:var(--t3)}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
+/* Desktop (2026-11-20): the masthead, League's pill bar and the lineup's column header
+   stay in view while the page scrolls. --mastH and --stickH are measured by stickVars().
+   Above 1240px the lineup never scrolls sideways, so it clips (not a scroll container)
+   and its header sticks to the page; narrower, it scrolls inside a box that fits the
+   screen, like the phone. */
+@media (min-width:641px){
+  #v-league>.subnav{position:sticky;top:var(--mastH,0px);z-index:40;background:var(--ink);padding:8px 0 12px;margin-bottom:0}
+}
+@media (min-width:1241px){
+  .luslots{overflow:clip}
+  .luhdr{position:sticky;top:var(--stickH,0px);z-index:5;box-shadow:0 1px 0 var(--line)}
+}
+@media (min-width:641px) and (max-width:1240px){
+  .luslots{overflow-y:auto;max-height:calc(100vh - var(--stickH,0px) - 12px);max-height:calc(100dvh - var(--stickH,0px) - 12px)}
+  .luhdr{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--line)}
+}
 .ledgerbox{margin-top:22px;border-top:1px solid var(--line);padding-top:10px}
 .ledgerbox>summary{cursor:pointer;font:600 var(--t3) var(--body);color:var(--steel);padding:6px 0}
 .sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
@@ -7995,6 +8014,19 @@ function markPhaseTabs(){
    top tabs. The ids are the old top-level page ids (v-contracts, v-rater, …), so
    every draw function still finds its elements, and goTab('v-rater') still works
    — it opens the group first. */
+/* Heights the sticky desktop bars sit under (see the CSS above). */
+function stickVars(){
+  try{
+    const m=$('mast'), nav=document.querySelector('#v-league>.subnav'), lg=$('v-league'), r=document.documentElement.style;
+    const mh=m&&getComputedStyle(m).position==='sticky'?m.offsetHeight:0;
+    const sh=nav&&lg&&!lg.hidden&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0;
+    r.setProperty('--mastH',mh+'px'); r.setProperty('--stickH',(mh+sh)+'px');
+  }catch(e){}
+}
+window.addEventListener('resize',stickVars);
+try{ if(typeof ResizeObserver==='function'){ const ro=new ResizeObserver(stickVars);
+  ['mast'].forEach(i=>{ const e=document.getElementById(i); if(e) ro.observe(e); });
+  const n=document.querySelector('#v-league>.subnav'); if(n) ro.observe(n); } }catch(e){}
 function showSub(id){
   const el=$(id); if(!el) return false;
   const grp=el.closest?el.closest('.view'):null; if(!grp) return false;
@@ -8052,6 +8084,7 @@ function goTab(id){
     if(typeof refreshNotes==='function') refreshNotes();
   }
   window.scrollTo&&window.scrollTo(0,0);
+  stickVars();
   if(typeof markMore==='function') markMore();
   catchUp();
   return true;
