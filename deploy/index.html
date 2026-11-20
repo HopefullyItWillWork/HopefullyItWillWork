@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.14">
+<meta name="ll-build" content="2026-11-20.15">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1466,6 +1466,9 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:72px;text-align:right}
 .nbtbl td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nbgrid h3{margin:0 0 6px;font-size:var(--t3)}
+.sbox tr.mine>*,#nbRosTbl tr.mine>*{background:color-mix(in srgb,var(--amber) 16%,var(--panel))!important}
+.sbox tr.mine>td:first-child,#nbRosTbl tr.mine>td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.minepill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:var(--r-s);background:var(--amber);color:var(--panel);font:600 var(--t1) var(--body);letter-spacing:0;text-transform:none;vertical-align:middle}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
@@ -13263,6 +13266,14 @@ async function scBox(id,quiet){
   catch(e){ if(!quiet) SC.box={err:1}; }
   if(SC.gid===id) drawScoreBox();
 }
+/* A signed-in GM's own men, marked on the NBA pages (2026-11-20). Matched by nameKey()
+   so ESPN's spelling ("Nikola Jokic") finds the roster's ("Nikola Jokić"). */
+function myManFn(){
+  if(!me||isComm()||!S.teams[me]) return ()=>false;
+  const ks=new Set(); S.teams[me].r.forEach(p=>{ ks.add(nameKey(p.n)); ks.add(nameKey(canon(p.n))); });
+  return n=>ks.has(nameKey(n))||ks.has(nameKey(canon(n)));
+}
+const MINE_PILL='<span class="minepill">Your player</span>';
 function drawScoreBox(){
   const box=$('scBox'); if(!box) return;
   const g=SC.games.find(x=>x.id===SC.gid), B=SC.box;
@@ -13273,13 +13284,14 @@ function drawScoreBox(){
   if(!teams.length){ box.innerHTML=head+'<p class="note">No box score yet — it appears once the game tips off.</p>'; return; }
   const H=['MIN','PTS','REB','AST','STL','BLK','TO','FG','3PT','FT','+/-'];
   const K=['minutes','points','rebounds','assists','steals','blocks','turnovers','fieldGoalsMade-fieldGoalsAttempted','threePointFieldGoalsMade-threePointFieldGoalsAttempted','freeThrowsMade-freeThrowsAttempted','plusMinus'];
+  const mineOf=myManFn();
   box.innerHTML=head+teams.map(tm=>{
     const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=K.map(k=>keys.indexOf(k)), nm=(tm.team&&tm.team.displayName)||'';
     const cell=(v,i)=>`<td class="num">${htmlEsc(i>=0&&v&&v[i]!=null&&v[i]!==''?v[i]:'—')}</td>`;
     const rows=(st.athletes||[]).map(a=>{ const p=a.athlete||{}, v=a.stats||[], pos=(p.position&&p.position.abbreviation)||'';
       return a.didNotPlay||!v.length
-        ?`<tr class="dnp"><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small>${htmlEsc(pos)}</small></td><td colspan="${H.length}">${htmlEsc(a.reason||'DNP')}</td></tr>`
-        :`<tr><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small class="sub2">${htmlEsc(pos)}</small></td>${ix.map(i=>cell(v,i)).join('')}</tr>`; }).join('');
+        ?`<tr class="dnp${mineOf(p.displayName)?' mine':''}"><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small>${htmlEsc(pos)}</small>${mineOf(p.displayName)?MINE_PILL:''}</td><td colspan="${H.length}">${htmlEsc(a.reason||'DNP')}</td></tr>`
+        :`<tr${mineOf(p.displayName)?' class="mine"':''}><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small class="sub2">${htmlEsc(pos)}</small>${mineOf(p.displayName)?MINE_PILL:''}</td>${ix.map(i=>cell(v,i)).join('')}</tr>`; }).join('');
     const tot=st.totals||[], trow=tot.length?`<tr><th>Team</th>${ix.map(i=>cell(tot,i)).join('')}</tr>`:'';
     return `<h3>${htmlEsc(nm)}</h3><div class="scroller"><table><thead><tr><th>Player</th>${H.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}${trow}</tbody></table></div>`;
   }).join('')+'<p class="note">Click a player for his card.</p>';
@@ -13338,7 +13350,7 @@ function drawNbRoster(){
   const box=$('nbRoster'); if(!box||!NB.team||offscreen('nbRoster')) return;
   const info=NB.conf.reduce((a,c)=>a||c.rows.find(r=>nbTri(r.ab)===NB.team.ab),null)||{};
   const names=nbRosterNames(NB.team.ab);
-  const RG=ratings();
+  const RG=ratings(), mineOf=myManFn();
   const rows=names.map(n=>{ const v=pstat(n); return {n,pos:posShow(n)||espnPosOf(n)||'',g:v?v.g:null,s:v&&v.s?v.s:null,rtg:RG[canon(n)],own:ownerOf(n)}; })
     .sort((a,b)=>(b.rtg==null?-99:b.rtg)-(a.rtg==null?-99:a.rtg));
   const f=v=>v==null?'&#8212;':(+v).toFixed(1);
@@ -13347,7 +13359,7 @@ function drawNbRoster(){
   if(!rows.length){ box.innerHTML=head+`<p class="note">${NBAP.n?'No roster on file for this team.':'Loading rosters\u2026'}</p>`; return; }
   const html=head+`<div class="scroller"><table class="fatab" id="nbRosTbl"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>GP</th>
     ${ROSCOLS.map(([,l])=>`<th>${l}</th>`).join('')}<th>PR</th><th class="l">Held by</th><th class="acts"></th></tr></thead><tbody>${rows.map(p=>
-    `<tr data-player="${htmlEsc(p.n)}"><td class="l" data-hs="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
+    `<tr data-player="${htmlEsc(p.n)}"${mineOf(p.n)?' class="mine"':''}><td class="l" data-hs="${htmlEsc(p.n)}">${htmlEsc(p.n)}${mineOf(p.n)?MINE_PILL:''}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
       ${p.s?`<td>${p.g||0}</td>`+ROSCOLS.map(([k])=>k==='FGP'?`<td>${pctText(shotPct(p.s.FG,p.s.FGA))}</td>`
         :k==='FTP'?`<td>${pctText(shotPct(p.s.FT,p.s.FTA))}</td>`:`<td>${f(p.s[k])}</td>`).join('')
         :`<td colspan="${ROSCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
