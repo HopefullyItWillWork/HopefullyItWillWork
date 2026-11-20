@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.1">
+<meta name="ll-build" content="2026-11-20.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -12534,9 +12534,35 @@ function drawTape(){
 async function drawHomeBest(){
   const box=$('homeBest'); if(!box) return;
   const days=[...Object.keys(SCORE.days||{}),...Object.keys(PRE.days||{})].sort();
-  const day=days[days.length-1];
+  let day=days[days.length-1];
+  /* Scoring runs in the morning, so the newest scored night can be days old.
+     When it is older than last night, read last night's box scores from ESPN
+     (every NBA player, labelled as not yet scored) so the date is current. */
+  const lastNight=scShift(luNight(),-1);
+  if(!day||day<lastNight){
+    if(HOMEBEST.day!==lastNight){
+      HOMEBEST={day:lastNight,rows:null,espn:true};
+      try{
+        const sb=await (await fetch(`${ESPNSB}?dates=${lastNight.replace(/-/g,'')}`,{cache:'no-store'})).json();
+        const ids=(sb.events||[]).filter(e=>e.status&&e.status.type&&e.status.type.completed).map(e=>e.id), all={};
+        await Promise.all(ids.map(async id=>{ try{ Object.assign(all,boxFrom(await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json())); }catch(e){} }));
+        HOMEBEST.rows=Object.values(all).map(p=>{ const st=p.s;
+          return {n:p.n,club:'',nba:p.t,s:st,gs:(st.PTS||0)+(st.TRB||0)+(st.AST||0)+2*((st.STL||0)+(st.BLK||0))-(st.TOV||0)}; })
+          .sort((a,b)=>b.gs-a.gs).slice(0,6);
+      }catch(e){ HOMEBEST.rows=[]; }
+    }
+    if(HOMEBEST.espn){
+      $('homeBestDay').textContent=shortDay(lastNight)+' · all NBA, not yet scored';
+      const rows=HOMEBEST.rows;
+      box.innerHTML=!rows?'<div class="empty">Loading…</div>':!rows.length?'<div class="empty">No box scores for last night.</div>'
+        :`<div class="hbest">${rows.map(r=>`<div>${headshot(r.n)}<b class="pname" data-player="${htmlEsc(r.n)}">${htmlEsc(r.n)}</b>
+        <span>${htmlEsc(r.nba)}</span>
+        <span class="mono">${r.s.PTS||0} pts · ${r.s.TRB||0} reb · ${r.s.AST||0} ast</span></div>`).join('')}</div>`;
+      return;
+    }
+  }
   if(!day){ box.innerHTML='<div class="empty">No box scores yet. The best lines land here the morning after every night of games.</div>'; $('homeBestDay').textContent=''; return; }
-  if(HOMEBEST.day!==day){
+  if(HOMEBEST.day!==day||HOMEBEST.espn){
     HOMEBEST={day,rows:null};
     try{
       const r=await fetch(`/api/score?day=${day}`,{cache:'no-store'});
