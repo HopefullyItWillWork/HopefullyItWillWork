@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.11">
+<meta name="ll-build" content="2026-11-20.16">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1461,11 +1461,34 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 [data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
 /* NBA Scores tab (2026-11-20) */
 .nbgrid{display:grid;grid-template-columns:1fr;gap:18px}
-.nbtbl{width:100%}
+.nbtbl{width:100%;table-layout:fixed}
+.nbtbl th:first-child,.nbtbl td:first-child{width:44px}
+.nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:72px;text-align:right}
+.nbtbl td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nbgrid h3{margin:0 0 6px;font-size:var(--t3)}
+.sbox tr.mine>*,#nbRosTbl tr.mine>*{background:color-mix(in srgb,var(--amber) 16%,var(--panel))!important}
+.sbox tr.mine>td:first-child,#nbRosTbl tr.mine>td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.minepill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:var(--r-s);background:var(--amber);color:var(--panel);font:600 var(--t1) var(--body);letter-spacing:0;text-transform:none;vertical-align:middle}
+.drow.rk{grid-template-columns:1fr repeat(4,minmax(52px,.7fr))}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
+/* Desktop (2026-11-20): the masthead, League's pill bar and the lineup's column header
+   stay in view while the page scrolls. --mastH and --stickH are measured by stickVars().
+   Above 1240px the lineup never scrolls sideways, so it clips (not a scroll container)
+   and its header sticks to the page; narrower, it scrolls inside a box that fits the
+   screen, like the phone. */
+@media (min-width:641px){
+  #v-league>.subnav{position:sticky;top:var(--mastH,0px);z-index:40;background:var(--ink);padding:8px 0 12px;margin-bottom:0}
+}
+@media (min-width:1241px){
+  .luslots{overflow:clip}
+  .luhdr{position:sticky;top:var(--stickH,0px);z-index:5;box-shadow:0 1px 0 var(--line)}
+}
+@media (min-width:641px) and (max-width:1240px){
+  .luslots{overflow-y:auto;max-height:calc(100vh - var(--stickH,0px) - 12px);max-height:calc(100dvh - var(--stickH,0px) - 12px)}
+  .luhdr{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--line)}
+}
 .ledgerbox{margin-top:22px;border-top:1px solid var(--line);padding-top:10px}
 .ledgerbox>summary{cursor:pointer;font:600 var(--t3) var(--body);color:var(--steel);padding:6px 0}
 .sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
@@ -7995,6 +8018,19 @@ function markPhaseTabs(){
    top tabs. The ids are the old top-level page ids (v-contracts, v-rater, …), so
    every draw function still finds its elements, and goTab('v-rater') still works
    — it opens the group first. */
+/* Heights the sticky desktop bars sit under (see the CSS above). */
+function stickVars(){
+  try{
+    const m=$('mast'), nav=document.querySelector('#v-league>.subnav'), lg=$('v-league'), r=document.documentElement.style;
+    const mh=m&&getComputedStyle(m).position==='sticky'?m.offsetHeight:0;
+    const sh=nav&&lg&&!lg.hidden&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0;
+    r.setProperty('--mastH',mh+'px'); r.setProperty('--stickH',(mh+sh)+'px');
+  }catch(e){}
+}
+window.addEventListener('resize',stickVars);
+try{ if(typeof ResizeObserver==='function'){ const ro=new ResizeObserver(stickVars);
+  ['mast'].forEach(i=>{ const e=document.getElementById(i); if(e) ro.observe(e); });
+  const n=document.querySelector('#v-league>.subnav'); if(n) ro.observe(n); } }catch(e){}
 function showSub(id){
   const el=$(id); if(!el) return false;
   const grp=el.closest?el.closest('.view'):null; if(!grp) return false;
@@ -8052,6 +8088,7 @@ function goTab(id){
     if(typeof refreshNotes==='function') refreshNotes();
   }
   window.scrollTo&&window.scrollTo(0,0);
+  stickVars();
   if(typeof markMore==='function') markMore();
   catchUp();
   return true;
@@ -8124,10 +8161,40 @@ $('dlgPlayer').addEventListener('click',e=>{
 const DCATS=[["g","Games",0],["PTS","Points",1],["TRB","Rebounds",1],["AST","Assists",1],
   ["P3","Threes",1],["STL","Steals",1],["BLK","Blocks",1],["TOV","Turnovers",1],
   ["FG","FG made",1],["FGA","FG att",1],["FT","FT made",1],["FTA","FT att",1]];
+/* A player with no 2025–26 row (this year's rookies, call-ups, anyone the preseason
+   table missed) still has this season's box scores: the card is built from the live
+   windows (7, 15, 30 days and the season) instead of saying "no stats on file", and
+   keeps the last-five log. Filled after the windows load (2026-11-20). */
+const RKCATS=[['PTS','PTS'],['TRB','REB'],['AST','AST'],['P3','3P'],['STL','STL'],['BLK','BLK'],['TOV','TO']];
+const RKWIN=[['d7','Last 7'],['d15','Last 15'],['d30','Last 30'],['szn','Season']];
+function rookieTable(name){
+  const L=RKWIN.map(([w])=>liveLine(name,w));
+  if(!L.some(x=>x&&x.g)) return '<div class="sub2">No games on file yet this season.</div>';
+  const f=(x,fn)=>x&&x.g?fn(x):'\u2014';
+  const row=(lab,fn)=>`<div class="drow rk"><span class="cat">${lab}</span>${L.map(x=>`<span class="av">${f(x,fn)}</span>`).join('')}</div>`;
+  let R=rtg(name); if(R==null){ try{ const t=trendOf(name,'szn'); R=t&&t.tot!=null?t.tot:null; }catch(e){} }
+  return `<div class="drow rk dhead2"><span class="cat">PER GAME</span>${RKWIN.map(([,l])=>`<span class="av">${l}</span>`).join('')}</div>`
+    +row('Games',x=>x.g)
+    +RKCATS.map(([k,l])=>row(l,x=>(+x.s[k]||0).toFixed(1))).join('')
+    +row('FG%',x=>pctText(shotPct(x.s.FG,x.s.FGA)))+row('FT%',x=>pctText(shotPct(x.s.FT,x.s.FTA)))
+    +`<div class="tot2"><span>Rating</span><b>${R==null?'\u2014':(R>0?'+':'')+R}</b></div>`;
+}
+function rookieCard(name,opts){
+  return `<div class="impact"><h4>${htmlEsc(name)}</h4>
+    <div class="sub2">${htmlEsc(ownerLabel(name))} \u00b7 ${htmlEsc(posShow(name)||'\u2014')} \u00b7 <span style="color:var(--dim)">this season</span></div>
+    <div data-rkbody="${htmlEsc(name)}"><div class="sub2">Loading this season\u2019s stats\u2026</div></div>
+    <div class="glog" data-glog="${htmlEsc(name)}"></div></div>`;
+}
+function rookieFill(root){
+  root.querySelectorAll('[data-rkbody]').forEach(el=>{
+    const n=el.dataset.rkbody;
+    Promise.all(LIVEW.map(w=>loadLive(w))).then(()=>{ if(el.isConnected) el.innerHTML=rookieTable(n); });
+  });
+}
 function playerCard(name,opts){
   opts=opts||{};
   const c=canon(name), b=RIDX[c];
-  if(!b) return `<div class="impact"><h4>${name}</h4><div class="sub2">no stats on file</div></div>`;
+  if(!b) return rookieCard(name,opts);
   /* The middle column is whatever source is switched on, so the card never
      disagrees with the table that opened it. The amber "edited" marks stay for
      the GM's own numbers only — the aggregate is nobody's edit. */
@@ -8213,7 +8280,7 @@ function glogFill(root){
   });
 }
 function wirePlayerCard(root){
-  glogFill(root); missLineFill(root);
+  glogFill(root); missLineFill(root); rookieFill(root);
   root.querySelectorAll('[data-editproj]').forEach(b=>b.onclick=()=>openProj(b.dataset.editproj));
   root.querySelectorAll('[data-clrproj]').forEach(b=>b.onclick=async()=>{
     delete PROJ[b.dataset.clrproj]; await saveProj(); render();});
@@ -10958,7 +11025,7 @@ function drawLineup(o){
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
-       ['ctr','Contract','Salary owed by season, years, option, rights']].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
@@ -10985,7 +11052,7 @@ function drawLineup(o){
      three boxes in two columns. They hold the same nine columns and a GM reads
      them together — who is in, who is out, and who cannot play — so splitting
      them across a grid made the numbers stop lining up for no gain. */
-  const ctr=LUMODE==='ctr', tot=PRBASIS==='tot', trend=LUMODE==='trend';
+  const ctr=LUMODE==='ctr'&&!RO, tot=PRBASIS==='tot', trend=LUMODE==='trend';
   const TRENDW=['d7','d15','d30','szn'];
   const TRENDH=[['PR7','Player rating, last 7 days'],['PR15','Player rating, last 15 days'],
     ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
@@ -11134,10 +11201,10 @@ function drawLineup(o){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}${gcls(nm)}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
+        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname pname" data-player="${htmlEsc(nm)}">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
         : can ? `<span class="lurowctl">${nm?`<span class="lurow1">${headshot(nm)}${injTag(nm)}${mini(nm)}</span>`:''}<span class="lurow2"><select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span></span>`
 
-              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname">${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
+              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname${nm?' pname':''}"${nm?` data-player="${htmlEsc(nm)}"`:''}>${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
       ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
   }).join('');
 
@@ -13230,6 +13297,14 @@ async function scBox(id,quiet){
   catch(e){ if(!quiet) SC.box={err:1}; }
   if(SC.gid===id) drawScoreBox();
 }
+/* A signed-in GM's own men, marked on the NBA pages (2026-11-20). Matched by nameKey()
+   so ESPN's spelling ("Nikola Jokic") finds the roster's ("Nikola Jokić"). */
+function myManFn(){
+  if(!me||isComm()||!S.teams[me]) return ()=>false;
+  const ks=new Set(); S.teams[me].r.forEach(p=>{ ks.add(nameKey(p.n)); ks.add(nameKey(canon(p.n))); });
+  return n=>ks.has(nameKey(n))||ks.has(nameKey(canon(n)));
+}
+const MINE_PILL='<span class="minepill">Your player</span>';
 function drawScoreBox(){
   const box=$('scBox'); if(!box) return;
   const g=SC.games.find(x=>x.id===SC.gid), B=SC.box;
@@ -13240,13 +13315,14 @@ function drawScoreBox(){
   if(!teams.length){ box.innerHTML=head+'<p class="note">No box score yet — it appears once the game tips off.</p>'; return; }
   const H=['MIN','PTS','REB','AST','STL','BLK','TO','FG','3PT','FT','+/-'];
   const K=['minutes','points','rebounds','assists','steals','blocks','turnovers','fieldGoalsMade-fieldGoalsAttempted','threePointFieldGoalsMade-threePointFieldGoalsAttempted','freeThrowsMade-freeThrowsAttempted','plusMinus'];
+  const mineOf=myManFn();
   box.innerHTML=head+teams.map(tm=>{
     const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=K.map(k=>keys.indexOf(k)), nm=(tm.team&&tm.team.displayName)||'';
     const cell=(v,i)=>`<td class="num">${htmlEsc(i>=0&&v&&v[i]!=null&&v[i]!==''?v[i]:'—')}</td>`;
     const rows=(st.athletes||[]).map(a=>{ const p=a.athlete||{}, v=a.stats||[], pos=(p.position&&p.position.abbreviation)||'';
       return a.didNotPlay||!v.length
-        ?`<tr class="dnp"><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small>${htmlEsc(pos)}</small></td><td colspan="${H.length}">${htmlEsc(a.reason||'DNP')}</td></tr>`
-        :`<tr><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small class="sub2">${htmlEsc(pos)}</small></td>${ix.map(i=>cell(v,i)).join('')}</tr>`; }).join('');
+        ?`<tr class="dnp${mineOf(p.displayName)?' mine':''}"><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small>${htmlEsc(pos)}</small>${mineOf(p.displayName)?MINE_PILL:''}</td><td colspan="${H.length}">${htmlEsc(a.reason||'DNP')}</td></tr>`
+        :`<tr${mineOf(p.displayName)?' class="mine"':''}><td class="pn" data-player="${htmlEsc(p.displayName||'')}">${htmlEsc(p.displayName||'')} <small class="sub2">${htmlEsc(pos)}</small>${mineOf(p.displayName)?MINE_PILL:''}</td>${ix.map(i=>cell(v,i)).join('')}</tr>`; }).join('');
     const tot=st.totals||[], trow=tot.length?`<tr><th>Team</th>${ix.map(i=>cell(tot,i)).join('')}</tr>`:'';
     return `<h3>${htmlEsc(nm)}</h3><div class="scroller"><table><thead><tr><th>Player</th>${H.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}${trow}</tbody></table></div>`;
   }).join('')+'<p class="note">Click a player for his card.</p>';
@@ -13305,7 +13381,7 @@ function drawNbRoster(){
   const box=$('nbRoster'); if(!box||!NB.team||offscreen('nbRoster')) return;
   const info=NB.conf.reduce((a,c)=>a||c.rows.find(r=>nbTri(r.ab)===NB.team.ab),null)||{};
   const names=nbRosterNames(NB.team.ab);
-  const RG=ratings();
+  const RG=ratings(), mineOf=myManFn();
   const rows=names.map(n=>{ const v=pstat(n); return {n,pos:posShow(n)||espnPosOf(n)||'',g:v?v.g:null,s:v&&v.s?v.s:null,rtg:RG[canon(n)],own:ownerOf(n)}; })
     .sort((a,b)=>(b.rtg==null?-99:b.rtg)-(a.rtg==null?-99:a.rtg));
   const f=v=>v==null?'&#8212;':(+v).toFixed(1);
@@ -13314,7 +13390,7 @@ function drawNbRoster(){
   if(!rows.length){ box.innerHTML=head+`<p class="note">${NBAP.n?'No roster on file for this team.':'Loading rosters\u2026'}</p>`; return; }
   const html=head+`<div class="scroller"><table class="fatab" id="nbRosTbl"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>GP</th>
     ${ROSCOLS.map(([,l])=>`<th>${l}</th>`).join('')}<th>PR</th><th class="l">Held by</th><th class="acts"></th></tr></thead><tbody>${rows.map(p=>
-    `<tr data-player="${htmlEsc(p.n)}"><td class="l" data-hs="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
+    `<tr data-player="${htmlEsc(p.n)}"${mineOf(p.n)?' class="mine"':''}><td class="l" data-hs="${htmlEsc(p.n)}">${htmlEsc(p.n)}${mineOf(p.n)?MINE_PILL:''}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
       ${p.s?`<td>${p.g||0}</td>`+ROSCOLS.map(([k])=>k==='FGP'?`<td>${pctText(shotPct(p.s.FG,p.s.FGA))}</td>`
         :k==='FTP'?`<td>${pctText(shotPct(p.s.FT,p.s.FTA))}</td>`:`<td>${f(p.s[k])}</td>`).join('')
         :`<td colspan="${ROSCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
