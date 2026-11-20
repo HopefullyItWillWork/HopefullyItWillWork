@@ -254,6 +254,13 @@ straight after `render()`. **A new heavy draw function should gate itself the
 same way.** Boot fetches the three club boxes (projections, strategy, notes) in
 parallel rather than one after another.
 
+**`canon()` is memoised (2026-11-20).** A name RATER does not carry (rookies, call-ups,
+every live-window man) used to rescan and re-strip all 586 RATER keys on each call, and
+`signedClub()`/`heldBy()` call it for every roster entry on every Players row: ~75% of a
+live-period render (~525ms here, seconds on a phone). The stripped index is built once and
+answers are kept in `CANONMEMO`; `ALIAS` and `NAMEFIX` are still read first, so a
+commissioner alias applies at once. Do not put a per-call scan of `RATER`/`RIDX` back.
+
 ### My Team is one table; PR on Averages or Totals (2026-11-13)
 
 - **Lineup and roster are one table** in season. `drawLineup()`'s rows carry
