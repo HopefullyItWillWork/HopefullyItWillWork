@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.3">
+<meta name="ll-build" content="2026-11-20.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -7437,11 +7437,20 @@ function canon(n){
   if(ALIAS[n]) return ALIAS[n];          // a commissioner correction beats the built-in map
   if(NAMEFIX[n]) return NAMEFIX[n];
   if(RIDX[n]) return n;
-  const strip=x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z ]/g,'').toLowerCase().trim();
-  const t=strip(n);
-  for(const k in RIDX) if(strip(k)===t) return k;
-  return n;
+  /* The accent-stripping fallback used to rescan all of RIDX, stripping every key
+     again, on EVERY call for a name RATER does not carry (rookies, call-ups) —
+     and the Players list calls this thousands of times a draw (2026-11-20).
+     RATER is static, so the stripped index is built once and answers are kept.
+     The commissioner's ALIAS and NAMEFIX are still read first, above. */
+  let v=CANONMEMO.get(n);
+  if(v!==undefined) return v;
+  if(!CANONSTRIP){ CANONSTRIP=new Map(); for(const k in RIDX){ const t=canonStrip(k); if(!CANONSTRIP.has(t)) CANONSTRIP.set(t,k); } }
+  v=CANONSTRIP.get(canonStrip(n))||n;
+  CANONMEMO.set(n,v);
+  return v;
 }
+const canonStrip=x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z ]/g,'').toLowerCase().trim();
+var CANONSTRIP=null; const CANONMEMO=new Map();
 /* ================= 2026-27 AGGREGATE PROJECTIONS =================
    A projection set every GM can switch to, so nobody has to type 390 players in
    to plan a draft. Source is the commissioner's own aggregate, transcribed from
@@ -12414,7 +12423,8 @@ function addHeadshots(root){ try{
   Array.prototype.forEach.call((root||document).querySelectorAll(sel),el=>{
     if(el.dataset.hsd===v) return; el.dataset.hsd=v;
     if((el.firstElementChild&&el.firstElementChild.classList.contains('hs'))
-       ||(el.previousElementSibling&&el.previousElementSibling.classList.contains('hs'))){
+       ||(el.previousElementSibling&&el.previousElementSibling.classList.contains('hs'))
+       ||(el.closest&&(c=>c&&c.querySelector('.hs'))(el.closest('.lurowctl')))){   // bench/IR rows draw their own picture in .lurow1
       const nm=el.dataset.hs||el.dataset.player;
       if(nm&&!el.querySelector('.inj')&&!(el.nextElementSibling&&el.nextElementSibling.classList.contains('inj'))){
         const t=injTag(nm); if(t) el.insertAdjacentHTML('beforeend',t); }

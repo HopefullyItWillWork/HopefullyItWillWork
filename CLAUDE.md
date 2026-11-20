@@ -55,6 +55,7 @@ claude.ai/artifact/4pR3ZBQhJScTeeS2waBeFL (Andrew's; ask him for access).
 | **Auction** | `v-auction` | offseason only (`OFFSEASON_TABS`), and only while it runs — `auctionRunning()` |
 | **Rookie draft** | `v-rookie` | offseason only, and only while `S.cfg.draft.open` |
 | **Settings**, **Commissioner** | `v-settings`, `v-admin` | Settings has no tab in the bar since 2026-11-16 (`#setTab` stays, hidden, so `goTab()` finds it): the header's Settings button, or the club name on a phone, opens it. |
+| **NBA Scores** | `v-scores` | the last tab, after Commissioner, for everyone (2026-11-20): every game of a night and its box score, like ESPN's games page — `scoresOpen()`, `drawScores()` (see below) |
 
 Retired: the old Contracts, Player rater, Free agent classes, Quick sign, My
 projections, Team trends, League history and Transactions tabs — every one of
@@ -252,6 +253,13 @@ browser (`REALDOM`): the Node stub has no layout and its tests read pages
 straight after `render()`. **A new heavy draw function should gate itself the
 same way.** Boot fetches the three club boxes (projections, strategy, notes) in
 parallel rather than one after another.
+
+**`canon()` is memoised (2026-11-20).** A name RATER does not carry (rookies, call-ups,
+every live-window man) used to rescan and re-strip all 586 RATER keys on each call, and
+`signedClub()`/`heldBy()` call it for every roster entry on every Players row: ~75% of a
+live-period render (~525ms here, seconds on a phone). The stripped index is built once and
+answers are kept in `CANONMEMO`; `ALIAS` and `NAMEFIX` are still read first, so a
+commissioner alias applies at once. Do not put a per-call scan of `RATER`/`RIDX` back.
 
 ### My Team is one table; PR on Averages or Totals (2026-11-13)
 
@@ -478,6 +486,35 @@ are shown as "locked in". Drops away once the morning's scoring has the night.
   theme (`.konhint`): a reward for reading the rules to the end.
 - Pennants are `.pennant`/`.pennants`: `.banner`/`.banners` are Historical Data's
   champion cards, and reusing the name broke them.
+
+### NBA Scores tab (2026-11-20)
+
+`v-scores`, button `#scoresTab` (last in `#tabs`, always shown). An ESPN-style games page
+read **by the page itself** from ESPN (CORS allows it, like `fastTick()`): nothing on the
+server. State is `SC` (`day`, `games`, `gid`, `box`).
+
+- `scLoad()` fetches `ESPNSB?dates=` for `SC.day` (default `luNight()`; the date bar's
+  arrows, picker and Tonight button call `scGo()`); a card per game with records, score
+  and tip time / live clock / Final.
+- Click a card: `scBox()` fetches `ESPNSUM?event=` and `drawScoreBox()` draws both teams'
+  lines (MIN PTS REB AST STL BLK TO FG 3PT FT +/-, team totals, DNPs with the reason).
+  Columns are found by key name, never position. "All games" goes back.
+- A player's name is `td.pn[data-player]`, so the shared player card opens; a man with no
+  `RATER` row gets its "no stats on file" card.
+- It is **not** drawn by `render()`: `goTab('v-scores')` calls `scoresOpen()`, and a
+  one-minute interval reloads while the tab is open and a game is live (or a box is open).
+- Dates are ESPN's (Eastern); the tab is not part of `markPhaseTabs()`.
+
+**Last night's best on Home** (`drawHomeBest()`): when the newest scored night is older
+than last night (`scShift(luNight(),-1)`), it reads last night's finished games from ESPN
+instead (`boxFrom()`), every NBA player, headed "· all NBA, not yet scored", with the NBA
+club rather than a league club. Once scoring has last night it is the usual started-players
+list again.
+
+**The player card scrolls inside itself**: `#dlgPlayer` is `overflow:hidden`, `.dlg` is a
+flex column capped at 88dvh and `#dlgPlayerBody` scrolls, so the X and Close stay put and the
+last-five table is reachable. `.watchrow` keeps 150px clear on the right (the headshot and
+the X sit there; Sign was underneath them). Phones keep the full-screen card.
 
 ### Home's charts: three tabs (2026-11-17)
 
