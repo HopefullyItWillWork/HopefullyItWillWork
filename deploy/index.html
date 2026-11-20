@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.11">
+<meta name="ll-build" content="2026-11-20.12">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10958,7 +10958,7 @@ function drawLineup(o){
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
-       ['ctr','Contract','Salary owed by season, years, option, rights']].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
@@ -10985,7 +10985,7 @@ function drawLineup(o){
      three boxes in two columns. They hold the same nine columns and a GM reads
      them together — who is in, who is out, and who cannot play — so splitting
      them across a grid made the numbers stop lining up for no gain. */
-  const ctr=LUMODE==='ctr', tot=PRBASIS==='tot', trend=LUMODE==='trend';
+  const ctr=LUMODE==='ctr'&&!RO, tot=PRBASIS==='tot', trend=LUMODE==='trend';
   const TRENDW=['d7','d15','d30','szn'];
   const TRENDH=[['PR7','Player rating, last 7 days'],['PR15','Player rating, last 15 days'],
     ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
@@ -11134,10 +11134,10 @@ function drawLineup(o){
     return `<div class="lurow${nm?'':' empty'}${lk.locked?' locked':''}${gcls(nm)}">
       <span class="luslot k-${slotKind(id)}">${slotLabel(id)}</span>
       <span class="lupick">${lk.locked
-        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
+        ? `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname pname" data-player="${htmlEsc(nm)}">${htmlEsc(nmShow(nm))}</span>${posTag(nm)}<span class="do">${injTag(nm)}</span>${ahead?'':heatTag(nm)+tripDub(nm)}</span></span>`
         : can ? `<span class="lurowctl">${nm?`<span class="lurow1">${headshot(nm)}${injTag(nm)}${mini(nm)}</span>`:''}<span class="lurow2"><select data-slot="${id}" aria-label="${slotLabel(id)} spot">${opts(id)}</select></span></span>`
 
-              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname">${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
+              : `<span class="lurowctl ro">${l1}<span class="lurow2"><span class="luname${nm?' pname':''}"${nm?` data-player="${htmlEsc(nm)}"`:''}>${nm?htmlEsc(nmShow(nm)):'&#8212;'}</span>${nm?posTag(nm)+`<span class="do">${injTag(nm)}</span>`:''}</span></span>`}</span>
       ${game(nm)}${stats(nm,L)}${acts(nm)}</div>`;
   }).join('');
 
