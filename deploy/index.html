@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.5">
+<meta name="ll-build" content="2026-11-20.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -10849,35 +10849,38 @@ function luFade(){
 }
 document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='luSlots') luFade(); },true);
 try{ matchMedia('(max-width:640px)').addEventListener('change',()=>{ try{drawLineup();}catch(e){} }); }catch(e){}
-function drawLineup(){
-  const wrap=$('luWrap'); if(!wrap) return;
-  wrap.hidden = !me || !lineupsOpen();
+function drawLineup(o){
+  /* o={team,head,slots}: draw another club's lineup, read-only, into those two
+     elements (League > Clubs, 2026-11-20). Same views as My Team, nothing editable. */
+  const RO=!!(o&&o.team), HEAD=RO?o.head:$('luHead'), SLOTS=RO?o.slots:$('luSlots');
+  if(!HEAD||!SLOTS) return;
+  const wrap=RO?{hidden:false}:$('luWrap'); if(!wrap) return;
+  if(!RO) wrap.hidden = !me || !lineupsOpen();
   /* With lineups open the lineup IS the roster; the separate table stays drawn
      (Export CSV reads it) but out of sight. */
-  if($('rosWrap')) $('rosWrap').hidden=!wrap.hidden;
+  if(!RO&&$('rosWrap')) $('rosWrap').hidden=!wrap.hidden;
   if(wrap.hidden) return;
-  drawLuNav();
-  const pastView=luPast();
+  if(!RO) drawLuNav();
+  const pastView=RO?false:luPast();
   /* D: the night on screen — tonight, or a night ahead being planned (2026-11-16). */
-  const D=luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
+  const D=RO?luNight():luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
   /* Live tonight (lib/live.mjs): the Tonight view, and the club's totals so far. */
   const liveOk=!ahead&&!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0;
-  const planned=Object.keys((S.teams[meTeam()]||{}).luf||{}).filter(d=>d>luNight()).sort();
+  const planned=RO?[]:Object.keys((S.teams[meTeam()]||{}).luf||{}).filter(d=>d>luNight()).sort();
   /* Tonight by default once the GM's own first game is on (2026-11-17): the first
      draw after one of his starters has tipped (and live numbers exist) opens the
      Tonight view, once per night per browser (ll_luauto), so a GM who then picks
      Stats or Contract stays there. Not for the commissioner viewing a club. */
-  if(liveOk&&LUMODE!=='now'&&me&&meTeam()===me&&luAutoNight()!==luNight()){
+  if(!RO&&liveOk&&LUMODE!=='now'&&me&&meTeam()===me&&luAutoNight()!==luNight()){
     const st=SLOTIDS.map(id=>lineupOf(me,D).s[id]).filter(Boolean);
     if(st.some(nm=>{ const t=tipOf(nm,D); return t&&nightMinutes(D)>=t.at; })){
       LUMODE='now'; try{ localStorage.setItem('ll_luauto',luNight()); }catch(e){}
       setTimeout(()=>{ if(!fastOn()) fastTick(); },0); }
   }
   const nowOn=liveOk&&LUMODE==='now';
-  if($('luHead')) $('luHead').hidden=pastView;
-  if($('luSlots')) $('luSlots').hidden=pastView;
+  if(!RO){ HEAD.hidden=pastView; SLOTS.hidden=pastView; }
   if(pastView) return;
-  const T=meTeam(), lu=lineupOf(T,D), can=canEdit(T);
+  const T=RO?o.team:meTeam(), lu=lineupOf(T,D), can=RO?false:canEdit(T);
   const bench=benchOf(T,D), ir=irOf(T);
   const open=SLOTIDS.filter(id=>!lu.s[id]).length;
   const lockedN=SLOTIDS.filter(id=>lu.s[id]&&isLocked(lu.s[id],D)).length;
@@ -10892,8 +10895,8 @@ function drawLineup(){
   /* Starters whose position no longer fits their slot — ESPN's eligibility
      moved under a lineup set earlier. Told, not fixed: which way to shuffle is
      the GM's call. */
-  const misfit=SLOTIDS.filter(id=>lu.s[id]&&!slotOk(id,lu.s[id])).map(id=>`${lu.s[id]} (${slotLabel(id)}, plays ${posText(lu.s[id])})`);
-  const lost=tourney||ahead?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
+  const misfit=RO?[]:SLOTIDS.filter(id=>lu.s[id]&&!slotOk(id,lu.s[id])).map(id=>`${lu.s[id]} (${slotLabel(id)}, plays ${posText(lu.s[id])})`);
+  const lost=RO||tourney||ahead?[]:playing.slice(room).map(id=>`${lu.s[id]} (${slotLabel(id)})`);
   /* One toolbar: the view, then what is true tonight in a line of text (games
      and the IR are in the club strip above), then the buttons. */
   /* Tonight so far for this club, from the live scoring: what has counted, in
@@ -10918,7 +10921,7 @@ function drawLineup(){
   const lustat=[open?`<b class="bad">${open} spot${open===1?'':'s'} open</b>`:'All 15 filled',
     `${bench.length} on the bench`, tourney?'Preseason tournament':'',
     lockedN?`${lockedN} locked`:'', `${playing.length} playing ${ahead?'that night':'tonight'}`].filter(Boolean).join(' \u00b7 ');
-  $('luHead').innerHTML=`<div class="lutools"><div class="toggle" role="group" aria-label="Columns">${
+  HEAD.innerHTML=`<div class="lutools"><div class="toggle" role="group" aria-label="Columns">${
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
@@ -10941,8 +10944,8 @@ function drawLineup(){
     ${ahead?`<p class="note">Setting the lineup for <b>${htmlEsc(when)}</b>. It holds from that night on until you change it; tonight\u2019s lineup is not touched.${
       lu.plan?'':' Until you change something here it is the lineup carried forward.'}</p>`:''}
     ${schedKnown(D)?'':`<p class="note">${htmlEsc(ahead&&!schedOn(D)?'Loading that night\u2019s schedule\u2026':lineupNote(D))}</p>`}`;
-  $('luHead').querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
-    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); if(liveOk) localStorage.setItem('ll_luauto',luNight()); }catch(e){} drawLineup();
+  HEAD.querySelectorAll('[data-lum]').forEach(b=>b.onclick=()=>{
+    LUMODE=b.dataset.lum; try{ localStorage.setItem('ll_lumode',LUMODE); if(liveOk) localStorage.setItem('ll_luauto',luNight()); }catch(e){} drawLineup(o);
     if(LUMODE==='now'&&!fastOn()) fastTick(); });
 
   /* Lineup, bench and injured reserve are one table down the page rather than
@@ -10953,7 +10956,7 @@ function drawLineup(){
   const TRENDW=['d7','d15','d30','szn'];
   const TRENDH=[['PR7','Player rating, last 7 days'],['PR15','Player rating, last 15 days'],
     ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
-  if(trend) TRENDW.forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawLineup()); } });
+  if(trend) TRENDW.forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawLineup(o)); } });
   const CTRH=[0,1,2,3].map(n=>seasonAt(curSeason(),n)).concat(['Yrs','Option','Rights','Acq']);
   const hdr=lab=>`<div class="lurow luhdr"><span data-ab="${({Slot:'Slot',Bench:'BN',IR:'IR'})[lab]||lab}">${lab}</span><span>Player</span><span>Game</span>${nowOn?'<span class="lugp" title="Minutes tonight">MIN</span>':'<span class="lugp" title="Games played in the period">GP</span>'}
     ${ctr?CTRH.map(l=>`<span>${htmlEsc(l)}</span>`).join('')+'<span></span>'
@@ -11143,9 +11146,9 @@ function drawLineup(){
      of them (a content-sized track lined up nothing): wide enough for the buttons
      this viewer actually gets. */
   const anyTerm=can&&S.teams[T].r.some(p=>contracted(p)&&termOpen(T,p));
-  $('luSlots').style.setProperty('--luacts',can?'40px':'0px'); void anyTerm;
+  SLOTS.style.setProperty('--luacts',can?'40px':'0px'); void anyTerm;
   /* The poll rewrites these rows; an open menu is reopened on the same player. */
-  const openNm=($('luSlots').querySelector('details.rmenu[open]')||{dataset:{}}).dataset.nm;
+  const openNm=(SLOTS.querySelector('details.rmenu[open]')||{dataset:{}}).dataset.nm;
   /* Tonight's total (2026-11-16): what the starters have done so far, summed
      from the same live lines the rows show. Starters only — the bench does not
      count — and before the morning's game cap, which the live line above states. */
@@ -11160,25 +11163,25 @@ function drawLineup(){
       <span class="lugame"></span><span class="luv lugp">${Math.round(sum.MP)}</span>${LUCATS.map(([k])=>`<span class="luv">${
         k==='FGP'||k==='FTP'?(luVal(r,k)==null?'&#8212;':(luVal(r,k)*100).toFixed(1))+luShot(k,r):String(Math.round(+sum[k]||0))}</span>`).join('')}<span class="luv"></span><span class="luacts"></span></div>`;
   })();
-  $('luSlots').innerHTML=hdr('Slot')+slotRows+totalRow
+  SLOTS.innerHTML=hdr('Slot')+slotRows+totalRow
     +hdr('Bench')+benchRows
     +hdr('IR')+irRows;
-  luFade();
+  if(!RO) luFade();
 
   if(can){
-    $('luSlots').querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>{
+    SLOTS.querySelectorAll('[data-slot]').forEach(sel=>sel.onchange=()=>{
       const v=sel.value, from=sel.dataset.slot;
       if(v[0]==='@') return setSlot(T,v.slice(1),lu.s[from]);   // move to another open spot
       setSlot(T,from,v); });
-    $('luSlots').querySelectorAll('[data-start]').forEach(sel=>sel.onchange=()=>{
+    SLOTS.querySelectorAll('[data-start]').forEach(sel=>sel.onchange=()=>{
       if(sel.value) setSlot(T,sel.value,sel.dataset.start); });
-    $('luSlots').querySelectorAll('[data-toir]').forEach(b=>b.onclick=()=>{
+    SLOTS.querySelectorAll('[data-toir]').forEach(b=>b.onclick=()=>{
       const i=S.teams[T].r.findIndex(x=>canon(x.n)===canon(b.dataset.toir));
       if(i>=0) toggleIR(T,i); });
-    $('luSlots').querySelectorAll('[data-fromir]').forEach(b=>b.onclick=()=>{
+    SLOTS.querySelectorAll('[data-fromir]').forEach(b=>b.onclick=()=>{
       const i=S.teams[T].r.findIndex(x=>canon(x.n)===canon(b.dataset.fromir));
       if(i>=0) toggleIR(T,i); });
-    const box=$('luSlots'), idx=b=>+b.dataset[Object.keys(b.dataset)[0]];
+    const box=SLOTS, idx=b=>+b.dataset[Object.keys(b.dataset)[0]];
     box.querySelectorAll('[data-mre]').forEach(b=>b.onclick=()=>openEdit(T,idx(b)));
     box.querySelectorAll('[data-mrc]').forEach(b=>b.onclick=()=>cutPlayer(T,idx(b)));
     box.querySelectorAll('[data-mrt]').forEach(b=>b.onclick=()=>openTerm(T,idx(b)));
@@ -12643,21 +12646,14 @@ function drawClubLive(){
     if(CLUBVIEW.day){
       html+=`<div id="clubLnHead"></div><div id="clubLnBody"></div>`;
     } else {
-    html+=`<p class="fcount" style="margin:0 0 8px">${starters.length} of 15 set \u00b7 stats: ${htmlEsc(projSrcLabel())}</p>
-      <div class="scroller"><table id="clubLuTbl"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Game</th>
-        <th>G</th><th>PTS</th><th>REB</th><th>AST</th><th>3P</th><th>STL</th><th>BLK</th><th>TO</th><th>FG%</th><th>FT%</th></tr></thead><tbody>${
-        starters.map(id=>`<tr><td class="l">${slotLabel(id)}</td><td class="l pname" data-player="${htmlEsc(lu.s[id])}">${htmlEsc(lu.s[id])}</td>
-          <td class="l">${game(lu.s[id])}</td>${line(lu.s[id])}</tr>`).join('')
-        ||'<tr><td colspan="13" class="l" style="color:var(--dim)">Nobody started.</td></tr>'}
-      </tbody></table></div>`;
-    const bench=benchOf(t);
-    if(bench.length) html+=`<p class="note">Bench: ${bench.map(p=>`<span class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</span>`).join(', ')}</p>`;
+    html+=`<div id="clubLuHead"></div><div class="luwrap"><div class="luslots" id="clubLuSlots"></div></div>`;
     }
   }
   box.innerHTML=html;
   if(lineupsOpen()){
     dateBar($('clubNav'),CLUBVIEW,clubGo,'clubDate');
     if(CLUBVIEW.day) resultsInto(t,CLUBVIEW.mode,CLUBVIEW.day,'clubLnHead','clubLnBody','clubLnTbl');
+    else drawLineup({team:t,head:$('clubLuHead'),slots:$('clubLuSlots')});
   }
   if($('clubTrade')) $('clubTrade').onclick=()=>{
     $('tA').value=me; $('tB').value=t;
