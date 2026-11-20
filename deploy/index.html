@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.7">
+<meta name="ll-build" content="2026-11-20.8">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1451,6 +1451,9 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 [data-theme="jam"] .mefact b{font-family:var(--led);font-weight:400;font-size:44px;line-height:.9}
 [data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
 /* NBA Scores tab (2026-11-20) */
+.nbgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+.nbtbl{width:100%}
+.nbgrid h3{margin:0 0 6px;font-size:var(--t3)}
 .sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
 .sgame{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:12px 14px;cursor:pointer;text-align:left;color:var(--chalk);font:inherit;display:block;width:100%}
 .sgame:hover{border-color:var(--steel)}
@@ -1512,6 +1515,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     <button role="tab" data-v="v-settings" aria-selected="false" id="setTab" hidden>Settings</button>
     <button role="tab" data-v="v-admin" aria-selected="false" id="adminTab" hidden>Commissioner</button>
     <button role="tab" data-v="v-scores" aria-selected="false" id="scoresTab">NBA Scores</button>
+    <button role="tab" data-v="v-nbast" aria-selected="false" id="nbastTab">NBA Standings</button>
   </nav>
 </header>
 <div class="updbar" id="updBar" hidden role="status"><span>HIWW has been updated.</span>
@@ -2112,6 +2116,18 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div class="sbar" id="scBar"></div>
       <div id="scList"></div>
       <div id="scBox" hidden></div>
+    </div>
+  </section>
+
+  <!-- ==== NBA STANDINGS (2026-11-20) ==== both conferences from ESPN directly; click a
+       club for its roster with each man's line, click a man for his card (Sign / Claim / watch). -->
+  <section class="view" id="v-nbast" role="tabpanel" hidden>
+    <h2>NBA standings</h2>
+    <div id="nbBar"></div>
+    <div id="nbList"></div>
+    <div id="nbTeam" hidden>
+      <div data-perbar="club"></div>
+      <div id="nbRoster"></div>
     </div>
   </section>
 
@@ -5333,7 +5349,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();drawMissed();
+  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();drawMissed();if(typeof drawNbRoster==='function')drawNbRoster();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -8011,6 +8027,7 @@ function goTab(id){
      My Team the one row for the player on the block — so both are a moment
      worth fetching what the other device wrote. */
   if(id==='v-scores'&&typeof scoresOpen==='function') scoresOpen();
+  if(id==='v-nbast'&&typeof nbOpen==='function') nbOpen();
   if((id==='v-auction'||id==='v-me')&&typeof refreshStrat==='function') refreshStrat();
   // Chat is fetched on its own, not through ?key=all, so opening the tab is what
   // asks for it. Nothing is polled while nobody is looking.
@@ -13215,6 +13232,77 @@ function drawScoreBox(){
 }
 /* Live games refresh once a minute while the page is open. */
 setInterval(()=>{ const v=$('v-scores'); if(v&&!v.hidden&&!document.hidden&&(SC.games.some(g=>g.state==='in')||SC.gid)) scLoad(); },60e3);
+
+/* ================= NBA STANDINGS (2026-11-20) =================
+   Both conferences from ESPN's standings feed, read by the page itself (CORS, like
+   the scores tab). Click a club: its roster comes from NBAP (the 30 ESPN rosters the
+   page already loads), each man's line from pstat() under the stats period, so it
+   follows the period bar like every other table. A man's name opens the player card;
+   Sign / Claim (when he is a free agent) and the watch star sit on the row. */
+const ESPNST='https://site.api.espn.com/apis/v2/sports/basketball/nba/standings';
+var NB={conf:[],team:null,busy:false,err:'',at:0};
+const nbTri=c=>{ c=String(c||'').toUpperCase(); return TRICODE[c]||c; };
+function nbOpen(){ if(!NB.conf.length||Date.now()-NB.at>10*60e3) nbLoad(); else drawNbSt(); if(!NBAP.n) loadNbaPlayers().then(()=>drawNbSt()); }
+async function nbLoad(){
+  if(NB.busy) return; NB.busy=true; NB.err=''; drawNbSt();
+  try{
+    const j=await (await fetch(ESPNST,{cache:'no-store'})).json();
+    NB.conf=(j.children||[]).map(c=>({name:c.name||c.abbreviation||'',
+      rows:((c.standings&&c.standings.entries)||[]).map(e=>{
+        const st={}; (e.stats||[]).forEach(x=>{ st[x.name]=x; });
+        const t=e.team||{}, g=k=>st[k]?(st[k].displayValue!=null?st[k].displayValue:st[k].value):'';
+        return {id:t.id,ab:t.abbreviation||'',name:t.displayName||t.name||'',w:+(st.wins?st.wins.value:0)||0,l:+(st.losses?st.losses.value:0)||0,
+          pct:st.winPercent?+st.winPercent.value:0,gb:g('gamesBehind'),strk:g('streak'),seed:+(st.playoffSeed?st.playoffSeed.value:0)||0};
+      }).sort((a,b)=>b.pct-a.pct||b.w-a.w)}));
+    NB.at=Date.now();
+  }catch(e){ NB.err='Could not reach ESPN for the standings.'; }
+  NB.busy=false; drawNbSt();
+}
+function drawNbSt(){
+  const list=$('nbList'), team=$('nbTeam'), bar=$('nbBar'); if(!list) return;
+  list.hidden=!!NB.team; team.hidden=!NB.team;
+  bar.innerHTML=NB.team?`<button class="btn" id="nbBack">&larr; All teams</button>`:'';
+  if($('nbBack')) $('nbBack').onclick=()=>{ NB.team=null; drawNbSt(); };
+  if(NB.team){ drawNbRoster(); return; }
+  if(NB.err){ list.innerHTML=`<p class="note">${htmlEsc(NB.err)}</p>`; return; }
+  if(NB.busy&&!NB.conf.length){ list.innerHTML='<p class="note">Loading\u2026</p>'; return; }
+  if(!NB.conf.length){ list.innerHTML='<p class="note">No standings yet.</p>'; return; }
+  list.innerHTML=`<div class="nbgrid">${NB.conf.map(c=>`<div><h3>${htmlEsc(c.name)}</h3><div class="scroller"><table class="nbtbl"><thead><tr>
+    <th>#</th><th class="l">Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>STRK</th></tr></thead><tbody>${c.rows.map((r,i)=>
+    `<tr data-nbt="${htmlEsc(r.id)}" data-ab="${htmlEsc(r.ab)}" style="cursor:pointer"><td>${r.seed||i+1}</td><td class="l"><b>${htmlEsc(r.name)}</b></td>
+      <td>${r.w}</td><td>${r.l}</td><td>${r.pct?r.pct.toFixed(3).replace(/^0/,''):'\u2014'}</td><td>${htmlEsc(String(r.gb||'\u2014'))}</td><td>${htmlEsc(String(r.strk||'\u2014'))}</td></tr>`).join('')}
+    </tbody></table></div></div>`).join('')}</div><p class="note">Click a team for its roster.</p>`;
+  list.querySelectorAll('[data-nbt]').forEach(tr=>tr.onclick=()=>{
+    NB.team={id:tr.dataset.nbt,ab:nbTri(tr.dataset.ab)}; drawNbSt(); window.scrollTo&&window.scrollTo(0,0); });
+}
+function nbRosterNames(ab){
+  const out=[], seen={};
+  (NBAP.names||[]).forEach(n=>{ const k=nameKey(n); if(!seen[k]&&nbTri(NBAP.byKey[k])===ab){ seen[k]=1; out.push(n); } });
+  return out;
+}
+function drawNbRoster(){
+  const box=$('nbRoster'); if(!box||!NB.team||offscreen('nbRoster')) return;
+  const info=NB.conf.reduce((a,c)=>a||c.rows.find(r=>nbTri(r.ab)===NB.team.ab),null)||{};
+  const names=nbRosterNames(NB.team.ab);
+  const RG=ratings();
+  const rows=names.map(n=>{ const v=pstat(n); return {n,pos:posShow(n)||espnPosOf(n)||'',g:v?v.g:null,s:v&&v.s?v.s:null,rtg:RG[canon(n)],own:ownerOf(n)}; })
+    .sort((a,b)=>(b.rtg==null?-99:b.rtg)-(a.rtg==null?-99:a.rtg));
+  const f=v=>v==null?'&#8212;':(+v).toFixed(1);
+  const head=`<div class="dhead"><h3>${htmlEsc(info.name||NB.team.ab)}</h3>${info.w!=null?`<span class="pill">${info.w}\u2013${info.l}</span>`:''}
+    <span class="pill">${rows.length} players \u00b7 ${htmlEsc(projSrcLabel())}</span></div>`;
+  if(!rows.length){ box.innerHTML=head+`<p class="note">${NBAP.n?'No roster on file for this team.':'Loading rosters\u2026'}</p>`; return; }
+  const html=head+`<div class="scroller"><table class="fatab" id="nbRosTbl"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>GP</th>
+    ${ROSCOLS.map(([,l])=>`<th>${l}</th>`).join('')}<th>PR</th><th class="l">Held by</th><th class="acts"></th></tr></thead><tbody>${rows.map(p=>
+    `<tr data-player="${htmlEsc(p.n)}"><td class="l" data-hs="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td><td class="l">${htmlEsc(p.pos)||'&#8212;'}</td>
+      ${p.s?`<td>${p.g||0}</td>`+ROSCOLS.map(([k])=>k==='FGP'?`<td>${pctText(shotPct(p.s.FG,p.s.FGA))}</td>`
+        :k==='FTP'?`<td>${pctText(shotPct(p.s.FT,p.s.FTA))}</td>`:`<td>${f(p.s[k])}</td>`).join('')
+        :`<td colspan="${ROSCOLS.length+1}" class="unrated" style="text-align:center">no stats on file</td>`}
+      <td class="rating">${p.rtg==null?'&#8212;':(p.rtg>0?'+':'')+p.rtg}</td><td class="l">${htmlEsc(p.own)}</td>
+      <td class="acts">${watchBtn(p.n)}${signCell(p.n)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">Click a player for his card and full stats.</p>`;
+  if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
+}
+setInterval(()=>{ const v=$('v-nbast'); if(v&&!v.hidden&&!document.hidden&&!NB.team&&Date.now()-NB.at>10*60e3) nbLoad(); },60e3);
 
 /* ================= EASTER EGGS (2026-11-16) ================= */
 /* He's heating up / he's on fire. The feed has no play-by-play, so this reads
