@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.7">
+<meta name="ll-build" content="2026-11-21.8">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1521,10 +1521,18 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltcast{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;margin:0 0 6px}
 .ltcast .c{flex:none;width:64px;text-align:center;font:500 var(--t1) var(--body);color:var(--steel)}
 .ltcast .c .hs{width:52px;height:52px;margin:0 auto 3px;display:block;border:2px solid var(--line)}
-.ltcast .c.st .hs{border-color:var(--amber)}
 .ltcast .c b{display:block;color:var(--chalk);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ltcast .c{cursor:pointer}
-.ltcast .c.out{opacity:.45}
+.ltcast .c{position:relative}
+.ltcast .c.st::after{content:"S";position:absolute;top:-2px;right:4px;width:15px;height:15px;border-radius:50%;background:var(--amber);color:#111;font:800 10px/15px var(--body);text-align:center}
+/* Who has accumulated stats: green = has a line, pulsing amber = game on and no line yet,
+   grey = game not started, faded = game over and he did not play. */
+.ltcast .c.played .hs{border-color:#2fb344;box-shadow:0 0 0 2px rgba(47,179,68,.35)}
+.ltcast .c.played{color:#2fb344;font-weight:700}
+.ltcast .c.live .hs{border-color:var(--amber);animation:ltlive 1.6s ease-in-out infinite}
+.ltcast .c.pre .hs{filter:grayscale(1);opacity:.6}
+.ltcast .c.dnp{opacity:.4}.ltcast .c.dnp .hs{filter:grayscale(1)}
+@keyframes ltlive{0%,100%{box-shadow:0 0 0 0 rgba(224,163,64,.6)}50%{box-shadow:0 0 0 5px rgba(224,163,64,0)}}
 .ltcast .c.sel .hs{border-color:#fff;box-shadow:0 0 0 3px var(--amber)}
 .ltcast .c.dim{opacity:.35}
 .ltcast .c.sel{opacity:1}
@@ -13659,19 +13667,24 @@ function ltCastHtml(){
   const playing=new Set(); LT.games.forEach(g=>(g.teams||[]).forEach(a=>playing.add(a)));
   if(!playing.size) return '<span class="none">No NBA games tonight.</span>';
   const start=new Set(SLOTIDS.map(id=>lineupOf(t,luNight()).s[id]).filter(Boolean).map(n=>canon(n)));
+  const lines={}; ltTotals(true).forEach(r=>{ lines[nameKey(canon(r.n))]=r; });
+  const stateOf=n=>{ const tm=nbTri(nbaTeamOf(n)||''), g=LT.games.find(x=>(x.teams||[]).includes(tm)); return g?g.state:''; };
   const rows=S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)&&playing.has(nbTri(nbaTeamOf(p.n)||'')))
-    .map(p=>({n:p.n,st:start.has(canon(p.n))})).sort((a,b)=>(b.st-a.st));
+    .map(p=>{ const ln=lines[nameKey(canon(p.n))], gs=stateOf(p.n);
+      return {n:p.n,st:start.has(canon(p.n)),ln,stat:ln?'played':gs==='in'?'live':gs==='post'?'dnp':'pre'}; })
+    .sort((a,b)=>(b.st-a.st)||(b.ln?b.ln.pts:-1)-(a.ln?a.ln.pts:-1));
   if(!rows.length) return '<span class="none">None of your players has a game tonight.</span>';
+  const sub=r=>r.stat==='played'?`${r.ln.pts} pts`:r.stat==='live'?'Live':r.stat==='dnp'?'DNP':htmlEsc(nbaTeamOf(r.n)||'');
   return rows.map(r=>{ const sel=LT.focus&&nameKey(canon(r.n))===LT.focus;
-    return `<div class="c${r.st?' st':' out'}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starting':' \u2014 bench')+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${htmlEsc(nbaTeamOf(r.n)||'')}</div>`; }).join('');
+    return `<div class="c ${r.stat}${r.st?' st':''}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starter':' \u2014 bench')+({played:' \u2014 has stats',live:' \u2014 game under way, no stats yet',dnp:' \u2014 did not play',pre:' \u2014 game not started'})[r.stat]+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${sub(r)}</div>`; }).join('');
 }
 /* Tonight's box-score lines for the club's players, summed. */
-function ltTotals(){
+function ltTotals(all){
   const mine=ltMineFn(), rows=[];
   Object.values(LT.byGame).forEach(G=>(G.box||[]).forEach(tm=>{
     const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=k=>keys.indexOf(k);
     (st.athletes||[]).forEach(a=>{
-      const p=a.athlete||{}; if(!p.displayName||!mine(p.displayName)||!ltIs(p.displayName)||a.didNotPlay||!(a.stats||[]).length) return;
+      const p=a.athlete||{}; if(!p.displayName||!mine(p.displayName)||(!all&&!ltIs(p.displayName))||a.didNotPlay||!(a.stats||[]).length) return;
       const v=k=>{ const i=ix(k); return i>=0?a.stats[i]:''; }, num=k=>+v(k)||0, pair=k=>String(v(k)).split('-').map(x=>+x||0);
       const fg=pair('fieldGoalsMade-fieldGoalsAttempted'), tp=pair('threePointFieldGoalsMade-threePointFieldGoalsAttempted'), ft=pair('freeThrowsMade-freeThrowsAttempted');
       rows.push({n:p.displayName,min:num('minutes'),pts:num('points'),reb:num('rebounds'),ast:num('assists'),stl:num('steals'),blk:num('blocks'),to:num('turnovers'),
