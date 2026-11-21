@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.3">
+<meta name="ll-build" content="2026-11-21.5">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1474,6 +1474,17 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 10px}
 .ltbar .ltscore{font:600 var(--t3) var(--body)}
 .ltscroll{overflow-x:auto}
+/* Phone (2026-11-21): the court turns to portrait so it fills the screen instead of scrolling
+   sideways; its icons scale up with --k (landscape width / portrait width = 94/50). */
+.ltcourt.port{--k:1.88;min-width:0;aspect-ratio:50/94}
+.lutools>.toggle{max-width:100%;flex-wrap:wrap;overflow:visible}
+@media(max-width:640px){
+  .lutools>.toggle{width:100%}
+  .lutools>.toggle button{flex:1 1 auto;padding:7px 9px}
+  .ltbar{gap:6px 10px}.ltcast .c{width:58px}
+  .ltlegend{gap:4px 12px;font-size:var(--t1)}
+  .ltsb th,.ltsb td{padding:3px 4px;font-size:12px}
+}
 .ltcourt{--ctline:rgba(255,255,255,.5);--ctpaint:rgba(90,130,210,.16);--cttag:rgba(255,255,255,.35);
   position:relative;width:100%;min-width:620px;aspect-ratio:94/50;container-type:inline-size;border-radius:var(--r-l);overflow:hidden;
   background:linear-gradient(135deg,#1d2a3f,#141d2e);box-shadow:inset 0 0 0 2px #2c3d5a;color:var(--ctline)}
@@ -1482,26 +1493,26 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 /* NBA Jam's floor: arcade planks, a red painted lane, fat white lines with a black edge, scanlines. */
 [data-theme="jam"] .ltcourt{--ctline:#fff;--ctpaint:#d1202f;--cttag:#fff;border-radius:0;border:5px solid #000;
   background:repeating-linear-gradient(90deg,#e8892f 0 46px,#d97a1f 46px 49px);box-shadow:none}
-[data-theme="jam"] .ltcourt svg{filter:drop-shadow(.4cqw .4cqw 0 #000)}
+[data-theme="jam"] .ltcourt svg{filter:drop-shadow(calc(var(--k,1)*.4cqw) calc(var(--k,1)*.4cqw) 0 #000)}
 [data-theme="jam"] .ltcourt::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px)}
-[data-theme="jam"] .lttag{font-family:var(--pixel)!important;font-size:1.2cqw!important;color:#fff!important;text-shadow:.2cqw .2cqw 0 #000}
-[data-theme="jam"] .ltdot{border:.2cqw solid #000;box-shadow:.25cqw .25cqw 0 #000;border-radius:0}
-[data-theme="jam"] .ltico img{border-radius:0;box-shadow:.3cqw .3cqw 0 #000}
-[data-theme="jam"] .ltico .ltpill{border-radius:0;font-family:var(--pixel);font-size:.9cqw;border:.15cqw solid #000}
+[data-theme="jam"] .lttag{font-family:var(--pixel)!important;font-size:calc(var(--k,1)*1.2cqw)!important;color:#fff!important;text-shadow:calc(var(--k,1)*.2cqw) calc(var(--k,1)*.2cqw) 0 #000}
+[data-theme="jam"] .ltdot{border:calc(var(--k,1)*.2cqw) solid #000;box-shadow:calc(var(--k,1)*.25cqw) calc(var(--k,1)*.25cqw) 0 #000;border-radius:0}
+[data-theme="jam"] .ltico img{border-radius:0;box-shadow:calc(var(--k,1)*.3cqw) calc(var(--k,1)*.3cqw) 0 #000}
+[data-theme="jam"] .ltico .ltpill{border-radius:0;font-family:var(--pixel);font-size:calc(var(--k,1)*.9cqw);border:calc(var(--k,1)*.15cqw) solid #000}
 .ltcourt svg{position:absolute;inset:0;width:100%;height:100%}
-.ltcourt .ltlogo{position:absolute;left:50%;top:50%;width:13cqw;height:13cqw;transform:translate(-50%,-50%);opacity:.9;object-fit:contain;pointer-events:none}
-.ltcourt .lttag{position:absolute;top:1.2cqw;font:700 1.5cqw var(--body);letter-spacing:.12em;color:var(--cttag);text-transform:uppercase}
-.ltdot{position:absolute;width:1.1cqw;height:1.1cqw;border-radius:50%;transform:translate(-50%,-50%);border:.15cqw solid rgba(0,0,0,.35)}
+.ltcourt .ltlogo{position:absolute;left:50%;top:50%;width:calc(var(--k,1)*13cqw);height:calc(var(--k,1)*13cqw);transform:translate(-50%,-50%);opacity:.9;object-fit:contain;pointer-events:none}
+.ltcourt .lttag{position:absolute;top:calc(var(--k,1)*1.2cqw);font:700 calc(var(--k,1)*1.5cqw) var(--body);letter-spacing:.12em;color:var(--cttag);text-transform:uppercase}
+.ltdot{position:absolute;width:calc(var(--k,1)*1.1cqw);height:calc(var(--k,1)*1.1cqw);border-radius:50%;transform:translate(-50%,-50%);border:calc(var(--k,1)*.15cqw) solid rgba(0,0,0,.35)}
 .ltdot.make{background:#2fb344}.ltdot.miss{background:#e03131}
-.ltdot.ft{width:1cqw;height:1cqw}
-.ltico{position:absolute;width:4.4cqw;height:4.4cqw;transform:translate(-50%,-50%)}
-.ltico img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#e9e2d6;box-sizing:border-box;border:.4cqw solid var(--ring,#888);display:block}
-.ltico.mine img{box-shadow:0 0 0 .3cqw #fff,0 0 1.4cqw .5cqw var(--amber)}
-.ltico .ltpill{position:absolute;left:50%;bottom:-1.5cqw;transform:translateX(-50%);padding:0 .6cqw;border-radius:.8cqw;background:var(--ring,#888);color:#fff;font:700 1.15cqw/1.5 var(--body);white-space:nowrap}
-.ltico .ltx{position:absolute;inset:-.4cqw;font:900 5.2cqw/1 var(--body);color:#e03131;text-align:center;text-shadow:0 0 .4cqw #fff,0 0 .4cqw #fff;display:flex;align-items:center;justify-content:center}
+.ltdot.ft{width:calc(var(--k,1)*1cqw);height:calc(var(--k,1)*1cqw)}
+.ltico{position:absolute;width:calc(var(--k,1)*4.4cqw);height:calc(var(--k,1)*4.4cqw);transform:translate(-50%,-50%)}
+.ltico img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#e9e2d6;box-sizing:border-box;border:calc(var(--k,1)*.4cqw) solid var(--ring,#888);display:block}
+.ltico.mine img{box-shadow:0 0 0 calc(var(--k,1)*.3cqw) #fff,0 0 calc(var(--k,1)*1.4cqw) calc(var(--k,1)*.5cqw) var(--amber)}
+.ltico .ltpill{position:absolute;left:50%;bottom:calc(var(--k,1)*-1.5cqw);transform:translateX(-50%);padding:0 calc(var(--k,1)*.6cqw);border-radius:calc(var(--k,1)*.8cqw);background:var(--ring,#888);color:#fff;font:700 calc(var(--k,1)*1.15cqw)/1.5 var(--body);white-space:nowrap}
+.ltico .ltx{position:absolute;inset:calc(var(--k,1)*-.4cqw);font:900 calc(var(--k,1)*5.2cqw)/1 var(--body);color:#e03131;text-align:center;text-shadow:0 0 calc(var(--k,1)*.4cqw) #fff,0 0 calc(var(--k,1)*.4cqw) #fff;display:flex;align-items:center;justify-content:center}
 .ltico.k-make{--ring:#2fb344}.ltico.k-miss{--ring:#e03131}
-.ltico.k-ast{--ring:#9aa7b4}.ltico.k-ast img{border-style:double;border-width:.6cqw}
-.ltico.k-reb{--ring:#e8772e}.ltico.k-reb img{border-width:.6cqw}
+.ltico.k-ast{--ring:#9aa7b4}.ltico.k-ast img{border-style:double;border-width:calc(var(--k,1)*.6cqw)}
+.ltico.k-reb{--ring:#e8772e}.ltico.k-reb img{border-width:calc(var(--k,1)*.6cqw)}
 .ltico.k-to{--ring:#555}.ltico.k-stl{--ring:#8e44ad}.ltico.k-blk{--ring:#1c7ed6}
 .ltnew{animation:ltpop .7s cubic-bezier(.2,1.4,.4,1)}
 @keyframes ltpop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}60%{opacity:1}100%{transform:translate(-50%,-50%) scale(1)}}
@@ -13562,6 +13573,9 @@ function ltParse(plays){
 }
 /* Where a thing sits on the court as percentages. Offense left, defense right; the
    right half is the same frame turned round. */
+const ltPort=()=>{ try{ return matchMedia('(max-width:640px)').matches; }catch(e){ return false; } };
+/* Landscape [left%, top%], or on a phone the court turned portrait (offense at the top). */
+function ltXY(e){ const [px,py]=ltPos(e); if(!ltPort()) return [px,py]; return [Math.min(92,Math.max(8,100-py)),Math.min(97,Math.max(3,px))]; }
 function ltPos(e){
   let x,y; const off=e.k==='shot'||e.k==='ft'||e.k==='ast'||e.k==='to';
   if(e.k==='ft'){ const j=((e.n%7)-3)*0.7, v=((e.n%3)-1)*0.5; x=25+j; y=19+v; }
@@ -13569,15 +13583,16 @@ function ltPos(e){
   const sx=off?y*10:940-y*10, sy=off?x*10:500-x*10;
   return [Math.min(97,Math.max(3,sx/9.4)), Math.min(96,Math.max(4,sy/5))];
 }
-function ltCourtSvg(){
+function ltCourtSvg(port){
   const w='stroke="currentColor" stroke-width="3" fill="none"';
   const half=m=>{   // m=false: left half; true: mirrored
     const g=`<rect x="0" y="170" width="190" height="160" style="fill:var(--ctpaint)"/><rect x="0" y="170" width="190" height="160" ${w}/><circle cx="190" cy="250" r="60" ${w}/>
       <path d="M0 30H140A237.5 237.5 0 0 1 140 470H0" ${w}/><path d="M52.5 210A40 40 0 0 1 52.5 290" ${w}/>
       <path d="M40 220V280" stroke="currentColor" stroke-width="6"/><circle cx="52.5" cy="250" r="7.5" ${w}/>`;
     return m?`<g transform="translate(940 0) scale(-1 1)">${g}</g>`:g; };
-  return `<svg viewBox="0 0 940 500" preserveAspectRatio="none" aria-hidden="true"><rect x="3" y="3" width="934" height="494" ${w}/>
-    <path d="M470 3V497" ${w}/><circle cx="470" cy="250" r="60" ${w}/>${half(false)}${half(true)}</svg>`;
+  const inner=`<rect x="3" y="3" width="934" height="494" ${w}/><path d="M470 3V497" ${w}/><circle cx="470" cy="250" r="60" ${w}/>${half(false)}${half(true)}`;
+  return port?`<svg viewBox="0 0 500 940" preserveAspectRatio="none" aria-hidden="true"><g transform="translate(500 0) rotate(90)">${inner}</g></svg>`
+    :`<svg viewBox="0 0 940 500" preserveAspectRatio="none" aria-hidden="true">${inner}</svg>`;
 }
 function ltHead(id){ return `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${encodeURIComponent(id)}.png&w=96&h=70`; }
 function ltMineFn(){
@@ -13601,16 +13616,18 @@ function ltDraw(){
   const isNew=e=>fresh&&!fresh.has(e.id)?' ltnew':'';
   const nm=pid=>LT.names[pid]||'';
   const dots=ev.filter(e=>e.k==='ft'||(e.k==='shot'&&!lastShots.has(e.id))).map(e=>{
-    const [px,py]=ltPos(e);
+    const [px,py]=ltXY(e);
     return `<span class="ltdot ${e.made?'make':'miss'}${e.k==='ft'?' ft':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+(e.k==='ft'?' free throw':' shot')+(e.made?' made':' missed'))}"></span>`; }).join('');
-  const ico=(e,cls,pill,x)=>{ const [px,py]=ltPos(e), name=nm(e.pid);
+  const ico=(e,cls,pill,x)=>{ const [px,py]=ltXY(e), name=nm(e.pid);
     return `<span class="ltico ${cls}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc(name+' — '+(e.txt||''))}"><img src="${ltHead(e.pid)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">${x?'<span class="ltx">✕</span>':''}${pill?`<span class="ltpill">${pill}</span>`:''}</span>`; };
   const icons=shots.filter(e=>lastShots.has(e.id)).map(e=>ico(e,e.made?'k-make':'k-miss','',false)).join('')
     +specials.map(e=>e.k==='ast'?ico(e,'k-ast','AST',false):e.k==='reb'?ico(e,'k-reb','REB',false):e.k==='to'?ico(e,'k-to','TO',true)
       :e.k==='stl'?ico(e,'k-stl','STL',false):ico(e,'k-blk','BLK',false)).join('');
   const home=NBA30.find(t=>t[0]===((S.teams[meTeam()]||{}).nba||''));
   const logo=home?`<img class="ltlogo" alt="${htmlEsc(home[1])}" referrerpolicy="no-referrer" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.style.display='none'">`:'';
-  box.innerHTML=ltCourtSvg()+`<span class="lttag" style="left:2cqw">Offense</span><span class="lttag" style="right:2cqw">Defense &amp; rebounds</span>`+logo+dots+icons;
+  const port=ltPort(); box.classList.toggle('port',port);
+  box.innerHTML=ltCourtSvg(port)+(port?`<span class="lttag" style="left:2cqw;top:calc(50% - 4cqw)">\u25B2 Offense</span><span class="lttag" style="left:2cqw;top:calc(50% + 2cqw)">\u25BC Defense</span>`
+    :`<span class="lttag" style="left:2cqw">Offense</span><span class="lttag" style="right:2cqw">Defense &amp; rebounds</span>`)+logo+dots+icons;
   LT.seen=new Set(ev.map(e=>e.id));
   if($('ltCast')) $('ltCast').innerHTML=ltCastHtml();
   if($('ltScore')) $('ltScore').innerHTML=ltScoreHtml();
@@ -13695,6 +13712,7 @@ async function ltLoadPlays(){
   }catch(e){}
   LT.busy=false; ltDraw();
 }
+try{ matchMedia('(max-width:640px)').addEventListener('change',()=>{ try{ ltDraw(); }catch(e){} }); }catch(e){}
 function ltEnter(){
   if(LT.day!==luNight()){ LT.day=luNight(); LT.byGame={}; LT.seen=null; LT.games=[]; }
   ltBar(); ltDraw(); ltLoadGames();
