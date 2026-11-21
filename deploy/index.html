@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.5">
+<meta name="ll-build" content="2026-11-21.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1521,7 +1521,11 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltcast .c .hs{width:52px;height:52px;margin:0 auto 3px;display:block;border:2px solid var(--line)}
 .ltcast .c.st .hs{border-color:var(--amber)}
 .ltcast .c b{display:block;color:var(--chalk);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltcast .c{cursor:pointer}
 .ltcast .c.out{opacity:.45}
+.ltcast .c.sel .hs{border-color:#fff;box-shadow:0 0 0 3px var(--amber)}
+.ltcast .c.dim{opacity:.35}
+.ltcast .c.sel{opacity:1}
 .ltcast .none{font:500 var(--t2) var(--body);color:var(--steel)}
 /* The nightly scoreboard under the court. */
 .ltsb{margin:12px 0;background:#10151f;color:#e8edf5;border-radius:var(--r-l);padding:12px 14px;border:1px solid #243049}
@@ -13548,7 +13552,8 @@ const NBA30=[['ATL','Atlanta Hawks','atl'],['BOS','Boston Celtics','bos'],['BKN'
  ['UTA','Utah Jazz','utah'],['WAS','Washington Wizards','wsh']];
 /* The commissioner's switch (Commissioner > League settings): off hides Court Mode. */
 const courtOn=()=>!(S.cfg&&S.cfg.court===false);
-var LT={day:'',games:[],byGame:{},names:{},seen:null,busy:false,err:'',at:0};
+var LT={day:'',games:[],byGame:{},names:{},seen:null,busy:false,err:'',at:0,focus:'',focusName:''};
+const ltIs=n=>!LT.focus||nameKey(canon(n))===LT.focus;   // the court and the scoreboard follow one player when a headshot is picked
 const ltOk=c=>!!c&&c.x>=0&&c.x<=50&&c.y>=0&&c.y<=47;
 /* Plays -> things to draw. Pure. `plays` is ESPN's list, oldest first. */
 function ltParse(plays){
@@ -13604,7 +13609,7 @@ function ltMineFn(){
 function ltEvents(){
   const mine=ltMineFn(), out=[];
   Object.values(LT.byGame).forEach(G=>{
-    ltParse(G.plays).forEach(e=>{ const nm=LT.names[e.pid]; if(nm&&mine(nm)) out.push({...e,wc:G.wc[e.id.replace(/[abs]$/,'')]||0}); });
+    ltParse(G.plays).forEach(e=>{ const nm=LT.names[e.pid]; if(nm&&mine(nm)&&ltIs(nm)) out.push({...e,wc:G.wc[e.id.replace(/[abs]$/,'')]||0}); });
   });
   return out.sort((a,b)=>a.wc-b.wc);
 }
@@ -13649,7 +13654,8 @@ function ltCastHtml(){
   const rows=S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)&&playing.has(nbTri(nbaTeamOf(p.n)||'')))
     .map(p=>({n:p.n,st:start.has(canon(p.n))})).sort((a,b)=>(b.st-a.st));
   if(!rows.length) return '<span class="none">None of your players has a game tonight.</span>';
-  return rows.map(r=>`<div class="c${r.st?' st':' out'}" title="${htmlEsc(r.n+(r.st?' \u2014 starting':' \u2014 bench'))}">${headshot(r.n,'ltc')||'<span class="hs"></span>'}<b>${htmlEsc(shortNm(r.n))}</b>${htmlEsc(nbaTeamOf(r.n)||'')}</div>`).join('');
+  return rows.map(r=>{ const sel=LT.focus&&nameKey(canon(r.n))===LT.focus;
+    return `<div class="c${r.st?' st':' out'}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starting':' \u2014 bench')+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${htmlEsc(nbaTeamOf(r.n)||'')}</div>`; }).join('');
 }
 /* Tonight's box-score lines for the club's players, summed. */
 function ltTotals(){
@@ -13657,7 +13663,7 @@ function ltTotals(){
   Object.values(LT.byGame).forEach(G=>(G.box||[]).forEach(tm=>{
     const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=k=>keys.indexOf(k);
     (st.athletes||[]).forEach(a=>{
-      const p=a.athlete||{}; if(!p.displayName||!mine(p.displayName)||a.didNotPlay||!(a.stats||[]).length) return;
+      const p=a.athlete||{}; if(!p.displayName||!mine(p.displayName)||!ltIs(p.displayName)||a.didNotPlay||!(a.stats||[]).length) return;
       const v=k=>{ const i=ix(k); return i>=0?a.stats[i]:''; }, num=k=>+v(k)||0, pair=k=>String(v(k)).split('-').map(x=>+x||0);
       const fg=pair('fieldGoalsMade-fieldGoalsAttempted'), tp=pair('threePointFieldGoalsMade-threePointFieldGoalsAttempted'), ft=pair('freeThrowsMade-freeThrowsAttempted');
       rows.push({n:p.displayName,min:num('minutes'),pts:num('points'),reb:num('rebounds'),ast:num('assists'),stl:num('steals'),blk:num('blocks'),to:num('turnovers'),
@@ -13668,7 +13674,7 @@ function ltTotals(){
 }
 function ltScoreHtml(){
   const rows=ltTotals(), t=meTeam(), home=NBA30.find(x=>x[0]===((S.teams[t]||{}).nba||''));
-  const head=`<div class="sbh">${home?`<img alt="" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.remove()">`:''}${htmlEsc(t||'')} \u00b7 tonight so far</div>`;
+  const head=`<div class="sbh">${home&&!LT.focus?`<img alt="" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.remove()">`:''}${htmlEsc(LT.focus?LT.focusName:(t||''))} \u00b7 tonight so far</div>`;
   if(!rows.length) return head+'<div class="empty">No box-score lines yet \u2014 totals fill in as your players take the floor.</div>';
   const S0=k=>rows.reduce((a,r)=>a+r[k],0), fgm=S0('fgm'), fga=S0('fga'), ftm=S0('ftm'), fta=S0('fta');
   const pc=(m,a)=>a?(100*m/a).toFixed(1):'\u2014';
@@ -13676,13 +13682,24 @@ function ltScoreHtml(){
     ['FG%',pc(fgm,fga),`${fgm}-${fga}`],['FT%',pc(ftm,fta),`${ftm}-${fta}`]];
   return head+`<div class="sbgrid">${C.map(([l,v,s])=>`<div class="sbc"><small>${l}</small><b>${v}</b><em>${s||'&nbsp;'}</em></div>`).join('')}</div>
     <table><thead><tr><th>Player</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th><th>STL</th><th>BLK</th><th>TO</th><th>FG</th><th>FT</th></tr></thead><tbody>${
-    rows.sort((a,b)=>b.pts-a.pts).map(r=>`<tr><td>${htmlEsc(r.n)}</td><td>${Math.round(r.min)}</td><td>${r.pts}</td><td>${r.reb}</td><td>${r.ast}</td><td>${r.tpm}</td><td>${r.stl}</td><td>${r.blk}</td><td>${r.to}</td><td>${r.fgm}-${r.fga}</td><td>${r.ftm}-${r.fta}</td></tr>`).join('')}</tbody></table>`;
+    rows.sort((a,b)=>b.pts-a.pts).map(r=>`<tr><td data-player="${htmlEsc(r.n)}" style="cursor:pointer">${htmlEsc(r.n)}</td><td>${Math.round(r.min)}</td><td>${r.pts}</td><td>${r.reb}</td><td>${r.ast}</td><td>${r.tpm}</td><td>${r.stl}</td><td>${r.blk}</td><td>${r.to}</td><td>${r.fgm}-${r.fga}</td><td>${r.ftm}-${r.fta}</td></tr>`).join('')}</tbody></table>`;
 }
+/* Click a headshot above the court: only his plays and his line; click him again (or the
+   button) to see everyone. */
+function ltPick(name){
+  const k=name?nameKey(canon(name)):'';
+  if(!name||LT.focus===k){ LT.focus=''; LT.focusName=''; } else { LT.focus=k; LT.focusName=name; }
+  LT.seen=null; ltBar(); ltDraw();
+}
+document.addEventListener('click',e=>{ const c=e.target&&e.target.closest&&e.target.closest('#ltCast [data-pick]'); if(c) ltPick(c.dataset.pick); });
+document.addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return; const c=e.target&&e.target.closest&&e.target.closest('#ltCast [data-pick]'); if(c){ e.preventDefault(); ltPick(c.dataset.pick); } });
 function ltBar(){
   const live=LT.games.filter(g=>g.state==='in').length, tot=LT.games.length;
   const home=NBA30.find(t=>t[0]===((S.teams[meTeam()]||{}).nba||''));
   $('ltBar').innerHTML=`<span class="ltscore">${htmlEsc(luNight()===LT.day?'Tonight':LT.day)} \u00b7 ${tot} game${tot===1?'':'s'}${live?`, ${live} live`:''}</span>
+    ${LT.focus?`<button type="button" class="btn ghost" id="ltAll">Showing ${htmlEsc(LT.focusName)} \u2715 show everyone</button>`:''}
     ${home?'':'<span class="fcount">Pick your home team logo in Settings.</span>'}`;
+  if($('ltAll')) $('ltAll').onclick=()=>ltPick('');
 }
 async function ltLoadGames(){
   try{
