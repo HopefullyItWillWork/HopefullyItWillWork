@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.1">
+<meta name="ll-build" content="2026-11-21.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1474,11 +1474,23 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 10px}
 .ltbar .ltscore{font:600 var(--t3) var(--body)}
 .ltscroll{overflow-x:auto}
-.ltcourt{position:relative;width:100%;min-width:620px;aspect-ratio:94/50;container-type:inline-size;border-radius:var(--r-l);overflow:hidden;
+.ltcourt{--ctline:rgba(255,255,255,.5);--ctpaint:rgba(90,130,210,.16);--cttag:rgba(255,255,255,.35);
+  position:relative;width:100%;min-width:620px;aspect-ratio:94/50;container-type:inline-size;border-radius:var(--r-l);overflow:hidden;
+  background:linear-gradient(135deg,#1d2a3f,#141d2e);box-shadow:inset 0 0 0 2px #2c3d5a;color:var(--ctline)}
+[data-theme="light"] .ltcourt{--ctline:#fff;--ctpaint:rgba(160,90,30,.22);--cttag:rgba(60,30,5,.55);
   background:linear-gradient(90deg,#c98f4f,#d9a566 50%,#c98f4f);box-shadow:inset 0 0 0 2px #7a4c1e}
+/* NBA Jam's floor: arcade planks, a red painted lane, fat white lines with a black edge, scanlines. */
+[data-theme="jam"] .ltcourt{--ctline:#fff;--ctpaint:#d1202f;--cttag:#fff;border-radius:0;border:5px solid #000;
+  background:repeating-linear-gradient(90deg,#e8892f 0 46px,#d97a1f 46px 49px);box-shadow:none}
+[data-theme="jam"] .ltcourt svg{filter:drop-shadow(.4cqw .4cqw 0 #000)}
+[data-theme="jam"] .ltcourt::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px)}
+[data-theme="jam"] .lttag{font-family:var(--pixel)!important;font-size:1.2cqw!important;color:#fff!important;text-shadow:.2cqw .2cqw 0 #000}
+[data-theme="jam"] .ltdot{border:.2cqw solid #000;box-shadow:.25cqw .25cqw 0 #000;border-radius:0}
+[data-theme="jam"] .ltico img{border-radius:0;box-shadow:.3cqw .3cqw 0 #000}
+[data-theme="jam"] .ltico .ltpill{border-radius:0;font-family:var(--pixel);font-size:.9cqw;border:.15cqw solid #000}
 .ltcourt svg{position:absolute;inset:0;width:100%;height:100%}
 .ltcourt .ltlogo{position:absolute;left:50%;top:50%;width:13cqw;height:13cqw;transform:translate(-50%,-50%);opacity:.9;object-fit:contain;pointer-events:none}
-.ltcourt .lttag{position:absolute;top:1.2cqw;font:700 1.5cqw var(--body);letter-spacing:.12em;color:rgba(60,30,5,.55);text-transform:uppercase}
+.ltcourt .lttag{position:absolute;top:1.2cqw;font:700 1.5cqw var(--body);letter-spacing:.12em;color:var(--cttag);text-transform:uppercase}
 .ltdot{position:absolute;width:1.1cqw;height:1.1cqw;border-radius:50%;transform:translate(-50%,-50%);border:.15cqw solid rgba(0,0,0,.35)}
 .ltdot.make{background:#2fb344}.ltdot.miss{background:#e03131}
 .ltdot.ft{width:1cqw;height:1cqw}
@@ -1493,6 +1505,32 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltico.k-to{--ring:#555}.ltico.k-stl{--ring:#8e44ad}.ltico.k-blk{--ring:#1c7ed6}
 .ltnew{animation:ltpop .7s cubic-bezier(.2,1.4,.4,1)}
 @keyframes ltpop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}60%{opacity:1}100%{transform:translate(-50%,-50%) scale(1)}}
+.ltcast{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;margin:0 0 6px}
+.ltcast .c{flex:none;width:64px;text-align:center;font:500 var(--t1) var(--body);color:var(--steel)}
+.ltcast .c .hs{width:52px;height:52px;margin:0 auto 3px;display:block;border:2px solid var(--line)}
+.ltcast .c.st .hs{border-color:var(--amber)}
+.ltcast .c b{display:block;color:var(--chalk);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltcast .c.out{opacity:.45}
+.ltcast .none{font:500 var(--t2) var(--body);color:var(--steel)}
+/* The nightly scoreboard under the court. */
+.ltsb{margin:12px 0;background:#10151f;color:#e8edf5;border-radius:var(--r-l);padding:12px 14px;border:1px solid #243049}
+.ltsb .sbh{display:flex;align-items:center;gap:10px;font:700 var(--t2) var(--body);letter-spacing:.12em;text-transform:uppercase;color:#9fb0c8;margin-bottom:10px}
+.ltsb .sbh img{width:28px;height:28px;object-fit:contain}
+.ltsb .sbgrid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
+.ltsb .sbc{background:#05080e;border:1px solid #243049;border-radius:var(--r);text-align:center;padding:8px 2px}
+.ltsb .sbc small{display:block;font:600 var(--t1) var(--body);letter-spacing:.1em;color:#7e8fa8}
+.ltsb .sbc b{display:block;font:500 28px/1.1 var(--mono);color:#ffcf5a;text-shadow:0 0 8px rgba(255,190,60,.45)}
+.ltsb .sbc em{display:block;font:500 var(--t1) var(--mono);color:#7e8fa8;font-style:normal}
+.ltsb table{width:100%;margin-top:10px;border-collapse:collapse;font:500 var(--t2) var(--mono)}
+.ltsb th{font:600 var(--t1) var(--body);letter-spacing:.08em;color:#7e8fa8;text-align:right;padding:3px 6px}
+.ltsb td{text-align:right;padding:3px 6px;border-top:1px solid #1c2638}
+.ltsb th:first-child,.ltsb td:first-child{text-align:left;font-family:var(--body)}
+.ltsb .empty{font:500 var(--t2) var(--body);color:#7e8fa8;padding:6px 0}
+[data-theme="jam"] .ltsb{background:#000;border:4px solid var(--amber);border-radius:0}
+[data-theme="jam"] .ltsb .sbh{font-family:var(--pixel);font-size:var(--t1)}
+[data-theme="jam"] .ltsb .sbc{border:3px solid #fff;border-radius:0;background:#0b0630}
+[data-theme="jam"] .ltsb .sbc b{font-family:var(--led);font-size:40px;color:#ffe14a}
+@media(max-width:640px){.ltsb .sbgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.ltsb table{display:block;overflow-x:auto}}
 .ltlegend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 4px;font:500 var(--t2) var(--body);color:var(--steel)}
 .ltlegend span{display:inline-flex;align-items:center;line-height:1}
 .ltlegend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;border:3px solid var(--c);box-sizing:border-box;flex:none}
@@ -1794,8 +1832,10 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <!-- The Court view (2026-11-20): a full court of the club's players' plays, from ESPN. -->
       <div id="ltWrap" hidden>
         <div class="ltbar" id="ltBar"></div>
+        <div class="ltcast" id="ltCast"></div>
         <div class="scroller ltscroll"><div class="ltcourt" id="ltCourt"></div></div>
         <div class="ltlegend" id="ltLegend"></div>
+        <div class="ltsb" id="ltScore"></div>
         <p class="note" id="ltNote"></p>
       </div>
     </div>
@@ -2236,6 +2276,9 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div><label for="sMatch">Trade salary matching</label><select id="sMatch">
         <option value="">Off &#8212; any trade under the hard cap</option>
         <option value="1">On &#8212; enforce the 150% / +$5.00 / 125% bands</option></select></div>
+      <div><label for="sCourt">Court Mode (My Team)</label><select id="sCourt">
+        <option value="1">On &#8212; GMs see the Court Mode view</option>
+        <option value="">Off &#8212; hides the Court Mode button</option></select></div>
       <button class="btn" id="saveCfg">Save</button>
     </div>
     <p class="note explain">The <b>mid-level exception</b> is what a club over the salary cap may still spend, and it
@@ -4895,6 +4938,7 @@ function drawAdmin(){
   if($('sLeague')) $('sLeague').value=S.cfg.league||'';
   if($('sMle')) $('sMle').value=mleAmt();
   if($('sMatch')) $('sMatch').value=matchOn()?'1':'';
+  if($('sCourt')) $('sCourt').value=courtOn()?'1':'';
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
   if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
   if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
@@ -11005,6 +11049,7 @@ function luFade(){
 document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='luSlots') luFade(); },true);
 try{ matchMedia('(max-width:640px)').addEventListener('change',()=>{ try{drawLineup();}catch(e){} }); }catch(e){}
 function drawLineup(o){
+  if(LUMODE==='court'&&!courtOn()) LUMODE='stats';   // commissioner switched Court Mode off
   /* o={team,head,slots}: draw another club's lineup, read-only, into those two
      elements (League > Clubs, 2026-11-20). Same views as My Team, nothing editable. */
   const RO=!!(o&&o.team), HEAD=RO?o.head:$('luHead'), SLOTS=RO?o.slots:$('luSlots');
@@ -11020,15 +11065,15 @@ function drawLineup(o){
   /* D: the night on screen — tonight, or a night ahead being planned (2026-11-16). */
   const D=RO?luNight():luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
   /* Live tonight (lib/live.mjs): the Tonight view, and the club's totals so far. */
-  const liveOk=!ahead&&!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0;
+  const started=!RO&&!ahead&&nightStarted();
+  const liveOk=!ahead&&(started||(!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0));
   const planned=RO?[]:Object.keys((S.teams[meTeam()]||{}).luf||{}).filter(d=>d>luNight()).sort();
   /* Tonight by default once the GM's own first game is on (2026-11-17): the first
      draw after one of his starters has tipped (and live numbers exist) opens the
      Tonight view, once per night per browser (ll_luauto), so a GM who then picks
      Stats or Contract stays there. Not for the commissioner viewing a club. */
   if(!RO&&liveOk&&LUMODE!=='now'&&me&&meTeam()===me&&luAutoNight()!==luNight()){
-    const st=SLOTIDS.map(id=>lineupOf(me,D).s[id]).filter(Boolean);
-    if(st.some(nm=>{ const t=tipOf(nm,D); return t&&nightMinutes(D)>=t.at; })){
+    if(started){
       LUMODE='now'; try{ localStorage.setItem('ll_luauto',luNight()); }catch(e){}
       setTimeout(()=>{ if(!fastOn()) fastTick(); },0); }
   }
@@ -11081,7 +11126,7 @@ function drawLineup(o){
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
-       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights'],['court','Court Mode','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights'],...(courtOn()?[['court','Court Mode','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']]:[])])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
@@ -13207,6 +13252,17 @@ async function loadLiveNow(force){
 }
 /* Live data for tonight's night, or null when it is about another night. */
 const liveOn=()=>LIVENOW.day&&LIVENOW.day===luNight()?LIVENOW:null;
+/* Has any game of tonight tipped off? (2026-11-21) The Tonight view is offered, and is
+   the default, from the first tip: it no longer waits for the server's live blob, because
+   the page can ask ESPN for the lines itself (fastTick). Until the night rolls at 4 AM. */
+function nightStarted(){
+  if(!lineupsOpen()) return false;
+  const n=luNight(), L=liveOn();
+  if(L&&Object.values(L.games||{}).some(g=>g&&(g.state==='in'||g.final))) return true;
+  const F=fastOn(); if(F&&Object.values(F.games||{}).some(g=>g&&(g.state==='in'||g.final))) return true;
+  const sc=schedOn(n), tips=Object.values((sc&&sc.tips)||{}).map(tipMinutes).filter(v=>v!=null);
+  return tips.length>0&&nightMinutes(n)>=Math.min(...tips);
+}
 /* A player's line tonight so far: ESPN's id first, then the name. */
 function nowLine(name){
   const id=espnIdOf(name), F=fastOn();
@@ -13280,7 +13336,7 @@ function boxFrom(sum){
   return out;
 }
 async function fastTick(){
-  if(FAST.busy||document.hidden||LUMODE!=='now'||!me||!liveWanted()) return;
+  if(FAST.busy||document.hidden||LUMODE!=='now'||!me||!(liveWanted()||nightStarted())) return;
   const w=$('luWrap'); if(!w||w.hidden||!w.offsetParent||LUVIEW.day) return;
   FAST.busy=true;
   try{
@@ -13479,6 +13535,8 @@ const NBA30=[['ATL','Atlanta Hawks','atl'],['BOS','Boston Celtics','bos'],['BKN'
  ['OKC','Oklahoma City Thunder','okc'],['ORL','Orlando Magic','orl'],['PHI','Philadelphia 76ers','phi'],['PHX','Phoenix Suns','phx'],
  ['POR','Portland Trail Blazers','por'],['SAC','Sacramento Kings','sac'],['SAS','San Antonio Spurs','sa'],['TOR','Toronto Raptors','tor'],
  ['UTA','Utah Jazz','utah'],['WAS','Washington Wizards','wsh']];
+/* The commissioner's switch (Commissioner > League settings): off hides Court Mode. */
+const courtOn=()=>!(S.cfg&&S.cfg.court===false);
 var LT={day:'',games:[],byGame:{},names:{},seen:null,busy:false,err:'',at:0};
 const ltOk=c=>!!c&&c.x>=0&&c.x<=50&&c.y>=0&&c.y<=47;
 /* Plays -> things to draw. Pure. `plays` is ESPN's list, oldest first. */
@@ -13512,11 +13570,11 @@ function ltPos(e){
   return [Math.min(97,Math.max(3,sx/9.4)), Math.min(96,Math.max(4,sy/5))];
 }
 function ltCourtSvg(){
-  const L='#fff', w='stroke="'+L+'" stroke-width="3" fill="none"';
+  const w='stroke="currentColor" stroke-width="3" fill="none"';
   const half=m=>{   // m=false: left half; true: mirrored
-    const g=`<rect x="0" y="170" width="190" height="160" ${w}/><circle cx="190" cy="250" r="60" ${w}/>
+    const g=`<rect x="0" y="170" width="190" height="160" style="fill:var(--ctpaint)"/><rect x="0" y="170" width="190" height="160" ${w}/><circle cx="190" cy="250" r="60" ${w}/>
       <path d="M0 30H140A237.5 237.5 0 0 1 140 470H0" ${w}/><path d="M52.5 210A40 40 0 0 1 52.5 290" ${w}/>
-      <path d="M40 220V280" stroke="${L}" stroke-width="6"/><circle cx="52.5" cy="250" r="7.5" ${w}/>`;
+      <path d="M40 220V280" stroke="currentColor" stroke-width="6"/><circle cx="52.5" cy="250" r="7.5" ${w}/>`;
     return m?`<g transform="translate(940 0) scale(-1 1)">${g}</g>`:g; };
   return `<svg viewBox="0 0 940 500" preserveAspectRatio="none" aria-hidden="true"><rect x="3" y="3" width="934" height="494" ${w}/>
     <path d="M470 3V497" ${w}/><circle cx="470" cy="250" r="60" ${w}/>${half(false)}${half(true)}</svg>`;
@@ -13554,6 +13612,8 @@ function ltDraw(){
   const logo=home?`<img class="ltlogo" alt="${htmlEsc(home[1])}" referrerpolicy="no-referrer" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.style.display='none'">`:'';
   box.innerHTML=ltCourtSvg()+`<span class="lttag" style="left:2cqw">Offense</span><span class="lttag" style="right:2cqw">Defense &amp; rebounds</span>`+logo+dots+icons;
   LT.seen=new Set(ev.map(e=>e.id));
+  if($('ltCast')) $('ltCast').innerHTML=ltCastHtml();
+  if($('ltScore')) $('ltScore').innerHTML=ltScoreHtml();
   const L=(c,t,d)=>`<span><i class="${d?'d':''}" style="--c:${c}"></i>${t}</span>`;
   $('ltLegend').innerHTML=L('#2fb344','Make (last 10 shots wear the player’s photo)')+L('#e03131','Miss')+L('#2fb344','Older shot / free throw',1)
     +L('#9aa7b4','Assist (dime)')+L('#e8772e','Rebound')+'<span><i class="x">✕</i>Turnover</span>'+L('#8e44ad','Steal')+L('#1c7ed6','Block');
@@ -13562,6 +13622,44 @@ function ltDraw(){
     :!started?'No games have tipped off yet — plays appear here as your players make them.'
     :!ev.length?`None of ${meTeam()}’s players has a play yet in tonight’s games.`
     :`${shots.length} shots, ${ev.filter(e=>e.k==='ft').length} free throws${LT.at?` · updated ${new Date(LT.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}`:''}. An assist, steal or block sits where the shot or turnover happened (ESPN gives no other location).`;
+}
+/* Everyone on the club with a game tonight: starters first (amber ring). */
+function ltCastHtml(){
+  const t=meTeam(); if(!t||!S.teams[t]) return '';
+  const playing=new Set(); LT.games.forEach(g=>(g.teams||[]).forEach(a=>playing.add(a)));
+  if(!playing.size) return '<span class="none">No NBA games tonight.</span>';
+  const start=new Set(SLOTIDS.map(id=>lineupOf(t,luNight()).s[id]).filter(Boolean).map(n=>canon(n)));
+  const rows=S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)&&playing.has(nbTri(nbaTeamOf(p.n)||'')))
+    .map(p=>({n:p.n,st:start.has(canon(p.n))})).sort((a,b)=>(b.st-a.st));
+  if(!rows.length) return '<span class="none">None of your players has a game tonight.</span>';
+  return rows.map(r=>`<div class="c${r.st?' st':' out'}" title="${htmlEsc(r.n+(r.st?' \u2014 starting':' \u2014 bench'))}">${headshot(r.n,'ltc')||'<span class="hs"></span>'}<b>${htmlEsc(shortNm(r.n))}</b>${htmlEsc(nbaTeamOf(r.n)||'')}</div>`).join('');
+}
+/* Tonight's box-score lines for the club's players, summed. */
+function ltTotals(){
+  const mine=ltMineFn(), rows=[];
+  Object.values(LT.byGame).forEach(G=>(G.box||[]).forEach(tm=>{
+    const st=(tm.statistics&&tm.statistics[0])||{}, keys=st.keys||[], ix=k=>keys.indexOf(k);
+    (st.athletes||[]).forEach(a=>{
+      const p=a.athlete||{}; if(!p.displayName||!mine(p.displayName)||a.didNotPlay||!(a.stats||[]).length) return;
+      const v=k=>{ const i=ix(k); return i>=0?a.stats[i]:''; }, num=k=>+v(k)||0, pair=k=>String(v(k)).split('-').map(x=>+x||0);
+      const fg=pair('fieldGoalsMade-fieldGoalsAttempted'), tp=pair('threePointFieldGoalsMade-threePointFieldGoalsAttempted'), ft=pair('freeThrowsMade-freeThrowsAttempted');
+      rows.push({n:p.displayName,min:num('minutes'),pts:num('points'),reb:num('rebounds'),ast:num('assists'),stl:num('steals'),blk:num('blocks'),to:num('turnovers'),
+        fgm:fg[0],fga:fg[1],tpm:tp[0],ftm:ft[0],fta:ft[1]});
+    });
+  }));
+  return rows;
+}
+function ltScoreHtml(){
+  const rows=ltTotals(), t=meTeam(), home=NBA30.find(x=>x[0]===((S.teams[t]||{}).nba||''));
+  const head=`<div class="sbh">${home?`<img alt="" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.remove()">`:''}${htmlEsc(t||'')} \u00b7 tonight so far</div>`;
+  if(!rows.length) return head+'<div class="empty">No box-score lines yet \u2014 totals fill in as your players take the floor.</div>';
+  const S0=k=>rows.reduce((a,r)=>a+r[k],0), fgm=S0('fgm'), fga=S0('fga'), ftm=S0('ftm'), fta=S0('fta');
+  const pc=(m,a)=>a?(100*m/a).toFixed(1):'\u2014';
+  const C=[['PTS',S0('pts'),''],['REB',S0('reb'),''],['AST',S0('ast'),''],['3PM',S0('tpm'),''],['STL',S0('stl'),''],['BLK',S0('blk'),''],['TO',S0('to'),''],
+    ['FG%',pc(fgm,fga),`${fgm}-${fga}`],['FT%',pc(ftm,fta),`${ftm}-${fta}`]];
+  return head+`<div class="sbgrid">${C.map(([l,v,s])=>`<div class="sbc"><small>${l}</small><b>${v}</b><em>${s||'&nbsp;'}</em></div>`).join('')}</div>
+    <table><thead><tr><th>Player</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th><th>STL</th><th>BLK</th><th>TO</th><th>FG</th><th>FT</th></tr></thead><tbody>${
+    rows.sort((a,b)=>b.pts-a.pts).map(r=>`<tr><td>${htmlEsc(r.n)}</td><td>${Math.round(r.min)}</td><td>${r.pts}</td><td>${r.reb}</td><td>${r.ast}</td><td>${r.tpm}</td><td>${r.stl}</td><td>${r.blk}</td><td>${r.to}</td><td>${r.fgm}-${r.fga}</td><td>${r.ftm}-${r.fta}</td></tr>`).join('')}</tbody></table>`;
 }
 function ltBar(){
   const live=LT.games.filter(g=>g.state==='in').length, tot=LT.games.length;
@@ -13573,8 +13671,9 @@ async function ltLoadGames(){
   try{
     const sb=await (await fetch(`${ESPNSB}?dates=${LT.day.replace(/-/g,'')}`,{cache:'no-store'})).json();
     LT.games=(sb.events||[]).map(e=>{
-      const st=(e.status&&e.status.type)||{};
-      return {id:e.id,date:e.date,state:st.state||'',final:!!st.completed};
+      const st=(e.status&&e.status.type)||{}, c=(e.competitions||[])[0]||{};
+      return {id:e.id,date:e.date,state:st.state||'',final:!!st.completed,
+        teams:(c.competitors||[]).map(x=>nbTri((x.team||{}).abbreviation))};
     });
     LT.err='';
   }catch(e){ LT.err='Could not reach ESPN.'; }
@@ -13589,7 +13688,7 @@ async function ltLoadPlays(){
         const j=await (await fetch(`${ESPNSUM}?event=${g.id}`,{cache:'no-store'})).json(), wc={};
         ((j.boxscore&&j.boxscore.players)||[]).forEach(tm=>((tm.statistics&&tm.statistics[0]&&tm.statistics[0].athletes)||[]).forEach(a=>{ if(a.athlete) LT.names[String(a.athlete.id)]=a.athlete.displayName; }));
         (j.plays||[]).forEach(p=>{ wc[String(p.id)]=Date.parse(p.wallclock||'')||0; });
-        LT.byGame[g.id]={plays:j.plays||[],wc,final:g.final};
+        LT.byGame[g.id]={plays:j.plays||[],wc,final:g.final,box:(j.boxscore&&j.boxscore.players)||[]};
         LT.at=Date.now();
       }catch(e){}
     }));
@@ -14553,9 +14652,10 @@ $('saveCfg').onclick=async()=>{
   S.cfg.opener=op;
   if(mlv>=0) S.cfg.mle=Math.round(mlv*4)/4;
   if($('sMatch')) S.cfg.match=$('sMatch').value==='1';
+  if($('sCourt')) S.cfg.court=$('sCourt').value==='1';
   await commit({kind:'edit',detail:`League settings \u2014 ${leagueName()}, cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
     +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}, `
-    +`mid-level ${money(mleAmt())}, salary matching ${matchOn()?'on':'off'}`});
+    +`mid-level ${money(mleAmt())}, salary matching ${matchOn()?'on':'off'}, Court Mode ${courtOn()?'on':'off'}`});
 };
 /* The backup. The league slices as this page holds them (the file's old shape,
    kept at the top level), plus `server`: every blob in the store from
