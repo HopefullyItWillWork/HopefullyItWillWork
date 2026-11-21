@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.9">
+<meta name="ll-build" content="2026-11-21.12">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1039,6 +1039,7 @@ th.rotot,td.rotot{position:sticky;right:0;background:var(--panel);border-left:2p
 thead th.rotot{z-index:3}
 tr.sel td.rotot{background:var(--sel)}
 .standtbl tr.sel td{background:var(--sel)}
+.standtbl tr.sel td:nth-child(2){background:linear-gradient(var(--sel),var(--sel)),var(--ink)}
 .clublink{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .clublink:hover{text-decoration:underline}
 .clublink:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
@@ -1460,7 +1461,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 [data-theme="jam"] .mefact b{font-family:var(--led);font-weight:400;font-size:44px;line-height:.9}
 [data-theme="jam"] .mefact b small{font-family:var(--led);font-size:24px}
 /* NBA Scores tab (2026-11-20) */
-.nbgrid{display:grid;grid-template-columns:1fr;gap:18px}
+.nbgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 .nbtbl{width:100%;table-layout:fixed}
 .nbtbl th:first-child,.nbtbl td:first-child{width:44px}
 .nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:72px;text-align:right}
@@ -1524,6 +1525,10 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltcast .c b{display:block;color:var(--chalk);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ltcast .c{cursor:pointer}
 .ltcast .c{position:relative}
+.ltcast .c.bench::after{content:"BENCH";position:absolute;top:-3px;left:50%;transform:translateX(-50%);padding:1px 5px;border-radius:7px;background:#5b6472;color:#fff;font:800 9px/12px var(--body);letter-spacing:.06em}
+.ltcast .c.bench .hs{filter:grayscale(1) brightness(.8);opacity:.5;border:2px dashed var(--steel);box-shadow:none}
+.ltcast .c.bench{background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(120,130,150,.18) 6px 8px);border-radius:10px}
+.ltcast .c.bench.sel .hs{opacity:1;filter:none;border-style:solid;border-color:#fff;box-shadow:0 0 0 3px var(--steel)}
 .ltcast .c.st::after{content:"S";position:absolute;top:-2px;right:4px;width:15px;height:15px;border-radius:50%;background:var(--amber);color:#111;font:800 10px/15px var(--body);text-align:center}
 /* Who has accumulated stats: green = has a line, pulsing amber = game on and no line yet,
    grey = game not started, faded = game over and he did not play. */
@@ -1531,7 +1536,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltcast .c.played{color:#2fb344;font-weight:700}
 .ltcast .c.live .hs{border-color:var(--amber);animation:ltlive 1.6s ease-in-out infinite}
 .ltcast .c.pre .hs{filter:grayscale(1);opacity:.6}
-.ltcast .lthot{position:absolute;top:-4px;left:2px;font:700 11px/1 var(--body);color:#ff7a18;background:rgba(0,0,0,.65);border-radius:9px;padding:2px 3px;white-space:nowrap}
+.ltcast .lthot{position:absolute;top:30px;left:0;font:700 11px/1 var(--body);color:#ff7a18;background:rgba(0,0,0,.65);border-radius:9px;padding:2px 3px;white-space:nowrap}
 .ltcast .lthot.fire{background:#c1121f;color:#fff;box-shadow:0 0 8px 2px rgba(255,90,20,.7)}
 .ltdot.clutch,.ltico.clutch img{box-shadow:0 0 0 calc(var(--k,1)*.3cqw) #ffd23f,0 0 calc(var(--k,1)*1.2cqw) calc(var(--k,1)*.5cqw) rgba(255,210,63,.85)}
 [data-theme="jam"] .ltdot.clutch,[data-theme="jam"] .ltico.clutch img{box-shadow:0 0 0 calc(var(--k,1)*.3cqw) #ffd23f,calc(var(--k,1)*.3cqw) calc(var(--k,1)*.3cqw) 0 #000}
@@ -1565,6 +1570,11 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltlegend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;border:3px solid var(--c);box-sizing:border-box;flex:none}
 .ltlegend i.x{border:0;border-radius:0;background:none;color:#e03131;font:900 14px/12px var(--body);text-align:center}
 .ltlegend i.d{background:var(--c);border-width:0}
+.commnote{margin:0 0 14px;padding:11px 14px;border-radius:var(--r-l);border:1px solid var(--line);border-left:5px solid var(--amber);background:var(--panel)}
+.commnote b{display:block;font:700 var(--t1) var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin-bottom:4px}
+.commnote .cnbody{font:500 var(--t3)/1.5 var(--body);color:var(--chalk);white-space:pre-wrap;overflow-wrap:anywhere}
+.commnote small{display:block;margin-top:6px;color:var(--dim);font:500 var(--t1) var(--body)}
+[data-theme="jam"] .commnote{border:3px solid var(--amber);border-radius:0;background:#0b0630}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
@@ -1836,6 +1846,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 
 
   <section class="view" id="v-me" role="tabpanel" hidden>
+    <div id="commNote"></div>
     <div id="meSwitch"></div>
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
@@ -2305,6 +2316,10 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <div><label for="sMatch">Trade salary matching</label><select id="sMatch">
         <option value="">Off &#8212; any trade under the hard cap</option>
         <option value="1">On &#8212; enforce the 150% / +$5.00 / 125% bands</option></select></div>
+      <div style="grid-column:1/-1"><label for="sNote">Commissioner note <span class="fcount">shown at the top of My Team for every GM while it is on</span></label>
+        <textarea id="sNote" rows="3" maxlength="600" placeholder="e.g. Trade deadline is Friday at 9 PM Pacific." style="width:100%"></textarea></div>
+      <div><label for="sNoteOn">Commissioner note</label><select id="sNoteOn">
+        <option value="">Off &#8212; hidden</option><option value="1">On &#8212; GMs see it</option></select></div>
       <div><label for="sCourt">Court Mode (My Team)</label><select id="sCourt">
         <option value="1">On &#8212; GMs see the Court Mode view</option>
         <option value="">Off &#8212; hides the Court Mode button</option></select></div>
@@ -4968,6 +4983,8 @@ function drawAdmin(){
   if($('sMle')) $('sMle').value=mleAmt();
   if($('sMatch')) $('sMatch').value=matchOn()?'1':'';
   if($('sCourt')) $('sCourt').value=courtOn()?'1':'';
+  if($('sNote')&&document.activeElement!==$('sNote')) $('sNote').value=(S.cfg.note&&S.cfg.note.text)||'';
+  if($('sNoteOn')) $('sNoteOn').value=(S.cfg.note&&S.cfg.note.on)?'1':'';
   $('sCap').value=S.cfg.cap;$('sTax').value=S.cfg.tax;$('sRoster').value=S.cfg.roster;
   if($('sMin')) $('sMin').value=S.cfg.minSal??1.00;
   if($('sDeadline')) $('sDeadline').value=S.cfg.deadline||'';
@@ -5516,7 +5533,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();drawMissed();if(typeof drawNbRoster==='function')drawNbRoster();
+  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();drawMissed();drawCommNote();if(typeof drawNbRoster==='function')drawNbRoster();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -13509,7 +13526,7 @@ function drawNbSt(){
   if(NB.err){ list.innerHTML=`<p class="note">${htmlEsc(NB.err)}</p>`; return; }
   if(NB.busy&&!NB.conf.length){ list.innerHTML='<p class="note">Loading\u2026</p>'; return; }
   if(!NB.conf.length){ list.innerHTML='<p class="note">No standings yet.</p>'; return; }
-  list.innerHTML=`<div class="nbgrid">${NB.conf.map(c=>`<div><h3>${htmlEsc(c.name)}</h3><div class="scroller"><table class="nbtbl"><thead><tr>
+  list.innerHTML=`<div class="nbgrid">${NB.conf.map(c=>`<div><h3>${htmlEsc(c.name)}</h3><div class="scroller" data-pin2="1"><table class="nbtbl"><thead><tr>
     <th>#</th><th class="l">Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>STRK</th></tr></thead><tbody>${c.rows.map((r,i)=>
     `<tr data-nbt="${htmlEsc(r.id)}" data-ab="${htmlEsc(r.ab)}" style="cursor:pointer"><td>${r.seed||i+1}</td><td class="l"><b>${htmlEsc(r.name)}</b></td>
       <td>${r.w}</td><td>${r.l}</td><td>${r.pct?r.pct.toFixed(3).replace(/^0/,''):'\u2014'}</td><td>${htmlEsc(String(r.gb||'\u2014'))}</td><td>${htmlEsc(String(r.strk||'\u2014'))}</td></tr>`).join('')}
@@ -13566,8 +13583,23 @@ const NBA30=[['ATL','Atlanta Hawks','atl'],['BOS','Boston Celtics','bos'],['BKN'
  ['UTA','Utah Jazz','utah'],['WAS','Washington Wizards','wsh']];
 /* The commissioner's switch (Commissioner > League settings): off hides Court Mode. */
 const courtOn=()=>!(S.cfg&&S.cfg.court===false);
+/* The commissioner's note (Commissioner > League settings): when on, every GM sees it at the top of My Team. */
+const commNoteOn=()=>!!(S.cfg&&S.cfg.note&&S.cfg.note.on&&String(S.cfg.note.text||'').trim());
+function drawCommNote(){
+  const box=$('commNote'); if(!box) return;
+  const n=S.cfg&&S.cfg.note, h=commNoteOn()?`<div class="commnote" role="note"><b>Commissioner note</b><div class="cnbody">${htmlEsc(String(n.text).trim())}</div>${
+    n.at?`<small>${htmlEsc(new Date(n.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</small>`:''}</div>`:'';
+  if(box.dataset.h!==h){ box.dataset.h=h; box.innerHTML=h; }
+}
 var LT={day:'',games:[],byGame:{},names:{},seen:null,busy:false,err:'',at:0,focus:'',focusName:''};
-const ltIs=n=>!LT.focus||nameKey(canon(n))===LT.focus;   // the court and the scoreboard follow one player when a headshot is picked
+/* Court Mode follows the club's STARTERS (the men who score); a bench player is left out until
+   his headshot is picked. With no lineup set at all, everyone counts. */
+function ltStarterKeys(){
+  const t=meTeam(); if(!t||!S.teams[t]) return null;
+  const ks=new Set(SLOTIDS.map(id=>lineupOf(t,luNight()).s[id]).filter(Boolean).map(n=>nameKey(canon(n))));
+  return ks.size?ks:null;
+}
+const ltIs=n=>{ const k=nameKey(canon(n)); if(LT.focus) return k===LT.focus; const st=ltStarterKeys(); return !st||st.has(k); };   // the court and the scoreboard follow one player when a headshot is picked
 const ltOk=c=>!!c&&c.x>=0&&c.x<=50&&c.y>=0&&c.y<=47;
 /* Plays -> things to draw. Pure. `plays` is ESPN's list, oldest first. */
 function ltParse(plays){
@@ -13667,15 +13699,15 @@ function ltDraw(){
   const started=LT.games.filter(g=>g.state!=='pre').length;
   $('ltNote').textContent=LT.err?LT.err:!LT.games.length?'No NBA games on this date.'
     :!started?'No games have tipped off yet — plays appear here as your players make them.'
-    :!ev.length?`None of ${meTeam()}’s players has a play yet in tonight’s games.`
-    :`${shots.length} shots, ${ev.filter(e=>e.k==='ft').length} free throws${LT.at?` · updated ${new Date(LT.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}`:''}. An assist, steal or block sits where the shot or turnover happened (ESPN gives no other location).`;
+    :!ev.length?`None of ${meTeam()}’s starters has a play yet in tonight’s games.`
+    :`${shots.length} shots, ${ev.filter(e=>e.k==='ft').length} free throws${LT.at?` · updated ${new Date(LT.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}`:''}. An assist, steal or block sits where the shot or turnover happened (ESPN gives no other location). Bench players are left out; click one to see his stats.`;
 }
 /* Everyone on the club with a game tonight: starters first (amber ring). */
 function ltCastHtml(){
   const t=meTeam(); if(!t||!S.teams[t]) return '';
   const playing=new Set(); LT.games.forEach(g=>(g.teams||[]).forEach(a=>playing.add(a)));
   if(!playing.size) return '<span class="none">No NBA games tonight.</span>';
-  const start=new Set(SLOTIDS.map(id=>lineupOf(t,luNight()).s[id]).filter(Boolean).map(n=>canon(n)));
+  const start=new Set(SLOTIDS.map(id=>lineupOf(t,luNight()).s[id]).filter(Boolean).map(n=>canon(n))), hasStarters=start.size>0;
   const lines={}; ltTotals(true).forEach(r=>{ lines[nameKey(canon(r.n))]=r; });
   /* Heat: consecutive made field goals at the end of a player's shot list (free throws do
      not count): two is heating up, three or more is on fire. */
@@ -13692,7 +13724,7 @@ function ltCastHtml(){
   if(!rows.length) return '<span class="none">None of your players has a game tonight.</span>';
   const sub=r=>r.stat==='played'?`${r.ln.pts} pts`:r.stat==='live'?'Live':r.stat==='dnp'?'DNP':tipIn(r.n);
   return rows.map(r=>{ const sel=LT.focus&&nameKey(canon(r.n))===LT.focus;
-    return `<div class="c ${r.stat}${r.st?' st':''}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starter':' \u2014 bench')+({played:' \u2014 has stats',live:' \u2014 game under way, no stats yet',dnp:' \u2014 did not play',pre:' \u2014 game not started'})[r.stat]+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${sub(r)}${r.heat>=2?`<span class="lthot${r.heat>=3?' fire':''}" title="${r.heat} field goals in a row">\uD83D\uDD25${r.heat>=3?r.heat:''}</span>`:''}</div>`; }).join('');
+    return `<div class="c ${r.stat}${r.st||!hasStarters?' st':' bench'}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starter':' \u2014 on the bench, left out of the court (click to see his stats)')+({played:' \u2014 has stats',live:' \u2014 game under way, no stats yet',dnp:' \u2014 did not play',pre:' \u2014 game not started'})[r.stat]+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${sub(r)}${r.heat>=2?`<span class="lthot${r.heat>=3?' fire':''}" title="${r.heat} field goals in a row">\uD83D\uDD25${r.heat>=3?r.heat:''}</span>`:''}</div>`; }).join('');
 }
 /* Tonight's box-score lines for the club's players, summed. */
 function ltTotals(all){
@@ -13711,7 +13743,7 @@ function ltTotals(all){
 }
 function ltScoreHtml(){
   const rows=ltTotals(), t=meTeam(), home=NBA30.find(x=>x[0]===((S.teams[t]||{}).nba||''));
-  const head=`<div class="sbh">${home&&!LT.focus?`<img alt="" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.remove()">`:''}${htmlEsc(LT.focus?LT.focusName:(t||''))} \u00b7 tonight so far</div>`;
+  const head=`<div class="sbh">${home&&!LT.focus?`<img alt="" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.remove()">`:''}${htmlEsc(LT.focus?LT.focusName:(t||'')+' starters')} \u00b7 tonight so far</div>`;
   if(!rows.length) return head+'<div class="empty">No box-score lines yet \u2014 totals fill in as your players take the floor.</div>';
   const S0=k=>rows.reduce((a,r)=>a+r[k],0), fgm=S0('fgm'), fga=S0('fga'), ftm=S0('ftm'), fta=S0('fta');
   const pc=(m,a)=>a?(100*m/a).toFixed(1):'\u2014';
@@ -14403,7 +14435,7 @@ function drawStandBox(B){
   const pct=v=>v?v.toFixed(3).replace(/^0/,''):'—';
   const val=(r,c)=>roto?r.cat[CK[c]]:c==='fg'?pct(r.pct.FG):c==='ft'?pct(r.pct.FT):sv(r,c);
   const mine=me&&!isComm()?me:(B.sort==='mestand'?meTeam():null);
-  box.innerHTML=`<div class="scroller" data-cap="1"><table id="${B.tbl}" class="standtbl"><thead><tr>
+  box.innerHTML=`<div class="scroller" data-cap="1" data-pin2="1"><table id="${B.tbl}" class="standtbl"><thead><tr>
       <th class="l" data-k="rank">#</th><th class="l" data-k="club">Club</th><th data-k="gp">${mode==='night'?'G':'Games'}</th>
       <th data-k="fg">FG%</th><th data-k="ft">FT%</th><th data-k="p3">3P</th><th data-k="reb">REB</th>
       <th data-k="ast">AST</th><th data-k="stl">STL</th><th data-k="blk">BLK</th><th data-k="to">TO</th>
@@ -14726,9 +14758,12 @@ $('saveCfg').onclick=async()=>{
   if(mlv>=0) S.cfg.mle=Math.round(mlv*4)/4;
   if($('sMatch')) S.cfg.match=$('sMatch').value==='1';
   if($('sCourt')) S.cfg.court=$('sCourt').value==='1';
+  if($('sNote')){ const tx=$('sNote').value.trim().slice(0,600), on=$('sNoteOn').value==='1'&&!!tx;
+    if($('sNoteOn').value==='1'&&!tx) alert('Write the note first \u2014 an empty note stays off.');
+    const prev=S.cfg.note||{}; S.cfg.note={on,text:tx,at:(prev.text===tx&&prev.on===on)?(prev.at||Date.now()):Date.now()}; }
   await commit({kind:'edit',detail:`League settings \u2014 ${leagueName()}, cap ${money(S.cfg.cap)}, tax ${money(S.cfg.tax)}, `
     +`roster ${S.cfg.roster}, minimum ${money(minSal())}, deadline ${S.cfg.deadline||'none'}, `
-    +`mid-level ${money(mleAmt())}, salary matching ${matchOn()?'on':'off'}, Court Mode ${courtOn()?'on':'off'}`});
+    +`mid-level ${money(mleAmt())}, salary matching ${matchOn()?'on':'off'}, Court Mode ${courtOn()?'on':'off'}, commissioner note ${commNoteOn()?'on':'off'}`});
 };
 /* The backup. The league slices as this page holds them (the file's old shape,
    kept at the top level), plus `server`: every blob in the store from
