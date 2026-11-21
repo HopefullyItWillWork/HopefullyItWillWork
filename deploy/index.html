@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-20.22">
+<meta name="ll-build" content="2026-11-21.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1494,7 +1494,9 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltnew{animation:ltpop .7s cubic-bezier(.2,1.4,.4,1)}
 @keyframes ltpop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}60%{opacity:1}100%{transform:translate(-50%,-50%) scale(1)}}
 .ltlegend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 4px;font:500 var(--t2) var(--body);color:var(--steel)}
-.ltlegend i{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:5px;border:3px solid var(--c);box-sizing:border-box}
+.ltlegend span{display:inline-flex;align-items:center;line-height:1}
+.ltlegend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;border:3px solid var(--c);box-sizing:border-box;flex:none}
+.ltlegend i.x{border:0;border-radius:0;background:none;color:#e03131;font:900 14px/12px var(--body);text-align:center}
 .ltlegend i.d{background:var(--c);border-width:0}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
@@ -1960,7 +1962,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     </div>
 
     <h2 class="sub">Home team logo</h2>
-    <p class="note explain">The NBA team whose logo sits at center court on My Team's Court view.</p>
+    <p class="note explain">The NBA team whose logo sits at center court in My Team's Court Mode.</p>
     <div class="form f4">
       <div><label for="setNba">NBA team</label><select id="setNba"></select></div>
       <div></div><div></div>
@@ -11079,7 +11081,7 @@ function drawLineup(o){
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
-       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights'],['court','Court','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights'],['court','Court Mode','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
@@ -13554,7 +13556,7 @@ function ltDraw(){
   LT.seen=new Set(ev.map(e=>e.id));
   const L=(c,t,d)=>`<span><i class="${d?'d':''}" style="--c:${c}"></i>${t}</span>`;
   $('ltLegend').innerHTML=L('#2fb344','Make (last 10 shots wear the player’s photo)')+L('#e03131','Miss')+L('#2fb344','Older shot / free throw',1)
-    +L('#9aa7b4','Assist (dime)')+L('#e8772e','Rebound')+L('#555','Turnover ✕')+L('#8e44ad','Steal')+L('#1c7ed6','Block');
+    +L('#9aa7b4','Assist (dime)')+L('#e8772e','Rebound')+'<span><i class="x">✕</i>Turnover</span>'+L('#8e44ad','Steal')+L('#1c7ed6','Block');
   const started=LT.games.filter(g=>g.state!=='pre').length;
   $('ltNote').textContent=LT.err?LT.err:!LT.games.length?'No NBA games on this date.'
     :!started?'No games have tipped off yet — plays appear here as your players make them.'
