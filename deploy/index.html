@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.8">
+<meta name="ll-build" content="2026-11-21.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1531,6 +1531,10 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltcast .c.played{color:#2fb344;font-weight:700}
 .ltcast .c.live .hs{border-color:var(--amber);animation:ltlive 1.6s ease-in-out infinite}
 .ltcast .c.pre .hs{filter:grayscale(1);opacity:.6}
+.ltcast .lthot{position:absolute;top:-4px;left:2px;font:700 11px/1 var(--body);color:#ff7a18;background:rgba(0,0,0,.65);border-radius:9px;padding:2px 3px;white-space:nowrap}
+.ltcast .lthot.fire{background:#c1121f;color:#fff;box-shadow:0 0 8px 2px rgba(255,90,20,.7)}
+.ltdot.clutch,.ltico.clutch img{box-shadow:0 0 0 calc(var(--k,1)*.3cqw) #ffd23f,0 0 calc(var(--k,1)*1.2cqw) calc(var(--k,1)*.5cqw) rgba(255,210,63,.85)}
+[data-theme="jam"] .ltdot.clutch,[data-theme="jam"] .ltico.clutch img{box-shadow:0 0 0 calc(var(--k,1)*.3cqw) #ffd23f,calc(var(--k,1)*.3cqw) calc(var(--k,1)*.3cqw) 0 #000}
 .ltcast .c.dnp{opacity:.4}.ltcast .c.dnp .hs{filter:grayscale(1)}
 @keyframes ltlive{0%,100%{box-shadow:0 0 0 0 rgba(224,163,64,.6)}50%{box-shadow:0 0 0 5px rgba(224,163,64,0)}}
 .ltcast .c.sel .hs{border-color:#fff;box-shadow:0 0 0 3px var(--amber)}
@@ -13568,20 +13572,25 @@ const ltOk=c=>!!c&&c.x>=0&&c.x<=50&&c.y>=0&&c.y<=47;
 /* Plays -> things to draw. Pure. `plays` is ESPN's list, oldest first. */
 function ltParse(plays){
   const out=[]; let ftn=0;
+  /* Clutch (2026-11-21): the 4th quarter or overtime, five minutes or less on the clock, and the
+     score within five points after the play. */
+  const secs=v=>{ const m=/^(?:(\d+):)?(\d+(?:\.\d+)?)$/.exec(String(v||'').trim()); return m?(+(m[1]||0))*60+parseFloat(m[2]):null; };
   (plays||[]).forEach(p=>{
     const t=(p.type&&p.type.text||'').replace(/\n/g,' '), tx=p.text||'', pt=p.participants||[], id=String(p.id);
+    const per=(p.period&&p.period.number)||0, ck=secs(p.clock&&p.clock.displayValue), cl=per>=4&&ck!=null&&ck<=300&&Math.abs((p.homeScore||0)-(p.awayScore||0))<=5;
+    const add=o=>out.push(cl?{...o,cl:1}:o);
     const who=i=>pt[i]&&pt[i].athlete?String(pt[i].athlete.id):'', c=ltOk(p.coordinate)?p.coordinate:null;
-    if(p.shootingPlay&&/^Free Throw/i.test(t)){ out.push({k:'ft',id,made:!!p.scoringPlay,pid:who(0),n:ftn++}); return; }
+    if(p.shootingPlay&&/^Free Throw/i.test(t)){ add({k:'ft',id,made:!!p.scoringPlay,pid:who(0),n:ftn++}); return; }
     if(p.shootingPlay&&c){
       const made=!!p.scoringPlay;
-      out.push({k:'shot',id,x:c.x,y:c.y,made,pid:who(0),pts:p.pointsAttempted||(p.scoreValue||2),txt:tx});
-      if(made&&/assists\)/i.test(tx)&&who(1)) out.push({k:'ast',id:id+'a',x:c.x,y:c.y,pid:who(1),txt:tx});
-      if(!made&&/ blocks /i.test(tx)&&who(1)) out.push({k:'blk',id:id+'b',x:c.x,y:c.y,pid:who(1),txt:tx});
+      add({k:'shot',id,x:c.x,y:c.y,made,pid:who(0),pts:p.pointsAttempted||(p.scoreValue||2),txt:tx});
+      if(made&&/assists\)/i.test(tx)&&who(1)) add({k:'ast',id:id+'a',x:c.x,y:c.y,pid:who(1),txt:tx});
+      if(!made&&/ blocks /i.test(tx)&&who(1)) add({k:'blk',id:id+'b',x:c.x,y:c.y,pid:who(1),txt:tx});
       return; }
-    if(/Rebound/i.test(t)&&c&&who(0)){ out.push({k:'reb',id,x:c.x,y:c.y,pid:who(0),txt:tx}); return; }
+    if(/Rebound/i.test(t)&&c&&who(0)){ add({k:'reb',id,x:c.x,y:c.y,pid:who(0),txt:tx}); return; }
     if(/Turnover/i.test(t)&&c&&who(0)){
-      out.push({k:'to',id,x:c.x,y:c.y,pid:who(0),txt:tx});
-      if(/ steals\)/i.test(tx)&&who(1)) out.push({k:'stl',id:id+'s',x:c.x,y:c.y,pid:who(1),txt:tx});
+      add({k:'to',id,x:c.x,y:c.y,pid:who(0),txt:tx});
+      if(/ steals\)/i.test(tx)&&who(1)) add({k:'stl',id:id+'s',x:c.x,y:c.y,pid:who(1),txt:tx});
     }
   });
   return out;
@@ -13616,10 +13625,10 @@ function ltMineFn(){
   return n=>ks.has(nameKey(n))||ks.has(nameKey(canon(n)));
 }
 /* Every play of tonight's games that belongs to a player on the club, oldest first. */
-function ltEvents(){
+function ltEvents(all){
   const mine=ltMineFn(), out=[];
   Object.values(LT.byGame).forEach(G=>{
-    ltParse(G.plays).forEach(e=>{ const nm=LT.names[e.pid]; if(nm&&mine(nm)&&ltIs(nm)) out.push({...e,wc:G.wc[e.id.replace(/[abs]$/,'')]||0}); });
+    ltParse(G.plays).forEach(e=>{ const nm=LT.names[e.pid]; if(nm&&mine(nm)&&(all||ltIs(nm))) out.push({...e,wc:G.wc[e.id.replace(/[abs]$/,'')]||0}); });
   });
   return out.sort((a,b)=>a.wc-b.wc);
 }
@@ -13633,14 +13642,14 @@ function ltDraw(){
   const nm=pid=>LT.names[pid]||'';
   const dots=ev.filter(e=>e.k==='ft'||(e.k==='shot'&&!lastShots.has(e.id))).map(e=>{
     const [px,py]=ltXY(e);
-    return `<span class="ltdot ${e.made?'make':'miss'}${e.k==='ft'?' ft':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+(e.k==='ft'?' free throw':' shot')+(e.made?' made':' missed'))}"></span>`; }).join('');
+    return `<span class="ltdot ${e.made?'make':'miss'}${e.k==='ft'?' ft':''}${e.cl?' clutch':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+(e.k==='ft'?' free throw':' shot')+(e.made?' made':' missed'))}"></span>`; }).join('');
   /* Assists, rebounds, turnovers, steals and blocks older than the latest ten shrink to
      small dots in their own colour rather than disappearing (2026-11-21). */
   const SPN={ast:'assist',reb:'rebound',to:'turnover',stl:'steal',blk:'block'};
   const spDots=allSpecials.filter(e=>!recentSp.has(e.id)).map(e=>{ const [px,py]=ltXY(e);
-    return `<span class="ltdot sp-${e.k}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+' '+SPN[e.k])}"></span>`; }).join('');
+    return `<span class="ltdot sp-${e.k}${e.cl?' clutch':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+' '+SPN[e.k])}"></span>`; }).join('');
   const ico=(e,cls,pill,x)=>{ const [px,py]=ltXY(e), name=nm(e.pid);
-    return `<span class="ltico ${cls}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc(name+' — '+(e.txt||''))}"><img src="${ltHead(e.pid)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">${x?'<span class="ltx">✕</span>':''}${pill?`<span class="ltpill">${pill}</span>`:''}</span>`; };
+    return `<span class="ltico ${cls}${e.cl?' clutch':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc(name+' — '+(e.txt||''))}"><img src="${ltHead(e.pid)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">${x?'<span class="ltx">✕</span>':''}${pill?`<span class="ltpill">${pill}</span>`:''}</span>`; };
   const icons=shots.filter(e=>lastShots.has(e.id)).map(e=>ico(e,e.made?'k-make':'k-miss','',false)).join('')
     +specials.map(e=>e.k==='ast'?ico(e,'k-ast','AST',false):e.k==='reb'?ico(e,'k-reb','REB',false):e.k==='to'?ico(e,'k-to','TO',true)
       :e.k==='stl'?ico(e,'k-stl','STL',false):ico(e,'k-blk','BLK',false)).join('');
@@ -13654,7 +13663,7 @@ function ltDraw(){
   if($('ltScore')) $('ltScore').innerHTML=ltScoreHtml();
   const L=(c,t,d)=>`<span><i class="${d?'d':''}" style="--c:${c}"></i>${t}</span>`;
   $('ltLegend').innerHTML=L('#2fb344','Make (last 10 shots wear the player’s photo)')+L('#e03131','Miss')+L('#2fb344','Older shot / free throw',1)
-    +L('#9aa7b4','Assist (dime)')+L('#e8772e','Rebound')+'<span><i class="x">✕</i>Turnover</span>'+L('#8e44ad','Steal')+L('#1c7ed6','Block');
+    +'<span><i class="d" style="--c:#ffd23f;box-shadow:0 0 6px 2px rgba(255,210,63,.8)"></i>Clutch (last 5 min, within 5)</span>'+L('#9aa7b4','Assist (dime)')+L('#e8772e','Rebound')+'<span><i class="x">✕</i>Turnover</span>'+L('#8e44ad','Steal')+L('#1c7ed6','Block');
   const started=LT.games.filter(g=>g.state!=='pre').length;
   $('ltNote').textContent=LT.err?LT.err:!LT.games.length?'No NBA games on this date.'
     :!started?'No games have tipped off yet — plays appear here as your players make them.'
@@ -13668,15 +13677,22 @@ function ltCastHtml(){
   if(!playing.size) return '<span class="none">No NBA games tonight.</span>';
   const start=new Set(SLOTIDS.map(id=>lineupOf(t,luNight()).s[id]).filter(Boolean).map(n=>canon(n)));
   const lines={}; ltTotals(true).forEach(r=>{ lines[nameKey(canon(r.n))]=r; });
-  const stateOf=n=>{ const tm=nbTri(nbaTeamOf(n)||''), g=LT.games.find(x=>(x.teams||[]).includes(tm)); return g?g.state:''; };
+  /* Heat: consecutive made field goals at the end of a player's shot list (free throws do
+     not count): two is heating up, three or more is on fire. */
+  const streak={}; ltEvents(true).filter(e=>e.k==='shot').forEach(e=>{ const k=nameKey(canon(LT.names[e.pid]||'')); streak[k]=e.made?(streak[k]||0)+1:0; });
+  const gameOf=n=>{ const tm=nbTri(nbaTeamOf(n)||''); return LT.games.find(x=>(x.teams||[]).includes(tm))||null; };
+  const stateOf=n=>{ const g=gameOf(n); return g?g.state:''; };
+  /* Time to tip: "2h 05m", "42m", "Starting". */
+  const tipIn=n=>{ const g=gameOf(n), ms=g&&g.date?Date.parse(g.date)-Date.now():null; if(ms==null||isNaN(ms)) return htmlEsc(nbaTeamOf(n)||'');
+    const m=Math.ceil(ms/60000); return m<=0?'Starting':m<60?`Tip ${m}m`:`Tip ${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`; };
   const rows=S.teams[t].r.filter(p=>contracted(p)&&!onIR(p)&&playing.has(nbTri(nbaTeamOf(p.n)||'')))
     .map(p=>{ const ln=lines[nameKey(canon(p.n))], gs=stateOf(p.n);
-      return {n:p.n,st:start.has(canon(p.n)),ln,stat:ln?'played':gs==='in'?'live':gs==='post'?'dnp':'pre'}; })
+      return {n:p.n,st:start.has(canon(p.n)),ln,heat:streak[nameKey(canon(p.n))]||0,stat:ln?'played':gs==='in'?'live':gs==='post'?'dnp':'pre'}; })
     .sort((a,b)=>(b.st-a.st)||(b.ln?b.ln.pts:-1)-(a.ln?a.ln.pts:-1));
   if(!rows.length) return '<span class="none">None of your players has a game tonight.</span>';
-  const sub=r=>r.stat==='played'?`${r.ln.pts} pts`:r.stat==='live'?'Live':r.stat==='dnp'?'DNP':htmlEsc(nbaTeamOf(r.n)||'');
+  const sub=r=>r.stat==='played'?`${r.ln.pts} pts`:r.stat==='live'?'Live':r.stat==='dnp'?'DNP':tipIn(r.n);
   return rows.map(r=>{ const sel=LT.focus&&nameKey(canon(r.n))===LT.focus;
-    return `<div class="c ${r.stat}${r.st?' st':''}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starter':' \u2014 bench')+({played:' \u2014 has stats',live:' \u2014 game under way, no stats yet',dnp:' \u2014 did not play',pre:' \u2014 game not started'})[r.stat]+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${sub(r)}</div>`; }).join('');
+    return `<div class="c ${r.stat}${r.st?' st':''}${sel?' sel':''}${LT.focus&&!sel?' dim':''}" data-pick="${htmlEsc(r.n)}" role="button" tabindex="0" title="${htmlEsc(r.n+(r.st?' \u2014 starter':' \u2014 bench')+({played:' \u2014 has stats',live:' \u2014 game under way, no stats yet',dnp:' \u2014 did not play',pre:' \u2014 game not started'})[r.stat]+(sel?' \u2014 click to show everyone':' \u2014 click to show only his plays'))}">${(headshot(r.n,'ltc')||'<span class="hs"></span>').replace(/ data-player="[^"]*"/,'')}<b>${htmlEsc(shortNm(r.n))}</b>${sub(r)}${r.heat>=2?`<span class="lthot${r.heat>=3?' fire':''}" title="${r.heat} field goals in a row">\uD83D\uDD25${r.heat>=3?r.heat:''}</span>`:''}</div>`; }).join('');
 }
 /* Tonight's box-score lines for the club's players, summed. */
 function ltTotals(all){
@@ -13751,6 +13767,7 @@ async function ltLoadPlays(){
   LT.busy=false; ltDraw();
 }
 try{ matchMedia('(max-width:640px)').addEventListener('change',()=>{ try{ ltDraw(); }catch(e){} }); }catch(e){}
+setInterval(()=>{ const w=$('ltWrap'); if(w&&!w.hidden&&!document.hidden&&$('ltCast')&&$('ltCast').querySelector('.pre')) $('ltCast').innerHTML=ltCastHtml(); },30e3);
 function ltEnter(){
   if(LT.day!==luNight()){ LT.day=luNight(); LT.byGame={}; LT.seen=null; LT.games=[]; }
   ltBar(); ltDraw(); ltLoadGames();
