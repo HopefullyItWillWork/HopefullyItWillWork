@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.6">
+<meta name="ll-build" content="2026-11-21.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1504,6 +1504,8 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .ltcourt .lttag{position:absolute;top:calc(var(--k,1)*1.2cqw);font:700 calc(var(--k,1)*1.5cqw) var(--body);letter-spacing:.12em;color:var(--cttag);text-transform:uppercase}
 .ltdot{position:absolute;width:calc(var(--k,1)*1.1cqw);height:calc(var(--k,1)*1.1cqw);border-radius:50%;transform:translate(-50%,-50%);border:calc(var(--k,1)*.15cqw) solid rgba(0,0,0,.35)}
 .ltdot.make{background:#2fb344}.ltdot.miss{background:#e03131}
+.ltdot.sp-ast{background:#cfd6de}.ltdot.sp-reb{background:#e8772e}.ltdot.sp-to{background:#444}.ltdot.sp-stl{background:#8e44ad}.ltdot.sp-blk{background:#1c7ed6}
+.ltdot[class*="sp-"]{width:calc(var(--k,1)*.9cqw);height:calc(var(--k,1)*.9cqw)}
 .ltdot.ft{width:calc(var(--k,1)*1cqw);height:calc(var(--k,1)*1cqw)}
 .ltico{position:absolute;width:calc(var(--k,1)*4.4cqw);height:calc(var(--k,1)*4.4cqw);transform:translate(-50%,-50%)}
 .ltico img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#e9e2d6;box-sizing:border-box;border:calc(var(--k,1)*.4cqw) solid var(--ring,#888);display:block}
@@ -13617,12 +13619,18 @@ function ltDraw(){
   const box=$('ltCourt'); if(!box) return;
   const ev=ltEvents(), fresh=LT.seen;
   const shots=ev.filter(e=>e.k==='shot'), lastShots=new Set(shots.slice(-10).map(e=>e.id));
-  const specials=ev.filter(e=>e.k==='ast'||e.k==='reb'||e.k==='to'||e.k==='stl'||e.k==='blk').slice(-10);
+  const allSpecials=ev.filter(e=>e.k==='ast'||e.k==='reb'||e.k==='to'||e.k==='stl'||e.k==='blk');
+  const specials=allSpecials.slice(-10), recentSp=new Set(specials.map(e=>e.id));
   const isNew=e=>fresh&&!fresh.has(e.id)?' ltnew':'';
   const nm=pid=>LT.names[pid]||'';
   const dots=ev.filter(e=>e.k==='ft'||(e.k==='shot'&&!lastShots.has(e.id))).map(e=>{
     const [px,py]=ltXY(e);
     return `<span class="ltdot ${e.made?'make':'miss'}${e.k==='ft'?' ft':''}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+(e.k==='ft'?' free throw':' shot')+(e.made?' made':' missed'))}"></span>`; }).join('');
+  /* Assists, rebounds, turnovers, steals and blocks older than the latest ten shrink to
+     small dots in their own colour rather than disappearing (2026-11-21). */
+  const SPN={ast:'assist',reb:'rebound',to:'turnover',stl:'steal',blk:'block'};
+  const spDots=allSpecials.filter(e=>!recentSp.has(e.id)).map(e=>{ const [px,py]=ltXY(e);
+    return `<span class="ltdot sp-${e.k}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc((nm(e.pid)||'')+' '+SPN[e.k])}"></span>`; }).join('');
   const ico=(e,cls,pill,x)=>{ const [px,py]=ltXY(e), name=nm(e.pid);
     return `<span class="ltico ${cls}${isNew(e)}" style="left:${px}%;top:${py}%" title="${htmlEsc(name+' — '+(e.txt||''))}"><img src="${ltHead(e.pid)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">${x?'<span class="ltx">✕</span>':''}${pill?`<span class="ltpill">${pill}</span>`:''}</span>`; };
   const icons=shots.filter(e=>lastShots.has(e.id)).map(e=>ico(e,e.made?'k-make':'k-miss','',false)).join('')
@@ -13632,7 +13640,7 @@ function ltDraw(){
   const logo=home?`<img class="ltlogo" alt="${htmlEsc(home[1])}" referrerpolicy="no-referrer" src="https://a.espncdn.com/i/teamlogos/nba/500/${home[2]}.png" onerror="this.style.display='none'">`:'';
   const port=ltPort(); box.classList.toggle('port',port);
   box.innerHTML=ltCourtSvg(port)+(port?`<span class="lttag" style="left:2cqw;top:calc(50% - 4cqw)">\u25B2 Offense</span><span class="lttag" style="left:2cqw;top:calc(50% + 2cqw)">\u25BC Defense</span>`
-    :`<span class="lttag" style="left:2cqw">Offense</span><span class="lttag" style="right:2cqw">Defense &amp; rebounds</span>`)+logo+dots+icons;
+    :`<span class="lttag" style="left:2cqw">Offense</span><span class="lttag" style="right:2cqw">Defense &amp; rebounds</span>`)+logo+dots+spDots+icons;
   LT.seen=new Set(ev.map(e=>e.id));
   if($('ltCast')) $('ltCast').innerHTML=ltCastHtml();
   if($('ltScore')) $('ltScore').innerHTML=ltScoreHtml();
