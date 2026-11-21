@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-21.2">
+<meta name="ll-build" content="2026-11-21.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -11065,15 +11065,15 @@ function drawLineup(o){
   /* D: the night on screen — tonight, or a night ahead being planned (2026-11-16). */
   const D=RO?luNight():luDay(), ahead=D>luNight(), when=ahead?shortDay(D):'tonight';
   /* Live tonight (lib/live.mjs): the Tonight view, and the club's totals so far. */
-  const liveOk=!ahead&&!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0;
+  const started=!RO&&!ahead&&nightStarted();
+  const liveOk=!ahead&&(started||(!!liveOn()&&Object.keys(LIVENOW.players||{}).length>0));
   const planned=RO?[]:Object.keys((S.teams[meTeam()]||{}).luf||{}).filter(d=>d>luNight()).sort();
   /* Tonight by default once the GM's own first game is on (2026-11-17): the first
      draw after one of his starters has tipped (and live numbers exist) opens the
      Tonight view, once per night per browser (ll_luauto), so a GM who then picks
      Stats or Contract stays there. Not for the commissioner viewing a club. */
   if(!RO&&liveOk&&LUMODE!=='now'&&me&&meTeam()===me&&luAutoNight()!==luNight()){
-    const st=SLOTIDS.map(id=>lineupOf(me,D).s[id]).filter(Boolean);
-    if(st.some(nm=>{ const t=tipOf(nm,D); return t&&nightMinutes(D)>=t.at; })){
+    if(started){
       LUMODE='now'; try{ localStorage.setItem('ll_luauto',luNight()); }catch(e){}
       setTimeout(()=>{ if(!fastOn()) fastTick(); },0); }
   }
@@ -13252,6 +13252,17 @@ async function loadLiveNow(force){
 }
 /* Live data for tonight's night, or null when it is about another night. */
 const liveOn=()=>LIVENOW.day&&LIVENOW.day===luNight()?LIVENOW:null;
+/* Has any game of tonight tipped off? (2026-11-21) The Tonight view is offered, and is
+   the default, from the first tip: it no longer waits for the server's live blob, because
+   the page can ask ESPN for the lines itself (fastTick). Until the night rolls at 4 AM. */
+function nightStarted(){
+  if(!lineupsOpen()) return false;
+  const n=luNight(), L=liveOn();
+  if(L&&Object.values(L.games||{}).some(g=>g&&(g.state==='in'||g.final))) return true;
+  const F=fastOn(); if(F&&Object.values(F.games||{}).some(g=>g&&(g.state==='in'||g.final))) return true;
+  const sc=schedOn(n), tips=Object.values((sc&&sc.tips)||{}).map(tipMinutes).filter(v=>v!=null);
+  return tips.length>0&&nightMinutes(n)>=Math.min(...tips);
+}
 /* A player's line tonight so far: ESPN's id first, then the name. */
 function nowLine(name){
   const id=espnIdOf(name), F=fastOn();
@@ -13325,7 +13336,7 @@ function boxFrom(sum){
   return out;
 }
 async function fastTick(){
-  if(FAST.busy||document.hidden||LUMODE!=='now'||!me||!liveWanted()) return;
+  if(FAST.busy||document.hidden||LUMODE!=='now'||!me||!(liveWanted()||nightStarted())) return;
   const w=$('luWrap'); if(!w||w.hidden||!w.offsetParent||LUVIEW.day) return;
   FAST.busy=true;
   try{
