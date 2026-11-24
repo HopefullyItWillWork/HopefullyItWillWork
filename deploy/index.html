@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-24.1">
+<meta name="ll-build" content="2026-11-24.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1466,15 +1466,19 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .nbtbl th:first-child,.nbtbl td:first-child{width:44px}
 .nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:72px;text-align:right}
 .nbtbl td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Playoff picture (2026-11-24): 1–6 in, 7–10 play-in, 11–15 lottery. A bar on the
-   seed and a rule where each zone ends. */
+/* Playoff picture (2026-11-24): 1–6 in, 7–10 play-in, 11–15 lottery, and the
+   league's three worst records — the "draft relegation" zone of the 3-2-1 lottery
+   reform (approved May 2026, from the 2027 draft) — marked apart. A bar on the seed
+   and a rule where each zone ends. */
 .nbtbl tr.nbz-po td:first-child{box-shadow:inset 3px 0 0 var(--space)}
 .nbtbl tr.nbz-pi td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
-.nbtbl tr.nbz-lot td:first-child{box-shadow:inset 3px 0 0 var(--tax)}
+.nbtbl tr.nbz-lot td:first-child{box-shadow:inset 3px 0 0 var(--steel)}
+.nbtbl tr.nbz-rel td:first-child{box-shadow:inset 3px 0 0 var(--tax)}
 .nbtbl tr.nbz-end td{border-bottom:2px solid var(--line)}
 .nbtbl tr.nbz-po td:first-child{color:var(--space)}
 .nbtbl tr.nbz-pi td:first-child{color:var(--amber)}
-.nbtbl tr.nbz-lot td:first-child{color:var(--tax)}
+.nbtbl tr.nbz-lot td:first-child{color:var(--steel)}
+.nbtbl tr.nbz-rel td:first-child{color:var(--tax)}
 .nbkey{display:flex;gap:16px;flex-wrap:wrap;font-size:var(--t1);color:var(--dim);margin:8px 0 0}
 .nbkey i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 .nbgrid h3{margin:0 0 6px;font-size:var(--t3)}
@@ -13528,6 +13532,11 @@ async function nbLoad(){
   }catch(e){ NB.err='Could not reach ESPN for the standings.'; }
   NB.busy=false; drawNbSt();
 }
+/* The league's three worst records, both conferences together (pure). */
+function nbRelegated(conf){
+  const all=(conf||[]).flatMap(c=>c.rows||[]).slice().sort((a,b)=>a.pct-b.pct||a.w-b.w||b.l-a.l);
+  return new Set(all.slice(0,3).map(r=>r.id));
+}
 const nbZone=s=>s<=6?'nbz-po':s<=10?'nbz-pi':'nbz-lot';
 const nbZoneName=s=>s<=6?'Playoff spot':s<=10?'Play-in spot':'Out of the playoff picture';
 function drawNbSt(){
@@ -13539,13 +13548,15 @@ function drawNbSt(){
   if(NB.err){ list.innerHTML=`<p class="note">${htmlEsc(NB.err)}</p>`; return; }
   if(NB.busy&&!NB.conf.length){ list.innerHTML='<p class="note">Loading\u2026</p>'; return; }
   if(!NB.conf.length){ list.innerHTML='<p class="note">No standings yet.</p>'; return; }
+  const rel=nbRelegated(NB.conf);
   list.innerHTML=`<div class="nbgrid">${NB.conf.map(c=>`<div><h3>${htmlEsc(c.name)}</h3><div class="scroller" data-pin2="1"><table class="nbtbl"><thead><tr>
     <th>#</th><th class="l">Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>STRK</th></tr></thead><tbody>${c.rows.map((r,i)=>
-    `<tr data-nbt="${htmlEsc(r.id)}" data-ab="${htmlEsc(r.ab)}" class="${nbZone(r.seed||i+1)}${(r.seed||i+1)===6||(r.seed||i+1)===10?' nbz-end':''}" title="${nbZoneName(r.seed||i+1)}" style="cursor:pointer"><td>${r.seed||i+1}</td><td class="l"><b>${htmlEsc(r.name)}</b></td>
+    `<tr data-nbt="${htmlEsc(r.id)}" data-ab="${htmlEsc(r.ab)}" class="${rel.has(r.id)?'nbz-rel':nbZone(r.seed||i+1)}${(r.seed||i+1)===6||(r.seed||i+1)===10?' nbz-end':''}" title="${rel.has(r.id)?'Relegation zone: one of the league’s three worst records':nbZoneName(r.seed||i+1)}" style="cursor:pointer"><td>${r.seed||i+1}</td><td class="l"><b>${htmlEsc(r.name)}</b></td>
       <td>${r.w}</td><td>${r.l}</td><td>${r.pct?r.pct.toFixed(3).replace(/^0/,''):'\u2014'}</td><td>${htmlEsc(String(r.gb||'\u2014'))}</td><td>${htmlEsc(String(r.strk||'\u2014'))}</td></tr>`).join('')}
     </tbody></table></div></div>`).join('')}</div>
-    <div class="nbkey"><span><i style="background:var(--space)"></i>Playoffs (1–6)</span><span><i style="background:var(--amber)"></i>Play-in (7–10)</span><span><i style="background:var(--tax)"></i>Lottery (11–15)</span></div>
-    <p class="note">Where each team would finish if the season ended today. Click a team for its roster.</p>`;
+    <div class="nbkey"><span><i style="background:var(--space)"></i>Playoffs (1–6)</span><span><i style="background:var(--amber)"></i>Play-in (7–10)</span><span><i style="background:var(--steel)"></i>Lottery (11–15)</span><span><i style="background:var(--tax)"></i>Relegation zone (3 worst records)</span></div>
+    <p class="note">Where each team would finish if the season ended today. The relegation zone is the league’s three worst records,
+      whose lottery odds the 3-2-1 reform cuts. Click a team for its roster.</p>`;
   list.querySelectorAll('[data-nbt]').forEach(tr=>tr.onclick=()=>{
     NB.team={id:tr.dataset.nbt,ab:nbTri(tr.dataset.ab)}; drawNbSt(); window.scrollTo&&window.scrollTo(0,0); });
 }
