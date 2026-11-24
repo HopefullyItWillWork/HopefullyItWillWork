@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-24.2">
+<meta name="ll-build" content="2026-11-24.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1464,7 +1464,8 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .nbgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 .nbtbl{width:100%;table-layout:fixed}
 .nbtbl th:first-child,.nbtbl td:first-child{width:44px}
-.nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:72px;text-align:right}
+.nbtbl th:nth-child(n+3),.nbtbl td:nth-child(n+3){width:64px;text-align:right}
+.nbtbl{min-width:640px}
 .nbtbl td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Playoff picture (2026-11-24): 1–6 in, 7–10 play-in, 11–15 lottery, and the
    league's three worst records — the "draft relegation" zone of the 3-2-1 lottery
@@ -13526,16 +13527,57 @@ async function nbLoad(){
         const st={}; (e.stats||[]).forEach(x=>{ st[x.name]=x; });
         const t=e.team||{}, g=k=>st[k]?(st[k].displayValue!=null?st[k].displayValue:st[k].value):'';
         return {id:t.id,ab:t.abbreviation||'',name:t.displayName||t.name||'',w:+(st.wins?st.wins.value:0)||0,l:+(st.losses?st.losses.value:0)||0,
-          pct:st.winPercent?+st.winPercent.value:0,gb:g('gamesBehind'),strk:g('streak'),seed:+(st.playoffSeed?st.playoffSeed.value:0)||0};
+          pct:st.winPercent?+st.winPercent.value:0,gb:g('gamesBehind'),strk:g('streak'),seed:+(st.playoffSeed?st.playoffSeed.value:0)||0,
+          diff:st.differential?+st.differential.value:null,ppg:st.avgPointsFor?+st.avgPointsFor.value:null,opp:st.avgPointsAgainst?+st.avgPointsAgainst.value:null};
       }).sort((a,b)=>b.pct-a.pct||b.w-a.w)}));
     NB.at=Date.now();
   }catch(e){ NB.err='Could not reach ESPN for the standings.'; }
   NB.busy=false; drawNbSt();
+  if(NB.conf.length) nbLoadRatings();
+}
+/* Offensive and defensive ratings (2026-11-24): points scored and allowed per 100
+   possessions. ESPN's team stats feed (one per club, CORS-open) gives each club's
+   shots, free throws, offensive rebounds and turnovers per game; possessions are the
+   usual estimate, FGA − OREB + TOV + 0.44 × FTA, and the same count stands for the
+   opponent's (both sides have the ball about as often in a game). Points for and
+   against per game come from the standings feed. Fetched with the standings, ten
+   minutes at a time; a club that fails shows dashes. */
+const nbPoss=o=>o&&o.fga?o.fga-(o.oreb||0)+(o.tov||0)+0.44*(o.fta||0):null;
+function nbRatings(row,o){
+  const p=nbPoss(o); if(!p||row.ppg==null||row.opp==null) return null;
+  return {o:100*row.ppg/p, d:100*row.opp/p};
+}
+async function nbLoadRatings(){
+  const ids=NB.conf.flatMap(c=>c.rows.map(r=>r.id)).filter(Boolean);
+  NB.box=NB.box||{};
+  await Promise.all(ids.map(async id=>{
+    try{
+      const j=await (await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}/statistics`,{cache:'no-store'})).json();
+      const v={}; (((j.results||{}).stats||{}).categories||[]).forEach(c=>(c.stats||[]).forEach(x=>{ v[x.name]=+x.value; }));
+      NB.box[id]={fga:v.avgFieldGoalsAttempted,fta:v.avgFreeThrowsAttempted,oreb:v.avgOffensiveRebounds,tov:v.avgTurnovers};
+    }catch(e){}
+  }));
+  drawNbSt();
 }
 /* The league's three worst records, both conferences together (pure). */
 function nbRelegated(conf){
   const all=(conf||[]).flatMap(c=>c.rows||[]).slice().sort((a,b)=>a.pct-b.pct||a.w-b.w||b.l-a.l);
   return new Set(all.slice(0,3).map(r=>r.id));
+}
+/* Diff, ORtg, DRtg cells; each rating tinted by its league rank (top ten green,
+   bottom ten red), the rank in the tooltip. */
+function nbRtgCells(r){
+  const all=NB.conf.flatMap(c=>c.rows), R=x=>nbRatings(x,(NB.box||{})[x.id]);
+  const me=R(r), D='\u2014';
+  const rank=(k,lowGood)=>{ const v=all.map(R).filter(Boolean).map(x=>x[k]).sort((a,b)=>lowGood?a-b:b-a);
+    return v.indexOf(me[k])+1; };
+  const tint=n=>n&&n<=10?'color:var(--space)':n>=21?'color:var(--tax)':'';
+  const diff=r.diff==null?D:(r.diff>0?'+':'')+r.diff.toFixed(1);
+  if(!me) return `<td style="${r.diff>0?'color:var(--space)':r.diff<0?'color:var(--tax)':''}">${diff}</td><td>${D}</td><td>${D}</td>`;
+  const ro=rank('o',false), rd=rank('d',true);
+  return `<td style="${r.diff>0?'color:var(--space)':r.diff<0?'color:var(--tax)':''}">${diff}</td>
+    <td style="${tint(ro)}" title="${ordinal(ro)} in the league">${me.o.toFixed(1)}</td>
+    <td style="${tint(rd)}" title="${ordinal(rd)} in the league">${me.d.toFixed(1)}</td>`;
 }
 const nbZone=s=>s<=6?'nbz-po':s<=10?'nbz-pi':'nbz-lot';
 const nbZoneName=s=>s<=6?'Playoff spot':s<=10?'Play-in spot':'Out of the playoff picture';
@@ -13550,13 +13592,14 @@ function drawNbSt(){
   if(!NB.conf.length){ list.innerHTML='<p class="note">No standings yet.</p>'; return; }
   const rel=nbRelegated(NB.conf);
   list.innerHTML=`<div class="nbgrid">${NB.conf.map(c=>`<div><h3>${htmlEsc(c.name)}</h3><div class="scroller" data-pin2="1"><table class="nbtbl"><thead><tr>
-    <th>#</th><th class="l">Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>STRK</th></tr></thead><tbody>${c.rows.map((r,i)=>
+    <th>#</th><th class="l">Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>STRK</th><th title="Point differential per game">DIFF</th><th title="Offensive rating: points scored per 100 possessions">ORTG</th><th title="Defensive rating: points allowed per 100 possessions (lower is better)">DRTG</th></tr></thead><tbody>${c.rows.map((r,i)=>
     `<tr data-nbt="${htmlEsc(r.id)}" data-ab="${htmlEsc(r.ab)}" class="${rel.has(r.id)?'nbz-rel':nbZone(r.seed||i+1)}${(r.seed||i+1)===6||(r.seed||i+1)===10?' nbz-end':''}" title="${rel.has(r.id)?'Relegation zone: one of the league’s three worst records':nbZoneName(r.seed||i+1)}" style="cursor:pointer"><td>${r.seed||i+1}</td><td class="l"><b>${htmlEsc(r.name)}</b></td>
-      <td>${r.w}</td><td>${r.l}</td><td>${r.pct?r.pct.toFixed(3).replace(/^0/,''):'\u2014'}</td><td>${htmlEsc(String(r.gb||'\u2014'))}</td><td>${htmlEsc(String(r.strk||'\u2014'))}</td></tr>`).join('')}
+      <td>${r.w}</td><td>${r.l}</td><td>${r.pct?r.pct.toFixed(3).replace(/^0/,''):'\u2014'}</td><td>${htmlEsc(String(r.gb||'\u2014'))}</td><td>${htmlEsc(String(r.strk||'\u2014'))}</td>${nbRtgCells(r)}</tr>`).join('')}
     </tbody></table></div></div>`).join('')}</div>
     <div class="nbkey"><span><i style="background:var(--space)"></i>Playoffs (1–6)</span><span><i style="background:var(--amber)"></i>Play-in (7–10)</span><span><i style="background:var(--steel)"></i>Lottery (11–15)</span><span><i style="background:var(--tax)"></i>Relegation zone (3 worst records)</span></div>
     <p class="note">Where each team would finish if the season ended today. The relegation zone is the league’s three worst records,
-      whose lottery odds the 3-2-1 reform cuts. Click a team for its roster.</p>`;
+      whose lottery odds the 3-2-1 reform cuts. ORtg and DRtg are points scored and allowed per 100 possessions
+      (estimated from ESPN’s team stats); green is a top-ten mark, red a bottom-ten one. Click a team for its roster.</p>`;
   list.querySelectorAll('[data-nbt]').forEach(tr=>tr.onclick=()=>{
     NB.team={id:tr.dataset.nbt,ab:nbTri(tr.dataset.ab)}; drawNbSt(); window.scrollTo&&window.scrollTo(0,0); });
 }
