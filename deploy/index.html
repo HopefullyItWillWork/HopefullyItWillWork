@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.10">
+<meta name="ll-build" content="2026-11-25.11">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -11471,9 +11471,21 @@ function drawLineup(o){
       <span class="lugame"></span><span class="luv lugp">${Math.round(sum.MP)}</span>${LUCATS.map(([k])=>`<span class="luv">${
         k==='FGP'||k==='FTP'?(luVal(r,k)==null?'&#8212;':(luVal(r,k)*100).toFixed(1))+luShot(k,r):String(Math.round(+sum[k]||0))}</span>`).join('')}<span class="luv"></span><span class="luacts"></span></div>`;
   })();
+  /* The Contract view's totals (2026-11-25): what the whole roster is owed in each season shown,
+     starters, bench and IR together. This season also carries released players still charged to
+     the cap, as committed() counts them, shown on its own line so the sum can be checked. */
+  const ctrTotals=!ctr?'':(()=>{
+    const roster=S.teams[T].r, dead=deadSalary(T);
+    const sums=[0,1,2,3].map(k=>roster.reduce((a,p)=>a+(salOff(p,k)||0),0)+(k===0?dead:0));
+    const row=(chip,lab,vals,cls)=>`<div class="lurow lutotal${cls||''}"><span class="luslot k-T">${chip}</span>
+      <span class="lupick">${lab}</span><span class="lugame"></span><span class="luv lugp"></span>${
+      vals.map(v=>`<span class="luv">${v==null?'':money(v)}</span>`).join('')}${'<span class="luv"></span>'.repeat(5)}<span class="luv"></span><span class="luacts"></span></div>`;
+    return (dead>0?row('REL','<b>Released players</b> <span class="lutip">still charged to this season\u2019s cap</span>',[dead,null,null,null]):'')
+      +row('TOT','<b>Total payroll</b>'+(dead>0?' <span class="lutip">this season includes released salary</span>':''),sums);
+  })();
   SLOTS.innerHTML=hdr('Slot')+slotRows+totalRow
     +hdr('Bench')+benchRows
-    +hdr('IR')+irRows;
+    +hdr('IR')+irRows+ctrTotals;
   if(!RO) luFade();
 
   if(can){
