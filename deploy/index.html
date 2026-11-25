@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.9">
+<meta name="ll-build" content="2026-11-25.10">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2145,7 +2145,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       player passes a better one who played less, which is the 920-game cap showing up.
       The club column is
       where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
-      including the men playing out the last year of a deal. <b>Stats</b> shows the numbers alone, without the z-scores; <b>Trending</b> is the rating over 7, 15 and 30 days and the season; <b>News</b> is ESPN&rsquo;s injury report;
+      including the men playing out the last year of a deal. <b>Stats</b> shows the numbers alone, without the z-scores; <b>Trending</b> is the rating over 7, 15 and 30 days and the season; <b>News</b> is ESPN&rsquo;s injury report; <b>Contract</b> is what he is owed by season, the option and rights, or his free agency;
       <b>Last night</b> is every box score from one night. A free agent carries <b>Sign</b>, or <b>Claim</b> while he is on waivers.</p>
     <div id="plClaims"></div>
   <!-- Every player's box score for one night (2026-10-14): drawNight(). -->
@@ -12071,7 +12071,7 @@ function unratedWhy(p,R){
 }
 /* What the Players table shows: ratings (z-scores over the raw line), the raw
    stats alone, or one night's box scores. Per browser. */
-const PVIEWS=['stats','trend','rate','news','night'];   // Stats, Trending, Ratings, News, then one night's box scores (2026-11-25)
+const PVIEWS=['stats','trend','rate','news','contract','night'];   // Stats, Trending, Ratings, News, then one night's box scores (2026-11-25)
 var PVIEW=(()=>{ try{ const v=localStorage.getItem('ll_pview'); return PVIEWS.includes(v)?v:'rate'; }catch(e){ return 'rate'; } })();
 function setPView(v){
   PVIEW=PVIEWS.includes(v)?v:'rate';
@@ -12080,7 +12080,7 @@ function setPView(v){
 }
 function drawPView(){
   const bars=document.querySelectorAll('.pvbar'); if(!bars.length) return;
-  const html=[['stats','Stats'],['trend','Trending'],['rate','Ratings'],['news','News'],['night','Last night']]
+  const html=[['stats','Stats'],['trend','Trending'],['rate','Ratings'],['news','News'],['contract','Contract'],['night','Last night']]
     .map(([v,l])=>`<button type="button" data-pv="${v}" aria-pressed="${PVIEW===v}">${l}</button>`).join('');
   bars.forEach(bar=>{ if(bar.innerHTML!==html) bar.innerHTML=html; });   // one above each table, like My Team's
   if($('v-rater')) $('v-rater').hidden=PVIEW==='night';
@@ -12124,6 +12124,20 @@ const RATERHEAD_TREND='<th class="l" id="rRkHead">#</th><th class="l" data-k="n"
   +'<th data-k="tr7" title="Player rating, last 7 days">PR7</th><th data-k="tr15" title="Player rating, last 15 days">PR15</th><th data-k="tr30" title="Player rating, last 30 days">PR30</th>'
   +'<th data-k="trs" title="Player rating, this season">Season</th><th data-k="trk" title="Season rank">Rank</th>';
 const RATERHEAD_NEWS='<th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th><th class="hide2" data-k="g">G</th><th class="l">Injury news</th>';
+const RATERHEAD_CONTRACT='<th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th><th class="hide2" data-k="g">G</th>'
+  +'<th class="l" data-k="cstat">Status</th><th data-k="cs0" id="rC0"></th><th data-k="cs1" id="rC1"></th><th data-k="cs2" id="rC2"></th><th data-k="cs3" id="rC3"></th>'
+  +'<th data-k="cyrs">Yrs</th><th class="l">Option</th><th class="l">Rights</th><th data-k="cacq">Acq</th>';
+/* One player's contract, or his free agency: the roster entry he is on (if any), whether he is
+   signed for this season, and the rights a club still holds. Offseason an expiring man still
+   belongs to his club; in season he is a free agent (rightsLapsed). */
+function contractOf(n){
+  const c=liveClub(n), p=c?S.teams[c].r.find(x=>!x.cut&&canon(x.n)===canon(n)):null, signed=!!p&&contracted(p);
+  const exp=!!p&&!signed&&!seasonLive();
+  let rights='\u2014';
+  if(signed) rights=ROSRIGHTS[birdRight(p)]||'\u2014';
+  else if(exp){ const r=rightsOf(c,n); rights=r.rfa?'Restricted':ROSRIGHTS[r.bird]||'None'; }
+  return {c,p,signed,exp,rights,status:signed?'Signed':exp?'Expiring':'Free agent'};
+}
 function drawRater(){
   drawPView();
   if(me&&$('plClaims')){ const h=myClaimsHtml(meTeam()); if($('plClaims').innerHTML!==h) $('plClaims').innerHTML=h; }
@@ -12141,7 +12155,8 @@ function drawRater(){
   /* Trending and News have their own columns: swap the head row when the view changes. */
   { const hr=$('raterTbl').querySelector('thead tr');
     if(hr&&RATERHEAD0==null) RATERHEAD0=hr.innerHTML;
-    if(hr&&hr.dataset.v!==PVIEW){ hr.innerHTML=PVIEW==='trend'?RATERHEAD_TREND:PVIEW==='news'?RATERHEAD_NEWS:RATERHEAD0; hr.dataset.v=PVIEW; } }
+    if(hr&&hr.dataset.v!==PVIEW){ hr.innerHTML=PVIEW==='trend'?RATERHEAD_TREND:PVIEW==='news'?RATERHEAD_NEWS:PVIEW==='contract'?RATERHEAD_CONTRACT:RATERHEAD0; hr.dataset.v=PVIEW; }
+    if(hr&&PVIEW==='contract') [0,1,2,3].forEach(k=>{ const h=hr.querySelector('#rC'+k); if(h) h.textContent=seasonAt(curSeason(),k); }); }
   if(PVIEW==='trend') ['d7','d15','d30','szn'].forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawRater()); } });
   const basis=raterBasis();
   if($('rBasis')&&$('rBasis').value!==basis) $('rBasis').value=basis;   // set from the Stats bar too
@@ -12168,7 +12183,12 @@ function drawRater(){
   /* A sort column the current view has no header for falls back, without disturbing the saved one. */
   if(PVIEW==='trend'&&!(S0.col in TRC||S0.col==='trk'||['n','t','g'].includes(S0.col))) S0={col:'trs',desc:true};
   if(PVIEW==='news'&&!['n','t','g'].includes(S0.col)) S0={col:'tot',desc:true};
-  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='miss'?mval(p.n):c==='tot'?p.tot:(c in TRC||c==='trk')?trv(p,c):(p.z?p.z[c]:null);
+  const CTC=['cstat','cs0','cs1','cs2','cs3','cyrs','cacq'];
+  if(PVIEW==='contract'&&!(CTC.includes(S0.col)||['n','t','g'].includes(S0.col))) S0={col:'cs0',desc:true};
+  const ctv=(p,c)=>{ const o=contractOf(p.n); if(c==='cstat') return o.status;
+    if(!o.p||!o.signed) return null;
+    return c==='cyrs'?yrsLeft(o.p):c==='cacq'?(o.p.acq??null):salOff(o.p,+c[2])||null; };
+  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='miss'?mval(p.n):c==='tot'?p.tot:(c in TRC||c==='trk')?trv(p,c):CTC.includes(c)?ctv(p,c):(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   const H2=$('raterH2');
   if(H2) H2.textContent='Players \u2014 '+projSrcLabel();
@@ -12184,7 +12204,7 @@ function drawRater(){
   /* The signed-in GM's own players are shaded, like his club's row in the
      standings. The commissioner login has no club, so nothing is. */
   const myT=me&&!isComm()?me:null;
-  if(PVIEW==='trend'||PVIEW==='news'){
+  if(PVIEW==='trend'||PVIEW==='news'||PVIEW==='contract'){
     const trend=PVIEW==='trend', f=v=>v==null?'&#8212;':v.toFixed(2);
     $('raterBody').innerHTML=rows.map(p=>{
       const oc=raterClub(p.n), tr=myT&&heldBy(p.n)===myT?'<tr class="mine">':'<tr>';
@@ -12193,6 +12213,13 @@ function drawRater(){
         const sz=trendOf(p.n,'szn');
         return head+['d7','d15','d30','szn'].map(w=>{ const t=trendOf(p.n,w); return `<td class="zraw">${f(t?t.tot:null)}</td>`; }).join('')
           +`<td class="zraw">${sz&&sz.rk?sz.rk:'&#8212;'}</td>${actCell(p.n)}</tr>`;
+      }
+      if(PVIEW==='contract'){
+        const o=contractOf(p.n), q=o.p, D='&#8212;', wv=!o.signed&&onWire(p.n);
+        const st=`<td class="l${o.signed?'':' exp'}"${wv?` title="${htmlEsc(wireText(p.n))}"`:''}>${o.status}${wv?' \u00b7 waivers':''}</td>`;
+        return head+st+[0,1,2,3].map(k=>`<td class="zraw">${o.signed&&salOff(q,k)?salMark(q,k):D}</td>`).join('')
+          +`<td class="zraw">${o.signed?yrsLeft(q)||D:D}</td><td class="l">${o.signed&&q.o?htmlEsc(q.o)+' '+optSeasons(q).map(shortSeason).join(', '):D}</td>`
+          +`<td class="l">${o.rights}</td><td class="zraw">${q&&q.acq?q.acq:D}</td>${actCell(p.n)}</tr>`;
       }
       const i=injOf(p.n);
       const txt=!i?'<span class="lutip">No injury reported</span>'
