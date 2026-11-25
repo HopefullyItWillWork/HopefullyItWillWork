@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.5">
+<meta name="ll-build" content="2026-11-25.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1897,6 +1897,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
     <div id="meRoto"></div>
+    <div id="meFire"></div>
     <!-- My Team is the club only (2026-11-16): its Standings sub-view went; the
          table is on Home and League, and the Place card links there. -->
     <div class="subview" id="me-team" data-subview>
@@ -1944,7 +1945,6 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     <div id="bidPanel"></div>
     </div>
 
-    <div id="meFire"></div>
     <div id="meWatch"></div>
 
     <!-- The what-if lab: all year (offseason-only until 2026-10-25). -->
@@ -4468,7 +4468,11 @@ function drawDetail(){
       <td class="${exp?'exp':''}">${exp?'&#8212;':salMark(p,0)}</td>
       <td class="hide ${salOff(p,1)==null?'exp':''}">${salOff(p,1)==null?'&#8212;':salMark(p,1)}</td>
       <td class="hide ${salOff(p,2)==null?'exp':''}">${salOff(p,2)==null?'&#8212;':salMark(p,2)}</td></tr>`;}).join('');
-  $('detail').innerHTML=`<h2 class="sub">Contracts and cap</h2>
+  /* With lineups open the club page is My Team's page, read-only (2026-11-25): the lineup's
+     Contract view is the contract table, so only the release history stays below it. In the
+     offseason there is no lineup, so the contracts and cap still show. */
+  const cxOn=!lineupsOpen();
+  $('detail').innerHTML=(!cxOn?'':`<h2 class="sub">Contracts and cap</h2>
     <dl class="capgrid">
       <div class="capcell"><dt>Salary cap</dt><dd>${money(cap)}</dd></div>
       <div class="capcell"><dt>Salary spent</dt><dd class="amb">${money(s)}</dd></div>
@@ -4483,8 +4487,8 @@ function drawDetail(){
       <th data-k="sal">This season</th><th class="hide" data-k="y2">+1</th><th class="hide" data-k="y3">+2</th></tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr><td>Payroll</td><td class="hide"></td><td class="hide2"></td><td class="hide2"></td>
-      <td>${money(s)}</td><td class="hide"></td><td class="hide"></td></tr></tfoot></table></div>
-    ${cuts.length?`<h2 class="sub">Release history &#8212; ${cuts.length} players</h2>
+      <td>${money(s)}</td><td class="hide"></td><td class="hide"></td></tr></tfoot></table></div>`)
+    +`${cuts.length?`<h2 class="sub">Release history &#8212; ${cuts.length} players</h2>
     <p class="note explain">A released player's salary counts against the cap only for the rest of that season, then clears.
     None of this is charged to the current payroll &#8212; it is a record of past moves.
     A release <b>above the ${money(minSal())} minimum</b> also bars this club from signing him back for
@@ -12923,15 +12927,18 @@ function drawClubLive(){
   const box=$('clubLive'); if(!box) return;
   const t=activeTeam; if(!t||!S.teams[t]){ box.innerHTML=''; return; }
   const row=(SCORE.standings||[]).find(r=>r.club===t&&r.tot&&r.tot.GP>0);
+  const live=seasonLive();
   let html=`<div class="dhead"><h3>${clubBadge(t)}${htmlEsc(t)}</h3>${bannersHtml(t)}${gmName(t)?`<span class="pill">${htmlEsc(gmName(t))}</span>`:''}
-    ${row?`<span class="pill">${ordinal(row.rank)} \u00b7 ${row.pts} pts</span><span class="pill">${row.tot.GP} games</span>`:''}
+    ${live?'':`${row?`<span class="pill">${ordinal(row.rank)} \u00b7 ${row.pts} pts</span><span class="pill">${row.tot.GP} games</span>`:''}
     ${(()=>{ const {cap,tax,roster}=S.cfg, s=committed(t), sc=capCommitted(t), n=headcount(t);
       return `<span class="pill">${n} of ${roster} under contract</span>
       <span class="pill ${cap-sc>=0?'good':'bad'}">${cap-sc>=0?money(cap-sc)+' cap space':money(sc-cap)+' over the cap'}</span>
-      <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the hard cap</span>`; })()}
+      <span class="pill ${tax-s>=0?'':'bad'}">${money(tax-s)} to the hard cap</span>`; })()}`}
     ${canEdit(t)?`<span class="pill good">${isComm()?'You can edit this club':'Your club \u2014 you can sign, cut and list'}</span>`:''}
     ${me&&!isComm()&&me!==t?'<button class="btn ghost" id="clubTrade" style="margin-left:auto">Propose a trade</button>':''}</div>`;
-  if(row){
+  /* In season: the same cards My Team opens with (place, games, payroll, hard cap, IR). */
+  if(live) html+=meStrip(t,committed(t),capCommitted(t),S.cfg.cap,S.cfg.tax);
+  if(row&&!live){
     const cats=Object.entries(row.cat||{}).sort((a,b)=>b[1]-a[1]);
     const nm={'FG%':'FG%','FT%':'FT%',P3:'3P',REB:'REB',AST:'AST',STL:'STL',BLK:'BLK',TO:'TO',PTS:'PTS'};
     html+=`<p class="note">Strongest: ${cats.slice(0,3).map(([k])=>nm[k]||k).join(', ')} \u00b7 weakest: ${
