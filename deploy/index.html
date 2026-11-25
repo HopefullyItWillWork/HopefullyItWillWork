@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.2">
+<meta name="ll-build" content="2026-11-25.3">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -1320,6 +1320,16 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .pill.bad{background:var(--wnbg);color:var(--tax);border-color:transparent}
 .pill.gmpill{background:var(--soft);border-color:transparent}
 /* My Team's facts: one card each, the figure first. */
+.rotoline{margin:0 0 16px}
+.rotoline table{width:100%;min-width:640px}
+.rotoline th.rlhd{background:var(--amber);color:#000;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.rotoline tbody th{font-weight:600;white-space:nowrap;font-size:var(--t2)}
+:root[data-theme="light"] .rotoline th.rlhd{color:#fff}
+.rotoline td{font-family:var(--mono);text-align:right;white-space:nowrap}
+.rotoline td[title]{cursor:help}
+.rotoline tr.rl-up td,.rotoline tr.rl-up th{color:var(--space)}
+.rotoline tr.rl-dn td,.rotoline tr.rl-dn th{color:var(--tax)}
+.rotoline tr.rl-me td,.rotoline tr.rl-me th{font-weight:700}
 .mefacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:4px 0 20px;font-family:var(--body);font-size:var(--t2);color:var(--steel)}
 .mefact{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:5px;min-width:0}
 .mefact .mfl{font-size:var(--t1);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
@@ -1880,6 +1890,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     <div class="filters" id="meAsWrap" hidden><label for="meAs" style="margin:0">Viewing as</label>
       <select id="meAs"></select><span class="fcount">commissioner &#8212; you can act for any club</span></div>
     <div id="meHead"></div>
+    <div id="meRoto"></div>
     <!-- My Team is the club only (2026-11-16): its Standings sub-view went; the
          table is on Home and League, and the Place card links there. -->
     <div class="subview" id="me-team" data-subview>
@@ -5568,7 +5579,7 @@ function render(){
   if(!activeTeam||!S.teams[activeTeam])
     activeTeam=(me&&me!=='__comm__'&&S.teams[me])?me:TEAMS()[0];
   drawWho();drawLedger();drawDetail();drawFA();drawLogs();drawAdmin();drawTermAdmin();drawPreAdmin();drawPre();
-  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawWaivers();drawMissed();drawCommNote();if(typeof drawNbRoster==='function')drawNbRoster();
+  drawHome();drawClubLive();drawTradeNotes();drawWatchTable();drawPlayersFA();drawMeExtras();drawFires();drawRoto();drawWaivers();drawMissed();drawCommNote();if(typeof drawNbRoster==='function')drawNbRoster();
   infoNotes();
   wireSettings();drawSettings();
   $('fTeam').innerHTML=TEAMS().map(t=>`<option${t===me?' selected':''}>${t}</option>`).join('');
@@ -11207,7 +11218,7 @@ function drawLineup(o){
       [...(liveOk?[['now','Tonight','Tonight\u2019s box scores so far, live: refreshed every few minutes during games']]:[]),
        ['stats','Stats','The stats period and basis in the Stats bar above'],['trend','Trending','Player rating over 7, 15 and 30 days and the season; rank is the season'],
        ['rtg','Ratings','Each category\u2019s share of the player rating, summing to PR'],['news','News','ESPN\u2019s injury report: what, expected return, the latest line'],
-       ...(RO?[]:[['ctr','Contract','Salary owed by season, years, option, rights'],...(courtOn()?[['court','Court Mode','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']]:[])])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
+       ['ctr','Contract','Salary owed by season, years, option, rights'],...(RO?[]:courtOn()?[['court','Court Mode','Your players\u2019 shots, rebounds and more on a full court, live from ESPN']]:[])].map(([v,l,t])=>`<button type="button" data-lum="${v}" aria-pressed="${LUMODE===v}" title="${t}">${l}</button>`).join('')}</div>
     <span class="lustat">${lustat}</span>
     ${can?`<span class="lubtns"><button class="btn ghost" id="luTonight" title="Reseat everyone who is not locked: players with a game that night first">Best for ${ahead?'that night':'tonight'}</button>
       <button class="btn ghost" id="luAuto">Start all</button>
@@ -11240,7 +11251,7 @@ function drawLineup(o){
     if($('ltWrap')) $('ltWrap').hidden=!court;
     if(court){ ltEnter(); return; }
   }
-  const ctr=LUMODE==='ctr'&&!RO, tot=PRBASIS==='tot', trend=LUMODE==='trend';
+  const ctr=LUMODE==='ctr', tot=PRBASIS==='tot', trend=LUMODE==='trend';
   const TRENDW=['d7','d15','d30','szn'];
   const TRENDH=[['PR7','Player rating, last 7 days'],['PR15','Player rating, last 15 days'],
     ['PR30','Player rating, last 30 days'],['Season','Player rating, this season'],['Rank','Season rank']];
@@ -12920,7 +12931,7 @@ function drawClubLive(){
     html+=`<p class="note">Strongest: ${cats.slice(0,3).map(([k])=>nm[k]||k).join(', ')} \u00b7 weakest: ${
       cats.slice(-2).map(([k])=>nm[k]||k).join(', ')} (season roto points by category).</p>`;
   }
-  html+=fireHtml(t);
+  html+=rotoHtml(t)+fireHtml(t);
   if(lineupsOpen()){
     const lu=lineupOf(t), pc=(m,a)=>a?(100*m/a).toFixed(1):'&#8212;';
     const line=n=>{
@@ -13006,6 +13017,56 @@ function drawWatchTable(){
     :'<div class="empty">Nobody yet. Press the \u2606 beside a player on Players \u203a Free agents or on his card to watch him.</div>');
   if(box.dataset.h!==html){ box.dataset.h=html; box.innerHTML=html; }
   sortable('watchTbl','watch','rtg',true); redraw.watch=drawWatchTable;
+}
+/* The rotoline (2026-11-25), after ESPN's: the club in the middle and, in each
+   category, the club one place ahead of it and the club one place behind, so a GM
+   sees who he is actually racing for every point. Place and Tot pts use the
+   overall standings' neighbours. Hover a number for that club and its place in
+   the category. Season to date, with tonight so far added while games are on
+   (placeNow()). Pure part: rotoLine(). */
+const ROTOCATS=[['fg','FG%','FG%'],['ft','FT%','FT%'],['p3','3PM','3P'],['reb','REB','REB'],['ast','AST','AST'],['stl','STL','STL'],['blk','BLK','BLK'],['to','TO','TO'],['pts','PTS','PTS']];
+function rotoVal(r,k){ return k==='fg'?r.pct.FG:k==='ft'?r.pct.FT:k==='p3'?r.tot.P3:k==='reb'?r.tot.REB:k==='ast'?r.tot.AST
+  :k==='stl'?r.tot.STL:k==='blk'?r.tot.BLK:k==='to'?r.tot.TO:r.tot.PTS; }
+/* rows: standings rows ({club,rank,pts,tot,pct}). Returns null until the club has played. */
+function rotoLine(rows,T){
+  const me=(rows||[]).find(r=>r.club===T);
+  if(!me||!me.tot||!(me.tot.GP>0)) return null;
+  const byRank=rows.slice().sort((a,b)=>a.rank-b.rank), i0=byRank.findIndex(r=>r.club===T);
+  const near=(list,i)=>({up:list[i-1]||null,dn:list[i+1]||null});
+  const cats=ROTOCATS.map(([k,lab])=>{
+    const best=(a,b)=>k==='to'?rotoVal(a,k)-rotoVal(b,k):rotoVal(b,k)-rotoVal(a,k);
+    const list=rows.slice().sort((a,b)=>best(a,b)||a.club.localeCompare(b.club));
+    const i=list.findIndex(r=>r.club===T), v=rotoVal(me,k);
+    const place=r=>1+rows.filter(o=>k==='to'?rotoVal(o,k)<rotoVal(r,k):rotoVal(o,k)>rotoVal(r,k)).length;
+    const n=near(list,i), cell=r=>r?{club:r.club,v:rotoVal(r,k),place:place(r)}:null;
+    return {k,lab,me:{club:T,v,place:place(me)},up:cell(n.up),dn:cell(n.dn)};
+  });
+  const o=near(byRank,i0);
+  return {club:T,overall:{me:{place:me.rank,pts:me.pts},
+    up:o.up?{club:o.up.club,place:o.up.rank,pts:o.up.pts}:null,dn:o.dn?{club:o.dn.club,place:o.dn.rank,pts:o.dn.pts}:null},cats};
+}
+function rotoHtml(T){
+  if(!T||!S||!S.teams||!S.teams[T]) return '';
+  const PN=placeNow(), L=rotoLine(PN.rows,T); if(!L) return '';
+  const fmt=(k,v)=>v==null?'--':(k==='fg'||k==='ft')?(+v).toFixed(4).replace(/^0/,''):String(Math.round(v));
+  const cell=(c,side)=>{ const x=side==='me'?c.me:c[side];
+    if(!x) return '<td>--</td>';
+    return `<td${side==='me'?'':` title="${htmlEsc(x.club)} · ${ordinal(x.place)} in ${c.lab}"`}>${fmt(c.k,x.v)}</td>`; };
+  const ov=(side)=>{ const x=side==='me'?L.overall.me:L.overall[side];
+    const t=side==='me'?'':` title="${x?htmlEsc(x.club):''}"`;
+    return x?`<td${t}>${x.place}</td><td${t}>${x.pts}</td>`:'<td>--</td><td>--</td>'; };
+  const row=(side,cls,lab)=>`<tr class="${cls}"><th scope="row" class="l">${lab}</th>${ov(side)}${L.cats.map(c=>cell(c,side)).join('')}</tr>`;
+  return `<div class="rotoline"><div class="scroller"><table id="rotoTbl_${htmlEsc(T).replace(/[^A-Za-z0-9]/g,'')}"><thead><tr>
+      <th class="l rlhd">Rotoline${PN.live?' <span class="livetag">live</span>':''}</th><th>Place</th><th>Tot pts</th>
+      ${L.cats.map(c=>`<th>${c.lab}</th>`).join('')}</tr></thead><tbody>
+      ${row('up','rl-up','Ahead of you')}${row('me','rl-me',htmlEsc(T))}${row('dn','rl-dn','Behind you')}</tbody></table></div>
+    <p class="note explain">In each category, the club one place ahead of ${htmlEsc(T)} and the club one place behind (green ahead, red behind). Place and Tot pts are the overall roto standings. Hover a number to see the club and its place in that category. Season to date.</p></div>`;
+}
+function drawRoto(){
+  const box=$('meRoto'); if(!box) return;
+  if(offscreen('v-me')) return;
+  const h=me&&seasonLive()?rotoHtml(meTeam()):'';
+  if(box.innerHTML!==h) box.innerHTML=h;
 }
 function drawFires(){
   const box=$('meFire'); if(box){ const h=me?fireHtml(meTeam()):''; if(box.innerHTML!==h) box.innerHTML=h; }
