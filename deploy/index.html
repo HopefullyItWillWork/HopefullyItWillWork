@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.6">
+<meta name="ll-build" content="2026-11-25.7">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -13064,9 +13064,9 @@ function rotoHtml(T){
   const fmt=(k,v)=>v==null?'--':(k==='fg'||k==='ft')?(+v).toFixed(4).replace(/^0/,''):String(Math.round(v));
   const cell=(c,side)=>{ const x=side==='me'?c.me:c[side];
     if(!x) return '<td>--</td>';
-    return `<td${side==='me'?'':` title="${htmlEsc(x.club)} · ${ordinal(x.place)} in ${c.lab}"`}>${fmt(c.k,x.v)}</td>`; };
+    return `<td title="${htmlEsc(x.club)} · ${ordinal(x.place)} in ${c.lab}">${fmt(c.k,x.v)}</td>`; };
   const ov=(side)=>{ const x=side==='me'?L.overall.me:L.overall[side];
-    const t=side==='me'?'':` title="${x?htmlEsc(x.club):''}"`;
+    const t=x?` title="${htmlEsc(side==='me'?T:x.club)} · ${ordinal(x.place)} overall · ${x.pts} roto points"`:'';
     return x?`<td${t}>${x.place}</td><td${t}>${x.pts}</td>`:'<td>--</td><td>--</td>'; };
   const row=(side,cls,lab)=>`<tr class="${cls}"><th scope="row" class="l">${lab}</th>${ov(side)}${L.cats.map(c=>cell(c,side)).join('')}</tr>`;
   return `<div class="rotoline"><div class="scroller"><table id="rotoTbl_${htmlEsc(T).replace(/[^A-Za-z0-9]/g,'')}"><thead><tr>
