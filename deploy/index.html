@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.8">
+<meta name="ll-build" content="2026-11-25.9">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2135,7 +2135,6 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
          route here (PVALIAS). -->
     <div class="pvhead">
       <h2 id="raterH2">Players</h2>
-      <div class="toggle" role="group" aria-label="What the table shows" id="pvBar"></div>
     </div>
     <p class="note explain" id="raterNote">The field ranked the way this league counts, on whichever numbers the stats bar above is showing &#8212; this season's last
       <b>7, 15 or 30 days</b> or <b>season so far</b>, <b>2025&#8211;26</b>, the <b>2026&#8211;27 projection</b>, or <b>your own</b>. Every category is a
@@ -2162,6 +2161,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       <select id="ntPos" aria-label="Position"><option value="">Any position</option><option>G</option><option>F</option><option>C</option></select>
       <span class="fcount" id="ntCount"></span>
     </div>
+    <div class="lutools"><div class="toggle pvbar" role="group" aria-label="What the table shows"></div></div>
     <div class="scroller" data-cap="1" id="ntTable"></div>
   </div>
   <div id="v-rater">
@@ -2178,6 +2178,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
     </div>
     <div id="rDynBox" hidden></div>
     <div id="rDynBanner" hidden></div>
+    <div class="lutools"><div class="toggle pvbar" role="group" aria-label="What the table shows"></div></div>
     <div class="scroller" id="rScroll" data-cap="1" data-pin2="1"><table id="raterTbl">
       <thead><tr>
         <th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th>
@@ -12078,10 +12079,10 @@ function setPView(v){
   drawPView(); render();
 }
 function drawPView(){
-  const bar=$('pvBar'); if(!bar) return;
+  const bars=document.querySelectorAll('.pvbar'); if(!bars.length) return;
   const html=[['stats','Stats'],['trend','Trending'],['rate','Ratings'],['news','News'],['night','Last night']]
     .map(([v,l])=>`<button type="button" data-pv="${v}" aria-pressed="${PVIEW===v}">${l}</button>`).join('');
-  if(bar.innerHTML!==html) bar.innerHTML=html;
+  bars.forEach(bar=>{ if(bar.innerHTML!==html) bar.innerHTML=html; });   // one above each table, like My Team's
   if($('v-rater')) $('v-rater').hidden=PVIEW==='night';
   if($('v-night')) $('v-night').hidden=PVIEW!=='night';
   if($('v-pfa')) $('v-pfa').hidden=seasonLive()||PVIEW==='night';
