@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-24.3">
+<meta name="ll-build" content="2026-11-25.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -952,6 +952,9 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 @media(max-width:1240px){ .lurowctl .injback{display:none} }
 /* "178 / 920" is one figure: it wrapped onto two lines at tablet widths. */
 .standtbl td:has(>.gpcap){white-space:nowrap}
+/* Standings on a phone: the club name was cut to "Osb…"; the manager as "N. Daman"
+   fits and says who it is. Desktop shows the club name as before. */
+.standtbl .gmshort{display:none}
 /* Phone: the masthead stacked four rows before any content. */
 @media(max-width:640px){
   /* The tab bar is fixed to the bottom here, so the header need not follow the
@@ -961,6 +964,8 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .mast.gmin .whoclub{display:inline-flex;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mast.gmin .mast-in{flex-wrap:nowrap}
   .standtbl .gpcap,.standtbl .histnames{display:none}
+  .standtbl .clublink.hasgm .cn{display:none}
+  .standtbl .clublink.hasgm .gmshort{display:inline}
   .standtbl td:nth-child(2){max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #paceTbl td:first-child{max-width:150px;overflow:hidden;text-overflow:ellipsis}
   .lubtns{margin-left:0}
@@ -5264,6 +5269,12 @@ function gmOf(team){
 function gmName(team){
   const g=gmOf(team);
   return g ? [g.first,g.last].filter(Boolean).join(' ') : '';
+}
+/* "N. Daman": first initial and last name, or '' when no manager is on file. */
+function gmShort(team){
+  const g=gmOf(team); if(!g) return '';
+  const f=String(g.first||'').trim(), l=String(g.last||'').trim();
+  return [f?f.charAt(0).toUpperCase()+'.':'', l].filter(Boolean).join(' ');
 }
 /* The club, and the person, when we know the person. */
 function clubWho(team){
@@ -14511,7 +14522,7 @@ function drawStandBox(B){
       <th data-k="pts">PTS</th><th data-k="tot" class="rotot">Roto</th></tr></thead><tbody>${shown.map(r=>`<tr${r.club===mine?' class="sel"':''}>
       <td class="l">${r.rank}${race&&race[r.club]&&race[r.club].rank!==race[r.club].rank0
         ?(race[r.club].rank<race[r.club].rank0?` <small class="up" title="Up from ${race[r.club].rank0} tonight">\u25B2${race[r.club].rank0-race[r.club].rank}</small>`
-          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}<button type="button" class="clublink" data-clubgo="${htmlEsc(r.club)}" title="Open ${htmlEsc(r.club)}">${htmlEsc(r.club)}</button>${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
+          :` <small class="dn" title="Down from ${race[r.club].rank0} tonight">\u25BC${race[r.club].rank-race[r.club].rank0}</small>`):''}</td><td class="l">${clubBadge(r.club)}<button type="button" class="clublink${gmShort(r.club)?' hasgm':''}" data-clubgo="${htmlEsc(r.club)}" title="Open ${htmlEsc(r.club)}"><span class="cn">${htmlEsc(r.club)}</span>${gmShort(r.club)?`<span class="gmshort">${htmlEsc(gmShort(r.club))}</span>`:''}</button>${gmName(r.club)?`<div class="histnames">${htmlEsc(gmName(r.club))}</div>`:''}</td>
       <td class="${mode==='tot'&&!wk&&r.tot.GP>=cap?'bad':''}">${mode==='tot'&&!wk?`${r.tot.GP}<span class="gpcap"> / ${cap}</span>`:r.tot.GP}</td>
       ${Object.keys(CK).map(c=>`<td>${val(r,c)}</td>`).join('')}
       <td class="rating rotot">${r.pts}${race&&race[r.club]&&race[r.club].pts?` <small class="rdelta ${race[r.club].pts>0?'up':'dn'}" title="Tonight so far">${sgn(race[r.club].pts)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
