@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.1">
+<meta name="ll-build" content="2026-11-25.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -258,8 +258,12 @@ input:focus,select:focus{outline:none;border-color:var(--amber)}
 .pk.on .s{color:var(--space)}
 /* Rights sit below the contracts, which puts them under the scroll on a full
    roster. The heading makes the section findable and says why they cost $0. */
-.pkn{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pkn{display:flex;flex-direction:column;gap:2px;flex:1 1 0;min-width:0}
 .pkline{font-family:var(--mono);font-size:var(--t1);letter-spacing:.04em;color:var(--dim);white-space:nowrap}
+/* The stat line used to be nowrap in a box with no flex-basis, so it ran under PR
+   and salary. In the trade picker it wraps, and PR, salary and Stats keep their size. */
+.pkn .pkline{white-space:normal;overflow-wrap:anywhere}
+.pk .s,.pk .act{flex:0 0 auto}
 .dimx{color:var(--dim)}
 #tcTbl td,#tcTbl th{font-family:var(--mono);white-space:nowrap}
 #tcTbl tr.netrow td{border-top:1px solid var(--line);font-weight:700}
@@ -974,6 +978,10 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
 }
 @media(max-width:560px){
   .mast-in{padding:9px 12px;gap:8px 10px}
+  /* Trade picker: the stat line needs the width the headshot and gaps were using. */
+  label.pk>.hs{display:none}
+  .pk{gap:6px;padding-left:8px;padding-right:8px}
+  .pk .s{font-size:var(--t1)}
   .brand{font-size:var(--t4)}
   /* The 820px rule gives .who the full width, which pushed the theme button onto
      a third row. Let them share one. */
