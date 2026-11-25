@@ -117,5 +117,15 @@ ok('links back to the site', w.includes('hopefullyitwill.work'));
 ok('pretty day reads as a date', prettyDay('2026-09-02')==='Wednesday, September 2',
    prettyDay('2026-09-02'));
 
+console.log('\n== last night carries minutes played ==');
+{ const last={counted:[{n:'A Guard',s:{MP:34.4,PTS:20}},{n:'B Wing',s:{PTS:5}}],over:[],reused:[],totals:{GP:2},gpAfter:10,cap:920,
+    bench:[{n:'C Big',s:{PTS:9,MP:22}}],benchPts:9};
+  const h=lastNightBlock(last);
+  ok('a MIN column is in the header', />MIN</.test(h));
+  ok('minutes are rounded in the row', />34</.test(h));
+  ok('a missing line shows a dash, not 0', /A Guard[\s\S]*?&ndash;/.test(h)===true && h.includes('&ndash;'));
+  ok('the total row sums minutes', />34</.test(h.split('Counted')[1]));
+  ok('bench minutes are shown', h.includes('C Big 9 (22 min)')); }
+
 console.log('\n'+(fails? fails+' of '+ran+' FAILED' : 'all '+ran+' passed'));
 process.exit(fails?1:0);

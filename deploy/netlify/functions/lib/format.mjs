@@ -153,9 +153,11 @@ export function headline(st) {
   return `<b style="color:#e8e6e1">${ord(st.rank)} of ${st.of}</b>${move} &middot; ${num(st.pts)} roto points${chase}`;
 }
 
+/* Minutes played, whole, from the box score's MP (a dash when the feed had none). */
+const mins = (s) => (s && +s.MP > 0 ? String(Math.round(+s.MP)) : "&ndash;");
 const lineRow = (x) => { const s = x.s || {};
-  return `<tr>${td(esc(x.n), 1)}${td(s.PTS || 0)}${td(s.TRB || 0)}${td(s.AST || 0)}${td(s.P3 || 0)}${td(s.STL || 0)}${td(s.BLK || 0)}${td(s.TOV || 0)}${td(`${s.FG || 0}-${s.FGA || 0}`)}</tr>`; };
-const lineHead = th("PLAYER", 1) + th("PTS") + th("REB") + th("AST") + th("3P") + th("STL") + th("BLK") + th("TO") + th("FG");
+  return `<tr>${td(esc(x.n), 1)}${td(mins(s))}${td(s.PTS || 0)}${td(s.TRB || 0)}${td(s.AST || 0)}${td(s.P3 || 0)}${td(s.STL || 0)}${td(s.BLK || 0)}${td(s.TOV || 0)}${td(`${s.FG || 0}-${s.FGA || 0}`)}</tr>`; };
+const lineHead = th("PLAYER", 1) + th("MIN") + th("PTS") + th("REB") + th("AST") + th("3P") + th("STL") + th("BLK") + th("TO") + th("FG");
 
 export function lastNightBlock(last) {
   if (!last) return P("No league games were scored for yesterday.", "#7d8590");
@@ -163,10 +165,10 @@ export function lastNightBlock(last) {
   const out = [];
   out.push(P(`${t.GP || 0} game${t.GP === 1 ? "" : "s"} counted &middot; ${last.gpAfter} / ${last.cap} used`));
   out.push(last.counted.length ? table(lineHead, last.counted.map(lineRow).join("")
-    + `<tr>${td("<b>Counted</b>", 1)}${td(t.PTS || 0)}${td(t.REB || 0)}${td(t.AST || 0)}${td(t.P3 || 0)}${td(t.STL || 0)}${td(t.BLK || 0)}${td(t.TO || 0)}${td(`${t.FG || 0}-${t.FGA || 0}`)}</tr>`)
+    + `<tr>${td("<b>Counted</b>", 1)}${td(Math.round(last.counted.reduce((a, x) => a + (+(x.s && x.s.MP) || 0), 0)) || "&ndash;")}${td(t.PTS || 0)}${td(t.REB || 0)}${td(t.AST || 0)}${td(t.P3 || 0)}${td(t.STL || 0)}${td(t.BLK || 0)}${td(t.TO || 0)}${td(`${t.FG || 0}-${t.FGA || 0}`)}</tr>`)
     : P("Nobody in your lineup played.", "#7d8590"));
   if (last.benchPts) out.push(P(`<b>${last.benchPts} points left on your bench</b>: `
-    + last.bench.map((p) => `${esc(p.n)} ${p.s.PTS || 0}`).join(", "), "#c8922e"));
+    + last.bench.map((p) => `${esc(p.n)} ${p.s.PTS || 0}${+p.s.MP > 0 ? ` (${Math.round(+p.s.MP)} min)` : ""}`).join(", "), "#c8922e"));
   if (last.over && last.over.length) out.push(P(`Over the game cap, so not counted: ${last.over.map((x) => esc(x.n)).join(", ")}`, "#d9614a"));
   if (last.reused && last.reused.length) out.push(P(`In a slot already used that night: ${last.reused.map((x) => esc(x.n)).join(", ")}`, "#d9614a"));
   return out.join("");
