@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.7">
+<meta name="ll-build" content="2026-11-25.8">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -2146,7 +2146,7 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
       player passes a better one who played less, which is the 920-game cap showing up.
       The club column is
       where he is <em>now</em>, not where he was when these numbers were taken, and anyone nobody has signed for next season reads as a free agent &#8212;
-      including the men playing out the last year of a deal. <b>Stats</b> shows the numbers alone, without the z-scores;
+      including the men playing out the last year of a deal. <b>Stats</b> shows the numbers alone, without the z-scores; <b>Trending</b> is the rating over 7, 15 and 30 days and the season; <b>News</b> is ESPN&rsquo;s injury report;
       <b>Last night</b> is every box score from one night. A free agent carries <b>Sign</b>, or <b>Claim</b> while he is on waivers.</p>
     <div id="plClaims"></div>
   <!-- Every player's box score for one night (2026-10-14): drawNight(). -->
@@ -12070,15 +12070,16 @@ function unratedWhy(p,R){
 }
 /* What the Players table shows: ratings (z-scores over the raw line), the raw
    stats alone, or one night's box scores. Per browser. */
-var PVIEW=(()=>{ try{ const v=localStorage.getItem('ll_pview'); return ['rate','stats','night'].includes(v)?v:'rate'; }catch(e){ return 'rate'; } })();
+const PVIEWS=['stats','trend','rate','news','night'];   // Stats, Trending, Ratings, News, then one night's box scores (2026-11-25)
+var PVIEW=(()=>{ try{ const v=localStorage.getItem('ll_pview'); return PVIEWS.includes(v)?v:'rate'; }catch(e){ return 'rate'; } })();
 function setPView(v){
-  PVIEW=['rate','stats','night'].includes(v)?v:'rate';
+  PVIEW=PVIEWS.includes(v)?v:'rate';
   try{ localStorage.setItem('ll_pview',PVIEW); }catch(e){}
   drawPView(); render();
 }
 function drawPView(){
   const bar=$('pvBar'); if(!bar) return;
-  const html=[['rate','Ratings'],['stats','Stats'],['night','Last night']]
+  const html=[['stats','Stats'],['trend','Trending'],['rate','Ratings'],['news','News'],['night','Last night']]
     .map(([v,l])=>`<button type="button" data-pv="${v}" aria-pressed="${PVIEW===v}">${l}</button>`).join('');
   if(bar.innerHTML!==html) bar.innerHTML=html;
   if($('v-rater')) $('v-rater').hidden=PVIEW==='night';
@@ -12117,6 +12118,11 @@ function rawCell(p,c,basis,ed){
   return i<0?`<td class="zraw"><span${ed}>${t}</span></td>`
     :`<td class="shot"><b${ed}>${t.slice(0,i)}</b><small>${t.slice(i+3)}</small></td>`;
 }
+var RATERHEAD0=null;
+const RATERHEAD_TREND='<th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th><th class="hide2" data-k="g">G</th>'
+  +'<th data-k="tr7" title="Player rating, last 7 days">PR7</th><th data-k="tr15" title="Player rating, last 15 days">PR15</th><th data-k="tr30" title="Player rating, last 30 days">PR30</th>'
+  +'<th data-k="trs" title="Player rating, this season">Season</th><th data-k="trk" title="Season rank">Rank</th>';
+const RATERHEAD_NEWS='<th class="l" id="rRkHead">#</th><th class="l" data-k="n">Player</th><th class="l hide" data-k="t">Club</th><th class="hide2" data-k="g">G</th><th class="l">Injury news</th>';
 function drawRater(){
   drawPView();
   if(me&&$('plClaims')){ const h=myClaimsHtml(meTeam()); if($('plClaims').innerHTML!==h) $('plClaims').innerHTML=h; }
@@ -12131,6 +12137,11 @@ function drawRater(){
   if(wsel.dataset.sig!==wopts){ const keep=wsel.value; wsel.innerHTML=wopts; wsel.dataset.sig=wopts;
     wsel.value=[...wsel.options].some(o=>o.value===keep)?keep:''; }
   const q=$('rSearch').value.trim().toLowerCase(), tf=$('rTeam').value, pf=$('rPos').value;
+  /* Trending and News have their own columns: swap the head row when the view changes. */
+  { const hr=$('raterTbl').querySelector('thead tr');
+    if(hr&&RATERHEAD0==null) RATERHEAD0=hr.innerHTML;
+    if(hr&&hr.dataset.v!==PVIEW){ hr.innerHTML=PVIEW==='trend'?RATERHEAD_TREND:PVIEW==='news'?RATERHEAD_NEWS:RATERHEAD0; hr.dataset.v=PVIEW; } }
+  if(PVIEW==='trend') ['d7','d15','d30','szn'].forEach(w=>{ if(!LIVE[w]&&!ROSTRIED['tr'+w]){ ROSTRIED['tr'+w]=1; loadLive(w).then(()=>drawRater()); } });
   const basis=raterBasis();
   if($('rBasis')&&$('rBasis').value!==basis) $('rBasis').value=basis;   // set from the Stats bar too
   /* Score the WHOLE pool, then filter what is shown. The search, club and
@@ -12149,9 +12160,14 @@ function drawRater(){
     :tf==='@watch'?isWatched(n):tf==='@edited'?hasProj(n):heldBy(n)===tf);
   let rows=all.filter(p=>(!q||p.n.toLowerCase().includes(q))&&who(p.n)
     &&(!pf||(p.p||'').includes(pf)));
-  const S0=SORTS.rater||{col:'tot',desc:true};
+  let S0=SORTS.rater||{col:'tot',desc:true};
   const mval=n=>{ const x=missedOf(n); return x?x.m:null; };
-  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='miss'?mval(p.n):c==='tot'?p.tot:(p.z?p.z[c]:null);
+  const TRC={tr7:'d7',tr15:'d15',tr30:'d30',trs:'szn'};
+  const trv=(p,c)=>{ if(c==='trk'){ const t=trendOf(p.n,'szn'); return t&&t.rk?-t.rk:null; } const t=trendOf(p.n,TRC[c]); return t?t.tot:null; };
+  /* A sort column the current view has no header for falls back, without disturbing the saved one. */
+  if(PVIEW==='trend'&&!(S0.col in TRC||S0.col==='trk'||['n','t','g'].includes(S0.col))) S0={col:'trs',desc:true};
+  if(PVIEW==='news'&&!['n','t','g'].includes(S0.col)) S0={col:'tot',desc:true};
+  const val=(p,c)=>c==='n'?p.n:c==='t'?ownerOf(p.n):c==='g'?p.g:c==='miss'?mval(p.n):c==='tot'?p.tot:(c in TRC||c==='trk')?trv(p,c):(p.z?p.z[c]:null);
   rows.sort((a,b)=>cmp(val(a,S0.col),val(b,S0.col),S0.desc));
   const H2=$('raterH2');
   if(H2) H2.textContent='Players \u2014 '+projSrcLabel();
@@ -12167,6 +12183,24 @@ function drawRater(){
   /* The signed-in GM's own players are shaded, like his club's row in the
      standings. The commissioner login has no club, so nothing is. */
   const myT=me&&!isComm()?me:null;
+  if(PVIEW==='trend'||PVIEW==='news'){
+    const trend=PVIEW==='trend', f=v=>v==null?'&#8212;':v.toFixed(2);
+    $('raterBody').innerHTML=rows.map(p=>{
+      const oc=raterClub(p.n), tr=myT&&heldBy(p.n)===myT?'<tr class="mine">':'<tr>';
+      const head=`${tr}<td class="l">${p.rk??'&#8212;'}</td><td class="pname" data-player="${htmlEsc(p.n)}">${htmlEsc(p.n)}</td><td class="l hide">${oc}</td><td class="hide2">${p.g}</td>`;
+      if(trend){
+        const sz=trendOf(p.n,'szn');
+        return head+['d7','d15','d30','szn'].map(w=>{ const t=trendOf(p.n,w); return `<td class="zraw">${f(t?t.tot:null)}</td>`; }).join('')
+          +`<td class="zraw">${sz&&sz.rk?sz.rk:'&#8212;'}</td>${actCell(p.n)}</tr>`;
+      }
+      const i=injOf(p.n);
+      const txt=!i?'<span class="lutip">No injury reported</span>'
+        :`<b>${htmlEsc(i.s)}</b>${i.d?` \u00b7 ${htmlEsc(i.d)}`:''}${i.r?` \u00b7 expected back ${htmlEsc(injBack(i.r))}`:''}${i.note?`<small style="display:block;color:var(--dim)">${htmlEsc(i.note)}</small>`:''}`;
+      return head+`<td class="l">${txt}</td>${actCell(p.n)}</tr>`;
+    }).join('');
+    sortable('raterTbl','rater','tot',true);
+    return;
+  }
   $('raterBody').innerHTML=rows.map(p=>{
     const oc=raterClub(p.n), tr=myT&&heldBy(p.n)===myT?'<tr class="mine">':'<tr>';
     if(!p.z) return `${tr}<td class="l">&#8212;</td><td class="pname" data-player="${htmlEsc(p.n)}">${p.n}</td><td class="l hide">${oc}</td>
