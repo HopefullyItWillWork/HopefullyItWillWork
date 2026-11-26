@@ -603,7 +603,9 @@ his club's games. The card draws a DNP row of dashes.
   spare / short"; the old date pace (`gamesPace()`) is only the fallback before the
   schedules load. Home's chart tab **Games left** (`drawPace()`) is a bar per club,
   played solid and left light, the cap marked, with a GP / Left / To 920 / Spare / Out
-  table. `paceSeries()` stays (tests); the weekly email still uses the date pace.
+  table. `paceSeries()` stays (tests). The weekly email says the same (`gamesLeftFor()` in
+  `lib/digest.mjs`, pure, `tests/mail.test.js`: games after the last scored night),
+  falling back to the date pace only when `nbaplayers` has no `left`.
 
 ### Around the league: one line per move (2026-11-18)
 

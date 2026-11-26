@@ -4,6 +4,7 @@
    filed under the following day and mailed late. */
 import { dayIn, yesterdayIn, movesOn, movesBetween, esc, wrap, dailyBody, weeklyBody, headline, lastNightBlock, prettyDay, clubLine, ord, gapText, isMonday }
   from '../deploy/netlify/functions/lib/format.mjs';
+import { gamesLeftFor } from '../deploy/netlify/functions/lib/digest.mjs';
 
 let fails = 0, ran = 0;
 const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+name);
@@ -107,6 +108,20 @@ ok('surplus to trade', /Comfortably clear in assists/.test(wk));
 ok('who has what you need: managers, not players', /Mark Brice \(Brice\) has more than they need/.test(wk));
 ok('games pace, warned when games will be wasted', /roughly 28 games will go to waste/.test(wk));
 ok('pickups left: the hard-cap room, not the open spots', /40 more minimum pickups/.test(wk) && /3 roster spots open/.test(wk));
+const wk2 = weeklyBody({ club: 'A. Daman', nights: 4, standing: st, table: [], gains: [], risks: [], surplus: [], angles: [],
+  gleft: { used: 219, cap: 920, left: 926, need: 701, spare: 225, out: 40 }, pace: { used: 219, cap: 920, projected: 948, expected: 290 },
+  best: [], worst: [], leagueTop: [] }, [], ZONE);
+ok('games left replaces the date pace', /926 games left/.test(wk2) && /225 to spare/.test(wk2) && /40 of them by players listed out/.test(wk2) && !/On pace/.test(wk2));
+const wk3 = weeklyBody({ club: 'A. Daman', nights: 4, standing: st, table: [], gains: [], risks: [], surplus: [], angles: [],
+  gleft: { used: 600, cap: 920, left: 280, need: 320, spare: -40, out: 0 }, best: [], worst: [], leagueTop: [] }, [], ZONE);
+ok('games left: short is said so', /40 short/.test(wk3));
+{
+  const club = { r: [{ n: 'A', y: { '2026-27': 1 } }, { n: 'B', y: { '2026-27': 1 }, ir: true }, { n: 'C', y: {} }, { n: 'D', y: { '2026-27': 1 } }] };
+  const left = { X: ['2026-11-24', '2026-11-26', '2026-11-28'], Y: ['2026-11-27'] };
+  const t = { A: 'X', B: 'X', C: 'X', D: 'Y' };
+  const g = gamesLeftFor(club, '2026-27', (n) => t[n], left, '2026-11-24', 920, 900, (n) => n === 'D');
+  ok('gamesLeftFor: active, contracted, after the last scored night', g.left === 3 && g.need === 20 && g.spare === -17 && g.out === 1, JSON.stringify(g));
+}
 ok('gap text', gapText('PTS', 12.4) === '12 points' && gapText('REB', 1) === '1 rebound' && gapText('FT%', 0.0123) === '1.2 pts of FT%');
 
 console.log('\n== the wrapper ==');
