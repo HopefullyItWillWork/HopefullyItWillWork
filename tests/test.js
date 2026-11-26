@@ -4740,6 +4740,23 @@ const ok = (name, cond, extra='') => { ran++; if(cond) console.log('  PASS  '+na
     if(keep) L.szn=keep; else delete L.szn;
   }
 
+  console.log('\n== games left ==');
+  {
+    const N=g('NBAP'), CS=g('S'), T=g('TEAMS')()[0], keep=N.left;
+    const act=CS.teams[T].r.filter(p=>g('contracted')(p)&&!g('onIR')(p));
+    const tms=[...new Set(act.map(p=>g('nbaTeamOf')(p.n)).filter(Boolean))];
+    N.left=Object.fromEntries(tms.map(t=>[t,['2099-01-01','2099-01-02','2099-01-03']]));
+    const withTeam=act.filter(p=>g('nbaTeamOf')(p.n)).length;
+    const GL=g('gamesLeft')(T,100);
+    ok('games left: three per active player with a club', GL&&GL.left===3*withTeam, JSON.stringify(GL)+' '+withTeam);
+    ok('games left: need is the cap less games played', GL.need===GL.cap-100 && GL.spare===GL.left-GL.need);
+    N.left=Object.fromEntries(tms.map(t=>[t,['2000-01-01']]));
+    ok('games left: past dates do not count', g('gamesLeft')(T,100).left===0);
+    N.left=null;
+    ok('games left: no schedules, no claim', g('gamesLeft')(T,100)===null);
+    N.left=keep;
+  }
+
   console.log('\n== rights do not follow a free agent to a new club ==');
   {
     const CS=g('S'), [A,B]=g('TEAMS')(), cur=g('curSeason')(), keepPh=CS.cfg.phase, keepCap=CS.cfg.cap;

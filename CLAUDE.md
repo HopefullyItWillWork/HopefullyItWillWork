@@ -589,6 +589,22 @@ his club's games. The card draws a DNP row of dashes.
   club's roster today), the player card's "Games missed" line (`missLineHtml()`)
   and the DNP rows carry the report when the log has it (`lastGames(…, injlog)`).
 
+### Games left replaces the date pace (2026-11-25)
+
+- **Server**: `fetchPlayers()` also reads each NBA club's schedule feed
+  (`teams/<id>/schedule`); `leftFrom()` (pure, `lib/nba.mjs`, `tests/nba.test.js`) keeps
+  the regular-season games not yet completed as league-time dates (postponed left out).
+  Carried on `nbaplayers` as `left: {code: [dates]}` (`leftv` 1; a copy without it is
+  refreshed at once; a failed fetch keeps the last).
+- **Page**: `gamesLeft(T, used)` — every active player's (contracted, off the IR) games
+  still on his club's schedule (tonight counts until his game tips), against what is
+  left under the cap: `{left, out, need, spare}`. `out` = games by players ESPN lists
+  as out. My Team's and Home's Games cards say "N left on the roster · M to go · S to
+  spare / short"; the old date pace (`gamesPace()`) is only the fallback before the
+  schedules load. Home's chart tab **Games left** (`drawPace()`) is a bar per club,
+  played solid and left light, the cap marked, with a GP / Left / To 920 / Spare / Out
+  table. `paceSeries()` stays (tests); the weekly email still uses the date pace.
+
 ### Around the league: one line per move (2026-11-18)
 
 Home's feed runs the moves through `feedMoves()` (pure): a "X released — $1.00 —

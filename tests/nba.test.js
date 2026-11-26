@@ -50,7 +50,7 @@ import { injuriesFrom, athleteIdOf } from '../deploy/netlify/functions/lib/nba.m
   ok('garbage is empty, not a crash', Object.keys(injuriesFrom(null)).length === 0 && Object.keys(injuriesFrom({ injuries:'x' })).length === 0);
 }
 
-import { freshPlayers } from '../deploy/netlify/functions/lib/nba.mjs';
+import { freshPlayers, leftFrom } from '../deploy/netlify/functions/lib/nba.mjs';
 {
   /* A copy cached before injuries were read is refreshed at once; with the fetch
      failing here it falls back to the stored copy, marked stale — proving the
@@ -61,6 +61,20 @@ import { freshPlayers } from '../deploy/netlify/functions/lib/nba.mjs';
   const got = await freshPlayers(mem, 6 * 3600e3);
   globalThis.fetch = realFetch;
   ok('a pre-injury cached copy is not served as fresh', got.stale === true);
+}
+
+// Games left on a club's schedule (2026-11-25).
+{
+  const ev = (date, completed, name = 'STATUS_SCHEDULED', ty = '2') => ({ date, seasonType: { id: ty }, competitions: [{ status: { type: { completed, name } } }] });
+  const L = leftFrom({ events: [
+    ev('2026-11-20T00:00Z', true, 'STATUS_FINAL'),
+    ev('2026-11-27T03:00Z', false),               // 10 PM Eastern on the 26th
+    ev('2026-11-28T00:30Z', false),
+    ev('2026-12-01T00:00Z', false, 'STATUS_POSTPONED'),
+    ev('2027-04-20T00:00Z', false, 'STATUS_SCHEDULED', '3') ] });
+  ok('completed, postponed and playoff games are not left', L.length === 2, JSON.stringify(L));
+  ok('a late game is filed under its Eastern date', L[0] === '2026-11-26' && L[1] === '2026-11-27', JSON.stringify(L));
+  ok('an empty feed is no games', leftFrom(null).length === 0);
 }
 console.log(`\n${ran - fails}/${ran} passed`);
 process.exit(fails ? 1 : 0);
