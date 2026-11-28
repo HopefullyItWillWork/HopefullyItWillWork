@@ -505,6 +505,16 @@ server. State is `SC` (`day`, `games`, `gid`, `box`).
   one-minute interval reloads while the tab is open and a game is live (or a box is open).
 - Dates are ESPN's (Eastern); the tab is not part of `markPhaseTabs()`.
 
+**The score tape** (2026-11-27, Nathan's idea): while any NBA game is under way, a
+broadcast-style crawl runs along the bottom of every page (`#scoreTape`, class
+`.stape` — `.tape` is the tale of the tape). `tickLoad()` reads `ESPNSB` for
+`luNight()` from the page: once a minute while a game is live, every ten minutes
+otherwise, never while hidden, real browser only. `drawTicker()`: live games first,
+then finals, then games to come; an amber dot on a game with one of your starters;
+a tap opens that game's box on NBA Scores; hover pauses; reduced motion makes it a
+strip you swipe; × hides it for the night (`ll_tickoff`). On a phone it sits on the
+tab bar (`--tabsH`, measured).
+
 **Last night's best on Home** (`drawHomeBest()`): when the newest scored night is older
 than last night (`scShift(luNight(),-1)`), it reads last night's finished games from ESPN
 instead (`boxFrom()`), every NBA player, headed "· all NBA, not yet scored", with the NBA
