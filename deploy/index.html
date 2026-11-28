@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-27.5">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HIWW">
+<meta name="ll-build" content="2026-11-27.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -78,6 +82,11 @@ html{-webkit-text-size-adjust:100%;background:var(--ink);min-height:100%}
 body{background:var(--ink);color:var(--chalk);font-family:var(--body);font-size:var(--t3);line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100vh}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .mast{position:sticky;top:0;z-index:50;background:var(--ink);border-bottom:1px solid var(--line)}
+/* Saved to a phone's home screen the page draws under the status bar (viewport-fit=
+   cover, 2026-11-27): the masthead pads itself clear of it, with a little air. */
+.mast{padding-top:env(safe-area-inset-top)}
+@media (display-mode: standalone){ .mast{padding-top:calc(env(safe-area-inset-top) + 6px)} }
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 .more{position:relative;display:flex}
 .more>#moreBtn{background:none;border:0;color:var(--steel);font-family:var(--body);font-weight:600;
 font-size:var(--t3);letter-spacing:.01em;padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent}
@@ -669,7 +678,7 @@ border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-
 @keyframes tapeRun{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion: reduce){ .stape .ttrack{animation:none} .stape .tview{overflow-x:auto} .stape .tset[aria-hidden]{display:none} }
 body.taping{padding-bottom:34px}
-@media(max-width:640px){ .stape{bottom:calc(var(--tabsH,52px));padding-bottom:0} body.taping{padding-bottom:98px} }
+@media(max-width:640px){ .stape{bottom:calc(var(--tabsH,52px));padding-bottom:0} body.taping{padding-bottom:calc(var(--tabsH,52px) + 40px)} }
 [data-theme="jam"] .stape{background:#000;border-top:3px solid var(--amber)}
 [data-theme="jam"] .stape .tlab{font-family:var(--pixel);font-size:9px}
 [data-theme="jam"] .stape .tg span{font-family:var(--led);font-size:18px}
@@ -994,6 +1003,12 @@ main{padding:16px 14px 60px}.mast-in{padding:11px 14px}nav{padding:0 8px}nav but
   .standtbl .clublink.hasgm .cn{display:none}
   .standtbl .clublink.hasgm .gmshort{display:inline}
   .standtbl td:nth-child(2){max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* "M. Christman" is the longest short name and clipped to "…" (2026-11-27). */
+  .standtbl td:nth-child(2):has(.hasgm){max-width:none;overflow:visible}
+  .standtbl .clublink.hasgm{overflow:visible}
+  /* League's pills wrap on a phone; the spacer that pushes the last two right on a
+     desktop left a hole in the second row. */
+  .subnav .subgap{display:none}
   #paceTbl td:first-child{max-width:150px;overflow:hidden;text-overflow:ellipsis}
   .lubtns{margin-left:0}
   /* The arrows step through nights; the picker and Export are desktop things. */
@@ -1644,6 +1659,9 @@ input,select,textarea{background:var(--field);border-color:var(--fieldln)}
 .commnote small{display:block;margin-top:6px;color:var(--dim);font:500 var(--t1) var(--body)}
 [data-theme="jam"] .commnote{border:3px solid var(--amber);border-radius:0;background:#0b0630}
 .clubpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.clubsel{display:none;align-items:center;gap:8px;width:100%}
+.clubsel select{flex:1;min-width:0;font:600 var(--t3) var(--body);padding:9px 10px;border-radius:var(--r);background:var(--field);color:var(--chalk);border:1px solid var(--fieldln)}
+@media(max-width:640px){ .clubpick .cchip{display:none} .clubsel{display:flex} }
 .cchip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--softtx);border:0;border-radius:var(--r);padding:6px 11px;font:500 var(--t2) var(--body);cursor:pointer}
 .cchip[aria-pressed="true"]{background:var(--segon);color:var(--chalk);box-shadow:inset 0 0 0 1px var(--amber)}
 /* Desktop (2026-11-20): the masthead, League's pill bar and the lineup's column header
@@ -4451,7 +4469,11 @@ function drawLedger(){
      chips, so the page opens on a club rather than on the payroll table. */
   if($('clubPick')){
     $('clubPick').innerHTML=TEAMS().map(t=>`<button type="button" class="cchip" data-t="${htmlEsc(t)}" aria-pressed="${t===activeTeam}">${clubBadge(t)}${htmlEsc(t)}${me===t?' &#9679;':''}</button>`).join('');
+    /* Phone (2026-11-27): nine wrapped chips took a screen. One select instead, with
+       the manager beside the club; the chips stay on a wider screen. */
+    $('clubPick').innerHTML+=(`<label class="clubsel">${clubBadge(activeTeam)}<select aria-label="Club">${TEAMS().map(t=>`<option value="${htmlEsc(t)}"${t===activeTeam?' selected':''}>${htmlEsc(t)}${gmName(t)?` \u00b7 ${htmlEsc(gmName(t))}`:''}${me===t?' (you)':''}</option>`).join('')}</select></label>`);
     $('clubPick').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ activeTeam=b.dataset.t; drawLedger(); drawDetail(); drawClubLive(); });
+    $('clubPick').querySelectorAll('.clubsel select').forEach(x=>x.onchange=e=>{ activeTeam=e.target.value; drawLedger(); drawDetail(); drawClubLive(); });
   }
   /* "n2" is the roster column; sort it by headcount. */
   sortable('ledTbl','led','n',false); redraw.led=drawLedger;
@@ -6512,8 +6534,9 @@ function meStrip(T,s,sc,cap,tax){
   const gc=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
   /* Tonight counts toward the pace as a night played once anyone has played. */
   const pace=gamesPace(used,gc,gt.played?{...(SCORE.days||{}),[luNight()]:{}}:SCORE.days,curSeason(),S.cfg.seasonEnd);
-  const tonightTxt=gt.played||gt.locked?`<br><span class="livetag">live</span> ${gt.played?`${gt.played} tonight`:''}${
-    gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} more locked in`:''}`:'';
+  /* One plain line (2026-11-27): "+7 tonight". Starters whose game is on but who
+     have not appeared yet go in the tooltip, not the card. */
+  const tonightTxt=gt.played?`<br><span title="${gt.played} of your starters have played tonight, already counted above${gt.locked?`; ${gt.locked} more are in games under way and have not appeared yet`:''}."><span class="livetag">live</span> +${gt.played} tonight</span>`:'';
   const dead=deadSalary(T);
   const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
   if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>${
@@ -6521,9 +6544,9 @@ function meStrip(T,s,sc,cap,tax){
   /* Exactly the cap is a craft in this league: the card turns gold (2026-11-16). */
   if(used>=gc){ card('Games',`${used}<small> / ${gc}</small>`,`<span class="maxtag">Maxed out</span>`+tonightTxt,'maxed'); } else
   { const GL=gamesLeft(T,used);
-    const sub=GL?`<span title="Games your active players' NBA clubs have left, if every one of them started every game${GL.out?`; ${GL.out} of them are by players listed out`:''}. ${GL.need.toLocaleString('en-US')} more reach the ${gc} cap.">${GL.left.toLocaleString('en-US')} left on the roster · ${GL.need.toLocaleString('en-US')} to go<br><span class="${GL.spare<0?'bad':''}">${GL.spare>=0?`${GL.spare.toLocaleString('en-US')} to spare`:`${(-GL.spare).toLocaleString('en-US')} short`}</span></span>`
+    const sub=GL?`<span class="${GL.spare<0?'bad':''}" title="${used.toLocaleString('en-US')} played, and ${GL.left.toLocaleString('en-US')} left on your active players' NBA schedules${GL.out?` (${GL.out} of them by players listed out)`:''}: ${(used+GL.left).toLocaleString('en-US')} if every one of them played every game.">Pace: ${(used+GL.left).toLocaleString('en-US')}</span>`
       :pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played';
-    card('Games',`${used}<small> / ${gc}</small>`,sub+tonightTxt); }
+    card('Games',`${used}<small> / ${gc}</small>`,sub); }
   card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
   card(tax-s>=0?'To the hard cap':'Past the hard cap',money(Math.abs(tax-s)),`Hard cap ${money(tax)}`,tax-s>=0?'':'bad');
   card('Injured reserve',`${irCount(T)}<small> / ${S.cfg.ir??1}</small>`,'');
@@ -12529,8 +12552,8 @@ function drawHome(){
         `${PN.live?'<span class="livetag">live</span> ':''}${ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`}`));
       const cap=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
       cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,
-        used>=cap?'<span class="maxtag">Maxed out</span>':gt.played||gt.locked?`${gt.played?`${gt.played} tonight, live`:''}${gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} locked in`:''}`
-          :(GL=>GL?`${GL.left.toLocaleString('en-US')} left · <span class="${GL.spare<0?'down':''}">${GL.spare>=0?`${GL.spare} to spare`:`${-GL.spare} short`}</span>`:'')(gamesLeft(T,used))));
+        used>=cap?'<span class="maxtag">Maxed out</span>'
+          :(GL=>GL?`<span class="${GL.spare<0?'down':''}">Pace: ${(used+GL.left).toLocaleString('en-US')}</span>`:'')(gamesLeft(T,used))));
     }
     if(lineupsOpen()){
       const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
