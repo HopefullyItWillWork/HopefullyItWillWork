@@ -221,9 +221,16 @@ export function weeklyBody(w, moves, zone) {
     w.angles.forEach((a) => out.push(P(`<b>${esc(CAT[a.k] || a.k)}:</b> ${a.clubs.map((c) => esc(c.gm ? `${c.gm} (${c.club})` : c.club)).join(", ")} ha${a.clubs.length === 1 ? "s" : "ve"} more than they need.`)));
   }
 
-  if (w.pace || w.pickups) {
+  if (w.gleft || w.pace || w.pickups) {
     out.push(H("Games and pickups"));
-    if (w.pace) {
+    /* Games left on the schedule (2026-11-25), the app's Games card rule. Facts
+       only — no lineup advice (league decision, 2026-10-19). */
+    if (w.gleft) {
+      const g = w.gleft, n = (v) => v.toLocaleString("en-US");
+      out.push(P(`${n(g.used)} of ${n(g.cap)} games used. Your active roster has <b>${n(g.left)} games left</b> on its NBA schedules`
+        + `${g.out ? ` (${n(g.out)} of them by players listed out)` : ""}; ${n(g.need)} more reach the cap: `
+        + (g.spare >= 0 ? `<b>${n(g.spare)} to spare.</b>` : `<b style="color:#d9614a">${n(-g.spare)} short.</b>`)));
+    } else if (w.pace) {
       const over = w.pace.projected - w.pace.cap;
       out.push(P(`${w.pace.used} of ${w.pace.cap} games used; about ${w.pace.expected} would be on schedule. `
         /* Facts only — no lineup advice (league decision, 2026-10-19). */

@@ -117,6 +117,23 @@ export function pickupsLeft(club, cfg, season) {
   return { left: money, spots, money };
 }
 
+/* Games left (2026-11-25), the page's gamesLeft() rule: every active player's
+   (contracted, off the IR) games still on his NBA club's schedule after `after`
+   (the last scored night), against what is left under the cap. `left` is
+   nbaplayers.left ({code: [dates]}, lib/nba.mjs leftFrom()); `teamOf(name)` his
+   NBA club; `isOut(name)` true when ESPN lists him out. Pure. */
+export function gamesLeftFor(clubEntry, season, teamOf, left, after, cap, used, isOut = () => false) {
+  if (!left || !clubEntry) return null;
+  let n = 0, out = 0;
+  for (const p of (clubEntry.r || []).filter((p) => contracted(p, season) && !p.ir)) {
+    const d = left[teamOf(p.n)] || [];
+    const k = d.filter((x) => x > after).length;
+    n += k; if (isOut(p.n)) out += k;
+  }
+  const need = Math.max(0, cap - used);
+  return { used, cap, left: n, need, spare: n - need, out };
+}
+
 /* Where a club stands: rank, points, and the gap to the clubs either side. */
 function standingOf(rows, club) {
   const i = rows.findIndex((r) => r.club === club);
@@ -255,6 +272,26 @@ export async function digestWeekly(s, club, from, to, cache = {}) {
     pace = { used, cap, projected, expected: Math.round(cap * elapsed / Math.max(1, elapsed + left)) };
   }
 
+  /* Games left on the schedule (the page's rule); the date pace above stays as
+     the fallback when ESPN's schedules are not on file. */
+  let gleft = null;
+  if (season) {
+    try {
+      const raw = await s.get("nbaplayers"), nb = raw ? JSON.parse(raw) : null;
+      if (nb && nb.left) {
+        const byKey = {}, out = {};
+        for (const p of Object.values(nb.players || {})) {
+          byKey[nameKey(p.n)] = p.t;
+          if (p.inj && /^out/i.test(p.inj.s || "")) out[nameKey(p.n)] = true;
+        }
+        const keys = (n) => keysFor(n, cfg.alias, cfg.espn);
+        const teamOf = (n) => { for (const k of keys(n)) if (byKey[k]) return byKey[k]; return null; };
+        const isOut = (n) => keys(n).some((k) => out[k]);
+        gleft = gamesLeftFor(teams[club], season.key, teamOf, nb.left, scored[scored.length - 1] || "", cap, used, isOut);
+      }
+    } catch { gleft = null; }
+  }
+
   /* Best performers: a simple counting composite, so a guard and a centre can be
      compared on one line. Counted games only. */
   const score = (x) => (x.PTS || 0) + (x.TRB || 0) + (x.AST || 0) + (x.STL || 0) + (x.BLK || 0) + (x.P3 || 0) - (x.TOV || 0);
@@ -283,7 +320,7 @@ export async function digestWeekly(s, club, from, to, cache = {}) {
     risks: picture.filter((c) => c.down && c.down.close).map((c) => ({ k: c.k, club: c.down.club, gap: c.down.gap })),
     surplus: picture.filter((c) => c.surplus && c.down).map((c) => c.k),
     angles: tradeAngles(now, club, gm),
-    pace, pickups: season ? pickupsLeft(teams[club], cfg, season.key) : null,
+    pace, gleft, pickups: season ? pickupsLeft(teams[club], cfg, season.key) : null,
     best: myList.slice(0, 2), worst: myList.length > 3 ? myList.slice(-1) : [],
     leagueTop: rank(league).slice(0, 3),
   };

@@ -99,6 +99,24 @@ export function injuriesFrom(json) {
   return out;
 }
 
+/* The games a club has left (2026-11-25): its schedule feed, every regular-season
+   game not yet completed, as the league-time date it tips on (a 10 PM Eastern game
+   is the next day in UTC). Postponed or cancelled games are left out until they
+   get a new date. Pure: json -> ["2026-11-26", ...], sorted. The page sums these
+   over a club's active players for "games left" against the cap. */
+export function leftFrom(json, tz = "America/New_York") {
+  const day = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  const out = [];
+  for (const e of (json && json.events) || []) {
+    const st = ((((e.competitions || [])[0] || {}).status || {}).type) || {};
+    const ty = String((e.seasonType && e.seasonType.id) || "2");
+    if (st.completed || ty !== "2" || !e.date) continue;
+    if (/POSTPONED|CANCELED|CANCELLED|SUSPENDED/i.test(String(st.name || ""))) continue;
+    out.push(day(e.date));
+  }
+  return out.sort();
+}
+
 export function rosterFrom(json, code) {
   const out = {};
   for (const a of (json && json.athletes) || []) {
@@ -182,20 +200,31 @@ export async function fetchPlayers() {
       if (players[id]) { players[id].inj = inj; report++; }
     }
   } catch { report = 0; }
+  /* Each club's remaining games (leftFrom). A failure keeps the last copy
+     (freshPlayers carries it over), like the positions. */
+  let left = null;
+  try {
+    const tz = (typeof process !== "undefined" && process.env && process.env.LEAGUE_TZ) || "America/New_York";
+    const got = await Promise.all(teams.map(async (t) => [t.code, leftFrom(await getJSON(`${TEAMS}/${t.id}/schedule`), tz)]));
+    if (got.filter(([, d]) => d.length).length >= 25) left = Object.fromEntries(got);
+  } catch { left = null; }
   /* `injv` marks a copy fetched since injuries were read (2: since the report
      with return dates was read), so an older cached copy is refreshed straight
      away rather than waiting out its six hours. */
   const injuries = Object.values(players).filter((p) => p.inj).length;
-  return { at: Date.now(), teams: teams.length, players, positions: !!elig, injv: 2, injuries, report };
+  const out = { at: Date.now(), teams: teams.length, players, positions: !!elig, injv: 2, injuries, report };
+  if (left) { out.left = left; out.leftv = 1; out.leftAt = Date.now(); }
+  return out;
 }
 
 /* Refresh `nbaplayers` if it is older than `maxAge`, else return what is stored. */
 export async function freshPlayers(s, maxAge) {
   let have = null;
   try { const raw = await s.get("nbaplayers"); have = raw ? JSON.parse(raw) : null; } catch { have = null; }
-  if (have && have.injv >= 2 && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
+  if (have && have.injv >= 2 && have.leftv && Date.now() - (have.at || 0) < maxAge) return { ...have, cached: true };
   try {
     const got = await fetchPlayers();
+    if (!got.left && have && have.left) { got.left = have.left; got.leftv = have.leftv; got.leftAt = have.leftAt; }
     /* ESPN's fantasy list failed this time: carry the last positions over. */
     if (!got.positions && have && have.players) {
       for (const [id, p] of Object.entries(got.players)) {

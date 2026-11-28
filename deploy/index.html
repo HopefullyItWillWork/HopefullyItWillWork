@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-25.11">
+<meta name="ll-build" content="2026-11-25.1">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -6429,6 +6429,33 @@ function gamesPace(used,cap,days,season,end){
   const el=Math.max(1,span(d[0],d[d.length-1])+1), left=span(d[d.length-1],endD);
   return {projected:Math.round(used+used/el*left), expected:Math.round(cap*el/Math.max(1,el+left))};
 }
+/* Games left (2026-11-25), the pace that replaced "games per day so far": what a
+   club's ACTIVE players (contracted, off the IR) still have on their NBA clubs'
+   schedules (NBAP.left, ESPN's schedule feed, lib/nba.mjs leftFrom()), against
+   what is left under the cap. Tonight counts for a man whose game has not started
+   (one that has is already in `used`, live, or locked in). It is the most the
+   roster could play if every man started every game: a man listed out is counted
+   too, and `out` says how many of the games are his. {left, out, need, spare}. */
+function nbaLeftFor(team){
+  const L=NBAP.left; if(!L||!team) return null;
+  if(L[team]) return L[team];
+  const f=c=>TRICODE[c]||c, k=Object.keys(L).find(k=>f(k)===f(team));
+  return k?L[k]:null;
+}
+function gamesLeft(T,used){
+  if(!T||!S.teams[T]||!NBAP.left) return null;
+  const n=luNight(), cap=SCORE.cap||S.cfg.gamecap||920;
+  let left=0, out=0;
+  S.teams[T].r.filter(p=>contracted(p)&&!onIR(p)).forEach(p=>{
+    const d=nbaLeftFor(nbaTeamOf(p.n)); if(!d) return;
+    let k=d.filter(x=>x>n).length;
+    if(d.includes(n)&&!lockOf(p.n,n).locked) k++;
+    left+=k;
+    const ij=injOf(p.n); if(ij&&/^out/i.test(ij.s||'')) out+=k;
+  });
+  const u=used==null?gamesUsed(T):used, need=Math.max(0,cap-u);
+  return {left,out,need,spare:left-need,used:u,cap};
+}
 /* Tonight's games as they happen (2026-11-16): a starter who has appeared in a
    box score tonight has used a game (live or the page's own feed, nowLine()),
    up to what is left under the cap; a starter whose game is under way and who
@@ -6470,7 +6497,10 @@ function meStrip(T,s,sc,cap,tax){
     was?`<br><span class="livetag">live</span> ${was.rank===row.rank?'same as the start of the night':`was ${ordinal(was.rank)} before tonight`}`:''}`,'me');
   /* Exactly the cap is a craft in this league: the card turns gold (2026-11-16). */
   if(used>=gc){ card('Games',`${used}<small> / ${gc}</small>`,`<span class="maxtag">Maxed out</span>`+tonightTxt,'maxed'); } else
-  card('Games',`${used}<small> / ${gc}</small>`,(pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played')+tonightTxt);
+  { const GL=gamesLeft(T,used);
+    const sub=GL?`<span title="Games your active players' NBA clubs have left, if every one of them started every game${GL.out?`; ${GL.out} of them are by players listed out`:''}. ${GL.need.toLocaleString('en-US')} more reach the ${gc} cap.">${GL.left.toLocaleString('en-US')} left on the roster · ${GL.need.toLocaleString('en-US')} to go<br><span class="${GL.spare<0?'bad':''}">${GL.spare>=0?`${GL.spare.toLocaleString('en-US')} to spare`:`${(-GL.spare).toLocaleString('en-US')} short`}</span></span>`
+      :pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played';
+    card('Games',`${used}<small> / ${gc}</small>`,sub+tonightTxt); }
   card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
   card(tax-s>=0?'To the hard cap':'Past the hard cap',money(Math.abs(tax-s)),`Hard cap ${money(tax)}`,tax-s>=0?'':'bad');
   card('Injured reserve',`${irCount(T)}<small> / ${S.cfg.ir??1}</small>`,'');
@@ -10760,6 +10790,7 @@ async function loadNbaPlayers(force){
       if(p&&p.n&&p.el) pos[nameKey(p.n)]=p.el;
     });
     NBAP={day,byKey,pos,ids,inj,injv:!!(j&&j.injv),injn:Object.keys(inj).length,n:Object.keys(byKey).length,at:j&&j.at,
+      left:(j&&j.left)||null,
       names:Object.values((j&&j.players)||{}).map(p=>p.n).filter(Boolean).sort()};
   }catch(e){ /* keep whatever we had; NBATM still answers */ }
   return NBAP;
@@ -12475,7 +12506,8 @@ function drawHome(){
         `${PN.live?'<span class="livetag">live</span> ':''}${ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`}`));
       const cap=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
       cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,
-        used>=cap?'<span class="maxtag">Maxed out</span>':gt.played||gt.locked?`${gt.played?`${gt.played} tonight, live`:''}${gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} locked in`:''}`:''));
+        used>=cap?'<span class="maxtag">Maxed out</span>':gt.played||gt.locked?`${gt.played?`${gt.played} tonight, live`:''}${gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} locked in`:''}`
+          :(GL=>GL?`${GL.left.toLocaleString('en-US')} left · <span class="${GL.spare<0?'down':''}">${GL.spare>=0?`${GL.spare} to spare`:`${-GL.spare} short`}</span>`:'')(gamesLeft(T,used))));
     }
     if(lineupsOpen()){
       const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
@@ -14753,7 +14785,7 @@ var RACENORM=(()=>{ try{ return localStorage.getItem('ll_racenorm')==='1'; }catc
 function chartTabs(){
   if(!$('chTabs')) return;
   const b=(v,t)=>`<button type="button" data-chv="${v}" aria-pressed="${CHARTVIEW===v}">${t}</button>`;
-  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games pace')}</div>`
+  const html=`<div class="toggle" role="group" aria-label="Chart">${b('roll','Rolling 15 days')}${b('race','The race')}${b('pace','Games left')}</div>`
     +(CHARTVIEW==='race'?`<div class="toggle" role="group" aria-label="Race basis" style="margin-left:8px"><button type="button" data-chn="0" aria-pressed="${!RACENORM}" title="Season totals, as the Standings table ranks them">Totals</button><button type="button" data-chn="1" aria-pressed="${RACENORM}" title="Each club's stats per game played, so fewer games played is not a handicap">Per game played</button></div>`:'');
   if($('chTabs').innerHTML!==html){ $('chTabs').innerHTML=html;
     $('chTabs').querySelectorAll('[data-chv]').forEach(x=>x.onclick=()=>{ CHARTVIEW=x.dataset.chv;
@@ -14894,37 +14926,37 @@ function drawRace(){
     ${fact?`<p class="note" style="margin:8px 0 0">${fact}</p>`:''}</div>`;
   chWire();
 }
+/* Games left (2026-11-25; it was "Games pace", games per day against an even
+   pace to the cap by date): each club's games played, and on the same bar the
+   games its active players still have on their NBA schedules (gamesLeft()), with
+   the cap marked. Past the line is games to spare; short of it, games the roster
+   cannot reach as it stands. Facts only. */
 function drawPace(){
-  const cap=SCORE.cap||S.cfg.gamecap||920, endD=S.cfg.seasonEnd||`${(+String(curSeason()).slice(0,4))+1}-04-12`;
-  const P=paceSeries(DAILY,cap,endD);
-  if(!P||P.dates.length<3){ $('chartWrap').innerHTML='<div class="empty">Games pace starts after the third night of games.</div>'; return; }
-  const {dates,par,gp,rows}=P, n=dates.length;
-  $('trStatus').textContent=`even pace to ${cap} by ${chMD(endD)}`;
-  const span=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
-  const W=chW(), narrow=W<640, H=narrow?240:280, L=36, R=narrow?104:120, T=12, B=26;
-  const v={}; Object.keys(gp).forEach(c=>v[c]=gp[c].map((u,i)=>u-par[i]));
-  const all=Object.values(v).flat();
-  const lo=Math.min(-10,Math.floor((Math.min(...all)-2)/10)*10), hi=Math.max(10,Math.ceil((Math.max(...all)+2)/10)*10);
-  const x=i=>L+(W-L-R)*span(dates[0],dates[i])/Math.max(1,span(dates[0],dates[n-1]));
-  const {g,y}=chFrame(W,H,L,R,T,B,lo,hi,10,dates,x,u=>(u>0?'+':'')+u);
-  const mine=chMine(), focus=CHARTPICK&&v[CHARTPICK]?CHARTPICK:'';
-  const order=Object.keys(v).filter(c=>c!==mine&&c!==focus).concat([focus,mine].filter(Boolean));
-  const lines=order.map(c=>`<path d="${chPath(v[c],x,y)}" fill="none" style="${chLineStyle(c,mine,focus)}" stroke-linejoin="round" data-pick="${htmlEsc(c)}" class="chpick"/>`).join('');
-  const zero=`<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" style="stroke:var(--steel)" stroke-width="1.5" stroke-dasharray="5 4"/>
-    <text x="${W-R}" y="${y(0)+15}" text-anchor="end" style="fill:var(--steel)" font-size="11" font-family="var(--body)">Even pace to ${cap}</text>
-    <text x="${L+6}" y="${T+12}" style="fill:var(--dim)" font-size="11" font-family="var(--body)">Ahead of pace</text>
-    <text x="${L+6}" y="${H-B-6}" style="fill:var(--dim)" font-size="11" font-family="var(--body)">Behind pace</text>`;
-  const ends=[focus,mine].filter(Boolean).map(c=>{ const u=v[c][n-1], col=c===mine?'var(--amber)':'var(--dyn)';
-    return `<circle cx="${x(n-1)}" cy="${y(u)}" r="4" style="fill:${col};stroke:var(--panel)" stroke-width="2"/>
-      <text x="${x(n-1)+8}" y="${y(u)+4}" style="fill:${col};font-weight:700" font-size="11" font-family="var(--body)">${c===mine?'You':htmlEsc(chShort(c,10))} ${u>=0?'+':''}${Math.round(u)}</text>`; }).join('');
+  const cap=SCORE.cap||S.cfg.gamecap||920;
+  if(!NBAP.left){ $('chartWrap').innerHTML='<div class="empty">Waiting for the NBA schedules — they arrive with the next roster refresh.</div>';
+    if(!NBAP.n) loadNbaPlayers().then(()=>{ if(CHARTVIEW==='pace') drawTrend(); }); return; }
+  $('trStatus').textContent=`games played and games left, against the ${cap} cap`;
+  const rows=TEAMS().map(c=>({club:c,...gamesLeft(c)})).filter(r=>r.left!=null)
+    .sort((a,b)=>b.spare-a.spare||a.club.localeCompare(b.club));
+  const mine=chMine(), focus=CHARTPICK&&rows.some(r=>r.club===CHARTPICK)?CHARTPICK:'';
+  const W=chW(), narrow=W<640, L=narrow?128:170, R=narrow?42:60, rowH=26, T=18, H=T+rows.length*rowH+24;
+  const max=Math.max(cap,...rows.map(r=>r.used+r.left))*1.04, x=v=>L+(W-L-R)*v/max;
+  const bars=rows.map((r,i)=>{ const y=T+i*rowH, me=r.club===mine, pk=r.club===focus;
+    const col=me?'var(--amber)':pk?'var(--dyn)':'var(--steel)';
+    return `<g data-pick="${htmlEsc(r.club)}" class="chpick" style="cursor:pointer">
+      <text x="${L-8}" y="${y+15}" text-anchor="end" style="fill:${me?'var(--amber)':'var(--chalk)'};font-weight:${me?700:400}" font-size="12" font-family="var(--body)">${htmlEsc(chShort(r.club,narrow?16:22))}</text>
+      <rect x="${x(0)}" y="${y+4}" width="${x(r.used)-x(0)}" height="16" rx="3" style="fill:${col}"/>
+      <rect x="${x(r.used)}" y="${y+4}" width="${x(r.used+r.left)-x(r.used)}" height="16" rx="3" style="fill:${col};fill-opacity:.3"/>
+      <text x="${x(r.used+r.left)+6}" y="${y+16}" style="fill:${r.spare<0?'var(--tax)':'var(--dim)'}" font-size="11" font-family="monospace">${r.spare>=0?'+':''}${r.spare}</text></g>`; }).join('');
+  const capLine=`<line x1="${x(cap)}" x2="${x(cap)}" y1="${T-6}" y2="${H-20}" style="stroke:var(--chalk)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="${x(cap)}" y="${T-8}" text-anchor="middle" style="fill:var(--chalk)" font-size="11" font-family="var(--body)">${cap} cap</text>`;
   const tr=rows.map(r=>`<tr data-pick="${htmlEsc(r.club)}" class="chpick${r.club===mine?' sel':''}" style="cursor:pointer">
-      <td class="l">${clubBadge(r.club)} ${htmlEsc(r.club)}</td><td>${r.used}</td>
-      <td style="color:${r.vs<0?'var(--steel)':'var(--chalk)'}">${r.vs>0?'+':''}${r.vs}</td>
-      <td>${r.pj.toLocaleString('en-US')}</td><td class="l">${r.at?chMD(r.at):'—'}</td></tr>`).join('');
-  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Games played against an even pace to ${cap}">${g}${zero}${lines}${ends}</svg>
-    ${chLegend(mine,focus,'')}
-    <div class="scroller" style="margin-top:10px"><table id="paceTbl" class="standtbl"><thead><tr><th class="l">Club</th><th>GP</th><th>vs pace</th><th>On pace for</th><th class="l">Reaches ${cap}</th></tr></thead><tbody>${tr}</tbody></table></div>
-    <p class="note explain" style="margin:8px 0 0">Pace is games per day so far, carried to the regular season’s last night (${chMD(endD)}): the rule the Games card and the weekly email use. A starter past ${cap} does not count, in slot order. Tap a club to pick out its line.</p></div>`;
+      <td class="l">${clubBadge(r.club)} ${htmlEsc(r.club)}</td><td>${r.used}</td><td>${r.left.toLocaleString('en-US')}</td><td>${r.need}</td>
+      <td style="color:${r.spare<0?'var(--tax)':'var(--chalk)'}">${r.spare>=0?'+':''}${r.spare}</td><td style="color:var(--dim)">${r.out||'—'}</td></tr>`).join('');
+  $('chartWrap').innerHTML=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Games played and games left by club, against the ${cap} cap">${capLine}${bars}</svg>
+    <p class="note" style="margin:4px 0 0;font-size:var(--t1);color:var(--dim)">Solid: games played. Light: games the active roster has left. The number is games to spare past the cap, or short of it.</p>
+    <div class="scroller" style="margin-top:10px"><table id="paceTbl" class="standtbl"><thead><tr><th class="l">Club</th><th>GP</th><th>Left</th><th>To ${cap}</th><th>Spare</th><th title="Games left by players ESPN lists as out">Out</th></tr></thead><tbody>${tr}</tbody></table></div>
+    <p class="note explain" style="margin:8px 0 0">Left is every game the club's active players (off the IR) still have on their NBA clubs' schedules, if each started every game; tonight counts until his game tips. Spare is left minus what is needed to reach ${cap}. Out is how many of those games belong to players ESPN lists as out. NBA Cup knockout games are added when ESPN schedules them. Tap a club to pick it out.</p></div>`;
   chWire();
 }
 function drawTrend(){
