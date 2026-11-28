@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="HIWW">
-<meta name="ll-build" content="2026-11-27.4">
+<meta name="ll-build" content="2026-11-27.6">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -659,6 +659,29 @@ border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-
     padding:2px 4px calc(2px + env(safe-area-inset-bottom));overflow-x:auto;justify-content:flex-start}
   body{padding-bottom:64px}
 }
+/* The score tape (2026-11-27): a broadcast crawl along the bottom while games are on.
+   On a phone it sits on top of the fixed tab bar. */
+.stape{position:fixed;left:0;right:0;bottom:0;z-index:55;display:flex;align-items:stretch;height:32px;background:var(--panel);
+  border-top:1px solid var(--line);font:500 var(--t2) var(--body);color:var(--chalk);padding-bottom:env(safe-area-inset-bottom)}
+.stape .tlab{display:flex;align-items:center;padding:0 10px;background:var(--tax);color:#fff;font:700 var(--t1) var(--body);letter-spacing:.08em;text-transform:uppercase}
+.stape .tview{flex:1;min-width:0;overflow:hidden;position:relative;display:flex}
+.stape .ttrack{display:flex;width:max-content;height:100%;animation:tapeRun var(--tdur,40s) linear infinite}
+.stape:hover .ttrack,.stape:focus-within .ttrack{animation-play-state:paused}
+.stape .tset{display:flex;height:100%}
+.stape .tg{display:flex;align-items:center;gap:8px;padding:0 16px;border:0;border-right:1px solid var(--line2);background:none;color:inherit;font:inherit;cursor:pointer;white-space:nowrap}
+.stape .tg span{font-family:var(--mono);color:var(--steel)}
+.stape .tg span.tl{color:var(--chalk);font-weight:700}
+.stape .tg small{color:var(--dim);font-size:var(--t1)}
+.stape .tg.in small{color:var(--tax)}
+.stape .tmine{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block}
+.stape .tx{border:0;background:none;color:var(--dim);padding:0 12px;cursor:pointer;font:inherit}
+@keyframes tapeRun{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){ .stape .ttrack{animation:none} .stape .tview{overflow-x:auto} .stape .tset[aria-hidden]{display:none} }
+body.taping{padding-bottom:34px}
+@media(max-width:640px){ .stape{bottom:calc(var(--tabsH,52px));padding-bottom:0} body.taping{padding-bottom:calc(var(--tabsH,52px) + 40px)} }
+[data-theme="jam"] .stape{background:#000;border-top:3px solid var(--amber)}
+[data-theme="jam"] .stape .tlab{font-family:var(--pixel);font-size:9px}
+[data-theme="jam"] .stape .tg span{font-family:var(--led);font-size:18px}
 .updbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:210;display:flex;gap:12px;
 align-items:center;background:var(--panel);border:1px solid var(--amber);color:var(--chalk);padding:9px 10px 9px 15px;
 border-radius:var(--r-l);box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:var(--t3);max-width:calc(100% - 32px)}
@@ -13692,6 +13715,62 @@ function drawScores(){
   }else drawScoreBox();
 }
 function scGo(day){ SC.day=day; SC.gid=''; SC.box=null; SC.games=[]; drawScores(); SC.busy=false; scLoad(); }
+
+/* ================= THE SCORE TAPE (2026-11-27) =================
+   While NBA games are on, a strip along the bottom of every page runs the night's
+   scores past, like the crawl on a broadcast. The page reads ESPN's scoreboard
+   itself (as the NBA Scores tab does): once a minute while a game is live, every
+   ten minutes otherwise, never while the tab is hidden. It shows only while a game
+   is under way. A game with one of your starters in it carries an amber dot.
+   Tap a game for its box score. Hover pauses it; reduced motion makes it a strip
+   you swipe. The × hides it for the rest of the night (this browser). */
+var TICK={games:[],at:0,busy:false,day:'',sig:''};
+async function tickLoad(force){
+  if(typeof fetch!=='function'||!REALDOM||TICK.busy||document.hidden) return;
+  const live=TICK.games.some(g=>g.state==='in');
+  if(!force&&Date.now()-TICK.at<(live?55e3:600e3)) return;
+  TICK.busy=true;
+  try{
+    const n=luNight(), sb=await (await fetch(`${ESPNSB}?dates=${n.replace(/-/g,'')}`,{cache:'no-store'})).json();
+    TICK.games=(sb.events||[]).map(e=>{ const c=(e.competitions||[])[0]||{}, st=(e.status&&e.status.type)||{};
+      const side=h=>{ const x=(c.competitors||[]).find(y=>y.homeAway===h)||{}; return {ab:(x.team&&x.team.abbreviation)||'',score:x.score!=null&&x.score!==''?+x.score:null}; };
+      return {id:e.id,date:e.date,state:st.state||'',final:!!st.completed,detail:st.shortDetail||'',home:side('home'),away:side('away')}; })
+      .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    TICK.day=n; TICK.at=Date.now();
+  }catch(e){ TICK.at=Date.now(); }
+  TICK.busy=false; drawTicker();
+}
+function tickHidden(){ try{ return localStorage.getItem('ll_tickoff')===TICK.day; }catch(e){ return false; } }
+function drawTicker(){
+  let bar=$('scoreTape');
+  const on=TICK.games.some(g=>g.state==='in')&&!tickHidden();
+  if(!on){ if(bar) bar.hidden=true; document.body.classList.remove('taping'); return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='scoreTape'; bar.className='stape'; bar.setAttribute('role','region'); bar.setAttribute('aria-label','NBA scores tonight'); document.body.appendChild(bar); }
+  const mine=new Set();
+  try{ const T=me&&S.teams[me]?me:null; if(T) SLOTIDS.forEach(id=>{ const nm=lineupOf(T).s[id], tm=nm&&nbaTeamOf(nm); if(tm) teamCodes(tm).forEach(c=>mine.add(c)); }); }catch(e){}
+  const item=g=>{ const a=g.away, h=g.home, lead=g.state!=='pre'&&a.score!=null&&h.score!=null?(a.score>h.score?'a':h.score>a.score?'h':''):'';
+    const st=g.state==='pre'?scStatus(g):g.final?'Final':g.detail;
+    return `<button type="button" class="tg${g.state==='in'?' in':''}" data-tgame="${htmlEsc(g.id)}">${mine.has(a.ab)||mine.has(h.ab)?'<i class="tmine" title="One of your starters is in this game"></i>':''}<span class="${lead==='a'?'tl':''}">${htmlEsc(a.ab)} ${a.score==null?'':a.score}</span><span class="${lead==='h'?'tl':''}">${htmlEsc(h.ab)} ${h.score==null?'':h.score}</span><small>${htmlEsc(st)}</small></button>`; };
+  /* Games under way first, then the finals, then the ones still to tip. */
+  const ord=g=>g.state==='in'?0:g.final?1:2;
+  const run=TICK.games.slice().sort((a,b)=>ord(a)-ord(b)).map(item).join('');
+  const sig=run;
+  if(TICK.sig!==sig){
+    /* Two copies side by side, moved left by one copy's width, loop seamlessly. */
+    bar.innerHTML=`<span class="tlab">Live</span><div class="tview"><div class="ttrack" style="--tdur:${Math.max(25,TICK.games.length*6)}s"><div class="tset">${run}</div><div class="tset" aria-hidden="true">${run}</div></div></div><button type="button" class="tx" aria-label="Hide the scores for tonight">✕</button>`;
+    bar.querySelectorAll('[data-tgame]').forEach(b=>b.onclick=()=>{ goTab('v-scores'); SC.day=TICK.day; SC.gid=b.dataset.tgame; SC.box=null; scLoad(); scBox(SC.gid); });
+    bar.querySelector('.tx').onclick=()=>{ try{ localStorage.setItem('ll_tickoff',TICK.day); }catch(e){} drawTicker(); };
+    TICK.sig=sig;
+  }
+  const tb=$('tabs'); if(tb) document.documentElement.style.setProperty('--tabsH',(getComputedStyle(tb).position==='fixed'?tb.offsetHeight:0)+'px');
+  bar.hidden=false; document.body.classList.add('taping');
+}
+if(REALDOM&&typeof fetch==='function'){
+  setTimeout(()=>tickLoad(true),4000);
+  setInterval(()=>tickLoad(false),30e3);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) tickLoad(false); });
+  window.addEventListener('resize',()=>{ if(document.body.classList.contains('taping')) drawTicker(); });
+}
 async function scBox(id,quiet){
   try{ SC.box=await (await fetch(`${ESPNSUM}?event=${id}`,{cache:'no-store'})).json(); }
   catch(e){ if(!quiet) SC.box={err:1}; }
