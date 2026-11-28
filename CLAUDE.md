@@ -310,6 +310,10 @@ A walk-through as a GM on a phone found the daily path buried. What changed:
   toggle, a one-line status (`.lustat`) and Best/Start/Bench share one row
   (`.lutools`). View descriptions are button tooltips. First lineup row on a
   phone: 1,536px down before, ~550px after.
+- **Phone, 2026-11-27**: League › Clubs picks the club from a select (the chips
+  took a screen); the standings never clip a manager's short name; League's pills
+  wrap with no spacer; saved to the home screen the page is `viewport-fit=cover`
+  and `.mast` pads by `env(safe-area-inset-top)`.
 - **Phone header** (≤640px): not sticky (the tabs are fixed to the bottom), and a
   signed-in GM sees the brand and one button with his club name, which opens
   Settings (`.mast.gmin`, `.whoclub`). **Theme and Sign out are on Settings**
@@ -599,9 +603,9 @@ his club's games. The card draws a DNP row of dashes.
 - **Page**: `gamesLeft(T, used)` — every active player's (contracted, off the IR) games
   still on his club's schedule (tonight counts until his game tips), against what is
   left under the cap: `{left, out, need, spare}`. `out` = games by players ESPN lists
-  as out. My Team's and Home's Games cards say one thing, "S games to spare" (or
-  "S games short", red), with games left and games needed in the tooltip; live, "+N
-  tonight" (2026-11-27: the three-number line read as a puzzle); the old date pace (`gamesPace()`) is only the fallback before the
+  as out. My Team's and Home's Games cards read "227 / 920" and "Pace: 1,143"
+  (played + left on the schedule; red under the cap), the working in the tooltip
+  (2026-11-27: the three-number line read as a puzzle); the old date pace (`gamesPace()`) is only the fallback before the
   schedules load. Home's chart tab **Games left** (`drawPace()`) is a bar per club,
   played solid and left light, the cap marked, with a GP / Left / To 920 / Spare / Out
   table. `paceSeries()` stays (tests). The weekly email says the same (`gamesLeftFor()` in
