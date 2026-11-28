@@ -599,8 +599,9 @@ his club's games. The card draws a DNP row of dashes.
 - **Page**: `gamesLeft(T, used)` — every active player's (contracted, off the IR) games
   still on his club's schedule (tonight counts until his game tips), against what is
   left under the cap: `{left, out, need, spare}`. `out` = games by players ESPN lists
-  as out. My Team's and Home's Games cards say "N left on the roster · M to go · S to
-  spare / short"; the old date pace (`gamesPace()`) is only the fallback before the
+  as out. My Team's and Home's Games cards say one thing, "S games to spare" (or
+  "S games short", red), with games left and games needed in the tooltip; live, "+N
+  tonight" (2026-11-27: the three-number line read as a puzzle); the old date pace (`gamesPace()`) is only the fallback before the
   schedules load. Home's chart tab **Games left** (`drawPace()`) is a bar per club,
   played solid and left light, the cap marked, with a GP / Left / To 920 / Spare / Out
   table. `paceSeries()` stays (tests). The weekly email says the same (`gamesLeftFor()` in

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="ll-build" content="2026-11-27.1">
+<meta name="ll-build" content="2026-11-27.2">
 <title>League Ledger</title>
 <meta name="description" content="HIWW League Ledger: contracts, cap, auction and nightly lineups for a nine-team NBA dynasty league.">
 <meta name="theme-color" content="#0B0820">
@@ -6489,8 +6489,9 @@ function meStrip(T,s,sc,cap,tax){
   const gc=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
   /* Tonight counts toward the pace as a night played once anyone has played. */
   const pace=gamesPace(used,gc,gt.played?{...(SCORE.days||{}),[luNight()]:{}}:SCORE.days,curSeason(),S.cfg.seasonEnd);
-  const tonightTxt=gt.played||gt.locked?`<br><span class="livetag">live</span> ${gt.played?`${gt.played} tonight`:''}${
-    gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} more locked in`:''}`:'';
+  /* One plain line (2026-11-27): "+7 tonight". Starters whose game is on but who
+     have not appeared yet go in the tooltip, not the card. */
+  const tonightTxt=gt.played?`<br><span title="${gt.played} of your starters have played tonight, already counted above${gt.locked?`; ${gt.locked} more are in games under way and have not appeared yet`:''}."><span class="livetag">live</span> +${gt.played} tonight</span>`:'';
   const dead=deadSalary(T);
   const f=[], card=(lab,fig,sub,cls)=>f.push(`<div class="mefact${cls?' '+cls:''}"><span class="mfl">${lab}</span><b>${fig}</b>${sub?`<span class="mfs">${sub}</span>`:''}</div>`);
   if(row&&row.tot&&row.tot.GP>0) card('Place',ordinal(row.rank),`${row.pts} roto points \u00b7 <button type="button" class="linkbtn" data-go="lg-stand">Standings \u203a</button>${
@@ -6498,7 +6499,7 @@ function meStrip(T,s,sc,cap,tax){
   /* Exactly the cap is a craft in this league: the card turns gold (2026-11-16). */
   if(used>=gc){ card('Games',`${used}<small> / ${gc}</small>`,`<span class="maxtag">Maxed out</span>`+tonightTxt,'maxed'); } else
   { const GL=gamesLeft(T,used);
-    const sub=GL?`<span title="Games your active players' NBA clubs have left, if every one of them started every game${GL.out?`; ${GL.out} of them are by players listed out`:''}. ${GL.need.toLocaleString('en-US')} more reach the ${gc} cap.">${GL.left.toLocaleString('en-US')} left on the roster · ${GL.need.toLocaleString('en-US')} to go<br><span class="${GL.spare<0?'bad':''}">${GL.spare>=0?`${GL.spare.toLocaleString('en-US')} to spare`:`${(-GL.spare).toLocaleString('en-US')} short`}</span></span>`
+    const sub=GL?`<span class="${GL.spare<0?'bad':''}" title="Your active players' NBA clubs have ${GL.left.toLocaleString('en-US')} games left${GL.out?` (${GL.out} of them by players listed out)`:''}. You need ${GL.need.toLocaleString('en-US')} more to reach ${gc}, so if every one of them played every game you would have ${Math.abs(GL.spare).toLocaleString('en-US')} ${GL.spare>=0?'more than you can use':'too few'}.">${GL.spare>=0?`${GL.spare.toLocaleString('en-US')} games to spare`:`${(-GL.spare).toLocaleString('en-US')} games short`}</span>`
       :pace?`<span class="${pace.projected>gc?'bad':''}" title="Games per day so far, out to the end of the regular season. About ${pace.expected} would be on schedule today.">On pace for ${pace.projected.toLocaleString('en-US')}</span>`:'games played';
     card('Games',`${used}<small> / ${gc}</small>`,sub+tonightTxt); }
   card('Payroll',money(s),cap-sc>=0?`<span class="good">${money(cap-sc)} cap space</span>`:`<span class="bad">${money(sc-cap)} over the cap</span>`);
@@ -12506,8 +12507,8 @@ function drawHome(){
         `${PN.live?'<span class="livetag">live</span> ':''}${ahead?`${(ahead.pts-row.pts).toFixed(1)} back of ${htmlEsc(ahead.club)}`:`${row.pts} roto pts`}`));
       const cap=SCORE.cap||S.cfg.gamecap||920, gt=gamesTonight(T), used=gamesUsed(T)+gt.played;
       cards.push(homeCard('Games',`${used} <span class="hof">/ ${cap}</span>`,
-        used>=cap?'<span class="maxtag">Maxed out</span>':gt.played||gt.locked?`${gt.played?`${gt.played} tonight, live`:''}${gt.played&&gt.locked?' \u00b7 ':''}${gt.locked?`${gt.locked} locked in`:''}`
-          :(GL=>GL?`${GL.left.toLocaleString('en-US')} left · <span class="${GL.spare<0?'down':''}">${GL.spare>=0?`${GL.spare} to spare`:`${-GL.spare} short`}</span>`:'')(gamesLeft(T,used))));
+        used>=cap?'<span class="maxtag">Maxed out</span>':gt.played?`<span class="livetag">live</span> +${gt.played} tonight`
+          :(GL=>GL?`<span class="${GL.spare<0?'down':''}">${GL.spare>=0?`${GL.spare} games to spare`:`${-GL.spare} games short`}</span>`:'')(gamesLeft(T,used))));
     }
     if(lineupsOpen()){
       const st=SLOTIDS.map(id=>lineupOf(T).s[id]).filter(Boolean);
